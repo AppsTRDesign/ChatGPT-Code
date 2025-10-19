@@ -56,6 +56,7 @@ body{
 .ns-btn:hover{background:var(--blue2)}
 .ns-btn-primary{background:var(--blue);border-color:transparent}
 .ns-btn-primary:hover{background:#295ee0}
+.ns-btn.disabled,.ns-btn:disabled{opacity:.6;cursor:not-allowed;filter:saturate(.6);background:var(--blue2);border-color:var(--border)}
 
 .ns-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
 @media (max-width:900px){.ns-cards{grid-template-columns:1fr}}
@@ -80,6 +81,7 @@ body{
   background:linear-gradient(180deg,rgba(22,35,64,.4),rgba(18,28,48,.3));
   border-radius:16px;padding:20px;text-align:center;color:var(--muted);
 }
+.dropzone.dz-started .dz-message{display:block !important}
 .dz-message{font-size:15px}
 .dz-preview{background:#101a31;border:1px solid var(--border);border-radius:12px;padding:10px;margin:8px 0}
 .dz-progress{display:none} /* default dropzone progress hidden */
@@ -88,7 +90,8 @@ body{
 
 .ns-results{margin-top:16px;display:grid;gap:10px}
 .ns-result{
-  background:#0f1730;border:1px solid var(--border);border-radius:14px;padding:12px;
+  position:relative;
+  background:#0f1730;border:1px solid var(--border);border-radius:14px;padding:18px 16px 16px;
 }
 .ns-result .ns-file{font-weight:600}
 .ns-result .ns-status{color:var(--muted);font-size:13px}
@@ -96,6 +99,8 @@ body{
 .ns-result .ns-progress-bar{height:100%;width:0%;background:var(--blue);border-radius:10px;transition:width .2s ease}
 .ns-result .ns-download{display:none}
 .ns-result.ready .ns-download{display:inline-flex}
+.ns-result .ns-remove{position:absolute;top:10px;right:12px;background:transparent;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px}
+.ns-result .ns-remove:hover{color:var(--danger)}
 
 .ns-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
 .ns-modal[aria-hidden="false"]{display:flex}
@@ -147,6 +152,7 @@ body{
 .ns-selected{margin-top:10px;color:var(--muted);font-size:14px}
 .ns-selected ul{margin:6px 0 0 0;padding-left:16px}
 .ns-selected li{margin:2px 0}
+.ns-selected.hidden{display:none}
 
 /* Ensure progress wraps visible stacking under dropzone */
 .ns-progress-area{margin-top:12px}

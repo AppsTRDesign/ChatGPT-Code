@@ -61,6 +61,7 @@ include __DIR__ . '/includes/header.php';
     </form>
     <div class="ns-uploader">
         <div id="audioDropzone" class="dropzone"></div>
+        <div id="audioSummary" class="ns-selected hidden"></div>
         <div id="resultList" class="ns-results"></div>
         <div class="ns-actions">
             <button id="convertButton" class="ns-btn ns-btn-primary" type="button">Ses Dönüştür</button>
@@ -80,6 +81,7 @@ window.nsInitializeConverter({
     endpoint: '/ajax/process.php',
     convertButtonId: 'convertButton',
     convertButtonLabel: 'Ses Dönüştür',
+    fileSummaryId: 'audioSummary',
     maxFiles: 5,
     maxFileSize: 2048,
     setupPresets(form){
@@ -131,6 +133,11 @@ window.nsInitializeConverter({
             applyPreset(e.target.value);
         });
         applyPreset(presetSelect.value);
+        return {
+            reset(){
+                applyPreset(presetSelect.value);
+            }
+        };
     }
 });
 </script>

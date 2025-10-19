@@ -55,6 +55,7 @@ include __DIR__ . '/includes/header.php';
     </form>
     <div class="ns-uploader">
         <div id="imageDropzone" class="dropzone"></div>
+        <div id="imageSummary" class="ns-selected hidden"></div>
         <div id="resultList" class="ns-results"></div>
         <div class="ns-actions">
             <button id="convertButton" class="ns-btn ns-btn-primary" type="button">Görseli Dönüştür</button>
@@ -74,6 +75,7 @@ window.nsInitializeConverter({
     endpoint: '/ajax/process.php',
     convertButtonId: 'convertButton',
     convertButtonLabel: 'Görseli Dönüştür',
+    fileSummaryId: 'imageSummary',
     maxFiles: 5,
     maxFileSize: 2048,
     setupPresets(form){
@@ -122,6 +124,11 @@ window.nsInitializeConverter({
         };
         presetSelect.addEventListener('change', (event) => apply(event.target.value));
         apply(presetSelect.value);
+        return {
+            reset(){
+                apply(presetSelect.value);
+            }
+        };
     }
 });
 </script>

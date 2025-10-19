@@ -14,6 +14,7 @@ Dropzone.autoDiscover = false;
         const convertButton = document.getElementById(config.convertButtonId || 'convertButton');
         const resultList = document.getElementById(config.resultListId);
         const formEl = document.getElementById(config.formId);
+        const summaryEl = config.fileSummaryId ? document.getElementById(config.fileSummaryId) : null;
 
         if (!dropzoneElement || !convertButton || !formEl || !resultList) {
             console.warn('Dönüştürücü için gerekli DOM elemanları bulunamadı.');
@@ -21,6 +22,15 @@ Dropzone.autoDiscover = false;
         }
 
         const resultMap = new Map();
+        const defaultConvertLabel = (config.convertButtonLabel || convertButton.textContent || 'Dönüştür').trim();
+        convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
+
+        let messageEl = dropzoneElement.querySelector('.dz-message');
+        if (!messageEl) {
+            messageEl = document.createElement('div');
+            messageEl.className = 'dz-message';
+            dropzoneElement.appendChild(messageEl);
+        }
 
         const dz = new Dropzone(dropzoneElement, {
             url: '/ajax/process.php',
@@ -29,10 +39,42 @@ Dropzone.autoDiscover = false;
             parallelUploads: 1,
             maxFiles: maxFiles,
             maxFilesize: maxFileSize,
-            addRemoveLinks: true,
-            dictDefaultMessage: 'Dosyalarınızı sürükleyip bırakın veya tıklayarak seçin',
+            addRemoveLinks: false,
+            clickable: true,
+            dictDefaultMessage: 'Sürükle veya tıklayarak dosya seçin',
             previewTemplate: '<div></div>'
         });
+
+        dz.on('init', () => {
+            const latestMessage = dropzoneElement.querySelector('.dz-message');
+            if (latestMessage) {
+                messageEl = latestMessage;
+            }
+            updateFileIndicators();
+        });
+
+        function updateFileIndicators(){
+            const count = dz.files.length;
+            const hasFiles = count > 0;
+            const instruction = 'Sürükle veya tıklayarak dosya seçin';
+            const summaryText = hasFiles
+                ? `${count} dosya seçildi - Maks ${maxFiles} adet`
+                : instruction;
+
+            if (messageEl) {
+                messageEl.textContent = hasFiles ? summaryText : instruction;
+            }
+
+            if (summaryEl) {
+                if (hasFiles) {
+                    summaryEl.textContent = summaryText;
+                    summaryEl.classList.remove('hidden');
+                } else {
+                    summaryEl.textContent = '';
+                    summaryEl.classList.add('hidden');
+                }
+            }
+        }
 
         function bytesToMB(bytes){
             return (bytes / (1024 * 1024)).toFixed(2);
@@ -56,25 +98,29 @@ Dropzone.autoDiscover = false;
             status.className = 'ns-status';
             status.textContent = `Boyut: ${formatBytes(file.size)}`;
 
+            const uploadSection = document.createElement('div');
+            uploadSection.className = 'ns-progress-area hidden';
             const uploadProgress = document.createElement('div');
             uploadProgress.className = 'ns-progress';
             const uploadBar = document.createElement('div');
             uploadBar.className = 'ns-progress-bar';
             uploadProgress.appendChild(uploadBar);
-
             const uploadInfo = document.createElement('div');
             uploadInfo.className = 'ns-progress-info';
             uploadInfo.textContent = 'Yükleme bekleniyor...';
+            uploadSection.append(uploadProgress, uploadInfo);
 
+            const convertSection = document.createElement('div');
+            convertSection.className = 'ns-progress-area hidden';
             const convertProgress = document.createElement('div');
             convertProgress.className = 'ns-progress';
             const convertBar = document.createElement('div');
             convertBar.className = 'ns-progress-bar';
             convertProgress.appendChild(convertBar);
-
             const convertInfo = document.createElement('div');
             convertInfo.className = 'ns-progress-info';
             convertInfo.textContent = 'Dönüştürme bekleniyor...';
+            convertSection.append(convertProgress, convertInfo);
 
             const actionWrap = document.createElement('div');
             actionWrap.className = 'ns-actions';
@@ -86,7 +132,16 @@ Dropzone.autoDiscover = false;
             downloadBtn.style.display = 'none';
             actionWrap.appendChild(downloadBtn);
 
-            wrapper.append(fileName, status, uploadProgress, uploadInfo, convertProgress, convertInfo, actionWrap);
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'ns-remove';
+            removeBtn.setAttribute('aria-label', 'Dosyayı kaldır');
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', () => {
+                dz.removeFile(file);
+            });
+
+            wrapper.append(removeBtn, fileName, status, uploadSection, convertSection, actionWrap);
 
             resultList.appendChild(wrapper);
 
@@ -95,8 +150,10 @@ Dropzone.autoDiscover = false;
                 status,
                 uploadBar,
                 uploadInfo,
+                uploadSection,
                 convertBar,
                 convertInfo,
+                convertSection,
                 downloadBtn,
                 file
             });
@@ -123,11 +180,13 @@ Dropzone.autoDiscover = false;
             }
             createResultItem(file);
             toggleConvertButton();
+            updateFileIndicators();
         });
 
         dz.on('removedfile', (file) => {
             removeResultItem(file);
             toggleConvertButton();
+            updateFileIndicators();
         });
 
         dz.on('maxfilesexceeded', (file) => {
@@ -138,6 +197,7 @@ Dropzone.autoDiscover = false;
         dz.on('error', (file, errorMessage) => {
             Swal.fire('Yükleme hatası', errorMessage, 'error');
             removeResultItem(file);
+            updateFileIndicators();
         });
 
         function toggleConvertButton(){
@@ -151,6 +211,7 @@ Dropzone.autoDiscover = false;
         }
 
         toggleConvertButton();
+        updateFileIndicators();
 
         function collectOptions(){
             const data = new FormData(formEl);
@@ -165,15 +226,19 @@ Dropzone.autoDiscover = false;
             const item = resultMap.get(uuid);
             if (!item) return;
             if (payload.uploadProgress != null) {
+                item.uploadSection.classList.remove('hidden');
                 item.uploadBar.style.width = `${payload.uploadProgress}%`;
             }
             if (payload.uploadInfo) {
+                item.uploadSection.classList.remove('hidden');
                 item.uploadInfo.textContent = payload.uploadInfo;
             }
             if (payload.convertProgress != null) {
+                item.convertSection.classList.remove('hidden');
                 item.convertBar.style.width = `${payload.convertProgress}%`;
             }
             if (payload.convertInfo) {
+                item.convertSection.classList.remove('hidden');
                 item.convertInfo.textContent = payload.convertInfo;
             }
             if (payload.statusText) {
@@ -337,21 +402,34 @@ Dropzone.autoDiscover = false;
             convertButton.classList.add('disabled');
             convertButton.textContent = 'İşleniyor...';
 
+            let successCount = 0;
+            let failureCount = 0;
             for (const file of dz.files) {
                 try {
-                    updateStatus(file.upload.uuid, {
-                        convertProgress: 0,
-                        convertInfo: 'Dönüştürme başlatılıyor...'
-                    });
                     await processFile(file, options);
+                    successCount += 1;
                 } catch (error) {
                     console.error(error);
+                    failureCount += 1;
                 }
             }
 
             convertButton.disabled = false;
             convertButton.classList.remove('disabled');
-            convertButton.textContent = config.convertButtonLabel || 'Dönüştür';
+            convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
+            toggleConvertButton();
+
+            if (failureCount === 0 && successCount === dz.files.length) {
+                Swal.fire('Başarılı', 'Tüm dönüştürme işlemleri tamamlandı.', 'success');
+                formEl.reset();
+                if (typeof config.onReset === 'function') {
+                    try {
+                        config.onReset(formEl);
+                    } catch (resetError) {
+                        console.error(resetError);
+                    }
+                }
+            }
         }
 
         convertButton.addEventListener('click', (event) => {
@@ -360,7 +438,10 @@ Dropzone.autoDiscover = false;
         });
 
         if (typeof config.setupPresets === 'function') {
-            config.setupPresets(formEl);
+            const helpers = config.setupPresets(formEl);
+            if (!config.onReset && helpers && typeof helpers.reset === 'function') {
+                config.onReset = () => helpers.reset();
+            }
         }
     }
 

@@ -61,8 +61,12 @@ function read_job(string $jobId): array {
 }
 
 function build_download_token(string $path): string {
-    $basename = basename($path);
-    $hash = hash('sha256', $path . '|' . filesize($path));
+    $fullPath = realpath($path) ?: $path;
+    if (!file_exists($fullPath)) {
+        throw new RuntimeException('İndirilebilir dosya bulunamadı.');
+    }
+    $basename = basename($fullPath);
+    $hash = hash('sha256', $fullPath . '|' . filesize($fullPath));
     return $hash . ':' . $basename;
 }
 
