@@ -26,7 +26,12 @@ function write_job(string $jobId, array $data): void {
         'upload_percent' => 0,
         'convert_percent' => 0,
         'upload_text' => '',
-        'convert_text' => ''
+        'convert_text' => '',
+        'cancel_requested' => false,
+        'source_file' => null,
+        'output_file' => null,
+        'download_file' => null,
+        'download_url' => null
     ], $data);
     file_put_contents($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
@@ -44,7 +49,8 @@ function read_job(string $jobId): array {
             'job_id' => $jobId,
             'status' => 'pending',
             'upload_percent' => 0,
-            'convert_percent' => 0
+            'convert_percent' => 0,
+            'cancel_requested' => false
         ];
     }
     $json = file_get_contents($path);
@@ -54,10 +60,66 @@ function read_job(string $jobId): array {
             'job_id' => $jobId,
             'status' => 'pending',
             'upload_percent' => 0,
-            'convert_percent' => 0
+            'convert_percent' => 0,
+            'cancel_requested' => false
         ];
     }
     return $data;
+}
+
+function request_job_cancel(string $jobId, string $message = 'İş iptal ediliyor...'): void {
+    update_job($jobId, [
+        'cancel_requested' => true,
+        'status' => 'cancelling',
+        'message' => $message
+    ]);
+}
+
+function is_job_cancelled(string $jobId): bool {
+    $job = read_job($jobId);
+    return !empty($job['cancel_requested']);
+}
+
+function mark_job_cancelled(string $jobId, string $message = 'İş iptal edildi.'): void {
+    update_job($jobId, [
+        'status' => 'cancelled',
+        'message' => $message,
+        'convert_text' => $message,
+        'cancel_requested' => true
+    ]);
+}
+
+function cleanup_storage_file(?string $path): void {
+    if (!$path) {
+        return;
+    }
+    $real = realpath($path);
+    if ($real === false) {
+        $real = $path;
+    }
+    $storageRoot = realpath(NS_STORAGE);
+    if ($storageRoot && $real && str_starts_with($real, $storageRoot)) {
+        @unlink($real);
+    }
+}
+
+function cleanup_job_files(string $jobId, bool $removeOutput = true, bool $removeUpload = true): void {
+    $job = read_job($jobId);
+    if ($removeUpload && !empty($job['source_file'])) {
+        $uploadPath = NS_UPLOAD_PATH . '/' . basename($job['source_file']);
+        cleanup_storage_file($uploadPath);
+    }
+    if ($removeOutput && !empty($job['output_file'])) {
+        $outputPath = NS_OUTPUT_PATH . '/' . basename($job['output_file']);
+        cleanup_storage_file($outputPath);
+    }
+}
+
+function finalize_job(string $jobId): void {
+    $path = job_file($jobId);
+    if (is_file($path)) {
+        @unlink($path);
+    }
 }
 
 function build_download_token(string $path): string {
@@ -115,6 +177,11 @@ function run_ffmpeg_with_progress(string $command, string $jobId, ?float $durati
     stream_set_blocking($pipes[2], true);
 
     while (!feof($pipes[1])) {
+        if (is_job_cancelled($jobId)) {
+            proc_terminate($process);
+            mark_job_cancelled($jobId);
+            break;
+        }
         $line = fgets($pipes[1]);
         if ($line === false) {
             break;
@@ -150,6 +217,10 @@ function run_ffmpeg_with_progress(string $command, string $jobId, ?float $durati
     $exitCode = proc_close($process);
 
     if ($exitCode !== 0) {
+        if (is_job_cancelled($jobId)) {
+            cleanup_job_files($jobId);
+            return -1;
+        }
         update_job($jobId, [
             'status' => 'error',
             'convert_text' => 'FFmpeg hata verdi.',

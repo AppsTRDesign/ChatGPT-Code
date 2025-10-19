@@ -69,10 +69,14 @@ if (!move_uploaded_file($tempPath, $storedPath)) {
 update_job($jobId, [
     'status' => 'processing',
     'upload_percent' => 100,
-    'upload_text' => 'Yükleme tamamlandı'
+    'upload_text' => 'Yükleme tamamlandı',
+    'source_file' => basename($storedPath)
 ]);
 
 try {
+    if (is_job_cancelled($jobId)) {
+        throw new RuntimeException('İş iptal edildi.');
+    }
     switch ($type) {
         case 'audio':
             $output = convert_audio($storedPath, $originalName, $options, $jobId);
@@ -87,24 +91,33 @@ try {
             throw new RuntimeException('Desteklenmeyen dönüştürme türü.');
     }
 
+    if ($output === 'cancelled' || is_job_cancelled($jobId)) {
+        mark_job_cancelled($jobId);
+        cleanup_job_files($jobId);
+        echo json_encode(['success' => false, 'message' => 'İş iptal edildi.']);
+        exit;
+    }
+
     if (!$output || !file_exists($output)) {
         throw new RuntimeException('Çıktı oluşturulamadı.');
     }
 
-    $downloadUrl = '/download.php?token=' . urlencode(build_download_token($output));
+    $downloadUrl = '/download.php?token=' . urlencode(build_download_token($output)) . '&job=' . urlencode($jobId);
 
     update_job($jobId, [
         'status' => 'completed',
         'convert_percent' => 100,
         'convert_text' => 'Dönüştürme tamamlandı.',
         'download_file' => basename($output),
+        'output_file' => basename($output),
         'download_url' => $downloadUrl
     ]);
 
     echo json_encode([
         'success' => true,
         'message' => 'Dönüştürme tamamlandı.',
-        'download_url' => $downloadUrl
+        'download_url' => $downloadUrl,
+        'download_file' => basename($output)
     ]);
 } catch (Throwable $e) {
     update_job($jobId, [
@@ -112,8 +125,11 @@ try {
         'message' => $e->getMessage(),
         'convert_text' => $e->getMessage()
     ]);
+    cleanup_job_files($jobId);
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+} finally {
+    cleanup_storage_file($storedPath);
 }
 
 function convert_audio(string $inputPath, string $originalName, array $options, string $jobId): string {
@@ -147,6 +163,9 @@ function convert_audio(string $inputPath, string $originalName, array $options, 
 
     $duration = ffprobe_duration($inputPath);
     $exit = run_ffmpeg_with_progress($cmd, $jobId, $duration);
+    if ($exit === -1) {
+        return 'cancelled';
+    }
     if ($exit !== 0) {
         throw new RuntimeException('Ses dönüştürme başarısız oldu.');
     }
@@ -194,6 +213,9 @@ function convert_video(string $inputPath, string $originalName, array $options, 
 
     $duration = ffprobe_duration($inputPath);
     $exit = run_ffmpeg_with_progress($cmd, $jobId, $duration);
+    if ($exit === -1) {
+        return 'cancelled';
+    }
     if ($exit !== 0) {
         throw new RuntimeException('Video dönüştürme başarısız oldu.');
     }
@@ -215,6 +237,10 @@ function convert_image(string $inputPath, string $originalName, array $options, 
         throw new RuntimeException('Sunucuda GD eklentisi bulunamadı.');
     }
 
+    if (is_job_cancelled($jobId)) {
+        return 'cancelled';
+    }
+
     $imageData = file_get_contents($inputPath);
     if ($imageData === false) {
         throw new RuntimeException('Görsel okunamadı.');
@@ -223,6 +249,11 @@ function convert_image(string $inputPath, string $originalName, array $options, 
     $source = imagecreatefromstring($imageData);
     if (!$source) {
         throw new RuntimeException('Görsel çözümlenemedi.');
+    }
+
+    if (is_job_cancelled($jobId)) {
+        imagedestroy($source);
+        return 'cancelled';
     }
 
     $srcWidth = imagesx($source);
@@ -239,6 +270,12 @@ function convert_image(string $inputPath, string $originalName, array $options, 
 
     $canvas = imagecreatetruecolor($width, $height);
 
+    if (is_job_cancelled($jobId)) {
+        imagedestroy($canvas);
+        imagedestroy($source);
+        return 'cancelled';
+    }
+
     if (in_array($format, ['png', 'webp', 'gif'], true)) {
         imagealphablending($canvas, false);
         imagesavealpha($canvas, true);
@@ -254,6 +291,12 @@ function convert_image(string $inputPath, string $originalName, array $options, 
     $dstY = (int)(($height - $targetHeight) / 2);
 
     imagecopyresampled($canvas, $source, $dstX, $dstY, 0, 0, $targetWidth, $targetHeight, $srcWidth, $srcHeight);
+
+    if (is_job_cancelled($jobId)) {
+        imagedestroy($canvas);
+        imagedestroy($source);
+        return 'cancelled';
+    }
 
     switch ($format) {
         case 'jpg':

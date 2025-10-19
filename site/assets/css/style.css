@@ -56,7 +56,7 @@ body{
 .ns-btn:hover{background:var(--blue2)}
 .ns-btn-primary{background:var(--blue);border-color:transparent}
 .ns-btn-primary:hover{background:#295ee0}
-.ns-btn.disabled,.ns-btn:disabled{opacity:.6;cursor:not-allowed;filter:saturate(.6);background:var(--blue2);border-color:var(--border)}
+.ns-btn.disabled,.ns-btn:disabled{opacity:.6;cursor:not-allowed;filter:saturate(.6);background:var(--blue2);border-color:var(--border);pointer-events:none}
 
 .ns-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:24px}
 @media (max-width:900px){.ns-cards{grid-template-columns:1fr}}

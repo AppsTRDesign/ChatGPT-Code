@@ -1,7 +1,96 @@
 Dropzone.autoDiscover = false;
 
-(function(){
-    function initializeConverter(configInput){
+(function () {
+    const activeJobIds = new Set();
+    let unloadHooked = false;
+
+    function handleUnload() {
+        if (!activeJobIds.size) {
+            return;
+        }
+        activeJobIds.forEach((jobId) => {
+            if (!jobId) {
+                return;
+            }
+            const body = new URLSearchParams();
+            body.append('job_id', jobId);
+            try {
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon('/ajax/cancel.php', body);
+                } else {
+                    fetch('/ajax/cancel.php', {
+                        method: 'POST',
+                        body
+                    });
+                }
+            } catch (error) {
+                console.warn('İş iptali gönderilemedi', error);
+            }
+        });
+        activeJobIds.clear();
+    }
+
+    function attachUnloadHook() {
+        if (unloadHooked) {
+            return;
+        }
+        window.addEventListener('pagehide', handleUnload);
+        window.addEventListener('beforeunload', handleUnload);
+        unloadHooked = true;
+    }
+
+    function registerActiveJob(jobId) {
+        if (!jobId) {
+            return;
+        }
+        activeJobIds.add(jobId);
+        attachUnloadHook();
+    }
+
+    function unregisterActiveJob(jobId) {
+        if (!jobId) {
+            return;
+        }
+        activeJobIds.delete(jobId);
+    }
+
+    async function cancelJobOnServer(jobId) {
+        if (!jobId) {
+            return;
+        }
+        const body = new URLSearchParams();
+        body.append('job_id', jobId);
+        try {
+            await fetch('/ajax/cancel.php', {
+                method: 'POST',
+                body
+            });
+        } catch (error) {
+            console.warn('İş iptali başarısız', error);
+        }
+    }
+
+    function bytesToMB(bytes) {
+        return (bytes / (1024 * 1024)).toFixed(2);
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+    }
+
+    function hasProcessableEntry(resultMap) {
+        for (const entry of resultMap.values()) {
+            if (!['ready', 'downloading', 'downloaded', 'cancelled'].includes(entry.state)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function initializeConverter(configInput) {
         const config = configInput || {};
         if (!config.dropzoneId || !config.formId || !config.resultListId || !config.endpoint) {
             console.warn('Eksik dönüştürücü yapılandırması.');
@@ -24,6 +113,8 @@ Dropzone.autoDiscover = false;
         const resultMap = new Map();
         const defaultConvertLabel = (config.convertButtonLabel || convertButton.textContent || 'Dönüştür').trim();
         convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
+        convertButton.disabled = true;
+        convertButton.classList.add('disabled');
 
         let messageEl = dropzoneElement.querySelector('.dz-message');
         if (!messageEl) {
@@ -32,39 +123,14 @@ Dropzone.autoDiscover = false;
             dropzoneElement.appendChild(messageEl);
         }
 
-        const dz = new Dropzone(dropzoneElement, {
-            url: '/ajax/process.php',
-            autoProcessQueue: false,
-            uploadMultiple: false,
-            parallelUploads: 1,
-            maxFiles: maxFiles,
-            maxFilesize: maxFileSize,
-            addRemoveLinks: false,
-            clickable: true,
-            dictDefaultMessage: 'Sürükle veya tıklayarak dosya seçin',
-            previewTemplate: '<div></div>'
-        });
-
-        dz.on('init', () => {
-            const latestMessage = dropzoneElement.querySelector('.dz-message');
-            if (latestMessage) {
-                messageEl = latestMessage;
-            }
-            updateFileIndicators();
-        });
-
-        function updateFileIndicators(){
-            const count = dz.files.length;
+        function updateFileIndicators() {
+            const count = dropzone.files.length;
             const hasFiles = count > 0;
             const instruction = 'Sürükle veya tıklayarak dosya seçin';
-            const summaryText = hasFiles
-                ? `${count} dosya seçildi - Maks ${maxFiles} adet`
-                : instruction;
-
+            const summaryText = hasFiles ? `${count} dosya seçildi - Maks ${maxFiles} adet` : instruction;
             if (messageEl) {
                 messageEl.textContent = hasFiles ? summaryText : instruction;
             }
-
             if (summaryEl) {
                 if (hasFiles) {
                     summaryEl.textContent = summaryText;
@@ -76,20 +142,51 @@ Dropzone.autoDiscover = false;
             }
         }
 
-        function bytesToMB(bytes){
-            return (bytes / (1024 * 1024)).toFixed(2);
+        function toggleConvertButton() {
+            if (hasProcessableEntry(resultMap)) {
+                convertButton.disabled = false;
+                convertButton.classList.remove('disabled');
+            } else {
+                convertButton.disabled = true;
+                convertButton.classList.add('disabled');
+            }
         }
 
-        function formatBytes(bytes){
-            if (bytes === 0) return '0 B';
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(1024));
-            return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+        function collectOptions() {
+            const data = new FormData(formEl);
+            const options = {};
+            for (const [key, value] of data.entries()) {
+                options[key] = value;
+            }
+            return options;
         }
 
-        function createResultItem(file){
+        function createResultItem(file) {
+            const uuid = file.upload.uuid;
+            const entry = {
+                uuid,
+                file,
+                jobId: null,
+                poller: null,
+                xhr: null,
+                state: 'queued',
+                downloadUrl: null,
+                downloadName: file.name,
+                ignoreRemoval: false
+            };
+
             const wrapper = document.createElement('div');
             wrapper.className = 'ns-result';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'ns-remove';
+            removeBtn.setAttribute('aria-label', 'Dosyayı kaldır');
+            removeBtn.innerHTML = '&times;';
+            removeBtn.addEventListener('click', () => {
+                dropzone.removeFile(file);
+            });
+
             const fileName = document.createElement('div');
             fileName.className = 'ns-file';
             fileName.textContent = file.name;
@@ -122,192 +219,324 @@ Dropzone.autoDiscover = false;
             convertInfo.textContent = 'Dönüştürme bekleniyor...';
             convertSection.append(convertProgress, convertInfo);
 
+            const downloadSection = document.createElement('div');
+            downloadSection.className = 'ns-progress-area hidden';
+            const downloadProgress = document.createElement('div');
+            downloadProgress.className = 'ns-progress';
+            const downloadBar = document.createElement('div');
+            downloadBar.className = 'ns-progress-bar';
+            downloadProgress.appendChild(downloadBar);
+            const downloadInfo = document.createElement('div');
+            downloadInfo.className = 'ns-progress-info';
+            downloadInfo.textContent = 'İndirme bekleniyor...';
+            downloadSection.append(downloadProgress, downloadInfo);
+
             const actionWrap = document.createElement('div');
             actionWrap.className = 'ns-actions';
             const downloadBtn = document.createElement('a');
-            downloadBtn.className = 'ns-btn ns-btn-primary ns-download';
+            downloadBtn.className = 'ns-btn ns-btn-primary ns-download disabled';
             downloadBtn.textContent = 'İndir';
             downloadBtn.href = '#';
-            downloadBtn.setAttribute('download', file.name);
-            downloadBtn.style.display = 'none';
+            downloadBtn.setAttribute('role', 'button');
+            downloadBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                startDownload(entry);
+            });
             actionWrap.appendChild(downloadBtn);
 
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'ns-remove';
-            removeBtn.setAttribute('aria-label', 'Dosyayı kaldır');
-            removeBtn.innerHTML = '&times;';
-            removeBtn.addEventListener('click', () => {
-                dz.removeFile(file);
-            });
-
-            wrapper.append(removeBtn, fileName, status, uploadSection, convertSection, actionWrap);
-
+            wrapper.append(removeBtn, fileName, status, uploadSection, convertSection, downloadSection, actionWrap);
             resultList.appendChild(wrapper);
 
-            resultMap.set(file.upload.uuid, {
+            Object.assign(entry, {
                 element: wrapper,
                 status,
+                uploadSection,
                 uploadBar,
                 uploadInfo,
-                uploadSection,
+                convertSection,
                 convertBar,
                 convertInfo,
-                convertSection,
-                downloadBtn,
-                file
+                downloadSection,
+                downloadBar,
+                downloadInfo,
+                downloadBtn
             });
+
+            resultMap.set(uuid, entry);
+            return entry;
         }
 
-        function removeResultItem(file){
-            const item = resultMap.get(file.upload.uuid);
-            if (item) {
-                item.element.remove();
-                resultMap.delete(file.upload.uuid);
+        function removeResultEntry(entry) {
+            if (!entry) return;
+            if (entry.poller && typeof entry.poller.stop === 'function') {
+                entry.poller.stop();
+            }
+            unregisterActiveJob(entry.jobId);
+            resultMap.delete(entry.uuid);
+            if (entry.element && entry.element.parentNode) {
+                entry.element.parentNode.removeChild(entry.element);
             }
         }
 
-        dz.on('addedfile', (file) => {
-            if (dz.files.length > maxFiles) {
-                dz.removeFile(file);
-                Swal.fire('Maksimum dosya', `En fazla ${maxFiles} dosya yükleyebilirsiniz.`, 'warning');
+        function stopPolling(entry) {
+            if (entry && entry.poller && typeof entry.poller.stop === 'function') {
+                entry.poller.stop();
+            }
+            entry.poller = null;
+        }
+
+        function updateStatus(entry, payload) {
+            if (!entry) {
                 return;
             }
-            if (file.size > maxFileSize * 1024 * 1024) {
-                dz.removeFile(file);
-                Swal.fire('Dosya boyutu çok büyük', `Her dosya en fazla ${maxFileSize} MB olabilir.`, 'warning');
-                return;
-            }
-            createResultItem(file);
-            toggleConvertButton();
-            updateFileIndicators();
-        });
-
-        dz.on('removedfile', (file) => {
-            removeResultItem(file);
-            toggleConvertButton();
-            updateFileIndicators();
-        });
-
-        dz.on('maxfilesexceeded', (file) => {
-            dz.removeFile(file);
-            Swal.fire('Limit aşıldı', `En fazla ${maxFiles} dosya yükleyebilirsiniz.`, 'warning');
-        });
-
-        dz.on('error', (file, errorMessage) => {
-            Swal.fire('Yükleme hatası', errorMessage, 'error');
-            removeResultItem(file);
-            updateFileIndicators();
-        });
-
-        function toggleConvertButton(){
-            if (dz.files.length === 0) {
-                convertButton.disabled = true;
-                convertButton.classList.add('disabled');
-            } else {
-                convertButton.disabled = false;
-                convertButton.classList.remove('disabled');
-            }
-        }
-
-        toggleConvertButton();
-        updateFileIndicators();
-
-        function collectOptions(){
-            const data = new FormData(formEl);
-            const options = {};
-            for (const [key, value] of data.entries()) {
-                options[key] = value;
-            }
-            return options;
-        }
-
-        function updateStatus(uuid, payload){
-            const item = resultMap.get(uuid);
-            if (!item) return;
             if (payload.uploadProgress != null) {
-                item.uploadSection.classList.remove('hidden');
-                item.uploadBar.style.width = `${payload.uploadProgress}%`;
+                entry.uploadSection.classList.remove('hidden');
+                entry.uploadBar.style.width = `${payload.uploadProgress}%`;
             }
             if (payload.uploadInfo) {
-                item.uploadSection.classList.remove('hidden');
-                item.uploadInfo.textContent = payload.uploadInfo;
+                entry.uploadSection.classList.remove('hidden');
+                entry.uploadInfo.textContent = payload.uploadInfo;
             }
             if (payload.convertProgress != null) {
-                item.convertSection.classList.remove('hidden');
-                item.convertBar.style.width = `${payload.convertProgress}%`;
+                entry.convertSection.classList.remove('hidden');
+                entry.convertBar.style.width = `${payload.convertProgress}%`;
             }
             if (payload.convertInfo) {
-                item.convertSection.classList.remove('hidden');
-                item.convertInfo.textContent = payload.convertInfo;
+                entry.convertSection.classList.remove('hidden');
+                entry.convertInfo.textContent = payload.convertInfo;
+            }
+            if (payload.downloadProgress != null) {
+                entry.downloadSection.classList.remove('hidden');
+                entry.downloadBar.style.width = `${payload.downloadProgress}%`;
+            }
+            if (payload.downloadInfo) {
+                entry.downloadSection.classList.remove('hidden');
+                entry.downloadInfo.textContent = payload.downloadInfo;
             }
             if (payload.statusText) {
-                item.status.textContent = payload.statusText;
+                entry.status.textContent = payload.statusText;
             }
             if (payload.downloadUrl) {
-                item.downloadBtn.href = payload.downloadUrl;
-                item.downloadBtn.style.display = 'inline-flex';
-                item.element.classList.add('ready');
+                entry.downloadUrl = payload.downloadUrl;
+                entry.downloadBtn.classList.remove('disabled');
+                entry.downloadBtn.style.display = 'inline-flex';
+                entry.element.classList.add('ready');
+            }
+            if (payload.downloadName) {
+                entry.downloadName = payload.downloadName;
+            }
+            if (payload.state) {
+                entry.state = payload.state;
             }
         }
 
-        function pollJob(jobId, uuid){
+        function createPoller(entry) {
             let pollTimer = null;
-            const start = () => {
-                pollTimer = setInterval(async () => {
-                    try {
-                        const response = await fetch(`/ajax/status.php?job_id=${encodeURIComponent(jobId)}`);
-                        if (!response.ok) return;
-                        const data = await response.json();
-                        if (data.upload_percent !== undefined) {
-                            updateStatus(uuid, {
-                                uploadInfo: data.upload_text || '',
-                                uploadProgress: data.upload_percent,
-                                statusText: data.status || ''
-                            });
-                        }
-                        if (data.convert_percent !== undefined) {
-                            updateStatus(uuid, {
-                                convertInfo: data.convert_text || '',
-                                convertProgress: data.convert_percent,
-                                statusText: data.status || ''
-                            });
-                        }
-                        if (data.status === 'completed') {
-                            updateStatus(uuid, {
-                                convertProgress: 100,
-                                convertInfo: data.convert_text || 'Dönüştürme tamamlandı.',
-                                downloadUrl: data.download_url
-                            });
-                            clearInterval(pollTimer);
-                        }
-                        if (data.status === 'error') {
-                            updateStatus(uuid, {
-                                convertInfo: data.message || 'Hata oluştu',
-                                statusText: data.message || 'Hata oluştu'
-                            });
-                            Swal.fire('Hata', data.message || 'İşlem sırasında bir hata oluştu.', 'error');
-                            clearInterval(pollTimer);
-                        }
-                    } catch (error) {
-                        console.error(error);
+            const jobId = entry.jobId;
+            return {
+                start() {
+                    if (pollTimer || !jobId) {
+                        return;
                     }
-                }, 1000);
-            };
-            const stop = () => {
-                if (pollTimer) {
-                    clearInterval(pollTimer);
-                    pollTimer = null;
+                    pollTimer = setInterval(async () => {
+                        try {
+                            const response = await fetch(`/ajax/status.php?job_id=${encodeURIComponent(jobId)}`);
+                            if (!response.ok) {
+                                return;
+                            }
+                            const data = await response.json();
+                            if (!data) {
+                                return;
+                            }
+                            if (typeof data.upload_percent === 'number') {
+                                updateStatus(entry, {
+                                    uploadProgress: data.upload_percent,
+                                    uploadInfo: data.upload_text || '',
+                                    statusText: data.status || ''
+                                });
+                            }
+                            if (typeof data.convert_percent === 'number') {
+                                updateStatus(entry, {
+                                    convertProgress: data.convert_percent,
+                                    convertInfo: data.convert_text || '',
+                                    statusText: data.status || ''
+                                });
+                            }
+                            if (data.download_url && !entry.downloadUrl) {
+                                updateStatus(entry, {
+                                    downloadUrl: data.download_url,
+                                    downloadName: data.download_file || entry.downloadName,
+                                    statusText: data.status || 'Hazır',
+                                    state: 'ready'
+                                });
+                                unregisterActiveJob(jobId);
+                                stopPolling(entry);
+                            }
+                            if (data.status === 'completed') {
+                                updateStatus(entry, {
+                                    convertProgress: 100,
+                                    convertInfo: data.convert_text || 'Dönüştürme tamamlandı.',
+                                    statusText: 'Hazır',
+                                    state: 'ready'
+                                });
+                                unregisterActiveJob(jobId);
+                                stopPolling(entry);
+                            }
+                            if (data.status === 'cancelled') {
+                                updateStatus(entry, {
+                                    statusText: data.message || 'İş iptal edildi.',
+                                    convertInfo: data.message || 'İş iptal edildi.',
+                                    state: 'cancelled'
+                                });
+                                unregisterActiveJob(jobId);
+                                stopPolling(entry);
+                            }
+                            if (data.status === 'error') {
+                                updateStatus(entry, {
+                                    statusText: data.message || 'Hata oluştu',
+                                    convertInfo: data.message || 'Hata oluştu',
+                                    state: 'error'
+                                });
+                                unregisterActiveJob(jobId);
+                                stopPolling(entry);
+                                Swal.fire('Hata', data.message || 'İşlem sırasında bir hata oluştu.', 'error');
+                            }
+                        } catch (error) {
+                            console.error(error);
+                        }
+                    }, 1000);
+                },
+                stop() {
+                    if (pollTimer) {
+                        clearInterval(pollTimer);
+                        pollTimer = null;
+                    }
                 }
             };
-            return { start, stop };
         }
 
-        async function processFile(file, options){
+        async function startDownload(entry) {
+            if (!entry || entry.state !== 'ready' || !entry.downloadUrl || entry.state === 'downloading') {
+                if (!entry || !entry.downloadUrl) {
+                    Swal.fire('Hazır değil', 'Dosya henüz indirilmeye hazır değil.', 'info');
+                }
+                return;
+            }
+            entry.state = 'downloading';
+            entry.downloadBtn.classList.add('disabled');
+            entry.downloadSection.classList.remove('hidden');
+            entry.downloadBar.style.width = '0%';
+            entry.downloadInfo.textContent = 'İndirme başlatılıyor...';
+            try {
+                const response = await fetch(entry.downloadUrl);
+                if (!response.ok || !response.body) {
+                    throw new Error('İndirme başlatılamadı.');
+                }
+                const contentLength = Number(response.headers.get('Content-Length')) || 0;
+                const reader = response.body.getReader();
+                const chunks = [];
+                let received = 0;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    if (value) {
+                        chunks.push(value);
+                        received += value.length;
+                        if (contentLength) {
+                            const percent = Math.min(100, Math.round((received / contentLength) * 100));
+                            updateStatus(entry, {
+                                downloadProgress: percent,
+                                downloadInfo: `${bytesToMB(received)} MB / ${bytesToMB(contentLength)} MB (${percent}%)`
+                            });
+                        } else {
+                            updateStatus(entry, {
+                                downloadInfo: `${formatBytes(received)} indirildi...`
+                            });
+                        }
+                    }
+                }
+                updateStatus(entry, {
+                    downloadProgress: 100,
+                    downloadInfo: 'İndirme tamamlandı. Kaydediliyor...',
+                    statusText: 'Dosya indiriliyor',
+                    state: 'downloaded'
+                });
+
+                const blob = new Blob(chunks);
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = entry.downloadName || entry.file.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+
+                Swal.fire('İndirme tamamlandı', `${entry.downloadName || entry.file.name} indirildi.`, 'success');
+
+                entry.ignoreRemoval = true;
+                dropzone.removeFile(entry.file);
+                removeResultEntry(entry);
+                formEl.reset();
+                if (typeof config.onReset === 'function') {
+                    try {
+                        config.onReset(formEl);
+                    } catch (resetError) {
+                        console.error(resetError);
+                    }
+                }
+                updateFileIndicators();
+                toggleConvertButton();
+            } catch (error) {
+                console.error(error);
+                entry.state = 'ready';
+                entry.downloadSection.classList.add('hidden');
+                entry.downloadBar.style.width = '0%';
+                entry.downloadInfo.textContent = 'İndirme bekleniyor...';
+                entry.downloadBtn.classList.remove('disabled');
+                Swal.fire('İndirme hatası', error.message || 'Dosya indirilemedi.', 'error');
+            }
+        }
+
+        async function cancelEntry(entry, { silent } = {}) {
+            if (!entry) return;
+            if (entry.state === 'cancelled') {
+                return;
+            }
+            entry.state = 'cancelled';
+            stopPolling(entry);
+            if (entry.xhr && entry.xhr.readyState !== XMLHttpRequest.DONE) {
+                entry.xhr.abort();
+            }
+            if (entry.jobId) {
+                unregisterActiveJob(entry.jobId);
+                await cancelJobOnServer(entry.jobId);
+            }
+            updateStatus(entry, {
+                statusText: 'İş iptal edildi.',
+                convertInfo: 'İş iptal edildi.'
+            });
+            if (!silent) {
+                Swal.fire('İptal edildi', `${entry.file.name} işlemi iptal edildi.`, 'info');
+            }
+        }
+
+        function processFile(file, options) {
             return new Promise((resolve, reject) => {
-                const uuid = file.upload.uuid;
-                const jobId = `${config.type || 'job'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-                const poller = pollJob(jobId, uuid);
+                const entry = resultMap.get(file.upload.uuid);
+                if (!entry) {
+                    reject(new Error('Dosya kaydı bulunamadı.'));
+                    return;
+                }
+                const jobId = `${config.type || 'job'}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+                entry.jobId = jobId;
+                entry.state = 'uploading';
+                registerActiveJob(jobId);
+
+                const poller = createPoller(entry);
+                entry.poller = poller;
 
                 const formData = new FormData();
                 formData.append('job_id', jobId);
@@ -316,13 +545,15 @@ Dropzone.autoDiscover = false;
                 formData.append('options', JSON.stringify(options));
 
                 const xhr = new XMLHttpRequest();
+                entry.xhr = xhr;
                 xhr.open('POST', config.endpoint, true);
 
                 xhr.upload.addEventListener('loadstart', () => {
-                    updateStatus(uuid, {
+                    updateStatus(entry, {
                         uploadProgress: 0,
                         uploadInfo: 'Yükleme başlatıldı...',
-                        statusText: 'Yükleniyor'
+                        statusText: 'Yükleniyor',
+                        state: 'uploading'
                     });
                 });
 
@@ -330,7 +561,7 @@ Dropzone.autoDiscover = false;
                     if (event.lengthComputable) {
                         const percent = Math.round((event.loaded / event.total) * 100);
                         const info = `${bytesToMB(event.loaded)} MB / ${bytesToMB(event.total)} MB (${percent}%)`;
-                        updateStatus(uuid, {
+                        updateStatus(entry, {
                             uploadProgress: percent,
                             uploadInfo: info,
                             statusText: 'Yükleniyor'
@@ -339,33 +570,48 @@ Dropzone.autoDiscover = false;
                 });
 
                 xhr.upload.addEventListener('load', () => {
-                    poller.start();
-                    updateStatus(uuid, {
+                    updateStatus(entry, {
                         uploadProgress: 100,
                         uploadInfo: `${bytesToMB(file.size)} MB / ${bytesToMB(file.size)} MB (100%)`,
-                        statusText: 'Dönüştürme hazırlanıyor'
+                        statusText: 'Dönüştürme hazırlanıyor',
+                        state: 'processing'
                     });
+                    poller.start();
+                });
+
+                xhr.addEventListener('abort', () => {
+                    unregisterActiveJob(jobId);
+                    stopPolling(entry);
+                    entry.state = 'cancelled';
+                    reject({ cancelled: true });
                 });
 
                 xhr.onreadystatechange = () => {
                     if (xhr.readyState === XMLHttpRequest.DONE) {
-                        poller.stop();
+                        stopPolling(entry);
+                        unregisterActiveJob(jobId);
                         if (xhr.status >= 200 && xhr.status < 300) {
                             try {
-                                const response = JSON.parse(xhr.responseText);
+                                const response = JSON.parse(xhr.responseText || '{}');
                                 if (response.success) {
-                                    updateStatus(uuid, {
+                                    updateStatus(entry, {
                                         convertProgress: 100,
                                         convertInfo: response.message || 'İşlem tamamlandı.',
                                         downloadUrl: response.download_url,
-                                        statusText: 'Hazır'
+                                        downloadName: response.download_file || entry.downloadName,
+                                        statusText: 'Hazır',
+                                        state: 'ready'
                                     });
                                     resolve(response);
+                                } else if (response.message === 'İş iptal edildi.') {
+                                    entry.state = 'cancelled';
+                                    reject({ cancelled: true });
                                 } else {
                                     const message = response.message || 'İşlem sırasında hata oluştu.';
-                                    updateStatus(uuid, {
+                                    updateStatus(entry, {
                                         convertInfo: message,
-                                        statusText: message
+                                        statusText: message,
+                                        state: 'error'
                                     });
                                     Swal.fire('Hata', message, 'error');
                                     reject(new Error(message));
@@ -382,7 +628,8 @@ Dropzone.autoDiscover = false;
                 };
 
                 xhr.onerror = () => {
-                    poller.stop();
+                    stopPolling(entry);
+                    unregisterActiveJob(jobId);
                     Swal.fire('Hata', 'İstek sırasında hata oluştu.', 'error');
                     reject(new Error('İstek hatası'));
                 };
@@ -391,35 +638,49 @@ Dropzone.autoDiscover = false;
             });
         }
 
-        async function handleConvert(){
-            if (dz.files.length === 0) {
+        async function handleConvert() {
+            if (!dropzone.files.length) {
                 Swal.fire('Dosya seçilmedi', 'Lütfen dönüştürmek için en az bir dosya ekleyin.', 'warning');
                 return;
             }
 
             const options = collectOptions();
+            const queue = dropzone.files.filter((file) => {
+                const entry = resultMap.get(file.upload.uuid);
+                return entry && !['ready', 'downloading', 'downloaded'].includes(entry.state);
+            });
+
+            if (!queue.length) {
+                Swal.fire('İşlem yok', 'Dönüştürülecek uygun dosya bulunamadı.', 'info');
+                return;
+            }
+
             convertButton.disabled = true;
             convertButton.classList.add('disabled');
             convertButton.textContent = 'İşleniyor...';
 
             let successCount = 0;
             let failureCount = 0;
-            for (const file of dz.files) {
+            let cancelledCount = 0;
+
+            for (const file of queue) {
                 try {
                     await processFile(file, options);
                     successCount += 1;
                 } catch (error) {
+                    if (error && error.cancelled) {
+                        cancelledCount += 1;
+                    } else {
+                        failureCount += 1;
+                    }
                     console.error(error);
-                    failureCount += 1;
                 }
             }
 
-            convertButton.disabled = false;
-            convertButton.classList.remove('disabled');
             convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
             toggleConvertButton();
 
-            if (failureCount === 0 && successCount === dz.files.length) {
+            if (failureCount === 0 && cancelledCount === 0 && successCount > 0) {
                 Swal.fire('Başarılı', 'Tüm dönüştürme işlemleri tamamlandı.', 'success');
                 formEl.reset();
                 if (typeof config.onReset === 'function') {
@@ -429,8 +690,83 @@ Dropzone.autoDiscover = false;
                         console.error(resetError);
                     }
                 }
+            } else if (successCount > 0 && failureCount > 0) {
+                Swal.fire('Kısmi başarı', 'Bazı dosyalar dönüştürülemedi.', 'warning');
+            } else if (successCount === 0 && failureCount > 0) {
+                Swal.fire('Hata', 'Dosyalar dönüştürülemedi.', 'error');
             }
         }
+
+        const dropzone = new Dropzone(dropzoneElement, {
+            url: config.endpoint,
+            autoProcessQueue: false,
+            uploadMultiple: false,
+            parallelUploads: 1,
+            maxFiles: maxFiles,
+            maxFilesize: maxFileSize,
+            addRemoveLinks: false,
+            clickable: true,
+            dictDefaultMessage: 'Sürükle veya tıklayarak dosya seçin',
+            previewTemplate: '<div></div>'
+        });
+
+        dropzone.on('init', () => {
+            const latestMessage = dropzoneElement.querySelector('.dz-message');
+            if (latestMessage) {
+                messageEl = latestMessage;
+            }
+            updateFileIndicators();
+            toggleConvertButton();
+        });
+
+        dropzone.on('addedfile', (file) => {
+            if (dropzone.files.length > maxFiles) {
+                dropzone.removeFile(file);
+                Swal.fire('Maksimum dosya', `En fazla ${maxFiles} dosya yükleyebilirsiniz.`, 'warning');
+                return;
+            }
+            if (file.size > maxFileSize * 1024 * 1024) {
+                dropzone.removeFile(file);
+                Swal.fire('Dosya boyutu çok büyük', `Her dosya en fazla ${maxFileSize} MB olabilir.`, 'warning');
+                return;
+            }
+            createResultItem(file);
+            toggleConvertButton();
+            updateFileIndicators();
+        });
+
+        dropzone.on('removedfile', (file) => {
+            const entry = resultMap.get(file.upload.uuid);
+            if (!entry) {
+                updateFileIndicators();
+                toggleConvertButton();
+                return;
+            }
+            if (!entry.ignoreRemoval) {
+                cancelEntry(entry, { silent: true });
+            }
+            removeResultEntry(entry);
+            updateFileIndicators();
+            toggleConvertButton();
+        });
+
+        dropzone.on('maxfilesexceeded', (file) => {
+            dropzone.removeFile(file);
+            Swal.fire('Limit aşıldı', `En fazla ${maxFiles} dosya yükleyebilirsiniz.`, 'warning');
+        });
+
+        dropzone.on('error', (file, errorMessage) => {
+            const entry = resultMap.get(file.upload.uuid);
+            if (entry) {
+                updateStatus(entry, {
+                    statusText: typeof errorMessage === 'string' ? errorMessage : 'Yükleme hatası',
+                    state: 'error'
+                });
+            }
+            Swal.fire('Yükleme hatası', typeof errorMessage === 'string' ? errorMessage : 'Dosya yüklenirken hata oluştu.', 'error');
+            toggleConvertButton();
+            updateFileIndicators();
+        });
 
         convertButton.addEventListener('click', (event) => {
             event.preventDefault();
@@ -445,7 +781,7 @@ Dropzone.autoDiscover = false;
         }
     }
 
-    window.nsInitializeConverter = function(config){
+    window.nsInitializeConverter = function (config) {
         initializeConverter(config);
     };
 
