@@ -88,7 +88,7 @@ include __DIR__ . '/includes/footer.php';
 ?>
 <script src="/assets/js/converter.js"></script>
 <script>
-window.nsConverterConfig = {
+window.nsInitializeConverter({
     type: 'video',
     dropzoneId: 'videoDropzone',
     resultListId: 'resultList',
@@ -160,5 +160,5 @@ window.nsConverterConfig = {
         presetSelect.addEventListener('change', (event) => applyPreset(event.target.value));
         applyPreset(presetSelect.value);
     }
-};
+});
 </script>

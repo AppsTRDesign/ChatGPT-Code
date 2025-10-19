@@ -72,7 +72,7 @@ include __DIR__ . '/includes/footer.php';
 ?>
 <script src="/assets/js/converter.js"></script>
 <script>
-window.nsConverterConfig = {
+window.nsInitializeConverter({
     type: 'audio',
     dropzoneId: 'audioDropzone',
     resultListId: 'resultList',
@@ -132,5 +132,5 @@ window.nsConverterConfig = {
         });
         applyPreset(presetSelect.value);
     }
-};
+});
 </script>

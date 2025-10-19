@@ -66,7 +66,7 @@ include __DIR__ . '/includes/footer.php';
 ?>
 <script src="/assets/js/converter.js"></script>
 <script>
-window.nsConverterConfig = {
+window.nsInitializeConverter({
     type: 'image',
     dropzoneId: 'imageDropzone',
     resultListId: 'resultList',
@@ -123,5 +123,5 @@ window.nsConverterConfig = {
         presetSelect.addEventListener('change', (event) => apply(event.target.value));
         apply(presetSelect.value);
     }
-};
+});
 </script>
