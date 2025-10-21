@@ -216,8 +216,10 @@ Dropzone.autoDiscover = false;
         function updateFileIndicators() {
             const count = dropzone.files.length;
             const hasFiles = count > 0;
-            const instruction = 'Sürükle veya tıklayarak dosya seçin';
-            const summaryText = hasFiles ? `${count} dosya seçildi - Maks ${maxFiles} adet` : instruction;
+            const instruction = `Sürükle veya tıklayarak dosya seçin - Maks ${maxFiles} dosya`;
+            const summaryText = hasFiles
+                ? `${count} dosya seçildi - Maks ${maxFiles} dosya`
+                : instruction;
             if (messageEl) {
                 messageEl.textContent = hasFiles ? summaryText : instruction;
             }
@@ -611,6 +613,8 @@ Dropzone.autoDiscover = false;
             if (!silent) {
                 Swal.fire('İptal edildi', `${entry.file.name} işlemi iptal edildi.`, 'info');
             }
+            convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
+            toggleConvertButton();
         }
 
         function processFile(file, options) {
@@ -680,6 +684,10 @@ Dropzone.autoDiscover = false;
                     if (xhr.readyState === XMLHttpRequest.DONE) {
                         stopPolling(entry);
                         unregisterActiveJob(jobId);
+                        if (entry.state === 'cancelled' || xhr.status === 0) {
+                            reject({ cancelled: true });
+                            return;
+                        }
                         if (xhr.status >= 200 && xhr.status < 300) {
                             try {
                                 const response = JSON.parse(xhr.responseText || '{}');
@@ -720,6 +728,10 @@ Dropzone.autoDiscover = false;
                 xhr.onerror = () => {
                     stopPolling(entry);
                     unregisterActiveJob(jobId);
+                    if (entry.state === 'cancelled') {
+                        reject({ cancelled: true });
+                        return;
+                    }
                     Swal.fire('Hata', 'İstek sırasında hata oluştu.', 'error');
                     reject(new Error('İstek hatası'));
                 };
@@ -787,6 +799,7 @@ Dropzone.autoDiscover = false;
             }
         }
 
+        const instructionText = `Sürükle veya tıklayarak dosya seçin - Maks ${maxFiles} dosya`;
         const dropzone = new Dropzone(dropzoneElement, {
             url: config.endpoint,
             autoProcessQueue: false,
@@ -796,7 +809,7 @@ Dropzone.autoDiscover = false;
             maxFilesize: maxFileSize,
             addRemoveLinks: false,
             clickable: true,
-            dictDefaultMessage: 'Sürükle veya tıklayarak dosya seçin',
+            dictDefaultMessage: instructionText,
             dictInvalidFileType: typeErrorMessage,
             acceptedFiles: acceptedFilesSetting || undefined,
             previewTemplate: '<div></div>'

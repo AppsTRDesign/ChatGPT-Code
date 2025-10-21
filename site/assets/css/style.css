@@ -65,13 +65,23 @@ body{
 .ns-list{padding-left:18px}
 
 .ns-tool h2{margin-top:0}
-.ns-form .ns-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
-.ns-form .ns-col-2{grid-column:span 2}
+.ns-form .ns-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:16px;
+}
+.ns-form .ns-col-2{grid-column:1 / -1}
 .ns-field{display:flex;flex-direction:column;gap:6px}
 .ns-field label{font-size:14px;color:var(--muted)}
 .ns-field input, .ns-field select, .ns-field textarea{
-  width:100%;padding:12px;border-radius:12px;border:1px dashed var(--border);
-  outline:none;background:#0f1730;color:var(--text);
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px dashed var(--border);
+  outline:none;
+  background:#0f1730;
+  color:var(--text);
+  min-width:0;
 }
 .ns-field input:disabled, .ns-field select:disabled, .ns-field textarea:disabled{opacity:.7;cursor:not-allowed}
 
