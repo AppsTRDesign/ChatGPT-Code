@@ -166,6 +166,7 @@ Dropzone.autoDiscover = false;
         const resultList = document.getElementById(config.resultListId);
         const formEl = document.getElementById(config.formId);
         const summaryEl = config.fileSummaryId ? document.getElementById(config.fileSummaryId) : null;
+        const instructionText = config.instructionText || `Sürükle veya tıklayarak dosya seçin - Maks ${maxFiles} dosya`;
 
         if (!dropzoneElement || !convertButton || !formEl || !resultList) {
             console.warn('Dönüştürücü için gerekli DOM elemanları bulunamadı.');
@@ -213,15 +214,26 @@ Dropzone.autoDiscover = false;
             dropzoneElement.appendChild(messageEl);
         }
 
+        function setDropzoneMessage(text) {
+            if (!messageEl) {
+                return;
+            }
+            messageEl.innerHTML = '';
+            const span = document.createElement('span');
+            span.textContent = text;
+            messageEl.appendChild(span);
+        }
+
+        setDropzoneMessage(instructionText);
+
         function updateFileIndicators() {
             const count = dropzone.files.length;
             const hasFiles = count > 0;
-            const instruction = `Sürükle veya tıklayarak dosya seçin - Maks ${maxFiles} dosya`;
             const summaryText = hasFiles
                 ? `${count} dosya seçildi - Maks ${maxFiles} dosya`
-                : instruction;
+                : instructionText;
             if (messageEl) {
-                messageEl.textContent = hasFiles ? summaryText : instruction;
+                setDropzoneMessage(hasFiles ? summaryText : instructionText);
             }
             if (summaryEl) {
                 if (hasFiles) {
@@ -483,6 +495,10 @@ Dropzone.autoDiscover = false;
                                 unregisterActiveJob(jobId);
                                 stopPolling(entry);
                             }
+                            if (data.status === 'finalized') {
+                                unregisterActiveJob(jobId);
+                                stopPolling(entry);
+                            }
                             if (data.status === 'error') {
                                 updateStatus(entry, {
                                     statusText: data.message || 'Hata oluştu',
@@ -613,6 +629,8 @@ Dropzone.autoDiscover = false;
             if (!silent) {
                 Swal.fire('İptal edildi', `${entry.file.name} işlemi iptal edildi.`, 'info');
             }
+            entry.xhr = null;
+            entry.jobId = null;
             convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
             toggleConvertButton();
         }
@@ -775,7 +793,9 @@ Dropzone.autoDiscover = false;
                     } else {
                         failureCount += 1;
                     }
-                    console.error(error);
+                    if (!error || !error.cancelled) {
+                        console.error(error);
+                    }
                 }
             }
 
@@ -799,7 +819,6 @@ Dropzone.autoDiscover = false;
             }
         }
 
-        const instructionText = `Sürükle veya tıklayarak dosya seçin - Maks ${maxFiles} dosya`;
         const dropzone = new Dropzone(dropzoneElement, {
             url: config.endpoint,
             autoProcessQueue: false,
@@ -820,6 +839,7 @@ Dropzone.autoDiscover = false;
             if (latestMessage) {
                 messageEl = latestMessage;
             }
+            setDropzoneMessage(instructionText);
             updateFileIndicators();
             toggleConvertButton();
         });

@@ -10,6 +10,16 @@ if (!$jobId) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
+$jobFile = job_file($jobId);
+if (!is_file($jobFile)) {
+    echo json_encode([
+        'job_id' => $jobId,
+        'status' => 'finalized',
+        'message' => 'İş tamamlandı veya iptal edildi.'
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $job = read_job($jobId);
 
 if (!empty($job['download_file']) && empty($job['download_url'])) {

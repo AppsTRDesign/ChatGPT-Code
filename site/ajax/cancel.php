@@ -20,5 +20,6 @@ header('Content-Type: application/json; charset=utf-8');
 request_job_cancel($jobId);
 mark_job_cancelled($jobId);
 cleanup_job_files($jobId);
+finalize_job($jobId);
 
 echo json_encode(['success' => true, 'message' => 'İş iptal edildi.']);

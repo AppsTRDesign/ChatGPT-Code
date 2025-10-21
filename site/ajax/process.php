@@ -26,6 +26,8 @@ if (!is_array($options)) {
     $options = [];
 }
 
+$finalizeJob = false;
+
 write_job($jobId, [
     'status' => 'uploading',
     'upload_percent' => 0,
@@ -94,8 +96,9 @@ try {
     if ($output === 'cancelled' || is_job_cancelled($jobId)) {
         mark_job_cancelled($jobId);
         cleanup_job_files($jobId);
+        $finalizeJob = true;
         echo json_encode(['success' => false, 'message' => 'İş iptal edildi.']);
-        exit;
+        return;
     }
 
     if (!$output || !file_exists($output)) {
@@ -113,12 +116,15 @@ try {
         'download_url' => $downloadUrl
     ]);
 
+    $finalizeJob = true;
+
     echo json_encode([
         'success' => true,
         'message' => 'Dönüştürme tamamlandı.',
         'download_url' => $downloadUrl,
         'download_file' => basename($output)
     ]);
+    return;
 } catch (Throwable $e) {
     update_job($jobId, [
         'status' => 'error',
@@ -130,6 +136,9 @@ try {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 } finally {
     cleanup_storage_file($storedPath);
+    if ($finalizeJob) {
+        finalize_job($jobId);
+    }
 }
 
 function convert_audio(string $inputPath, string $originalName, array $options, string $jobId): string {
@@ -141,6 +150,10 @@ function convert_audio(string $inputPath, string $originalName, array $options, 
 
     $outputName = pathinfo($originalName, PATHINFO_FILENAME) . '.' . $format;
     $outputPath = NS_OUTPUT_PATH . '/' . uniqid('audio_', true) . '_' . sanitize_filename($outputName);
+
+    update_job($jobId, [
+        'output_file' => basename($outputPath)
+    ]);
 
     $filters = [];
     if ($normalize === 'ebu_r128') {
@@ -191,6 +204,10 @@ function convert_video(string $inputPath, string $originalName, array $options, 
     $outputName = pathinfo($originalName, PATHINFO_FILENAME) . '.' . $format;
     $outputPath = NS_OUTPUT_PATH . '/' . uniqid('video_', true) . '_' . sanitize_filename($outputName);
 
+    update_job($jobId, [
+        'output_file' => basename($outputPath)
+    ]);
+
     $scaleFilter = sprintf('scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2', $width, $height, $width, $height);
     $filters = ['format=yuv420p', $scaleFilter];
 
@@ -232,6 +249,10 @@ function convert_image(string $inputPath, string $originalName, array $options, 
 
     $outputName = pathinfo($originalName, PATHINFO_FILENAME) . '.' . $format;
     $outputPath = NS_OUTPUT_PATH . '/' . uniqid('image_', true) . '_' . sanitize_filename($outputName);
+
+    update_job($jobId, [
+        'output_file' => basename($outputPath)
+    ]);
 
     if (!extension_loaded('gd')) {
         throw new RuntimeException('Sunucuda GD eklentisi bulunamadı.');

@@ -23,13 +23,16 @@ readfile($file);
 
 cleanup_storage_file($file);
 if ($jobId) {
-    cleanup_job_files($jobId, true, false);
-    update_job($jobId, [
-        'status' => 'downloaded',
-        'message' => 'Dosya indirildi.',
-        'downloaded_at' => date('c')
-    ]);
-    finalize_job($jobId);
+    $jobFile = job_file($jobId);
+    if (is_file($jobFile)) {
+        cleanup_job_files($jobId, true, false);
+        update_job($jobId, [
+            'status' => 'downloaded',
+            'message' => 'Dosya indirildi.',
+            'downloaded_at' => date('c')
+        ]);
+        finalize_job($jobId);
+    }
 }
 
 exit;
