@@ -84,6 +84,7 @@ window.nsInitializeConverter({
     fileSummaryId: 'audioSummary',
     maxFiles: 5,
     maxFileSize: 2048,
+    acceptedFiles: 'audio/*',
     setupPresets(form){
         const presetSelect = form.querySelector('#preset');
         const lockable = form.querySelectorAll('[data-lockable="true"]');

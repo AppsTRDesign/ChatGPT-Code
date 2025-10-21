@@ -4,6 +4,68 @@ Dropzone.autoDiscover = false;
     const activeJobIds = new Set();
     let unloadHooked = false;
 
+    const CATEGORY_RULES = {
+        audio: {
+            acceptedFiles: 'audio/*',
+            mimePrefixes: ['audio/'],
+            extensions: ['.mp3', '.wav', '.aac', '.m4a', '.flac', '.ogg', '.opus', '.wma'],
+            errorMessage: 'Lütfen sadece ses dosyaları yükleyin.'
+        },
+        video: {
+            acceptedFiles: 'video/*',
+            mimePrefixes: ['video/'],
+            extensions: ['.mp4', '.mov', '.mkv', '.avi', '.wmv', '.webm', '.mpeg', '.mpg', '.m4v', '.flv', '.3gp'],
+            errorMessage: 'Lütfen sadece video dosyaları yükleyin.'
+        },
+        image: {
+            acceptedFiles: 'image/*',
+            mimePrefixes: ['image/'],
+            extensions: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff', '.svg', '.heic', '.heif'],
+            errorMessage: 'Lütfen sadece görsel dosyaları yükleyin.'
+        }
+    };
+
+    function normalizeList(value) {
+        if (!value) {
+            return null;
+        }
+        if (Array.isArray(value)) {
+            return value.map((item) => String(item).toLowerCase().trim()).filter(Boolean);
+        }
+        if (typeof value === 'string') {
+            return value
+                .split(',')
+                .map((item) => item.toLowerCase().trim())
+                .filter(Boolean);
+        }
+        return null;
+    }
+
+    function normalizeExtensions(value) {
+        const list = normalizeList(value);
+        if (!list) {
+            return null;
+        }
+        return list.map((ext) => (ext.startsWith('.') ? ext : `.${ext}`));
+    }
+
+    function normalizeMimePrefixes(value) {
+        const list = normalizeList(value);
+        if (!list) {
+            return null;
+        }
+        return list.map((prefix) => {
+            let normalized = prefix;
+            if (normalized.endsWith('/*')) {
+                normalized = normalized.slice(0, -1);
+            }
+            if (!normalized.endsWith('/')) {
+                normalized = `${normalized}/`;
+            }
+            return normalized;
+        });
+    }
+
     function handleUnload() {
         if (!activeJobIds.size) {
             return;
@@ -108,6 +170,34 @@ Dropzone.autoDiscover = false;
         if (!dropzoneElement || !convertButton || !formEl || !resultList) {
             console.warn('Dönüştürücü için gerekli DOM elemanları bulunamadı.');
             return;
+        }
+
+        const categoryKey = (config.fileCategory || config.type || '').toLowerCase();
+        const categoryRule = CATEGORY_RULES[categoryKey] || null;
+        const allowedExtensions = normalizeExtensions(config.allowedExtensions || (categoryRule ? categoryRule.extensions : null));
+        const allowedMimePrefixes = normalizeMimePrefixes(config.allowedMimePrefixes || (categoryRule ? categoryRule.mimePrefixes : null));
+        const acceptedFilesSetting = config.acceptedFiles || (categoryRule ? categoryRule.acceptedFiles : null);
+        const typeErrorTitle = config.typeErrorTitle || 'Geçersiz dosya';
+        const typeErrorMessage = config.typeErrorMessage || (categoryRule ? categoryRule.errorMessage : 'Bu dosya türü desteklenmiyor.');
+        const invalidTypePatterns = [/You can't upload files of this type/i, /File type not allowed/i];
+
+        function isFileTypeAllowed(file) {
+            if (!allowedExtensions && !allowedMimePrefixes) {
+                return true;
+            }
+            const mime = (file.type || '').toLowerCase();
+            if (allowedMimePrefixes && mime) {
+                if (allowedMimePrefixes.some((prefix) => mime.startsWith(prefix))) {
+                    return true;
+                }
+            }
+            const name = (file.name || '').toLowerCase();
+            if (allowedExtensions && name) {
+                if (allowedExtensions.some((ext) => name.endsWith(ext))) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         const resultMap = new Map();
@@ -707,6 +797,8 @@ Dropzone.autoDiscover = false;
             addRemoveLinks: false,
             clickable: true,
             dictDefaultMessage: 'Sürükle veya tıklayarak dosya seçin',
+            dictInvalidFileType: typeErrorMessage,
+            acceptedFiles: acceptedFilesSetting || undefined,
             previewTemplate: '<div></div>'
         });
 
@@ -720,14 +812,20 @@ Dropzone.autoDiscover = false;
         });
 
         dropzone.on('addedfile', (file) => {
-            if (dropzone.files.length > maxFiles) {
+            if (!isFileTypeAllowed(file)) {
+                file._nsInvalidType = true;
                 dropzone.removeFile(file);
-                Swal.fire('Maksimum dosya', `En fazla ${maxFiles} dosya yükleyebilirsiniz.`, 'warning');
+                Swal.fire(typeErrorTitle, typeErrorMessage, 'error');
                 return;
             }
             if (file.size > maxFileSize * 1024 * 1024) {
                 dropzone.removeFile(file);
                 Swal.fire('Dosya boyutu çok büyük', `Her dosya en fazla ${maxFileSize} MB olabilir.`, 'warning');
+                return;
+            }
+            if (dropzone.files.length > maxFiles) {
+                dropzone.removeFile(file);
+                Swal.fire('Maksimum dosya', `En fazla ${maxFiles} dosya yükleyebilirsiniz.`, 'warning');
                 return;
             }
             createResultItem(file);
@@ -736,7 +834,8 @@ Dropzone.autoDiscover = false;
         });
 
         dropzone.on('removedfile', (file) => {
-            const entry = resultMap.get(file.upload.uuid);
+            const uuid = file.upload && file.upload.uuid;
+            const entry = uuid ? resultMap.get(uuid) : null;
             if (!entry) {
                 updateFileIndicators();
                 toggleConvertButton();
@@ -756,14 +855,25 @@ Dropzone.autoDiscover = false;
         });
 
         dropzone.on('error', (file, errorMessage) => {
-            const entry = resultMap.get(file.upload.uuid);
+            if (file && file._nsInvalidType) {
+                toggleConvertButton();
+                updateFileIndicators();
+                return;
+            }
+            const uuid = file.upload && file.upload.uuid;
+            const entry = uuid ? resultMap.get(uuid) : null;
             if (entry) {
                 updateStatus(entry, {
                     statusText: typeof errorMessage === 'string' ? errorMessage : 'Yükleme hatası',
                     state: 'error'
                 });
             }
-            Swal.fire('Yükleme hatası', typeof errorMessage === 'string' ? errorMessage : 'Dosya yüklenirken hata oluştu.', 'error');
+            let messageText = typeof errorMessage === 'string' ? errorMessage : 'Dosya yüklenirken hata oluştu.';
+            const isTypeError = invalidTypePatterns.some((pattern) => pattern.test(messageText));
+            if (isTypeError) {
+                messageText = typeErrorMessage;
+            }
+            Swal.fire(isTypeError ? typeErrorTitle : 'Yükleme hatası', messageText, 'error');
             toggleConvertButton();
             updateFileIndicators();
         });

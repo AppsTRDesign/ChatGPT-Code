@@ -100,6 +100,7 @@ window.nsInitializeConverter({
     fileSummaryId: 'videoSummary',
     maxFiles: 5,
     maxFileSize: 2048,
+    acceptedFiles: 'video/*',
     setupPresets(form){
         const presetSelect = form.querySelector('#video_preset');
         const lockable = form.querySelectorAll('[data-lockable="true"]');

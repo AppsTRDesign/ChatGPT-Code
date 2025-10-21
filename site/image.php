@@ -78,6 +78,7 @@ window.nsInitializeConverter({
     fileSummaryId: 'imageSummary',
     maxFiles: 5,
     maxFileSize: 2048,
+    acceptedFiles: 'image/*',
     setupPresets(form){
         const presetSelect = form.querySelector('#image_preset');
         const lockable = form.querySelectorAll('[data-lockable="true"]');
