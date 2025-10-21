@@ -136,7 +136,8 @@ try {
         'convert_text' => $e->getMessage()
     ]);
     cleanup_job_files($jobId);
-    http_response_code(500);
+    $finalizeJob = true;
+    http_response_code(200);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 } finally {
     cleanup_storage_file($storedPath);

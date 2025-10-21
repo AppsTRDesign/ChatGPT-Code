@@ -6,12 +6,12 @@ $brand = ns_config('site.brand', ns_config('site.name', 'NoaSoft Converter'));
 $brandHtml = ns_config('site.brand_html');
 $navItems = [
     'home' => ['label' => 'Ana Sayfa', 'href' => ns_link('home', '/')],
-    'audio' => ['label' => 'Ses Dönüştürücü', 'href' => ns_link('audio', '/ses-donusturucu.php')],
-    'video' => ['label' => 'Video Dönüştürücü', 'href' => ns_link('video', '/video-donusturucu.php')],
-    'image' => ['label' => 'Görsel Dönüştürücü', 'href' => ns_link('image', '/gorsel-donusturucu.php')],
-    'faq' => ['label' => 'SSS', 'href' => ns_link('faq', '/sss.php')],
-    'contact' => ['label' => 'İletişim', 'href' => ns_link('contact', '/iletisim.php')],
-    'copyright' => ['label' => 'Telif', 'href' => ns_link('copyright', '/telif-haklari.php')],
+    'audio' => ['label' => 'Ses Dönüştürücü', 'href' => ns_link('audio', '/audio-convert')],
+    'video' => ['label' => 'Video Dönüştürücü', 'href' => ns_link('video', '/video-convert')],
+    'image' => ['label' => 'Görsel Dönüştürücü', 'href' => ns_link('image', '/image-convert')],
+    'faq' => ['label' => 'SSS', 'href' => ns_link('faq', '/faq')],
+    'contact' => ['label' => 'İletişim', 'href' => ns_link('contact', '/contact')],
+    'copyright' => ['label' => 'Telif', 'href' => ns_link('copyright', '/copyright')],
 ];
 ?>
 <!DOCTYPE html>

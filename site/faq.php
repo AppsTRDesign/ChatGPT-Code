@@ -1,3 +1,3 @@
 <?php
-header('Location: /sss.php', true, 301);
+header('Location: /faq', true, 301);
 exit;

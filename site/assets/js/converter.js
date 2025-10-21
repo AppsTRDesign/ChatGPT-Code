@@ -220,7 +220,7 @@ Dropzone.autoDiscover = false;
             }
             messageEl.innerHTML = '';
             const span = document.createElement('span');
-            span.textContent = text;
+            span.textContent = text != null ? String(text) : '';
             messageEl.appendChild(span);
         }
 
@@ -235,6 +235,8 @@ Dropzone.autoDiscover = false;
             if (messageEl) {
                 setDropzoneMessage(hasFiles ? summaryText : instructionText);
             }
+            dropzoneElement.classList.toggle('dz-has-files', hasFiles);
+            dropzoneElement.classList.remove('dz-started');
             if (summaryEl) {
                 if (hasFiles) {
                     summaryEl.textContent = summaryText;
@@ -305,6 +307,7 @@ Dropzone.autoDiscover = false;
             const fileName = document.createElement('div');
             fileName.className = 'ns-file';
             fileName.textContent = file.name;
+            fileName.title = file.name;
 
             const status = document.createElement('div');
             status.className = 'ns-status';
@@ -801,10 +804,10 @@ Dropzone.autoDiscover = false;
                 } catch (error) {
                     if (error && error.cancelled) {
                         cancelledCount += 1;
-                    } else {
-                        failureCount += 1;
+                        continue;
                     }
-                    if (!error || !error.cancelled) {
+                    failureCount += 1;
+                    if (error) {
                         console.error(error);
                     }
                 }

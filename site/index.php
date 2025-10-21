@@ -11,9 +11,9 @@ include __DIR__ . '/includes/header.php';
     <h1>Ses, Video ve Görseller için <span>Tek Nokta</span></h1>
     <p>ffmpeg 4.2.10 destekli güçlü altyapımız ile medya dosyalarınızı saniyeler içinde dönüştürün.</p>
     <div class="ns-cta">
-        <a href="<?= htmlspecialchars(ns_link('audio', '/ses-donusturucu.php')) ?>" class="ns-btn ns-btn-primary">Ses Dönüştür</a>
-        <a href="<?= htmlspecialchars(ns_link('video', '/video-donusturucu.php')) ?>" class="ns-btn">Video Dönüştür</a>
-        <a href="<?= htmlspecialchars(ns_link('image', '/gorsel-donusturucu.php')) ?>" class="ns-btn">Görsel Dönüştür</a>
+        <a href="<?= htmlspecialchars(ns_link('audio', '/audio-convert')) ?>" class="ns-btn ns-btn-primary">Ses Dönüştür</a>
+        <a href="<?= htmlspecialchars(ns_link('video', '/video-convert')) ?>" class="ns-btn">Video Dönüştür</a>
+        <a href="<?= htmlspecialchars(ns_link('image', '/image-convert')) ?>" class="ns-btn">Görsel Dönüştür</a>
     </div>
 </section>
 <section class="ns-cards">

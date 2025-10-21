@@ -1,3 +1,3 @@
 <?php
-header('Location: /gorsel-donusturucu.php', true, 301);
+header('Location: /image-convert', true, 301);
 exit;

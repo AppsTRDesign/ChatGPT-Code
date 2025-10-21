@@ -8,12 +8,12 @@ return [
         'noreply_email' => 'noreply@game.noasoft.org',
         'links' => [
             'home' => '/',
-            'audio' => '/ses-donusturucu.php',
-            'video' => '/video-donusturucu.php',
-            'image' => '/gorsel-donusturucu.php',
-            'faq' => '/sss.php',
-            'contact' => '/iletisim.php',
-            'copyright' => '/telif-haklari.php'
+            'audio' => '/audio-convert',
+            'video' => '/video-convert',
+            'image' => '/image-convert',
+            'faq' => '/faq',
+            'contact' => '/contact',
+            'copyright' => '/copyright'
         ]
     ],
     'upload' => [
@@ -21,7 +21,7 @@ return [
         'max_size_mb' => 2048
     ],
     'paths' => [
-        'storage' => __DIR__ . '/storage'
+        'storage' => dirname(__DIR__) . '/storage'
     ],
     'mail' => [
         'to' => 'destek@noasoft.org',

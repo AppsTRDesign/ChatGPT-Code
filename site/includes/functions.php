@@ -1,7 +1,7 @@
 <?php
 
 if (!isset($GLOBALS['nsConfig']) || !is_array($GLOBALS['nsConfig'])) {
-    $GLOBALS['nsConfig'] = require __DIR__ . '/../config.php';
+    $GLOBALS['nsConfig'] = require __DIR__ . '/config.php';
 }
 
 if (!function_exists('ns_config')) {

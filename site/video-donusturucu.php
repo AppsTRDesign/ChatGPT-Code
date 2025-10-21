@@ -135,6 +135,9 @@ window.nsInitializeConverter({
 
         const applyPreset = (value) => {
             presetSelect.value = value;
+            Array.from(presetSelect.options).forEach(option => {
+                option.selected = option.value === value;
+            });
             if (value === 'custom') {
                 defaults.forEach((defaultValue, field) => setValue(field, defaultValue));
                 lockFields(false);

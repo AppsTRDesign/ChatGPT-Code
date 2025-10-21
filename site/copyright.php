@@ -1,3 +1,3 @@
 <?php
-header('Location: /telif-haklari.php', true, 301);
+header('Location: /copyright', true, 301);
 exit;

@@ -1,3 +1,3 @@
 <?php
-header('Location: /iletisim.php', true, 301);
+header('Location: /contact', true, 301);
 exit;

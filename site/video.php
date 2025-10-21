@@ -1,3 +1,3 @@
 <?php
-header('Location: /video-donusturucu.php', true, 301);
+header('Location: /video-convert', true, 301);
 exit;
