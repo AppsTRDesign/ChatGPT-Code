@@ -257,7 +257,18 @@ Dropzone.autoDiscover = false;
         }
 
         function collectOptions() {
+            const disabled = [];
+            formEl.querySelectorAll(':disabled').forEach((element) => {
+                disabled.push(element);
+                element.disabled = false;
+            });
+
             const data = new FormData(formEl);
+
+            disabled.forEach((element) => {
+                element.disabled = true;
+            });
+
             const options = {};
             for (const [key, value] of data.entries()) {
                 options[key] = value;

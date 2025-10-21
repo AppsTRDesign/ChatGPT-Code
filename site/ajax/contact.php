@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../includes/functions.php';
+
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -23,13 +25,21 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 $body = "Ad: {$name}\nE-posta: {$email}\nKonu: {$subject}\n\nMesaj:\n{$message}";
-$headers = [
-    'From: ' . $email,
-    'Reply-To: ' . $email,
-    'Content-Type: text/plain; charset=UTF-8'
-];
+$recipient = ns_config('mail.to', ns_config('site.noreply_email', 'noreply@localhost.localdomain'));
+$fromHeader = ns_config('mail.from', ns_config('site.noreply_email', 'noreply@localhost.localdomain'));
+$extraHeaders = ns_config('mail.headers', []);
+if (!is_array($extraHeaders)) {
+    $extraHeaders = $extraHeaders ? [$extraHeaders] : [];
+}
 
-$sent = mail('destek@noasoft.org', 'NoaSoft Converter İletişim: ' . $subject, $body, implode("\r\n", $headers));
+$headers = array_merge([
+    'From: ' . $fromHeader,
+    'Reply-To: ' . $email,
+], $extraHeaders);
+
+$subjectPrefix = ns_config('site.name', 'NoaSoft Converter') . ' İletişim: ';
+
+$sent = mail($recipient, $subjectPrefix . $subject, $body, implode("\r\n", $headers));
 
 if ($sent) {
     echo json_encode(['success' => true, 'message' => 'Mesajınız başarıyla gönderildi.']);

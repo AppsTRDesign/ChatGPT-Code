@@ -1,15 +1,19 @@
 <?php
+require_once __DIR__ . '/includes/functions.php';
+
 $title = 'NoaSoft Converter | Ana Sayfa';
 $active = 'home';
+$maxFiles = (int) ns_config('upload.max_files', 5);
+$maxSize = (int) ns_config('upload.max_size_mb', 2048);
 include __DIR__ . '/includes/header.php';
 ?>
 <section class="ns-hero">
     <h1>Ses, Video ve Görseller için <span>Tek Nokta</span></h1>
     <p>ffmpeg 4.2.10 destekli güçlü altyapımız ile medya dosyalarınızı saniyeler içinde dönüştürün.</p>
     <div class="ns-cta">
-        <a href="/audio.php" class="ns-btn ns-btn-primary">Ses Dönüştür</a>
-        <a href="/video.php" class="ns-btn">Video Dönüştür</a>
-        <a href="/image.php" class="ns-btn">Görsel Dönüştür</a>
+        <a href="<?= htmlspecialchars(ns_link('audio', '/ses-donusturucu.php')) ?>" class="ns-btn ns-btn-primary">Ses Dönüştür</a>
+        <a href="<?= htmlspecialchars(ns_link('video', '/video-donusturucu.php')) ?>" class="ns-btn">Video Dönüştür</a>
+        <a href="<?= htmlspecialchars(ns_link('image', '/gorsel-donusturucu.php')) ?>" class="ns-btn">Görsel Dönüştür</a>
     </div>
 </section>
 <section class="ns-cards">
@@ -23,7 +27,7 @@ include __DIR__ . '/includes/header.php';
     </article>
     <article class="ns-card">
         <h3>Güvenli & Hızlı</h3>
-        <p>5 dosyaya kadar sürükle-bırak yükleme, 2048 MB sınır kontrolü, gerçek zamanlı ilerleme takibi ve güvenli indirme.</p>
+        <p><?= $maxFiles ?> dosyaya kadar sürükle-bırak yükleme, <?= $maxSize ?> MB sınır kontrolü, gerçek zamanlı ilerleme takibi ve güvenli indirme.</p>
     </article>
 </section>
 <section class="ns-tool" style="margin-top:40px;">
@@ -41,7 +45,7 @@ include __DIR__ . '/includes/header.php';
     <ul class="ns-list">
         <li>Çoklu yüklemelerde her dosya için ayrı ilerleme çubuğu</li>
         <li>Sosyal medya presetleri (YouTube, Instagram, TikTok, Facebook ve daha fazlası)</li>
-        <li>2048 MB'a kadar yüksek boyutlu dosya desteği</li>
+        <li><?= $maxSize ?> MB'a kadar yüksek boyutlu dosya desteği</li>
         <li>SweetAlert2 tabanlı modern uyarı sistemi</li>
         <li>AJAX altyapısı ile sayfa yenilemeden dönüşüm</li>
     </ul>

@@ -83,6 +83,11 @@ body{
   color:var(--text);
   min-width:0;
 }
+.ns-field .ns-locked,
+.ns-field .ns-locked:disabled{
+  opacity:.7;
+  cursor:not-allowed;
+}
 .ns-field input:disabled, .ns-field select:disabled, .ns-field textarea:disabled{opacity:.7;cursor:not-allowed}
 
 .ns-uploader{margin-top:20px}

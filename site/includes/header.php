@@ -1,5 +1,18 @@
 <?php
+require_once __DIR__ . '/functions.php';
+
 $active = $active ?? '';
+$brand = ns_config('site.brand', ns_config('site.name', 'NoaSoft Converter'));
+$brandHtml = ns_config('site.brand_html');
+$navItems = [
+    'home' => ['label' => 'Ana Sayfa', 'href' => ns_link('home', '/')],
+    'audio' => ['label' => 'Ses Dönüştürücü', 'href' => ns_link('audio', '/ses-donusturucu.php')],
+    'video' => ['label' => 'Video Dönüştürücü', 'href' => ns_link('video', '/video-donusturucu.php')],
+    'image' => ['label' => 'Görsel Dönüştürücü', 'href' => ns_link('image', '/gorsel-donusturucu.php')],
+    'faq' => ['label' => 'SSS', 'href' => ns_link('faq', '/sss.php')],
+    'contact' => ['label' => 'İletişim', 'href' => ns_link('contact', '/iletisim.php')],
+    'copyright' => ['label' => 'Telif', 'href' => ns_link('copyright', '/telif-haklari.php')],
+];
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -17,17 +30,13 @@ $active = $active ?? '';
 <header class="ns-header">
     <div class="ns-container">
         <div class="ns-brand">
-            <a class="ns-logo" href="/index.php">Noa<span>Soft</span> Converter</a>
+            <a class="ns-logo" href="<?= htmlspecialchars($navItems['home']['href']) ?>"><?= $brandHtml ? $brandHtml : htmlspecialchars($brand) ?></a>
         </div>
         <button class="ns-nav-toggle" id="navToggle">Menü</button>
         <nav class="ns-nav" id="navMenu">
-            <a href="/index.php" class="<?= $active === 'home' ? 'active' : '' ?>">Ana Sayfa</a>
-            <a href="/audio.php" class="<?= $active === 'audio' ? 'active' : '' ?>">Ses Dönüştürücü</a>
-            <a href="/video.php" class="<?= $active === 'video' ? 'active' : '' ?>">Video Dönüştürücü</a>
-            <a href="/image.php" class="<?= $active === 'image' ? 'active' : '' ?>">Görsel Dönüştürücü</a>
-            <a href="/faq.php" class="<?= $active === 'faq' ? 'active' : '' ?>">SSS</a>
-            <a href="/contact.php" class="<?= $active === 'contact' ? 'active' : '' ?>">İletişim</a>
-            <a href="/copyright.php" class="<?= $active === 'copyright' ? 'active' : '' ?>">Telif</a>
+            <?php foreach ($navItems as $key => $item): ?>
+                <a href="<?= htmlspecialchars($item['href']) ?>" class="<?= $active === $key ? 'active' : '' ?>"><?= htmlspecialchars($item['label']) ?></a>
+            <?php endforeach; ?>
         </nav>
     </div>
 </header>

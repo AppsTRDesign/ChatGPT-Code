@@ -45,12 +45,16 @@ if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 }
 
 $fileInfo = $_FILES['file'];
-if ($fileInfo['size'] > 2048 * 1024 * 1024) {
+$maxSizeMb = (int) ns_config('upload.max_size_mb', 2048);
+if ($maxSizeMb < 1) {
+    $maxSizeMb = 1;
+}
+if ($fileInfo['size'] > $maxSizeMb * 1024 * 1024) {
     update_job($jobId, [
         'status' => 'error',
-        'message' => '2048 MB sınırı aşıldı.'
+        'message' => sprintf('%d MB sınırı aşıldı.', $maxSizeMb)
     ]);
-    echo json_encode(['success' => false, 'message' => '2048 MB sınırı aşıldı.']);
+    echo json_encode(['success' => false, 'message' => sprintf('%d MB sınırı aşıldı.', $maxSizeMb)]);
     exit;
 }
 

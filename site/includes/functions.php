@@ -1,9 +1,59 @@
 <?php
 
-define('NS_STORAGE', __DIR__ . '/../storage');
-define('NS_UPLOAD_PATH', NS_STORAGE . '/uploads');
-define('NS_OUTPUT_PATH', NS_STORAGE . '/output');
-define('NS_JOB_PATH', NS_STORAGE . '/jobs');
+if (!isset($GLOBALS['nsConfig']) || !is_array($GLOBALS['nsConfig'])) {
+    $GLOBALS['nsConfig'] = require __DIR__ . '/../config.php';
+}
+
+if (!function_exists('ns_config')) {
+    function ns_config(string $path = '', $default = null)
+    {
+        $config = $GLOBALS['nsConfig'] ?? [];
+        if ($path === '' || $path === null) {
+            return $config;
+        }
+        $segments = explode('.', $path);
+        $value = $config;
+        foreach ($segments as $segment) {
+            if (is_array($value) && array_key_exists($segment, $value)) {
+                $value = $value[$segment];
+            } else {
+                return $default;
+            }
+        }
+        return $value;
+    }
+}
+
+if (!function_exists('ns_link')) {
+    function ns_link(string $key, ?string $default = null): string
+    {
+        $links = ns_config('site.links', []);
+        $href = $links[$key] ?? $default ?? '#';
+        if (!$href) {
+            return '#';
+        }
+        $baseUrl = rtrim((string) ns_config('site.base_url', ''), '/');
+        if ($baseUrl !== '' && str_starts_with($href, '/')) {
+            return $baseUrl . $href;
+        }
+        return $href;
+    }
+}
+
+$storagePath = ns_config('paths.storage', __DIR__ . '/../storage');
+
+if (!defined('NS_STORAGE')) {
+    define('NS_STORAGE', $storagePath);
+}
+if (!defined('NS_UPLOAD_PATH')) {
+    define('NS_UPLOAD_PATH', NS_STORAGE . '/uploads');
+}
+if (!defined('NS_OUTPUT_PATH')) {
+    define('NS_OUTPUT_PATH', NS_STORAGE . '/output');
+}
+if (!defined('NS_JOB_PATH')) {
+    define('NS_JOB_PATH', NS_STORAGE . '/jobs');
+}
 
 function ensure_directories(): void {
     foreach ([NS_STORAGE, NS_UPLOAD_PATH, NS_OUTPUT_PATH, NS_JOB_PATH] as $dir) {
