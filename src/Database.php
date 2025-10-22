@@ -142,6 +142,14 @@ class Database
                 action TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )' . $tableSuffix,
+            'CREATE TABLE IF NOT EXISTS users (
+                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(150) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) DEFAULT "admin",
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )' . $tableSuffix,
             'CREATE TABLE IF NOT EXISTS settings (
                 id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
                 company_name VARCHAR(255) NULL,
@@ -158,6 +166,19 @@ class Database
         }
 
         $pdo->exec('INSERT INTO settings (id, company_name, invoice_template) VALUES (1, "Yeni Firma", "standart") ON DUPLICATE KEY UPDATE id = id');
+
+        $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE username = :username');
+        $stmt->execute([':username' => 'admin']);
+        $exists = (int)$stmt->fetchColumn() > 0;
+        if (!$exists) {
+            $hash = password_hash('admin', PASSWORD_BCRYPT);
+            $insert = $pdo->prepare('INSERT INTO users (username, password, role) VALUES (:username, :password, :role)');
+            $insert->execute([
+                ':username' => 'admin',
+                ':password' => $hash,
+                ':role' => 'super_admin',
+            ]);
+        }
     }
 
     public static function exportSql(): string
@@ -173,6 +194,7 @@ class Database
             'bank_accounts',
             'cash_flows',
             'activity_logs',
+            'users',
             'settings',
         ];
 

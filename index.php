@@ -19,12 +19,18 @@ session_start();
 
 $pdo = Database::connection();
 
-if (!isset($_SESSION['user'])) {
-    $_SESSION['user'] = 'admin';
-}
+$path = trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH), '/');
 
 $module = $_GET['module'] ?? 'dashboard';
 $action = $_GET['action'] ?? 'list';
+
+if ($path === 'admin/login') {
+    $module = 'admin';
+    $action = 'login';
+} elseif ($path === 'admin/logout') {
+    $module = 'admin';
+    $action = 'logout';
+}
 
 function render(string $template, array $data = []): void
 {
@@ -119,7 +125,51 @@ function exportAs(string $type, string $filename, array $headers, array $rows): 
     }
 }
 
+$isAuthRoute = $module === 'admin' && in_array($action, ['login', 'logout'], true);
+
+if (!isset($_SESSION['user']) && !$isAuthRoute) {
+    redirect('admin/login/');
+}
+
 switch ($module) {
+    case 'admin':
+        if ($action === 'login') {
+            $error = null;
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $payload = sanitize($_POST);
+                $stmt = $pdo->prepare('SELECT id, username, password FROM users WHERE username = :username LIMIT 1');
+                $stmt->execute([':username' => $payload['username'] ?? '']);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                $isValid = $user && isset($payload['password']) && password_verify((string)$payload['password'], $user['password']);
+                if ($isValid) {
+                    session_regenerate_id(true);
+                    $_SESSION['user'] = $user['username'];
+                    $_SESSION['user_id'] = (int)$user['id'];
+                    Helpers::log($user['username'], 'Sisteme giriş yaptı');
+                    redirect('index.php');
+                } else {
+                    $error = 'Kullanıcı adı veya şifre hatalı.';
+                }
+            }
+            include __DIR__ . '/templates/login.php';
+            break;
+        }
+
+        if ($action === 'logout') {
+            if (isset($_SESSION['user'])) {
+                Helpers::log($_SESSION['user'], 'Sistemden çıkış yaptı');
+            }
+            $_SESSION = [];
+            if (ini_get('session.use_cookies')) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            }
+            session_destroy();
+            redirect('admin/login/');
+        }
+
+        redirect('index.php');
+        break;
     case 'caris':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $payload = sanitize($_POST);

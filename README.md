@@ -9,7 +9,7 @@ Bu depo, PHP 8 ile uyumlu, Plesk/AlmaLinux 8 ortamlarında kolaylıkla yayınlan
 - **Ödeme & Tahsilat:** Tahsilat/tediye işlemleri, vade takibi.
 - **Raporlama:** Satış, alış, kâr/zarar, stok ve cari özetleri; çoklu formatta dışa aktarma.
 - **Finansal Yönetim:** Banka hesapları, kasa hareketleri ve nakit akışı.
-- **Kullanıcı Logları:** Tüm işlemlerin denetim izi.
+- **Kullanıcı Logları ve Giriş:** Yönetici oturum açma, işlem kayıtları ve denetim izi.
 - **Ayarlar:** Firma bilgileri, fatura şablonu tercihi, tek tıkla veritabanı yedeği.
 
 ## Gereksinimler
@@ -26,9 +26,9 @@ Bu depo, PHP 8 ile uyumlu, Plesk/AlmaLinux 8 ortamlarında kolaylıkla yayınlan
    ```bash
    php -S 0.0.0.0:8000 -t .
    ```
-6. Tarayıcıdan `http://localhost:8000` adresine giderek uygulamayı kullanmaya başlayın.
+6. Tarayıcıdan `http://localhost:8000/admin/login` adresine giderek yönetici giriş ekranına ulaşın ve varsayılan `admin` / `admin` bilgileriyle oturum açın. (Giriş yaptıktan sonra şifrenizi değiştirmeniz tavsiye edilir.)
 
-İlk girişte varsayılan yönetici oturumu otomatik açılır. MySQL veritabanı bağlantısı sağlandığında tablolar ve varsayılan ayarlar (firma adı vb.) otomatik oluşturulur.
+İlk kurulumda MySQL veritabanı bağlantısı sağlandığında tüm tablolar ile varsayılan yönetici hesabı ve ayarlar otomatik oluşturulur.
 
 ## Dosya Yapısı
 - `index.php` – Tüm trafiği yöneten ön denetleyici.
