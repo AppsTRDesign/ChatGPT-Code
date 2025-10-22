@@ -4,6 +4,25 @@ declare(strict_types=1);
 
 session_start();
 
+$vendorAutoload = __DIR__ . '/../vendor/autoload.php';
+if (file_exists($vendorAutoload)) {
+    require_once $vendorAutoload;
+}
+
+spl_autoload_register(static function (string $class): void {
+    $prefix = 'App\\';
+    if (strncmp($class, $prefix, strlen($prefix)) !== 0) {
+        return;
+    }
+
+    $relative = substr($class, strlen($prefix));
+    $path = __DIR__ . '/../includes/' . str_replace('\\', DIRECTORY_SEPARATOR, $relative) . '.php';
+
+    if (file_exists($path)) {
+        require_once $path;
+    }
+});
+
 const APP_NAME = 'NoaSoft QR Menu';
 const BASE_URL = 'https://qrmenu.noasoft.org';
 
