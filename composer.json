@@ -1,0 +1,14 @@
+{
+    "name": "noasoft/qrmenu",
+    "description": "QR kod üretimi ve API yönetimi platformu",
+    "type": "project",
+    "require": {
+        "php": "^8.0",
+        "chillerlan/php-qrcode": "^4.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "includes/"
+        }
+    }
+}

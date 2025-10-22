@@ -1,0 +1,101 @@
+:root {
+    --primary: #0d6efd;
+    --primary-dark: #0a3d62;
+    --background: #0b132b;
+    --secondary: #1c2541;
+    --accent: #3a506b;
+    --text-light: #f1f6f9;
+}
+
+body {
+    background: linear-gradient(160deg, var(--background), #050814 80%);
+    color: var(--text-light);
+    font-family: 'Poppins', sans-serif;
+    min-height: 100vh;
+}
+
+a {
+    color: var(--primary);
+}
+
+a:hover {
+    color: var(--text-light);
+}
+
+.navbar, .sidebar {
+    background-color: rgba(12, 19, 43, 0.95) !important;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 32px rgba(13, 110, 253, 0.18);
+}
+
+.card {
+    background: rgba(29, 38, 64, 0.85);
+    border: 1px solid rgba(13, 110, 253, 0.25);
+    border-radius: 1.25rem;
+    box-shadow: 0 10px 28px rgba(5, 8, 20, 0.55);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: transparent;
+    color: var(--text-light);
+}
+
+.btn-primary,
+.btn-outline-primary:hover {
+    background: linear-gradient(120deg, var(--primary), #4098ff);
+    border: none;
+    box-shadow: 0 8px 24px rgba(64, 152, 255, 0.35);
+}
+
+.btn-outline-primary {
+    border-color: var(--primary);
+    color: var(--text-light);
+}
+
+.table {
+    color: var(--text-light);
+}
+
+.table thead th {
+    background-color: rgba(13, 110, 253, 0.15);
+    border-bottom: 1px solid rgba(13, 110, 253, 0.25);
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+    background: rgba(29, 38, 64, 0.6);
+}
+
+.form-control,
+.form-select {
+    background: rgba(17, 24, 43, 0.85);
+    border: 1px solid rgba(13, 110, 253, 0.4);
+    color: var(--text-light);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    background: rgba(17, 24, 43, 1);
+}
+
+.dropzone {
+    border: 2px dashed rgba(13, 110, 253, 0.6);
+    background: rgba(12, 19, 43, 0.75);
+    color: var(--text-light);
+    border-radius: 1rem;
+}
+
+footer {
+    background: rgba(12, 19, 43, 0.7);
+    padding: 2rem 0;
+    margin-top: 4rem;
+    text-align: center;
+}
+
+@media (max-width: 992px) {
+    .sidebar {
+        display: none;
+    }
+}
