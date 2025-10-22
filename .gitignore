@@ -1,0 +1,22 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE folders
+.idea/
+.vscode/
+
+# Environment configuration
+.env
+.env.local
+.env.*
+
+# Cache and upload directories
+cache/*
+!cache/.gitkeep
+uploads/*
+!uploads/.gitkeep
+
+# Logs and temporary files
+*.log
+*.cache.php
