@@ -1,0 +1,7 @@
+{
+    "tables": [
+        {"id": "tbl_1", "name": "Masa 1", "qr_token": "masa1token"},
+        {"id": "tbl_2", "name": "Masa 2", "qr_token": "masa2token"},
+        {"id": "tbl_3", "name": "Bahçe 1", "qr_token": "bahce1token"}
+    ]
+}

@@ -1,0 +1,57 @@
+{
+    "branding": {
+        "logo": "https://images.unsplash.com/photo-1600891965050-2d1b5fdc43fc",
+        "banner": "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
+        "message": "Hoş geldiniz! QR menümüz ile temassız ve hızlı sipariş deneyimi yaşayın."
+    },
+    "categories": [
+        {
+            "id": "cat_starters",
+            "name": "Başlangıçlar",
+            "description": "Lezzetli başlangıç seçenekleri",
+            "position": 0,
+            "products": [
+                {
+                    "id": "prd_soup",
+                    "name": "Günün Çorbası",
+                    "description": "Şefimizin hazırladığı günlük çorba",
+                    "price": 70,
+                    "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c",
+                    "position": 0
+                },
+                {
+                    "id": "prd_salad",
+                    "name": "Akdeniz Salata",
+                    "description": "Zeytinyağlı ve taze yeşillikler ile",
+                    "price": 95,
+                    "image": "https://images.unsplash.com/photo-1482049016688-2d3e1b311543",
+                    "position": 1
+                }
+            ]
+        },
+        {
+            "id": "cat_mains",
+            "name": "Ana Yemekler",
+            "description": "Şefin özel tarifleri",
+            "position": 1,
+            "products": [
+                {
+                    "id": "prd_steak",
+                    "name": "Izgara Bonfile",
+                    "description": "Dana bonfile, ızgara sebze ve sos",
+                    "price": 240,
+                    "image": "https://images.unsplash.com/photo-1551183053-bf91a1d81141",
+                    "position": 0
+                },
+                {
+                    "id": "prd_pasta",
+                    "name": "Trüflü Makarna",
+                    "description": "Taze makarna, krema ve trüf yağı",
+                    "price": 185,
+                    "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e",
+                    "position": 1
+                }
+            ]
+        }
+    ]
+}
