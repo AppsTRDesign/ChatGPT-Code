@@ -11,6 +11,7 @@ Bu depo, PHP 8 ile uyumlu, Plesk/AlmaLinux 8 ortamlarında kolaylıkla yayınlan
 - **Finansal Yönetim:** Banka hesapları, kasa hareketleri ve nakit akışı.
 - **Kullanıcı Logları ve Giriş:** Yönetici oturum açma, işlem kayıtları ve denetim izi.
 - **Ayarlar:** Firma bilgileri, fatura şablonu tercihi, tek tıkla veritabanı yedeği.
+- **Anlık Uyarılar:** Tüm form işlemleri AJAX üzerinden yürütülür ve başarı/hata mesajları SweetAlert2 ile gösterilir.
 
 ## Gereksinimler
 - PHP 8.0 veya üzeri (PDO MySQL uzantısı etkin).
@@ -34,11 +35,16 @@ Bu depo, PHP 8 ile uyumlu, Plesk/AlmaLinux 8 ortamlarında kolaylıkla yayınlan
 - `index.php` – Tüm trafiği yöneten ön denetleyici.
 - `src/` – Veritabanı ve yardımcı sınıflar.
 - `templates/` – Modüler sayfa şablonları.
-- `assets/` – Siyah/beyaz temalı stil dosyaları.
+- `assets/` – Siyah/beyaz temalı stil (`style.css`) ve SweetAlert2 destekli etkileşimleri yöneten `app.js`.
 - `config.php` – `muhasebe.noasoft.org` alan adına uygun varsayılan ayarları barındırır, MySQL bilgilerinizle güncelleyin.
 
 ## Dışa Aktarım Notları
 PDF, Excel ve Word seçenekleri temel raporlama için hızla kullanılabilir çıktılar üretir. Daha gelişmiş şablon ihtiyacı olması durumunda, üçüncü parti PDF/Office kitaplıkları kolaylıkla entegre edilebilir.
+
+## AJAX & Bildirim Akışı
+- Tüm veri giriş ve silme formları `form[data-ajax="true"]` yapısı üzerinden `assets/app.js` tarafından yakalanır ve `fetch` ile arka uca gönderilir.
+- İşlemler tamamlandığında yanıt mesajları SweetAlert2 modalları ile kullanıcıya aktarılır; yanıt bir yönlendirme içeriyorsa otomatik olarak ilgili sayfaya geçilir.
+- Silme aksiyonları için SweetAlert2 tabanlı onay diyaloğu devreye girer. Ek onay metinleri için ilgili butonlara `data-confirm-title`/`data-confirm-text` nitelikleri ekleyebilirsiniz.
 
 ## Güvenlik ve Geliştirme İpuçları
 - Üretime almadan önce oturum yönetimi ve kullanıcı yetkilendirmesini genişletin.

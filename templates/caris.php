@@ -7,7 +7,7 @@
             <a href="index.php?module=caris&action=export&type=word">Word İndir</a>
         </div>
     </div>
-    <form method="post" action="index.php?module=caris&action=<?php echo $cari ? 'update&id=' . $cari['id'] : 'create'; ?>">
+    <form method="post" data-ajax="true" action="index.php?module=caris&action=<?php echo $cari ? 'update&id=' . $cari['id'] : 'create'; ?>">
         <div class="grid two">
             <div>
                 <label>Ad</label>
@@ -70,7 +70,7 @@
                     <td>
                         <div class="table-actions">
                             <a href="index.php?module=caris&action=edit&id=<?php echo $row['id']; ?>">Düzenle</a>
-                            <a href="index.php?module=caris&action=delete&id=<?php echo $row['id']; ?>" onclick="return confirm('Cari silinsin mi?');">Sil</a>
+                            <button type="button" class="link-button delete-button" data-delete-url="index.php?module=caris&amp;action=delete&amp;id=<?php echo $row['id']; ?>" data-id="<?php echo $row['id']; ?>">Sil</button>
                         </div>
                     </td>
                 </tr>

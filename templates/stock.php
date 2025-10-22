@@ -7,7 +7,7 @@
             <a href="index.php?module=stock&action=export&type=word">Word İndir</a>
         </div>
     </div>
-    <form method="post" action="index.php?module=stock&action=<?php echo $item ? 'update&id=' . $item['id'] : 'create'; ?>">
+    <form method="post" data-ajax="true" action="index.php?module=stock&action=<?php echo $item ? 'update&id=' . $item['id'] : 'create'; ?>">
         <div class="grid three">
             <div>
                 <label>SKU</label>
@@ -71,7 +71,7 @@
                     <td>
                         <div class="table-actions">
                             <a href="index.php?module=stock&action=edit&id=<?php echo $row['id']; ?>">Düzenle</a>
-                            <a href="index.php?module=stock&action=delete&id=<?php echo $row['id']; ?>" onclick="return confirm('Stok silinsin mi?');">Sil</a>
+                            <button type="button" class="link-button delete-button" data-delete-url="index.php?module=stock&amp;action=delete&amp;id=<?php echo $row['id']; ?>" data-id="<?php echo $row['id']; ?>">Sil</button>
                         </div>
                     </td>
                 </tr>

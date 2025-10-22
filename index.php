@@ -125,6 +125,53 @@ function exportAs(string $type, string $filename, array $headers, array $rows): 
     }
 }
 
+function isAjaxRequest(): bool
+{
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+        return true;
+    }
+
+    return str_contains(strtolower($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+}
+
+function jsonResponse(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE);
+    if ($encoded === false) {
+        $encoded = json_encode([
+            'success' => false,
+            'message' => 'Beklenmeyen bir hata oluştu.'
+        ], JSON_UNESCAPED_UNICODE) ?: '{}';
+    }
+    echo $encoded;
+    exit;
+}
+
+function respondSuccess(string $message, ?string $redirect = null, array $extra = []): void
+{
+    if (isAjaxRequest()) {
+        $payload = array_merge(['success' => true, 'message' => $message], $extra);
+        if ($redirect !== null) {
+            $payload['redirect'] = $redirect;
+        }
+        jsonResponse($payload);
+    }
+
+    if ($redirect !== null) {
+        redirect($redirect);
+    }
+}
+
+function respondError(string $message, int $status = 400, array $extra = []): void
+{
+    if (isAjaxRequest()) {
+        $payload = array_merge(['success' => false, 'message' => $message], $extra);
+        jsonResponse($payload, $status);
+    }
+}
+
 $isAuthRoute = $module === 'admin' && in_array($action, ['login', 'logout'], true);
 
 if (!isset($_SESSION['user']) && !$isAuthRoute) {
@@ -135,6 +182,7 @@ switch ($module) {
     case 'admin':
         if ($action === 'login') {
             $error = null;
+            $payload = [];
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $payload = sanitize($_POST);
                 $stmt = $pdo->prepare('SELECT id, username, password FROM users WHERE username = :username LIMIT 1');
@@ -146,9 +194,10 @@ switch ($module) {
                     $_SESSION['user'] = $user['username'];
                     $_SESSION['user_id'] = (int)$user['id'];
                     Helpers::log($user['username'], 'Sisteme giriş yaptı');
-                    redirect('index.php');
+                    respondSuccess('Giriş başarılı.', 'index.php');
                 } else {
                     $error = 'Kullanıcı adı veya şifre hatalı.';
+                    respondError($error);
                 }
             }
             include __DIR__ . '/templates/login.php';
@@ -172,6 +221,17 @@ switch ($module) {
         break;
     case 'caris':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if ($action === 'delete') {
+                $id = $_GET['id'] ?? $_POST['id'] ?? null;
+                if ($id !== null) {
+                    $stmt = $pdo->prepare('DELETE FROM caris WHERE id=:id');
+                    $stmt->execute([':id' => $id]);
+                    Helpers::log($_SESSION['user'], 'Cari silindi #' . $id);
+                    respondSuccess('Cari kaydı silindi.', 'index.php?module=caris');
+                }
+                respondError('Cari kaydı bulunamadı.');
+                respondSuccess('Cari kaydı bulunamadı.', 'index.php?module=caris');
+            }
             $payload = sanitize($_POST);
             if ($action === 'create') {
                 $stmt = $pdo->prepare('INSERT INTO caris (name, type, email, phone, address, group_name) VALUES (:name, :type, :email, :phone, :address, :group_name)');
@@ -184,26 +244,25 @@ switch ($module) {
                     ':group_name' => $payload['group_name'] ?? null,
                 ]);
                 Helpers::log($_SESSION['user'], 'Yeni cari oluşturuldu: ' . $payload['name']);
-            } elseif ($action === 'update' && isset($_GET['id'])) {
-                $stmt = $pdo->prepare('UPDATE caris SET name=:name, type=:type, email=:email, phone=:phone, address=:address, group_name=:group_name, updated_at=CURRENT_TIMESTAMP WHERE id=:id');
-                $stmt->execute([
-                    ':name' => $payload['name'],
-                    ':type' => $payload['type'],
-                    ':email' => $payload['email'] ?? null,
-                    ':phone' => $payload['phone'] ?? null,
-                    ':address' => $payload['address'] ?? null,
-                    ':group_name' => $payload['group_name'] ?? null,
-                    ':id' => $_GET['id'],
-                ]);
-                Helpers::log($_SESSION['user'], 'Cari güncellendi: ' . $payload['name']);
+                respondSuccess('Yeni cari başarıyla oluşturuldu.', 'index.php?module=caris');
+            } elseif ($action === 'update') {
+                if (isset($_GET['id'])) {
+                    $stmt = $pdo->prepare('UPDATE caris SET name=:name, type=:type, email=:email, phone=:phone, address=:address, group_name=:group_name, updated_at=CURRENT_TIMESTAMP WHERE id=:id');
+                    $stmt->execute([
+                        ':name' => $payload['name'],
+                        ':type' => $payload['type'],
+                        ':email' => $payload['email'] ?? null,
+                        ':phone' => $payload['phone'] ?? null,
+                        ':address' => $payload['address'] ?? null,
+                        ':group_name' => $payload['group_name'] ?? null,
+                        ':id' => $_GET['id'],
+                    ]);
+                    Helpers::log($_SESSION['user'], 'Cari güncellendi: ' . $payload['name']);
+                    respondSuccess('Cari bilgileri güncellendi.', 'index.php?module=caris');
+                }
+                respondError('Cari güncelleme için geçerli bir kayıt bulunamadı.');
+                respondSuccess('Cari güncelleme için geçerli bir kayıt bulunamadı.', 'index.php?module=caris');
             }
-            redirect('index.php?module=caris');
-        }
-        if ($action === 'delete' && isset($_GET['id'])) {
-            $stmt = $pdo->prepare('DELETE FROM caris WHERE id=:id');
-            $stmt->execute([':id' => $_GET['id']]);
-            Helpers::log($_SESSION['user'], 'Cari silindi #' . $_GET['id']);
-            redirect('index.php?module=caris');
         }
         if ($action === 'export') {
             $type = $_GET['type'] ?? 'excel';
@@ -221,6 +280,17 @@ switch ($module) {
         break;
     case 'stock':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if ($action === 'delete') {
+                $id = $_GET['id'] ?? $_POST['id'] ?? null;
+                if ($id !== null) {
+                    $stmt = $pdo->prepare('DELETE FROM stock_items WHERE id=:id');
+                    $stmt->execute([':id' => $id]);
+                    Helpers::log($_SESSION['user'], 'Stok silindi #' . $id);
+                    respondSuccess('Stok kaydı silindi.', 'index.php?module=stock');
+                }
+                respondError('Stok kaydı bulunamadı.');
+                respondSuccess('Stok kaydı bulunamadı.', 'index.php?module=stock');
+            }
             $payload = sanitize($_POST);
             if ($action === 'create') {
                 $stmt = $pdo->prepare('INSERT INTO stock_items (sku, name, category, description, quantity, critical_level, price) VALUES (:sku, :name, :category, :description, :quantity, :critical_level, :price)');
@@ -234,27 +304,26 @@ switch ($module) {
                     ':price' => (float)($payload['price'] ?? 0),
                 ]);
                 Helpers::log($_SESSION['user'], 'Stok eklendi: ' . $payload['name']);
-            } elseif ($action === 'update' && isset($_GET['id'])) {
-                $stmt = $pdo->prepare('UPDATE stock_items SET sku=:sku, name=:name, category=:category, description=:description, quantity=:quantity, critical_level=:critical_level, price=:price, updated_at=CURRENT_TIMESTAMP WHERE id=:id');
-                $stmt->execute([
-                    ':sku' => $payload['sku'] ?? null,
-                    ':name' => $payload['name'],
-                    ':category' => $payload['category'] ?? null,
-                    ':description' => $payload['description'] ?? null,
-                    ':quantity' => (float)($payload['quantity'] ?? 0),
-                    ':critical_level' => (float)($payload['critical_level'] ?? 0),
-                    ':price' => (float)($payload['price'] ?? 0),
-                    ':id' => $_GET['id'],
-                ]);
-                Helpers::log($_SESSION['user'], 'Stok güncellendi #' . $_GET['id']);
+                respondSuccess('Stok kartı oluşturuldu.', 'index.php?module=stock');
+            } elseif ($action === 'update') {
+                if (isset($_GET['id'])) {
+                    $stmt = $pdo->prepare('UPDATE stock_items SET sku=:sku, name=:name, category=:category, description=:description, quantity=:quantity, critical_level=:critical_level, price=:price, updated_at=CURRENT_TIMESTAMP WHERE id=:id');
+                    $stmt->execute([
+                        ':sku' => $payload['sku'] ?? null,
+                        ':name' => $payload['name'],
+                        ':category' => $payload['category'] ?? null,
+                        ':description' => $payload['description'] ?? null,
+                        ':quantity' => (float)($payload['quantity'] ?? 0),
+                        ':critical_level' => (float)($payload['critical_level'] ?? 0),
+                        ':price' => (float)($payload['price'] ?? 0),
+                        ':id' => $_GET['id'],
+                    ]);
+                    Helpers::log($_SESSION['user'], 'Stok güncellendi #' . $_GET['id']);
+                    respondSuccess('Stok kartı güncellendi.', 'index.php?module=stock');
+                }
+                respondError('Stok güncelleme için geçerli bir kayıt bulunamadı.');
+                respondSuccess('Stok güncelleme için geçerli bir kayıt bulunamadı.', 'index.php?module=stock');
             }
-            redirect('index.php?module=stock');
-        }
-        if ($action === 'delete' && isset($_GET['id'])) {
-            $stmt = $pdo->prepare('DELETE FROM stock_items WHERE id=:id');
-            $stmt->execute([':id' => $_GET['id']]);
-            Helpers::log($_SESSION['user'], 'Stok silindi #' . $_GET['id']);
-            redirect('index.php?module=stock');
         }
         if ($action === 'export') {
             $type = $_GET['type'] ?? 'excel';
@@ -276,50 +345,57 @@ switch ($module) {
             $invoices = $pdo->query('SELECT invoices.invoice_no, invoices.type, invoices.issue_date, invoices.due_date, invoices.total, invoices.currency, caris.name as cari_name FROM invoices JOIN caris ON caris.id = invoices.cari_id ORDER BY issue_date DESC')->fetchAll(PDO::FETCH_ASSOC);
             exportAs($type, 'faturalar', ['No', 'Tip', 'Tarih', 'Vade', 'Cari', 'Toplam', 'Para Birimi'], array_map(fn($i) => [$i['invoice_no'], $i['type'], $i['issue_date'], $i['due_date'], $i['cari_name'], $i['total'], $i['currency']], $invoices));
         }
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create') {
-            $payload = sanitize($_POST);
-            $pdo->beginTransaction();
-            $stmt = $pdo->prepare('INSERT INTO invoices (invoice_no, cari_id, type, issue_date, due_date, notes, total, currency) VALUES (:invoice_no, :cari_id, :type, :issue_date, :due_date, :notes, :total, :currency)');
-            $stmt->execute([
-                ':invoice_no' => $payload['invoice_no'],
-                ':cari_id' => (int)$payload['cari_id'],
-                ':type' => $payload['type'],
-                ':issue_date' => Helpers::parseDate($payload['issue_date']),
-                ':due_date' => Helpers::parseDate($payload['due_date']),
-                ':notes' => $payload['notes'] ?? null,
-                ':total' => (float)$payload['total'],
-                ':currency' => $payload['currency'] ?? 'TRY',
-            ]);
-            $invoiceId = (int)$pdo->lastInsertId();
-            if (!empty($payload['items'])) {
-                foreach ($payload['items'] as $item) {
-                    $item = sanitize($item);
-                    $stmtItem = $pdo->prepare('INSERT INTO invoice_items (invoice_id, stock_item_id, description, quantity, unit_price, vat_rate, total) VALUES (:invoice_id, :stock_item_id, :description, :quantity, :unit_price, :vat_rate, :total)');
-                    $stmtItem->execute([
-                        ':invoice_id' => $invoiceId,
-                        ':stock_item_id' => $item['stock_item_id'] ? (int)$item['stock_item_id'] : null,
-                        ':description' => $item['description'] ?? null,
-                        ':quantity' => (float)$item['quantity'],
-                        ':unit_price' => (float)$item['unit_price'],
-                        ':vat_rate' => (float)($item['vat_rate'] ?? 0),
-                        ':total' => (float)$item['total'],
-                    ]);
-                    if (!empty($item['stock_item_id'])) {
-                        $quantity = (float)$item['quantity'];
-                        $sign = $payload['type'] === 'satis' ? -1 : 1;
-                        $update = $pdo->prepare('UPDATE stock_items SET quantity = quantity + :diff WHERE id=:id');
-                        $update->execute([':diff' => $sign * $quantity, ':id' => (int)$item['stock_item_id']]);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if ($action === 'delete') {
+                $id = $_GET['id'] ?? $_POST['id'] ?? null;
+                if ($id !== null) {
+                    $pdo->prepare('DELETE FROM invoices WHERE id=:id')->execute([':id' => $id]);
+                    Helpers::log($_SESSION['user'], 'Fatura silindi #' . $id);
+                    respondSuccess('Fatura kaydı silindi.', 'index.php?module=invoices');
+                }
+                respondError('Fatura kaydı bulunamadı.');
+                respondSuccess('Fatura kaydı bulunamadı.', 'index.php?module=invoices');
+            }
+            if ($action === 'create') {
+                $payload = sanitize($_POST);
+                $pdo->beginTransaction();
+                $stmt = $pdo->prepare('INSERT INTO invoices (invoice_no, cari_id, type, issue_date, due_date, notes, total, currency) VALUES (:invoice_no, :cari_id, :type, :issue_date, :due_date, :notes, :total, :currency)');
+                $stmt->execute([
+                    ':invoice_no' => $payload['invoice_no'],
+                    ':cari_id' => (int)$payload['cari_id'],
+                    ':type' => $payload['type'],
+                    ':issue_date' => Helpers::parseDate($payload['issue_date']),
+                    ':due_date' => Helpers::parseDate($payload['due_date']),
+                    ':notes' => $payload['notes'] ?? null,
+                    ':total' => (float)$payload['total'],
+                    ':currency' => $payload['currency'] ?? 'TRY',
+                ]);
+                $invoiceId = (int)$pdo->lastInsertId();
+                if (!empty($payload['items'])) {
+                    foreach ($payload['items'] as $item) {
+                        $item = sanitize($item);
+                        $stmtItem = $pdo->prepare('INSERT INTO invoice_items (invoice_id, stock_item_id, description, quantity, unit_price, vat_rate, total) VALUES (:invoice_id, :stock_item_id, :description, :quantity, :unit_price, :vat_rate, :total)');
+                        $stmtItem->execute([
+                            ':invoice_id' => $invoiceId,
+                            ':stock_item_id' => $item['stock_item_id'] ? (int)$item['stock_item_id'] : null,
+                            ':description' => $item['description'] ?? null,
+                            ':quantity' => (float)$item['quantity'],
+                            ':unit_price' => (float)$item['unit_price'],
+                            ':vat_rate' => (float)($item['vat_rate'] ?? 0),
+                            ':total' => (float)$item['total'],
+                        ]);
+                        if (!empty($item['stock_item_id'])) {
+                            $quantity = (float)$item['quantity'];
+                            $sign = $payload['type'] === 'satis' ? -1 : 1;
+                            $update = $pdo->prepare('UPDATE stock_items SET quantity = quantity + :diff WHERE id=:id');
+                            $update->execute([':diff' => $sign * $quantity, ':id' => (int)$item['stock_item_id']]);
+                        }
                     }
                 }
+                $pdo->commit();
+                Helpers::log($_SESSION['user'], 'Fatura oluşturuldu #' . $invoiceId);
+                respondSuccess('Fatura kaydedildi.', 'index.php?module=invoices');
             }
-            $pdo->commit();
-            Helpers::log($_SESSION['user'], 'Fatura oluşturuldu #' . $invoiceId);
-            redirect('index.php?module=invoices');
-        }
-        if ($action === 'delete' && isset($_GET['id'])) {
-            $pdo->prepare('DELETE FROM invoices WHERE id=:id')->execute([':id' => $_GET['id']]);
-            Helpers::log($_SESSION['user'], 'Fatura silindi #' . $_GET['id']);
-            redirect('index.php?module=invoices');
         }
         $caris = $pdo->query('SELECT id, name FROM caris ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
         $stockItems = $pdo->query('SELECT id, name, price FROM stock_items ORDER BY name')->fetchAll(PDO::FETCH_ASSOC);
@@ -349,7 +425,7 @@ switch ($module) {
                 ':id' => (int)$payload['cari_id'],
             ]);
             Helpers::log($_SESSION['user'], 'Ödeme kaydedildi: ' . $payload['type']);
-            redirect('index.php?module=payments');
+            respondSuccess('Ödeme kaydı eklendi.', 'index.php?module=payments');
         }
         if ($action === 'export') {
             $type = $_GET['type'] ?? 'excel';
@@ -387,6 +463,7 @@ switch ($module) {
     case 'banks':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $payload = sanitize($_POST);
+            $message = null;
             if ($action === 'create') {
                 $stmt = $pdo->prepare('INSERT INTO bank_accounts (bank_name, iban, account_no, balance, currency) VALUES (:bank_name, :iban, :account_no, :balance, :currency)');
                 $stmt->execute([
@@ -397,6 +474,7 @@ switch ($module) {
                     ':currency' => $payload['currency'] ?? 'TRY',
                 ]);
                 Helpers::log($_SESSION['user'], 'Banka hesabı eklendi: ' . $payload['bank_name']);
+                $message = 'Banka hesabı eklendi.';
             } elseif ($action === 'flow') {
                 $stmt = $pdo->prepare('INSERT INTO cash_flows (bank_account_id, description, type, amount, flow_date) VALUES (:bank_account_id, :description, :type, :amount, :flow_date)');
                 $stmt->execute([
@@ -412,8 +490,11 @@ switch ($module) {
                     ':id' => (int)$payload['bank_account_id'],
                 ]);
                 Helpers::log($_SESSION['user'], 'Banka hareketi: ' . $payload['type']);
+                $message = 'Banka hareketi kaydedildi.';
             }
-            redirect('index.php?module=banks');
+            if ($message !== null) {
+                respondSuccess($message, 'index.php?module=banks');
+            }
         }
         $accounts = $pdo->query('SELECT * FROM bank_accounts ORDER BY bank_name')->fetchAll(PDO::FETCH_ASSOC);
         $flows = $pdo->query('SELECT cash_flows.*, bank_accounts.bank_name FROM cash_flows LEFT JOIN bank_accounts ON bank_accounts.id = cash_flows.bank_account_id ORDER BY flow_date DESC')->fetchAll(PDO::FETCH_ASSOC);
@@ -436,7 +517,7 @@ switch ($module) {
                 ':invoice_template' => $payload['invoice_template'] ?? 'standart',
             ]);
             Helpers::log($_SESSION['user'], 'Ayarlar güncellendi');
-            redirect('index.php?module=settings');
+            respondSuccess('Ayarlar güncellendi.', 'index.php?module=settings');
         }
         $settings = $pdo->query('SELECT * FROM settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
         render('settings', compact('settings'));

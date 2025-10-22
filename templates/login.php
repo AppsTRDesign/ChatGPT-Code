@@ -8,16 +8,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yönetici Girişi</title>
     <link rel="stylesheet" href="/assets/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+    <script src="/assets/app.js" defer></script>
 </head>
-<body class="auth-body">
+<body class="auth-body" data-error="<?php echo htmlspecialchars($error ?? '', ENT_QUOTES); ?>">
     <div class="auth-wrapper">
         <div class="auth-card">
             <h1>Yönetici Girişi</h1>
             <p class="auth-subtitle">Lütfen yönetici bilgilerinizi girin.</p>
-            <?php if (!empty($error)): ?>
-                <div class="auth-alert"><?php echo htmlspecialchars($error); ?></div>
-            <?php endif; ?>
-            <form method="post" class="auth-form">
+            <form method="post" data-ajax="true" class="auth-form">
                 <label for="username">Kullanıcı Adı</label>
                 <input type="text" id="username" name="username" autocomplete="username" placeholder="admin" value="<?php echo isset($payload['username']) ? htmlspecialchars($payload['username']) : ''; ?>" required>
 

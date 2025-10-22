@@ -7,7 +7,7 @@
             <a href="index.php?module=invoices&action=export&type=word">Word İndir</a>
         </div>
     </div>
-    <form method="post" action="index.php?module=invoices&action=create" id="invoice-form">
+    <form method="post" data-ajax="true" action="index.php?module=invoices&action=create" id="invoice-form">
         <div class="grid two">
             <div>
                 <label>Fatura No</label>
@@ -132,7 +132,7 @@
                     </td>
                     <td>
                         <div class="table-actions">
-                            <a href="index.php?module=invoices&action=delete&id=<?php echo $invoice['id']; ?>" onclick="return confirm('Fatura silinsin mi?');">Sil</a>
+                            <button type="button" class="link-button delete-button" data-delete-url="index.php?module=invoices&amp;action=delete&amp;id=<?php echo $invoice['id']; ?>" data-id="<?php echo $invoice['id']; ?>">Sil</button>
                         </div>
                     </td>
                 </tr>

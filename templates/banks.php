@@ -1,6 +1,6 @@
 <section class="section">
     <h2>Banka Hesapları</h2>
-    <form method="post" action="index.php?module=banks&action=create">
+    <form method="post" data-ajax="true" action="index.php?module=banks&action=create">
         <div class="grid three">
             <div>
                 <label>Banka Adı</label>
@@ -63,7 +63,7 @@
 
 <section class="section">
     <h2>Banka Hareketleri</h2>
-    <form method="post" action="index.php?module=banks&action=flow">
+    <form method="post" data-ajax="true" action="index.php?module=banks&action=flow">
         <div class="grid three">
             <div>
                 <label>Hesap</label>

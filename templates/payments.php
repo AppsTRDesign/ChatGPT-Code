@@ -7,7 +7,7 @@
             <a href="index.php?module=payments&action=export&type=word">Word İndir</a>
         </div>
     </div>
-    <form method="post" action="index.php?module=payments&action=create">
+    <form method="post" data-ajax="true" action="index.php?module=payments&action=create">
         <div class="grid two">
             <div>
                 <label>Cari</label>

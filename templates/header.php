@@ -8,6 +8,8 @@ $module = $_GET['module'] ?? 'dashboard';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Siyah&Beyaz Muhasebe</title>
     <link rel="stylesheet" href="assets/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+    <script src="assets/app.js" defer></script>
 </head>
 <body>
 <header>

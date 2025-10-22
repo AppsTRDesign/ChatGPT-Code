@@ -181,8 +181,29 @@ textarea {
 }
 
 .table-actions a,
+.table-actions button,
 .table-actions form {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+}
+
+.link-button {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+    text-decoration: none;
+}
+
+.link-button:hover,
+.link-button:focus {
+    text-decoration: underline;
+}
+
+.delete-button {
+    color: #ff8a8a;
 }
 
 .alert {

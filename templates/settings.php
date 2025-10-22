@@ -1,6 +1,6 @@
 <section class="section">
     <h2>Sistem Ayarları</h2>
-    <form method="post" action="index.php?module=settings&action=update">
+    <form method="post" data-ajax="true" action="index.php?module=settings&action=update">
         <div class="grid two">
             <div>
                 <label>Firma Adı</label>
