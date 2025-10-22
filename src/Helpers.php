@@ -21,8 +21,12 @@ class Helpers
         return number_format($amount, 2, ',', '.') . ' ' . $currency;
     }
 
-    public static function parseDate(string $date): string
+    public static function parseDate(?string $date): ?string
     {
+        if ($date === null || trim($date) === '') {
+            return null;
+        }
+
         $dt = new DateTime($date);
         return $dt->format('Y-m-d');
     }

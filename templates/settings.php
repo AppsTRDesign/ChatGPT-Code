@@ -27,6 +27,6 @@
 
 <section class="section">
     <h2>Veritabanı Yedekleme</h2>
-    <p>Tek tıkla mevcut SQLite veritabanı dosyasını indirerek yedekleyebilirsiniz.</p>
-    <a class="input-button" href="index.php?module=settings&action=backup">Veritabanını İndir</a>
+    <p>Tek tıkla MySQL verilerinizi içeren SQL dökümünü indirerek yedekleyebilirsiniz.</p>
+    <a class="input-button" href="index.php?module=settings&action=backup">Yedek SQL İndir</a>
 </section>

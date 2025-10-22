@@ -13,28 +13,29 @@ Bu depo, PHP 8 ile uyumlu, Plesk/AlmaLinux 8 ortamlarında kolaylıkla yayınlan
 - **Ayarlar:** Firma bilgileri, fatura şablonu tercihi, tek tıkla veritabanı yedeği.
 
 ## Gereksinimler
-- PHP 8.0 veya üzeri (PDO SQLite uzantısı etkin).
+- PHP 8.0 veya üzeri (PDO MySQL uzantısı etkin).
+- MySQL 5.7+/MariaDB 10.2+ veritabanı sunucusu.
 - Web sunucusu (Apache/Nginx) veya `php -S` yerleşik sunucusu.
-- Dosya sistemi üzerinde yazma izni (`data/` klasörü).
 
 ## Kurulum
 1. Depoyu sunucunuza kopyalayın veya `git clone` ile alın.
-2. Belgelenen dizinde PHP'nin `public/` klasörünü web kökü olacak şekilde yapılandırın.
-3. Gerekirse veritabanı klasörünün yazma iznini ayarlayın: `chmod -R 775 data`.
-4. Uygulamayı test etmek için yerel sunucuda çalıştırabilirsiniz:
+2. Plesk üzerinde `muhasebe.noasoft.org` alan adının web kökünü bu deponun ana dizinine (`index.php` ile aynı konum) yönlendirin.
+3. `config.php` dosyasındaki veritabanı kullanıcı adı, parola ve sunucu bilgilerini MySQL ortamınıza göre düzenleyin. (Dilerseniz ortam değişkenleri ile de sağlayabilirsiniz.)
+4. Uygulama ilk çalıştığında veritabanını otomatik oluşturur ve gerekli tabloları kurar.
+5. Uygulamayı yerelde test etmek isterseniz şu komutu çalıştırabilirsiniz:
    ```bash
-   php -S 0.0.0.0:8000 -t public
+   php -S 0.0.0.0:8000 -t .
    ```
-5. Tarayıcıdan `http://localhost:8000` adresine giderek uygulamayı kullanmaya başlayın.
+6. Tarayıcıdan `http://localhost:8000` adresine giderek uygulamayı kullanmaya başlayın.
 
-İlk girişte varsayılan yönetici oturumu otomatik açılır. Uygulama SQLite veritabanını ilk çalıştırmada `data/app.db` altında oluşturur.
+İlk girişte varsayılan yönetici oturumu otomatik açılır. MySQL veritabanı bağlantısı sağlandığında tablolar ve varsayılan ayarlar (firma adı vb.) otomatik oluşturulur.
 
 ## Dosya Yapısı
-- `public/` – Giriş noktası (`index.php`).
+- `index.php` – Tüm trafiği yöneten ön denetleyici.
 - `src/` – Veritabanı ve yardımcı sınıflar.
 - `templates/` – Modüler sayfa şablonları.
-- `public/assets/` – Siyah/beyaz temalı stil dosyaları.
-- `data/` – SQLite veritabanı (varsayılan olarak boş `.gitkeep`).
+- `assets/` – Siyah/beyaz temalı stil dosyaları.
+- `config.php` – `muhasebe.noasoft.org` alan adına uygun varsayılan ayarları barındırır, MySQL bilgilerinizle güncelleyin.
 
 ## Dışa Aktarım Notları
 PDF, Excel ve Word seçenekleri temel raporlama için hızla kullanılabilir çıktılar üretir. Daha gelişmiş şablon ihtiyacı olması durumunda, üçüncü parti PDF/Office kitaplıkları kolaylıkla entegre edilebilir.
@@ -42,6 +43,6 @@ PDF, Excel ve Word seçenekleri temel raporlama için hızla kullanılabilir ç�
 ## Güvenlik ve Geliştirme İpuçları
 - Üretime almadan önce oturum yönetimi ve kullanıcı yetkilendirmesini genişletin.
 - HTTPS ve güçlü parola politikaları önerilir.
-- SQLite yerine MySQL/PostgreSQL kullanmak isterseniz `src/Database.php` içindeki bağlantı mantığını güncelleyebilirsiniz.
+- Üretim ortamında MySQL kullanıcı yetkilerini en aza indirin ve düzenli yedek alın.
 
 Keyifli kullanımlar!

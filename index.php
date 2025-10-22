@@ -5,7 +5,7 @@ spl_autoload_register(function ($class) {
     $prefix = 'App\\';
     if (str_starts_with($class, $prefix)) {
         $relative = substr($class, strlen($prefix));
-        $path = __DIR__ . '/../src/' . str_replace('\\', '/', $relative) . '.php';
+        $path = __DIR__ . '/src/' . str_replace('\\', '/', $relative) . '.php';
         if (file_exists($path)) {
             require_once $path;
         }
@@ -29,9 +29,9 @@ $action = $_GET['action'] ?? 'list';
 function render(string $template, array $data = []): void
 {
     extract($data);
-    include __DIR__ . '/../templates/header.php';
-    include __DIR__ . '/../templates/' . $template . '.php';
-    include __DIR__ . '/../templates/footer.php';
+    include __DIR__ . '/templates/header.php';
+    include __DIR__ . '/templates/' . $template . '.php';
+    include __DIR__ . '/templates/footer.php';
 }
 
 function redirect(string $url): void
@@ -371,16 +371,10 @@ switch ($module) {
         break;
     case 'settings':
         if ($action === 'backup') {
-            $dbPath = __DIR__ . '/../data/app.db';
-            if (file_exists($dbPath)) {
-                header('Content-Type: application/octet-stream');
-                header('Content-Disposition: attachment; filename=app.db');
-                header('Content-Length: ' . filesize($dbPath));
-                readfile($dbPath);
-            } else {
-                header('Content-Type: text/plain; charset=utf-8');
-                echo 'Yedeklenecek veritabanı bulunamadı.';
-            }
+            $filename = 'muhasebe_backup_' . date('Ymd_His') . '.sql';
+            header('Content-Type: application/sql; charset=utf-8');
+            header('Content-Disposition: attachment; filename=' . $filename);
+            echo Database::exportSql();
             exit;
         }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
