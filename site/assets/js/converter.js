@@ -202,6 +202,7 @@ Dropzone.autoDiscover = false;
         }
 
         const resultMap = new Map();
+        let processingActive = false;
         const defaultConvertLabel = (config.convertButtonLabel || convertButton.textContent || 'Dönüştür').trim();
         convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
         convertButton.disabled = true;
@@ -249,7 +250,9 @@ Dropzone.autoDiscover = false;
         }
 
         function toggleConvertButton() {
-            if (hasProcessableEntry(resultMap)) {
+            const hasFiles = hasProcessableEntry(resultMap);
+            const busy = processingActive || activeJobIds.size > 0;
+            if (hasFiles && !busy) {
                 convertButton.disabled = false;
                 convertButton.classList.remove('disabled');
             } else {
@@ -645,7 +648,9 @@ Dropzone.autoDiscover = false;
             }
             entry.xhr = null;
             entry.jobId = null;
-            convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
+            if (!processingActive && activeJobIds.size === 0) {
+                convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
+            }
             toggleConvertButton();
         }
 
@@ -653,7 +658,7 @@ Dropzone.autoDiscover = false;
             return new Promise((resolve, reject) => {
                 const entry = resultMap.get(file.upload.uuid);
                 if (!entry) {
-                    reject(new Error('Dosya kaydı bulunamadı.'));
+                    reject({ cancelled: true, reason: 'missing-entry' });
                     return;
                 }
                 const jobId = `${config.type || 'job'}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -789,6 +794,7 @@ Dropzone.autoDiscover = false;
                 return;
             }
 
+            processingActive = true;
             convertButton.disabled = true;
             convertButton.classList.add('disabled');
             convertButton.textContent = 'İşleniyor...';
@@ -797,24 +803,27 @@ Dropzone.autoDiscover = false;
             let failureCount = 0;
             let cancelledCount = 0;
 
-            for (const file of queue) {
-                try {
-                    await processFile(file, options);
-                    successCount += 1;
-                } catch (error) {
-                    if (error && error.cancelled) {
-                        cancelledCount += 1;
-                        continue;
-                    }
-                    failureCount += 1;
-                    if (error) {
-                        console.error(error);
+            try {
+                for (const file of queue) {
+                    try {
+                        await processFile(file, options);
+                        successCount += 1;
+                    } catch (error) {
+                        if (error && error.cancelled) {
+                            cancelledCount += 1;
+                            continue;
+                        }
+                        failureCount += 1;
+                        if (error) {
+                            console.error(error);
+                        }
                     }
                 }
+            } finally {
+                processingActive = false;
+                convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
+                toggleConvertButton();
             }
-
-            convertButton.textContent = config.convertButtonLabel || defaultConvertLabel;
-            toggleConvertButton();
 
             if (failureCount === 0 && cancelledCount === 0 && successCount > 0) {
                 Swal.fire('Başarılı', 'Tüm dönüştürme işlemleri tamamlandı.', 'success');

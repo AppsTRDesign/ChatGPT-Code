@@ -1,12 +1,18 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    RewriteRule ^audio-convert/?$ ses-donusturucu.php [L,QSA]
-    RewriteRule ^video-convert/?$ video-donusturucu.php [L,QSA]
-    RewriteRule ^image-convert/?$ gorsel-donusturucu.php [L,QSA]
-    RewriteRule ^copyright/?$ telif-haklari.php [L,QSA]
-    RewriteRule ^faq/?$ sss.php [L,QSA]
-    RewriteRule ^contact/?$ iletisim.php [L,QSA]
+    RewriteRule ^audio-convert/?$ audio.php [L,QSA]
+    RewriteRule ^video-convert/?$ video.php [L,QSA]
+    RewriteRule ^image-convert/?$ image.php [L,QSA]
+    RewriteRule ^copyright/?$ copyright.php [L,QSA]
+    RewriteRule ^faq/?$ faq.php [L,QSA]
+    RewriteRule ^contact/?$ contact.php [L,QSA]
 
-    # Legacy .php routes stay accessible
+    # Legacy route fallbacks
+    RewriteRule ^ses-donusturucu\.php$ audio.php [L,QSA]
+    RewriteRule ^video-donusturucu\.php$ video.php [L,QSA]
+    RewriteRule ^gorsel-donusturucu\.php$ image.php [L,QSA]
+    RewriteRule ^telif-haklari\.php$ copyright.php [L,QSA]
+    RewriteRule ^sss\.php$ faq.php [L,QSA]
+    RewriteRule ^iletisim\.php$ contact.php [L,QSA]
 </IfModule>
