@@ -23,7 +23,6 @@ $allowedSort = [
     'price',
     'is_active',
     'created_at',
-    'updated_at',
 ];
 
 if (!in_array($sort, $allowedSort, true)) {
@@ -48,7 +47,7 @@ $total = (int) $countStmt->fetchColumn();
 
 $totalAll = (int) $db->query('SELECT COUNT(*) FROM packages')->fetchColumn();
 
-$sql = "SELECT id, name, description, monthly_limit, duration_days, features, price, is_active, created_at, updated_at
+$sql = "SELECT id, name, description, monthly_limit, duration_days, features, price, is_active, created_at
         FROM packages
         $where
         ORDER BY $sort $order
