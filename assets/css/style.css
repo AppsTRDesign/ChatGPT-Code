@@ -67,6 +67,45 @@ a:hover {
     color: rgba(241, 246, 249, 0.85);
 }
 
+.sidebar {
+    min-width: 260px;
+    min-height: 100vh;
+}
+
+.sidebar .offcanvas-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    height: 100%;
+}
+
+.sidebar .nav-link {
+    border-radius: 0.75rem;
+    padding: 0.65rem 1rem;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link:focus,
+.sidebar .nav-link.active {
+    background: rgba(13, 110, 253, 0.18);
+    color: #cbd5ff !important;
+}
+
+.bank-info {
+    background: rgba(13, 110, 253, 0.12);
+    border: 1px dashed rgba(13, 110, 253, 0.45);
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    color: var(--text-light);
+}
+
+.bank-info .bank-account {
+    white-space: pre-wrap;
+    margin: 0;
+    color: rgba(241, 246, 249, 0.9);
+}
+
 .card-header {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     background: transparent;
@@ -352,8 +391,15 @@ footer {
     }
 }
 
-@media (max-width: 992px) {
-    .sidebar {
-        display: none;
+@media (max-width: 991.98px) {
+    .sidebar.offcanvas {
+        width: 280px;
+    }
+
+    .sidebar.offcanvas .offcanvas-body {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        gap: 1.5rem;
     }
 }

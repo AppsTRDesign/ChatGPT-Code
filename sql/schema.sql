@@ -26,7 +26,7 @@ CREATE TABLE user_packages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     package_id INT NOT NULL,
-    status ENUM('pending','active','cancelled','awaiting_payment','payment_missing','rejected') DEFAULT 'pending',
+    status ENUM('pending','active','cancelled','awaiting_payment','payment_missing','rejected','failed') DEFAULT 'pending',
     payment_method ENUM('iyzico','bank') DEFAULT 'bank',
     note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -37,6 +37,8 @@ CREATE TABLE user_packages (
     threshold_50_notified TINYINT(1) DEFAULT 0,
     threshold_25_notified TINYINT(1) DEFAULT 0,
     threshold_5_notified TINYINT(1) DEFAULT 0,
+    last_error TEXT NULL,
+    last_error_at TIMESTAMP NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

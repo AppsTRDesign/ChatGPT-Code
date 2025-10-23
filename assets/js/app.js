@@ -55,6 +55,7 @@ const subscriptionStatusMap = {
     pending: { label: 'İşleniyor', class: 'bg-secondary' },
     awaiting_payment: { label: 'Ödeme Bekliyor', class: 'bg-warning text-dark' },
     payment_missing: { label: 'Eksik Ödeme', class: 'bg-danger' },
+    failed: { label: 'Başarısız', class: 'bg-danger' },
     rejected: { label: 'Reddedildi', class: 'bg-danger' },
     cancelled: { label: 'İptal Edildi', class: 'bg-secondary' },
 };
@@ -92,6 +93,14 @@ window.appHandlers = {
             return '<span class="text-white-50">-</span>';
         }
         return `<span class="text-break">${escapeHtml(value).replace(/\n/g, '<br>')}</span>`;
+    },
+    purchaseErrorFormatter: (value, row) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        const note = escapeHtml(value).replace(/\n/g, '<br>');
+        const time = row.last_error_at ? `<div class="small text-white-50 mt-1">${escapeHtml(formatDateTime(row.last_error_at))}</div>` : '';
+        return `<span class="text-danger">${note}</span>${time}`;
     },
     purchaseDateFormatter: (value, row) => {
         const created = formatDateTime(row.created_at);
@@ -157,6 +166,8 @@ window.appHandlers = {
 
 let usageChart;
 let usageMetrics = [];
+let dashboardTrafficChart;
+let dashboardRevenueChart;
 
 const updateUsageChart = (labels, data) => {
     const canvas = document.getElementById('usageChart');
@@ -288,6 +299,177 @@ const exportUsage = (format) => {
         const workbook = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Rapor');
         window.XLSX.writeFile(workbook, 'api-raporu.xlsx');
+    }
+};
+
+const renderDashboardTraffic = (labels, usage, registrations) => {
+    const canvas = document.getElementById('dashboardTrafficChart');
+    if (!canvas || !window.Chart) {
+        return;
+    }
+
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: 'API İstekleri',
+                data: usage,
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                fill: true,
+                tension: 0.35,
+            },
+            {
+                label: 'Yeni Üyeler',
+                data: registrations,
+                borderColor: '#a855f7',
+                backgroundColor: 'rgba(168, 85, 247, 0.18)',
+                fill: true,
+                tension: 0.35,
+            },
+        ],
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: {
+                    color: '#e2e8f0',
+                },
+            },
+        },
+        scales: {
+            x: {
+                ticks: { color: '#cbd5f5' },
+                grid: { color: 'rgba(148, 163, 184, 0.12)' },
+            },
+            y: {
+                ticks: { color: '#cbd5f5' },
+                grid: { color: 'rgba(148, 163, 184, 0.12)' },
+                beginAtZero: true,
+                precision: 0,
+            },
+        },
+    };
+
+    if (!dashboardTrafficChart) {
+        dashboardTrafficChart = new Chart(canvas, {
+            type: 'line',
+            data,
+            options,
+        });
+    } else {
+        dashboardTrafficChart.data = data;
+        dashboardTrafficChart.options = options;
+        dashboardTrafficChart.update();
+    }
+};
+
+const renderDashboardRevenue = (labels, totals) => {
+    const canvas = document.getElementById('dashboardRevenueChart');
+    if (!canvas || !window.Chart) {
+        return;
+    }
+
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: 'Onaylı Gelir (₺)',
+                data: totals,
+                backgroundColor: 'rgba(34, 197, 94, 0.6)',
+                borderColor: '#22c55e',
+                borderWidth: 1.5,
+            },
+        ],
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {
+                ticks: { color: '#cbd5f5' },
+                grid: { color: 'rgba(148, 163, 184, 0.08)' },
+            },
+            y: {
+                ticks: { color: '#cbd5f5' },
+                grid: { color: 'rgba(148, 163, 184, 0.12)' },
+                beginAtZero: true,
+            },
+        },
+        plugins: {
+            legend: {
+                labels: { color: '#e2e8f0' },
+            },
+        },
+    };
+
+    if (!dashboardRevenueChart) {
+        dashboardRevenueChart = new Chart(canvas, {
+            type: 'bar',
+            data,
+            options,
+        });
+    } else {
+        dashboardRevenueChart.data = data;
+        dashboardRevenueChart.options = options;
+        dashboardRevenueChart.update();
+    }
+};
+
+const updateDashboardSummary = (summary) => {
+    const container = document.getElementById('dashboardSummary');
+    if (!container) {
+        return;
+    }
+
+    if (!summary) {
+        container.innerHTML = '<li class="text-white-50">Özet verisi bulunamadı.</li>';
+        return;
+    }
+
+    const rows = [];
+    if (typeof summary.totalRevenue !== 'undefined') {
+        rows.push(`<li class="mb-2"><strong>Toplam Onaylı Gelir:</strong> ${Number(summary.totalRevenue).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺</li>`);
+    }
+    if (typeof summary.pendingPurchases !== 'undefined') {
+        rows.push(`<li class="mb-2"><strong>Bekleyen Satın Alım:</strong> ${Number(summary.pendingPurchases)}</li>`);
+    }
+    if (typeof summary.failedPurchases !== 'undefined') {
+        rows.push(`<li class="mb-2"><strong>Başarısız Ödeme:</strong> ${Number(summary.failedPurchases)}</li>`);
+    }
+    if (typeof summary.newClients7 !== 'undefined') {
+        rows.push(`<li class="mb-0"><strong>Son 7 Gün Yeni Üye:</strong> ${Number(summary.newClients7)}</li>`);
+    }
+
+    container.innerHTML = rows.join('') || '<li class="text-white-50">Özet verisi bulunamadı.</li>';
+};
+
+const loadDashboardMetrics = async () => {
+    if (!window.dashboardConfig || !window.dashboardConfig.endpoint) {
+        return;
+    }
+
+    try {
+        const response = await fetch(window.dashboardConfig.endpoint, { headers: { Accept: 'application/json' } });
+        const json = await response.json();
+        if (json.usage && json.registrations) {
+            const labels = json.usage.map((row) => row.label);
+            const usageData = json.usage.map((row) => Number(row.total || 0));
+            const registrationData = json.registrations.map((row) => Number(row.total || 0));
+            renderDashboardTraffic(labels, usageData, registrationData);
+        }
+        if (json.revenue) {
+            const labels = json.revenue.map((row) => row.label);
+            const totals = json.revenue.map((row) => Number(row.total || 0));
+            renderDashboardRevenue(labels, totals);
+        }
+        updateDashboardSummary(json.summary || null);
+    } catch (error) {
+        console.error('Gösterge paneli verileri yüklenemedi', error);
     }
 };
 
@@ -464,6 +646,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    document.querySelectorAll('[data-purchase-form]').forEach((form) => {
+        const select = form.querySelector('[data-payment-select]');
+        const bankInfo = form.querySelector('[data-bank-info]');
+        const hidden = form.querySelector('input[type="hidden"][name="payment_method"]');
+        if (!bankInfo) {
+            return;
+        }
+
+        const toggle = () => {
+            let method = '';
+            if (select && !select.disabled) {
+                method = select.value;
+            } else if (hidden) {
+                method = hidden.value;
+            } else if (select && select.dataset.default) {
+                method = select.dataset.default;
+            }
+            if (method === 'bank') {
+                bankInfo.removeAttribute('hidden');
+            } else {
+                bankInfo.setAttribute('hidden', 'hidden');
+            }
+        };
+
+        toggle();
+        if (select) {
+            select.addEventListener('change', toggle);
+        }
+    });
+
     const usageRange = document.getElementById('usageRange');
     if (usageRange) {
         loadUsageMetrics(usageRange.value);
@@ -476,4 +688,6 @@ document.addEventListener('DOMContentLoaded', () => {
             exportUsage(button.dataset.export);
         });
     });
+
+    loadDashboardMetrics();
 });

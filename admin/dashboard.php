@@ -10,38 +10,83 @@ $totalUsage = $db->query('SELECT COUNT(*) FROM api_usage_logs')->fetchColumn();
 $pendingPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status IN ("pending","awaiting_payment","payment_missing")')->fetchColumn();
 $approvedAmount = $db->query('SELECT SUM(p.price) FROM user_packages up JOIN packages p ON p.id = up.package_id WHERE up.status = "active"')->fetchColumn() ?: 0;
 $approvedCount = $db->query('SELECT COUNT(*) FROM user_packages WHERE status = "active"')->fetchColumn();
+$failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status = "failed"')->fetchColumn();
 ?>
-<div class="row g-4">
-    <div class="col-md-3">
-        <div class="card p-4 text-center">
-            <h3 class="h5">Toplam Üye</h3>
-            <p class="display-6 fw-bold"><?= $totalUsers ?></p>
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-6 g-4">
+    <div class="col">
+        <div class="card p-4 text-center h-100">
+            <h3 class="h6 text-white-50">Toplam Üye</h3>
+            <p class="display-6 fw-bold mb-1"><?= $totalUsers ?></p>
+            <small class="text-white-50">Aktif müşteriler</small>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-4 text-center">
-            <h3 class="h5">Token Sayısı</h3>
-            <p class="display-6 fw-bold"><?= $totalTokens ?></p>
+    <div class="col">
+        <div class="card p-4 text-center h-100">
+            <h3 class="h6 text-white-50">Token Sayısı</h3>
+            <p class="display-6 fw-bold mb-1"><?= $totalTokens ?></p>
+            <small class="text-white-50">Üretilen API anahtarları</small>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-4 text-center">
-            <h3 class="h5">API Çağrısı</h3>
-            <p class="display-6 fw-bold"><?= $totalUsage ?></p>
+    <div class="col">
+        <div class="card p-4 text-center h-100">
+            <h3 class="h6 text-white-50">API Çağrısı</h3>
+            <p class="display-6 fw-bold mb-1"><?= $totalUsage ?></p>
+            <small class="text-white-50">Toplam kayıtlı istek</small>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-4 text-center">
-            <h3 class="h5">Bekleyen Satın Alım</h3>
-            <p class="display-6 fw-bold"><?= (int) $pendingPurchases ?></p>
+    <div class="col">
+        <div class="card p-4 text-center h-100">
+            <h3 class="h6 text-white-50">Bekleyen Satın Alım</h3>
+            <p class="display-6 fw-bold mb-1"><?= (int) $pendingPurchases ?></p>
+            <small class="text-white-50">Onay bekleyen talepler</small>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card p-4 text-center">
-            <h3 class="h5">Onaylı Ödemeler</h3>
-            <p class="display-6 fw-bold"><?= number_format((float) $approvedAmount, 2) ?> ₺</p>
+    <div class="col">
+        <div class="card p-4 text-center h-100">
+            <h3 class="h6 text-white-50">Onaylı Ödemeler</h3>
+            <p class="display-6 fw-bold mb-1"><?= number_format((float) $approvedAmount, 2) ?> ₺</p>
             <small class="text-white-50">Aktif paket: <?= (int) $approvedCount ?></small>
         </div>
     </div>
+    <div class="col">
+        <div class="card p-4 text-center h-100">
+            <h3 class="h6 text-white-50">Başarısız İşlemler</h3>
+            <p class="display-6 fw-bold mb-1"><?= (int) $failedPurchases ?></p>
+            <small class="text-white-50">Son durumu bekleyen hatalar</small>
+        </div>
+    </div>
 </div>
+<div class="row g-4 mt-1">
+    <div class="col-lg-8">
+        <div class="card p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0">Trafik ve Üyelik</h2>
+                <span class="badge bg-primary-subtle text-white">Son 14 Gün</span>
+            </div>
+            <div style="min-height:260px;">
+                <canvas id="dashboardTrafficChart" height="240"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card p-4 h-100">
+            <h2 class="h5">Özet</h2>
+            <ul class="list-unstyled mb-0" id="dashboardSummary">
+                <li class="text-white-50">Veriler yükleniyor...</li>
+            </ul>
+        </div>
+    </div>
+</div>
+<div class="card p-4 mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 mb-0">Gelir Analizi</h2>
+        <span class="badge bg-success-subtle text-white">Onaylı Ödemeler</span>
+    </div>
+    <div style="min-height:260px;">
+        <canvas id="dashboardRevenueChart" height="220"></canvas>
+    </div>
+</div>
+<script>
+    window.dashboardConfig = { endpoint: '/admin/data/dashboard-metrics' };
+</script>
 <?php require __DIR__ . '/footer.php'; ?>

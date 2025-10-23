@@ -10,6 +10,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 $db = Helpers::db();
 $sql = 'SELECT up.id, up.status, up.payment_method, up.note, up.created_at, up.activated_at, up.expires_at, up.limit_snapshot,
+               up.last_error, up.last_error_at,
                u.username, u.email, p.name AS package_name, p.price, p.monthly_limit
         FROM user_packages up
         JOIN users u ON u.id = up.user_id

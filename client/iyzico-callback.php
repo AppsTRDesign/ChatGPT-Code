@@ -15,15 +15,16 @@ if ($token) {
         $status = strtolower((string) ($result['status'] ?? 'error'));
         $conversationId = (int) ($result['conversationId'] ?? 0);
         if ($conversationId > 0) {
-            IyzicoService::storeTransaction($conversationId, $token, $status, (string) ($result['raw'] ?? ''));
-            if ($status === 'success' || $status === 'SUCCESS') {
+            $raw = (string) ($result['raw'] ?? '');
+            IyzicoService::storeTransaction($conversationId, $token, $status, $raw);
+            if ($status === 'success') {
                 Subscription::activate($conversationId);
                 $stmt = Helpers::db()->prepare('UPDATE user_packages SET status = "active" WHERE id = :id');
                 $stmt->execute(['id' => $conversationId]);
                 $message = 'Ödemeniz başarıyla alındı. Paketinizi hemen kullanmaya başlayabilirsiniz.';
             } else {
-                $stmt = Helpers::db()->prepare('UPDATE user_packages SET status = "rejected" WHERE id = :id');
-                $stmt->execute(['id' => $conversationId]);
+                $errorMessage = 'Ödeme durumu: ' . strtoupper($status);
+                Subscription::markFailed($conversationId, $errorMessage);
                 $message = 'Ödeme işlemi tamamlanamadı. Lütfen tekrar deneyin veya banka havalesi seçeneğini kullanın.';
             }
         }

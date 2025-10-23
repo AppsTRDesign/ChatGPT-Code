@@ -68,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/client/iyzico-pay?purchase=' . $purchaseId);
         }
 
+        Subscription::markFailed($purchaseId, 'İyzico: ' . ($checkout['message'] ?? 'Bilinmeyen hata'));
         Helpers::flash('message', 'İyzico ödeme başlatılamadı: ' . ($checkout['message'] ?? 'Bilinmeyen hata'));
     } else {
         Helpers::flash('message', 'Satın alma talebi oluşturulamadı.');
@@ -149,17 +150,18 @@ require __DIR__ . '/../templates/header.php';
                                         <li class="mb-1 text-white-50">• <?= Helpers::e($feature) ?></li>
                                     <?php endforeach; ?>
                                 </ul>
-                                <form method="post" class="mt-3">
+                                <form method="post" class="mt-3" data-purchase-form>
                                     <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
                                     <input type="hidden" name="package_id" value="<?= Helpers::e($package['id']) ?>">
                                     <div class="mb-2">
+                                        <?php $defaultMethod = $payment['iyzico_enabled'] ? 'iyzico' : 'bank'; ?>
                                         <div class="form-floating text-dark bg-white rounded-3">
-                                            <select name="payment_method" class="form-select" id="payment_method_<?= Helpers::e($package['id']) ?>" <?= $payment['iyzico_enabled'] ? '' : 'disabled' ?>>
+                                            <select name="payment_method" class="form-select" id="payment_method_<?= Helpers::e($package['id']) ?>" <?= $payment['iyzico_enabled'] ? '' : 'disabled' ?> data-payment-select data-default="<?= Helpers::e($defaultMethod) ?>">
                                                 <?php if ($payment['iyzico_enabled']): ?>
-                                                    <option value="iyzico">Kredi Kartı (İyzico)</option>
+                                                    <option value="iyzico"<?= $defaultMethod === 'iyzico' ? ' selected' : '' ?>>Kredi Kartı (İyzico)</option>
                                                 <?php endif; ?>
                                                 <?php if ($payment['bank_enabled']): ?>
-                                                    <option value="bank">Banka Havalesi</option>
+                                                    <option value="bank"<?= $defaultMethod === 'bank' ? ' selected' : '' ?>>Banka Havalesi</option>
                                                 <?php endif; ?>
                                             </select>
                                             <label for="payment_method_<?= Helpers::e($package['id']) ?>" class="text-dark">Ödeme Yöntemi</label>
@@ -169,6 +171,14 @@ require __DIR__ . '/../templates/header.php';
                                         <?php endif; ?>
                                         <?php if (!$payment['iyzico_enabled']): ?>
                                             <small class="d-block mt-2 text-white-50">Kredi kartı ayarları yapılmadığı için banka havalesi ile ödeme aktiftir.</small>
+                                        <?php endif; ?>
+                                        <?php if ($payment['bank_enabled'] && trim((string) $payment['bank_account']) !== ''): ?>
+                                            <div class="bank-info mt-3" data-bank-info <?= $defaultMethod === 'bank' ? '' : 'hidden' ?>>
+                                                <div class="fw-semibold mb-2">Banka Havalesi Bilgileri</div>
+                                                <div class="bank-account text-break small">
+                                                    <?= nl2br(Helpers::e($payment['bank_account'])) ?>
+                                                </div>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
                                     <div class="mb-3">

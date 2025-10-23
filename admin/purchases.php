@@ -72,6 +72,7 @@ $csrfToken = Helpers::csrfToken();
                 <th data-field="payment_method" data-formatter="window.appHandlers.paymentFormatter" data-sortable="true">Ödeme</th>
                 <th data-field="status" data-formatter="window.appHandlers.purchaseStatusFormatter" data-sortable="true">Durum</th>
                 <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
+                <th data-field="last_error" data-formatter="window.appHandlers.purchaseErrorFormatter">Hata Kaydı</th>
                 <th data-field="created_at" data-formatter="window.appHandlers.purchaseDateFormatter" data-sortable="true">Tarih</th>
                 <th data-field="id" data-formatter="window.appHandlers.purchaseActionsFormatter" data-align="right">İşlemler</th>
             </tr>

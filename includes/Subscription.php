@@ -13,6 +13,7 @@ class Subscription
         'payment_missing' => 'Eksik Ödeme',
         'rejected' => 'Reddedildi',
         'cancelled' => 'İptal Edildi',
+        'failed' => 'Başarısız',
         'active' => 'Aktif',
     ];
 
@@ -54,7 +55,7 @@ class Subscription
         $duration = max(1, (int) $row['duration_days']);
         $expiresAt = (new \DateTimeImmutable())->modify('+' . $duration . ' days')->format('Y-m-d H:i:s');
 
-        $update = $db->prepare('UPDATE user_packages SET status = "active", activated_at = NOW(), expires_at = :expires_at, limit_snapshot = :limit_snapshot, duration_days = :duration_days, threshold_50_notified = 0, threshold_25_notified = 0, threshold_5_notified = 0 WHERE id = :id');
+        $update = $db->prepare('UPDATE user_packages SET status = "active", activated_at = NOW(), expires_at = :expires_at, limit_snapshot = :limit_snapshot, duration_days = :duration_days, threshold_50_notified = 0, threshold_25_notified = 0, threshold_5_notified = 0, last_error = NULL, last_error_at = NULL WHERE id = :id');
         return $update->execute([
             'id' => $userPackageId,
             'expires_at' => $expiresAt,
@@ -65,12 +66,17 @@ class Subscription
 
     public static function updateStatus(int $userPackageId, string $status): bool
     {
-        $allowed = ['pending', 'awaiting_payment', 'payment_missing', 'rejected', 'cancelled'];
+        $allowed = ['pending', 'awaiting_payment', 'payment_missing', 'rejected', 'cancelled', 'failed'];
         if (!in_array($status, $allowed, true)) {
             return false;
         }
 
-        $stmt = Helpers::db()->prepare('UPDATE user_packages SET status = :status, activated_at = NULL, expires_at = NULL, limit_snapshot = NULL, duration_days = NULL WHERE id = :id');
+        $columns = 'status = :status, activated_at = NULL, expires_at = NULL, limit_snapshot = NULL, duration_days = NULL';
+        if ($status !== 'failed') {
+            $columns .= ', last_error = NULL, last_error_at = NULL';
+        }
+
+        $stmt = Helpers::db()->prepare("UPDATE user_packages SET {$columns} WHERE id = :id");
         return $stmt->execute([
             'id' => $userPackageId,
             'status' => $status,
@@ -163,6 +169,26 @@ class Subscription
             . '<p>Kesintisiz devam etmek için panelden yeni paket satın alabilir veya limitinizi artırabilirsiniz.</p>';
         $body = Mailer::template('API Kullanım Uyarısı', $content);
         Mailer::send($email, $subject, $body, true);
+    }
+
+    public static function markFailed(int $userPackageId, string $message): void
+    {
+        $db = Helpers::db();
+        $stmt = $db->prepare('UPDATE user_packages SET status = "failed", last_error = :message, last_error_at = NOW(), activated_at = NULL, expires_at = NULL, limit_snapshot = NULL, duration_days = NULL WHERE id = :id');
+        $stmt->execute([
+            'id' => $userPackageId,
+            'message' => mb_strimwidth($message, 0, 1000, '...'),
+        ]);
+    }
+
+    public static function recordError(int $userPackageId, string $message): void
+    {
+        $db = Helpers::db();
+        $stmt = $db->prepare('UPDATE user_packages SET last_error = :message, last_error_at = NOW() WHERE id = :id');
+        $stmt->execute([
+            'id' => $userPackageId,
+            'message' => mb_strimwidth($message, 0, 1000, '...'),
+        ]);
     }
 
     public static function ensureFreeTier(int $userId): void

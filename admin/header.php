@@ -26,26 +26,39 @@ $logoUrl = Settings::logoUrl();
 </head>
 <body>
 <div class="d-flex">
-    <aside class="sidebar p-4 vh-100 position-sticky" style="min-width:260px;">
-        <h2 class="h5 d-flex align-items-center gap-2">
-            <?php if ($logoUrl): ?>
-                <img src="<?= Helpers::e($logoUrl) ?>" alt="<?= Helpers::e($siteName) ?>" class="navbar-logo">
-            <?php endif; ?>
-            <span>Admin Paneli</span>
-        </h2>
-        <p class="text-white-50 mb-4"><?= Helpers::e($user['username']) ?></p>
-        <nav class="nav flex-column gap-2">
-            <a class="nav-link" href="/admin/dashboard">Gösterge Paneli</a>
-            <a class="nav-link" href="/admin/users">Üyeler</a>
-            <a class="nav-link" href="/admin/packages">Paketler</a>
-            <a class="nav-link" href="/admin/purchases">Satın Alımlar</a>
-            <a class="nav-link" href="/admin/payments">Ödeme Bildirimleri</a>
-            <a class="nav-link" href="/admin/settings">Ayarlar</a>
-            <a class="nav-link" href="/admin/usage">API Raporları</a>
-            <a class="nav-link" href="/logout">Çıkış</a>
-        </nav>
+    <aside class="sidebar offcanvas-lg offcanvas-start text-white p-0 d-flex flex-column" tabindex="-1" id="adminSidebar" data-bs-scroll="true">
+        <div class="offcanvas-header d-lg-none">
+            <h2 class="h5 mb-0">Menü</h2>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Kapat"></button>
+        </div>
+        <div class="offcanvas-body p-4">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <?php if ($logoUrl): ?>
+                    <img src="<?= Helpers::e($logoUrl) ?>" alt="<?= Helpers::e($siteName) ?>" class="navbar-logo">
+                <?php endif; ?>
+                <div>
+                    <div class="fw-semibold">Admin Paneli</div>
+                    <div class="small text-white-50"><?= Helpers::e($user['username']) ?></div>
+                </div>
+            </div>
+            <nav class="nav flex-column gap-2">
+                <a class="nav-link" href="/admin/dashboard">Gösterge Paneli</a>
+                <a class="nav-link" href="/admin/users">Üyeler</a>
+                <a class="nav-link" href="/admin/packages">Paketler</a>
+                <a class="nav-link" href="/admin/purchases">Satın Alımlar</a>
+                <a class="nav-link" href="/admin/payments">Ödeme Bildirimleri</a>
+                <a class="nav-link" href="/admin/settings">Ayarlar</a>
+                <a class="nav-link" href="/admin/usage">API Raporları</a>
+                <a class="nav-link" href="/logout">Çıkış</a>
+            </nav>
+        </div>
     </aside>
-    <main class="flex-grow-1 p-5">
+    <main class="flex-grow-1 p-4 p-lg-5">
+        <div class="d-lg-none mb-4">
+            <button class="btn btn-outline-light w-100" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminSidebar" aria-controls="adminSidebar">
+                Menü
+            </button>
+        </div>
         <?php if ($flash = App\Helpers::flash('message')): ?>
             <div data-flash-message data-type="success" data-message="<?= Helpers::e($flash) ?>"></div>
         <?php endif; ?>
