@@ -47,6 +47,14 @@ Content-Type: application/json
   embed=1</code></pre>
     <p><code>format=json</code> veya <code>output=json</code> parametreleri eklendiğinde base64 çıktılı JSON yanıtı döner. Parametre olmadan direkt PNG çıktısı elde edebilirsiniz.</p>
 
+    <h3 class="h5">HTML İçerisinde Kullanım</h3>
+<pre><code>&lt;img
+  src="https://qrmenu.noasoft.org/api/v1/qr?token=TOKENINIZ&amp;data=https%3A%2F%2Fornek.com"
+  alt="NoaSoft QR"
+  width="280"
+/&gt;</code></pre>
+    <p>Bu yöntemle sitenize gömdüğünüz her görüntü talebi paket limitinizden düşer. Renk, arka plan ve logo parametrelerini URL üzerinde eklemeye devam edebilirsiniz.</p>
+
     <h3 class="h5">Başarılı Yanıt</h3>
 <pre><code>{
   "status": "success",

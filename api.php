@@ -58,6 +58,18 @@ require __DIR__ . '/templates/header.php';
     </div>
     <div class="col-lg-6">
         <div class="card p-4 h-100">
+            <h2 class="h4 mb-3">HTML İçerisinde Kullanım</h2>
+            <p class="text-white-50">Tokenınız ile doğrudan web sitenize gömülebilir bir <code>&lt;img&gt;</code> etiketi oluşturabilirsiniz. Her görüntüleme paket limitinizden otomatik düşer.</p>
+<pre><code>&lt;img
+  src="https://qrmenu.noasoft.org/api/v1/qr?token=TOKENINIZ&amp;data=https%3A%2F%2Fornek.com"
+  alt="Menü QR Kodunuz"
+  width="280"
+/&gt;</code></pre>
+            <p class="text-white-50 mb-0">Renk, arka plan veya logo parametrelerini aynı URL üzerinde kullanmaya devam edebilirsiniz.</p>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-4 h-100">
             <h2 class="h4 mb-3">Başarılı Yanıt (JSON)</h2>
 <pre><code>{
   "status": "success",

@@ -85,6 +85,22 @@ a:hover {
     color: var(--text-light);
 }
 
+.btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.35);
+    color: var(--text-light);
+}
+
+.btn-outline-warning {
+    border-color: rgba(255, 193, 7, 0.6);
+    color: #ffda6a;
+}
+
+.btn-outline-warning:hover,
+.btn-outline-warning:focus {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffe082;
+}
+
 .table {
     color: var(--text-light);
 }
@@ -92,6 +108,15 @@ a:hover {
 .table thead th {
     background-color: rgba(13, 110, 253, 0.15);
     border-bottom: 1px solid rgba(13, 110, 253, 0.25);
+}
+
+.table tbody tr {
+    background-color: rgba(17, 24, 43, 0.55);
+}
+
+.table tbody td,
+.table thead th {
+    border-color: rgba(255, 255, 255, 0.06) !important;
 }
 
 .table-striped > tbody > tr:nth-of-type(odd) {
@@ -116,7 +141,21 @@ a:hover {
 }
 
 .form-control::placeholder {
-    color: rgba(241, 246, 249, 0.6);
+    color: rgba(241, 246, 249, 0.8);
+}
+
+.form-select::placeholder,
+.form-control-color::-moz-placeholder,
+.form-control-color::placeholder {
+    color: rgba(241, 246, 249, 0.8);
+}
+
+.form-control-color {
+    background: rgba(17, 24, 43, 0.95);
+    border: 1px solid rgba(13, 110, 253, 0.4);
+    width: 100%;
+    padding: 0.45rem;
+    border-radius: 0.75rem;
 }
 
 .form-check-label {

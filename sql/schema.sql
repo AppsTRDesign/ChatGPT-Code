@@ -23,7 +23,7 @@ CREATE TABLE user_packages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     package_id INT NOT NULL,
-    status ENUM('pending','active','cancelled') DEFAULT 'pending',
+    status ENUM('pending','active','cancelled','awaiting_payment','payment_missing','rejected') DEFAULT 'pending',
     payment_method ENUM('iyzico','bank') DEFAULT 'bank',
     note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

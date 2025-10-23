@@ -4,6 +4,7 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use App\Auth;
 use App\Helpers;
+use App\Subscription;
 Auth::requireRole('client');
 $user = Auth::user();
 $db = Helpers::db();
@@ -30,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/client/payment-notify');
 }
 
-$stmt = $db->prepare('SELECT up.*, p.name FROM user_packages up JOIN packages p ON p.id = up.package_id WHERE up.user_id = :user_id AND up.payment_method = "bank" ORDER BY up.created_at DESC');
+$stmt = $db->prepare('SELECT up.*, p.name FROM user_packages up JOIN packages p ON p.id = up.package_id WHERE up.user_id = :user_id AND up.payment_method = "bank" AND up.status IN ("awaiting_payment","payment_missing") ORDER BY up.created_at DESC');
 $stmt->execute(['user_id' => $user['id']]);
 $bankPackages = $stmt->fetchAll();
 
@@ -46,7 +47,8 @@ require __DIR__ . '/../templates/header.php';
                     <label class="form-label">Paket</label>
                     <select class="form-select" name="user_package_id" required <?= empty($bankPackages) ? 'disabled' : '' ?>>
                         <?php foreach ($bankPackages as $pack): ?>
-                            <option value="<?= Helpers::e($pack['id']) ?>"><?= Helpers::e($pack['name']) ?> - <?= Helpers::e($pack['status']) ?></option>
+                            <?php $label = Subscription::statusLabel((string) $pack['status']); ?>
+                            <option value="<?= Helpers::e($pack['id']) ?>"><?= Helpers::e($pack['name']) ?> - <?= Helpers::e($label) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <?php if (empty($bankPackages)): ?>

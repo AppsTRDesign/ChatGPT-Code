@@ -143,12 +143,32 @@ try {
         header('Access-Control-Allow-Origin: *');
         echo $imageData;
     } else {
+        $embedParams = [
+            'token' => $token,
+            'data' => $content,
+            'output' => 'image',
+        ];
+
+        if ($color) {
+            $embedParams['color'] = $color;
+        }
+
+        if ($background) {
+            $embedParams['background'] = $background;
+        }
+
+        if (!empty($data['logo_url'])) {
+            $embedParams['logo_url'] = $data['logo_url'];
+        }
+
+        $embedUrl = rtrim(BASE_URL, '/') . '/api/v1/qr?' . http_build_query($embedParams, '', '&', PHP_QUERY_RFC3986);
+
         header('Content-Type: application/json');
         echo json_encode([
             'status' => 'success',
             'image' => base64_encode($imageData),
             'mime' => 'image/png',
-            'embed_url' => sprintf('%s/api/v1/qr?token=%s&data=%s', rtrim(BASE_URL, '/'), urlencode($token), urlencode($content)),
+            'embed_url' => $embedUrl,
         ]);
     }
 } catch (Throwable $e) {

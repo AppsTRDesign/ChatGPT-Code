@@ -2,7 +2,15 @@
 
 declare(strict_types=1);
 
-session_start();
+if (defined('APP_BOOTSTRAPPED')) {
+    return;
+}
+
+define('APP_BOOTSTRAPPED', true);
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 $vendorAutoload = __DIR__ . '/../vendor/autoload.php';
 if (file_exists($vendorAutoload)) {

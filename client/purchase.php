@@ -28,13 +28,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/client/purchase');
     }
 
+    $allowedMethods = [];
+    if ($payment['iyzico_enabled']) {
+        $allowedMethods[] = 'iyzico';
+    }
+    if ($payment['bank_enabled']) {
+        $allowedMethods[] = 'bank';
+    }
+
     $method = $payment['iyzico_enabled'] ? ($_POST['payment_method'] ?? 'iyzico') : 'bank';
-    Subscription::requestPurchase((int) $user['id'], $packageId, $method, trim($_POST['note'] ?? ''));
+    if (!in_array($method, $allowedMethods, true)) {
+        $method = $allowedMethods ? reset($allowedMethods) : 'bank';
+    }
+
+    $note = trim($_POST['note'] ?? '');
+    $purchaseId = Subscription::requestPurchase((int) $user['id'], $packageId, $method, $note);
 
     if ($method === 'bank') {
-        Helpers::flash('message', 'Banka havalesi bildiriminizi ödeme bildirim sayfasından iletebilirsiniz.');
+        Helpers::flash('message', 'Satın alma talebiniz alındı. Ödeme bildiriminizi ilettiğinizde admin tarafından onaylanacaktır.');
     } else {
-        Helpers::flash('message', 'İyzico ile ödeme için yönlendirme yapılacaktır. (Test ortamı)');
+        if ($purchaseId > 0) {
+            Subscription::activate($purchaseId);
+        }
+        Helpers::flash('message', 'İyzico üzerinden yapılan ödemeniz onaylandı. Paketiniz hemen aktifleştirildi.');
     }
 
     redirect('/client/purchase');
@@ -162,10 +178,14 @@ require __DIR__ . '/../templates/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($history as $row): ?>
+                            <?php
+                            $statusLabel = Subscription::statusLabel((string) $row['status']);
+                            $methodLabel = $row['payment_method'] === 'iyzico' ? 'Kredi Kartı (İyzico)' : 'Banka Havalesi';
+                            ?>
                             <tr>
                                 <td><?= Helpers::e($row['name']) ?></td>
-                                <td><?= Helpers::e(ucfirst($row['status'])) ?></td>
-                                <td><?= Helpers::e($row['payment_method']) ?></td>
+                                <td><?= Helpers::e($statusLabel) ?></td>
+                                <td><?= Helpers::e($methodLabel) ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>

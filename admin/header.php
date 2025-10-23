@@ -30,6 +30,7 @@ $user = Auth::user();
             <a class="nav-link" href="/admin/dashboard">Gösterge Paneli</a>
             <a class="nav-link" href="/admin/users">Üyeler</a>
             <a class="nav-link" href="/admin/packages">Paketler</a>
+            <a class="nav-link" href="/admin/purchases">Satın Alımlar</a>
             <a class="nav-link" href="/admin/payments">Ödeme Bildirimleri</a>
             <a class="nav-link" href="/admin/settings">Ayarlar</a>
             <a class="nav-link" href="/admin/usage">API Raporları</a>
