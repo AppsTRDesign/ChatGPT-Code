@@ -37,7 +37,16 @@ if ($remaining !== null && $remaining <= 0) {
     exit;
 }
 
-$data = trim($_POST['data'] ?? '');
+$type = strtolower(trim((string) ($_POST['qr_type'] ?? 'url')));
+$content = '';
+
+try {
+    $content = QrService::buildContent($type, $_POST);
+} catch (\InvalidArgumentException $e) {
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    exit;
+}
+
 $color = trim($_POST['color'] ?? '#0d6efd');
 $background = trim($_POST['background'] ?? '#0b132b');
 $transparentBackground = isset($_POST['transparent_background']) && $_POST['transparent_background'] === '1';
@@ -75,11 +84,6 @@ if ($aspectRatio !== '' && $aspectRatio !== 'custom' && preg_match('/^(\d+):(\d+
 
 $height = max(128, min($height, 2048));
 
-if ($data === '') {
-    echo json_encode(['status' => 'error', 'message' => 'İçerik boş olamaz']);
-    exit;
-}
-
 $logoPath = null;
 if ($logo !== '') {
     $logoPath = __DIR__ . '/..' . $logo;
@@ -89,7 +93,7 @@ if ($logo !== '') {
 }
 
 try {
-    $assets = QrService::generate($data, [
+    $assets = QrService::generate($content, [
         'color' => $color,
         'background' => $background,
         'width' => $width,

@@ -4,6 +4,7 @@ NoaSoft QR Menu; PHP 8 / MySQL üzerinde çalışan, paket bazlı lisanslama ve 
 
 ## Öne Çıkan Özellikler
 - **QR üretimi**: chillerlan/php-qrcode entegrasyonu ile PNG/JPG/SVG çıktıları, renk & arka plan seçimi, şeffaf logoları otomatik hizalama, isteğe bağlı transparan arka plan ve en-boy oranı kontrolü.
+- **Hazır içerik şablonları**: URL, metin, e-posta, telefon, SMS, Wi-Fi, konum, etkinlik, sosyal medya, WhatsApp ve Bitcoin/Ethereum gibi içerikler için sekmeli QR şablonları; özel formatlar için ham veri desteği.
 - **Paket ve abonelik yönetimi**: Admin panelinden sınırlı veya sınırsız paketler oluşturma, süre & limit tanımlama, ücretsiz aylık 100 istekli başlangıç paketi.
 - **Ödeme altyapısı**: İyzico test modunda kredi kartı ödemeleri, banka havalesi IBAN bilgisi, ödeme bildirim takibi, satın alımlar için onay/red/eksik ödeme iş akışları.
 - **API güvenliği**: JSON tabanlı token üretimi, token pasifleştirme/silme, kullanım limitlerinin anlık güncellenmesi ve %50/%25/%5 eşiklerinde otomatik e-posta uyarıları.
@@ -28,9 +29,9 @@ NoaSoft QR Menu; PHP 8 / MySQL üzerinde çalışan, paket bazlı lisanslama ve 
 - **Kimlik doğrulama**: `Authorization: Bearer <TOKEN>` başlığı veya JSON/GET parametresi olarak `token`.
 - **Desteklenen yöntemler**: `POST` (JSON body) ve `GET` (img etiketleri için hızlı kullanım). Örnek GET kullanımı:
   ```html
-  <img src="https://qrmenu.noasoft.org/api/v1/qr?token=TOKEN&data=https%3A%2F%2Fsite.com" alt="QR Kod">
+  <img src="https://qrmenu.noasoft.org/api/v1/qr?token=TOKEN&type=url&url=https%3A%2F%2Fsite.com" alt="QR Kod">
   ```
-- **Parametreler**: `data`, `color`, `background`, `logo_url` veya `logo_upload` (Base64), `aspect_ratio`, `size` gibi gelişmiş ayarlar.
+- **Parametreler**: `type` (örn. `url`, `wifi`, `event`, `custom`), ilgili içerik alanları (`url`, `text_content`, `wifi_ssid` vb.), `color`, `background`, `logo_url` veya `logo_upload` (Base64), `aspect_ratio`, `width`/`height`, `formats` gibi gelişmiş ayarlar.
 - **Yanıtlar**: JSON çıktıları veya doğrudan `image/png` yanıtı; müşteri panelinden indirilebilen PNG/JPG/SVG dosyaları.
 
 Tüm parametreler ve örnekler için `/api-docs` (site içine gömülü) sayfasını veya `docs/api.html` dosyasını inceleyin.

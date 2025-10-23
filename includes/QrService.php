@@ -4,10 +4,210 @@ namespace App;
 
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
+use DateTimeImmutable;
+use Exception;
+use InvalidArgumentException;
 use RuntimeException;
 
 class QrService
 {
+    public static function buildContent(string $type, array $input): string
+    {
+        $type = strtolower(trim($type));
+
+        if ($type === '' || $type === 'raw') {
+            $type = 'custom';
+        }
+
+        switch ($type) {
+            case 'url':
+                $value = trim((string) ($input['url'] ?? $input['data'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('Geçerli bir URL girin.');
+                }
+                return self::normaliseUrl($value);
+
+            case 'text':
+                $value = trim((string) ($input['text_content'] ?? $input['data'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('Metin içeriği boş olamaz.');
+                }
+                return $value;
+
+            case 'email':
+                $email = trim((string) ($input['email_address'] ?? ''));
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    throw new InvalidArgumentException('Geçerli bir e-posta adresi girin.');
+                }
+                $subject = trim((string) ($input['email_subject'] ?? ''));
+                $body = trim((string) ($input['email_body'] ?? ''));
+                $query = [];
+                if ($subject !== '') {
+                    $query[] = 'subject=' . rawurlencode($subject);
+                }
+                if ($body !== '') {
+                    $query[] = 'body=' . rawurlencode($body);
+                }
+                $suffix = $query ? '?' . implode('&', $query) : '';
+                return 'mailto:' . $email . $suffix;
+
+            case 'phone':
+                $phone = preg_replace('/\s+/', '', (string) ($input['phone_number'] ?? ''));
+                if ($phone === '') {
+                    throw new InvalidArgumentException('Telefon numarası girin.');
+                }
+                return 'tel:' . $phone;
+
+            case 'sms':
+                $number = preg_replace('/\s+/', '', (string) ($input['sms_number'] ?? ''));
+                if ($number === '') {
+                    throw new InvalidArgumentException('SMS göndermek için telefon numarası zorunludur.');
+                }
+                $message = trim((string) ($input['sms_message'] ?? ''));
+                $encoded = $message !== '' ? rawurlencode($message) : '';
+                return 'SMSTO:' . $number . ':' . $encoded;
+
+            case 'wifi':
+                $ssid = trim((string) ($input['wifi_ssid'] ?? ''));
+                if ($ssid === '') {
+                    throw new InvalidArgumentException('Wi-Fi ağ adı gerekli.');
+                }
+                $encryption = strtoupper(trim((string) ($input['wifi_encryption'] ?? 'WPA')));
+                if (!in_array($encryption, ['WPA', 'WEP', 'NOPASS'], true)) {
+                    $encryption = 'WPA';
+                }
+                $password = trim((string) ($input['wifi_password'] ?? ''));
+                if ($encryption !== 'NOPASS' && $password === '') {
+                    throw new InvalidArgumentException('Şifre korumalı ağlar için parola gerekli.');
+                }
+                $hidden = !empty($input['wifi_hidden']) ? 'true' : 'false';
+                $wifi = 'WIFI:T:' . $encryption;
+                $wifi .= ';S:' . self::escapeWifi($ssid);
+                if ($encryption !== 'NOPASS') {
+                    $wifi .= ';P:' . self::escapeWifi($password);
+                }
+                $wifi .= ';H:' . $hidden . ';;';
+                return $wifi;
+
+            case 'location':
+                $lat = trim((string) ($input['location_lat'] ?? ''));
+                $lng = trim((string) ($input['location_lng'] ?? ''));
+                if ($lat === '' || $lng === '' || !is_numeric($lat) || !is_numeric($lng)) {
+                    throw new InvalidArgumentException('Geçerli bir enlem ve boylam girin.');
+                }
+                $label = trim((string) ($input['location_label'] ?? ''));
+                $latF = number_format((float) $lat, 6, '.', '');
+                $lngF = number_format((float) $lng, 6, '.', '');
+                $geo = 'geo:' . $latF . ',' . $lngF;
+                if ($label !== '') {
+                    $geo .= '?q=' . rawurlencode($label);
+                }
+                return $geo;
+
+            case 'event':
+                $title = trim((string) ($input['event_title'] ?? ''));
+                if ($title === '') {
+                    throw new InvalidArgumentException('Etkinlik başlığı gerekli.');
+                }
+                $start = self::parseDateTime((string) ($input['event_start'] ?? ''));
+                if (!$start) {
+                    throw new InvalidArgumentException('Başlangıç tarihi geçersiz.');
+                }
+                $end = self::parseDateTime((string) ($input['event_end'] ?? '')) ?? $start;
+                if ($end < $start) {
+                    $end = $start;
+                }
+                $location = trim((string) ($input['event_location'] ?? ''));
+                $description = trim((string) ($input['event_description'] ?? ''));
+                $vevent = [
+                    'BEGIN:VEVENT',
+                    'SUMMARY:' . self::escapeEventText($title),
+                    'DTSTART:' . $start->format('Ymd\THis'),
+                    'DTEND:' . $end->format('Ymd\THis'),
+                ];
+                if ($location !== '') {
+                    $vevent[] = 'LOCATION:' . self::escapeEventText($location);
+                }
+                if ($description !== '') {
+                    $vevent[] = 'DESCRIPTION:' . self::escapeEventText($description);
+                }
+                $vevent[] = 'END:VEVENT';
+                return implode("\n", $vevent);
+
+            case 'facebook':
+                $value = trim((string) ($input['facebook_value'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('Facebook bağlantısı girin.');
+                }
+                return self::normaliseSocialUrl($value, 'https://facebook.com/');
+
+            case 'instagram':
+                $value = trim((string) ($input['instagram_value'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('Instagram bağlantısı girin.');
+                }
+                return self::normaliseSocialUrl($value, 'https://instagram.com/');
+
+            case 'twitter':
+                $value = trim((string) ($input['twitter_value'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('Twitter bağlantısı girin.');
+                }
+                return self::normaliseSocialUrl($value, 'https://twitter.com/');
+
+            case 'youtube':
+                $value = trim((string) ($input['youtube_value'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('YouTube bağlantısı girin.');
+                }
+                return self::normaliseSocialUrl($value, 'https://youtube.com/');
+
+            case 'whatsapp':
+                $number = preg_replace('/\D+/', '', (string) ($input['whatsapp_number'] ?? ''));
+                if ($number === '') {
+                    throw new InvalidArgumentException('WhatsApp numarası girin.');
+                }
+                $message = trim((string) ($input['whatsapp_message'] ?? ''));
+                $url = 'https://wa.me/' . $number;
+                if ($message !== '') {
+                    $url .= '?text=' . rawurlencode($message);
+                }
+                return $url;
+
+            case 'bitcoin':
+                $address = trim((string) ($input['bitcoin_address'] ?? ''));
+                if ($address === '') {
+                    throw new InvalidArgumentException('Bitcoin adresi girin.');
+                }
+                $amount = trim((string) ($input['bitcoin_amount'] ?? ''));
+                $suffix = $amount !== '' ? '?amount=' . rawurlencode($amount) : '';
+                return 'bitcoin:' . $address . $suffix;
+
+            case 'ethereum':
+                $address = trim((string) ($input['ethereum_address'] ?? ''));
+                if ($address === '') {
+                    throw new InvalidArgumentException('Ethereum adresi girin.');
+                }
+                $amount = trim((string) ($input['ethereum_amount'] ?? ''));
+                $suffix = $amount !== '' ? '?value=' . rawurlencode($amount) : '';
+                return 'ethereum:' . $address . $suffix;
+
+            case 'custom':
+                $value = trim((string) ($input['custom_data'] ?? $input['data'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('İçerik boş olamaz.');
+                }
+                return $value;
+
+            default:
+                $value = trim((string) ($input['data'] ?? ''));
+                if ($value === '') {
+                    throw new InvalidArgumentException('Geçerli bir içerik sağlayın.');
+                }
+                return $value;
+        }
+    }
+
     public static function generate(string $data, array $options = [], ?string $logoPath = null, array $formats = ['png']): array
     {
         $width = max(128, (int) ($options['width'] ?? 512));
@@ -192,5 +392,67 @@ class QrService
         }
         $int = hexdec($hex);
         return [($int >> 16) & 255, ($int >> 8) & 255, $int & 255];
+    }
+
+    private static function normaliseUrl(string $value, string $defaultScheme = 'https://'): string
+    {
+        if ($value === '') {
+            return $value;
+        }
+
+        if (!preg_match('~^[a-z][a-z0-9+.-]*://~i', $value)) {
+            return rtrim($defaultScheme, '/') . '/' . ltrim($value, '/');
+        }
+
+        return $value;
+    }
+
+    private static function normaliseSocialUrl(string $value, string $prefix): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return rtrim($prefix, '/');
+        }
+
+        if (preg_match('~^[a-z][a-z0-9+.-]*://~i', $value)) {
+            return $value;
+        }
+
+        $sanitised = ltrim($value, '@/');
+        if (str_contains($sanitised, '.')) {
+            return 'https://' . ltrim($sanitised, '/');
+        }
+
+        return rtrim($prefix, '/') . '/' . ltrim($sanitised, '/');
+    }
+
+    private static function escapeWifi(string $value): string
+    {
+        return str_replace(
+            ['\\', ';', ',', ':', '"'],
+            ['\\\\', '\\;', '\\,', '\\:', '\\"'],
+            $value
+        );
+    }
+
+    private static function parseDateTime(string $value): ?DateTimeImmutable
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    private static function escapeEventText(string $value): string
+    {
+        $value = str_replace(["\r\n", "\r"], "\n", $value);
+        $value = preg_replace('/[\n]+/', '\\n', $value);
+        return str_replace(['\\', ';', ','], ['\\\\', '\\;', '\\,'], $value ?? '');
     }
 }

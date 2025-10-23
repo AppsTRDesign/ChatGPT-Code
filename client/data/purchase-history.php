@@ -6,6 +6,7 @@ use App\Helpers;
 use App\Subscription;
 
 Auth::requireRole('client');
+Helpers::requireAjax();
 header('Content-Type: application/json; charset=UTF-8');
 
 $user = Auth::user();

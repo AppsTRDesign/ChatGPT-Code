@@ -49,4 +49,25 @@ class Helpers
 
         return null;
     }
+
+    public static function requireAjax(): void
+    {
+        $isXmlHttp = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        $isFetch = isset($_SERVER['HTTP_SEC_FETCH_MODE'])
+            && in_array(strtolower($_SERVER['HTTP_SEC_FETCH_MODE']), ['cors', 'same-origin'], true);
+        $acceptsJson = isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false;
+
+        if ($isXmlHttp || $isFetch || $acceptsJson) {
+            return;
+        }
+
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Bu kaynağa doğrudan erişim engellendi.',
+        ]);
+        exit;
+    }
 }

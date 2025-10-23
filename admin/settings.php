@@ -96,39 +96,51 @@ $faviconUrl = Settings::faviconUrl();
         </div>
     </div>
     <div class="col-xl-6">
-        <div class="card p-4 h-100">
+        <div class="card brand-card p-4 h-100">
             <h2 class="h5 mb-3">Marka Öğeleri</h2>
-            <div class="row g-3">
+            <div class="row g-4">
                 <div class="col-sm-6">
-                    <h3 class="h6">Logo</h3>
-                    <div class="branding-preview border rounded-4 p-3 text-center bg-dark-subtle">
-                        <?php if ($logoUrl): ?>
-                            <img src="<?= Helpers::e($logoUrl) ?>" alt="Site Logosu" class="img-fluid mb-3">
-                            <form method="post" action="/admin/delete-branding" class="d-inline">
-                                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                <input type="hidden" name="type" value="logo">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">Kaldır</button>
-                            </form>
-                        <?php else: ?>
-                            <p class="text-white-50 mb-3">Logo yüklenmedi. Varsayılan olarak site adı gösterilecek.</p>
-                        <?php endif; ?>
-                        <form action="/admin/upload-branding" class="dropzone" data-dropzone-url="/admin/upload-branding" data-dropzone-type="logo" data-dropzone-csrf="<?= Helpers::csrfToken() ?>"></form>
+                    <div class="brand-upload text-center p-4 h-100">
+                        <h3 class="h6 text-uppercase text-white-50 mb-3">Logo</h3>
+                        <div class="brand-preview mb-3">
+                            <?php if ($logoUrl): ?>
+                                <img src="<?= Helpers::e($logoUrl) ?>" alt="Site Logosu" class="img-fluid brand-media">
+                                <form method="post" action="/admin/delete-branding" class="d-inline mt-3">
+                                    <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                                    <input type="hidden" name="type" value="logo">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">Kaldır</button>
+                                </form>
+                            <?php else: ?>
+                                <p class="text-white-50">Logo yüklenmedi. Varsayılan olarak site adı gösterilecek.</p>
+                            <?php endif; ?>
+                        </div>
+                        <form action="/admin/upload-branding"
+                              class="dropzone brand-dropzone"
+                              data-dropzone-url="/admin/upload-branding"
+                              data-dropzone-type="logo"
+                              data-dropzone-csrf="<?= Helpers::csrfToken() ?>"></form>
                     </div>
                 </div>
                 <div class="col-sm-6">
-                    <h3 class="h6">Favicon</h3>
-                    <div class="branding-preview border rounded-4 p-3 text-center bg-dark-subtle">
-                        <?php if ($faviconUrl): ?>
-                            <img src="<?= Helpers::e($faviconUrl) ?>" alt="Site Favicon" class="img-fluid mb-3" style="max-width:96px;">
-                            <form method="post" action="/admin/delete-branding" class="d-inline">
-                                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                <input type="hidden" name="type" value="favicon">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">Kaldır</button>
-                            </form>
-                        <?php else: ?>
-                            <p class="text-white-50 mb-3">Favicon yüklenmedi.</p>
-                        <?php endif; ?>
-                        <form action="/admin/upload-branding" class="dropzone" data-dropzone-url="/admin/upload-branding" data-dropzone-type="favicon" data-dropzone-csrf="<?= Helpers::csrfToken() ?>"></form>
+                    <div class="brand-upload text-center p-4 h-100">
+                        <h3 class="h6 text-uppercase text-white-50 mb-3">Favicon</h3>
+                        <div class="brand-preview mb-3">
+                            <?php if ($faviconUrl): ?>
+                                <img src="<?= Helpers::e($faviconUrl) ?>" alt="Site Favicon" class="img-fluid brand-media brand-media--small">
+                                <form method="post" action="/admin/delete-branding" class="d-inline mt-3">
+                                    <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                                    <input type="hidden" name="type" value="favicon">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">Kaldır</button>
+                                </form>
+                            <?php else: ?>
+                                <p class="text-white-50">Favicon yüklenmedi.</p>
+                            <?php endif; ?>
+                        </div>
+                        <form action="/admin/upload-branding"
+                              class="dropzone brand-dropzone"
+                              data-dropzone-url="/admin/upload-branding"
+                              data-dropzone-type="favicon"
+                              data-dropzone-csrf="<?= Helpers::csrfToken() ?>"></form>
                     </div>
                 </div>
             </div>

@@ -2,9 +2,11 @@
 require_once __DIR__ . '/../../config/config.php';
 
 use App\Auth;
+use App\Helpers;
 use App\UsageLogger;
 
 Auth::requireRole('client');
+Helpers::requireAjax();
 header('Content-Type: application/json; charset=UTF-8');
 
 $user = Auth::user();

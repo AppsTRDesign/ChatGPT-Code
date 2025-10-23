@@ -5,6 +5,7 @@ use App\Auth;
 use App\Helpers;
 
 Auth::requireRole('admin');
+Helpers::requireAjax();
 
 header('Content-Type: application/json; charset=utf-8');
 

@@ -94,11 +94,21 @@ if ($remaining !== null && $remaining <= 0) {
     exit;
 }
 
-$content = trim($data['data'] ?? '');
-if ($content === '') {
-    http_response_code(400);
+$type = strtolower(trim((string) ($data['type'] ?? '')));
+if ($type === '') {
+    if (isset($data['data'])) {
+        $data['custom_data'] = $data['data'];
+    }
+    $type = 'custom';
+}
+
+try {
+    $content = QrService::buildContent($type, $data);
+} catch (\InvalidArgumentException $e) {
+    UsageLogger::log($userId, 'api_qr', 'error', $e->getMessage());
+    http_response_code(422);
     header('Content-Type: application/json');
-    echo json_encode(['status' => 'error', 'message' => 'İçerik boş olamaz']);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     exit;
 }
 
