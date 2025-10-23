@@ -25,7 +25,7 @@ $logoUrl = Settings::logoUrl();
     <link href="<?= asset('assets/css/style.css') ?>" rel="stylesheet">
 </head>
 <body>
-<div class="d-flex">
+<div class="admin-shell d-flex">
     <aside class="sidebar offcanvas offcanvas-lg offcanvas-start text-white p-0 d-flex flex-column" tabindex="-1" id="adminSidebar" data-bs-scroll="true" data-bs-backdrop="true">
         <div class="offcanvas-header d-lg-none">
             <h2 class="h5 mb-0">Menü</h2>
@@ -53,7 +53,7 @@ $logoUrl = Settings::logoUrl();
             </nav>
         </div>
     </aside>
-    <main class="flex-grow-1 p-4 p-lg-5">
+    <main class="admin-main flex-grow-1 p-4 p-lg-5">
         <div class="d-lg-none mb-4">
             <button class="btn btn-outline-light w-100" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminSidebar" aria-controls="adminSidebar">
                 Menü

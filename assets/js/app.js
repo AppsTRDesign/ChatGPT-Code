@@ -297,10 +297,11 @@ const updateUsageChart = (labels, data) => {
             {
                 label: 'Toplam İstek',
                 data,
+                backgroundColor: 'rgba(56, 189, 248, 0.65)',
                 borderColor: '#38bdf8',
-                backgroundColor: 'rgba(56, 189, 248, 0.25)',
-                fill: true,
-                tension: 0.3,
+                borderWidth: 1.5,
+                borderRadius: 8,
+                maxBarThickness: 36,
             },
         ],
     };
@@ -311,15 +312,25 @@ const updateUsageChart = (labels, data) => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
         layout: { padding: 8 },
-        elements: {
-            point: { radius: 4, hoverRadius: 6 },
-            line: { borderWidth: 3, borderCapStyle: 'round' },
+        scales: {
+            x: {
+                ticks: { color: '#cbd5f5', maxRotation: 0, minRotation: 0, autoSkip: true },
+                grid: { color: 'rgba(148, 163, 184, 0.08)', drawBorder: false },
+            },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#cbd5f5',
+                    callback: (value) => (Number.isInteger(value) ? value : ''),
+                    stepSize,
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.12)', drawBorder: false },
+            },
         },
         plugins: {
             legend: {
-                labels: { color: '#f8fafc', font: { family: 'Inter, "Segoe UI", sans-serif', size: 13 } },
+                labels: { color: '#e2e8f0' },
             },
             tooltip: {
                 backgroundColor: 'rgba(15, 23, 42, 0.88)',
@@ -329,26 +340,11 @@ const updateUsageChart = (labels, data) => {
                 bodyColor: '#f8fafc',
             },
         },
-        scales: {
-            x: {
-                ticks: { color: '#cbd5f5', maxRotation: 0, minRotation: 0, autoSkip: true },
-                grid: { color: 'rgba(148, 163, 184, 0.18)', drawBorder: false },
-            },
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    color: '#cbd5f5',
-                    callback: (value) => (Number.isInteger(value) ? value : ''),
-                    stepSize: stepSize,
-                },
-                grid: { color: 'rgba(148, 163, 184, 0.15)', drawBorder: false },
-            },
-        },
     };
 
     if (!usageChart) {
         usageChart = new Chart(canvas, {
-            type: 'line',
+            type: 'bar',
             data: chartData,
             options: chartOptions,
         });
