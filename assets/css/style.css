@@ -425,7 +425,8 @@ code {
 .chart-container {
     position: relative;
     width: 100%;
-    min-height: 220px;
+    min-height: 260px;
+    height: clamp(240px, 45vh, 420px);
 }
 
 .chart-container canvas {
@@ -433,6 +434,13 @@ code {
     inset: 0;
     width: 100% !important;
     height: 100% !important;
+}
+
+@media (max-width: 576px) {
+    .chart-container {
+        min-height: 220px;
+        height: clamp(200px, 55vh, 340px);
+    }
 }
 
 footer {

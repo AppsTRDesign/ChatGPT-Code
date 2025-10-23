@@ -84,21 +84,6 @@ window.appHandlers = {
         const price = Number(value || 0);
         return `${price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
     },
-    packageFeaturesFormatter: (value, row) => {
-        const pieces = [];
-        if (row.description) {
-            pieces.push(`<div class="mb-2 text-white-50 small">${escapeHtml(row.description)}</div>`);
-        }
-        const features = typeof value === 'string' ? value.split(/\r?\n/) : [];
-        const items = features.filter((item) => item.trim().length).map((item) => `<li>${escapeHtml(item.trim())}</li>`);
-        if (items.length) {
-            pieces.push(`<ul class="list-unstyled mb-0 small">${items.join('')}</ul>`);
-        }
-        if (!pieces.length) {
-            return '<span class="text-white-50">-</span>';
-        }
-        return pieces.join('');
-    },
     packageStatusFormatter: (value) => {
         const active = value === true || value === 1 || value === '1';
         const label = active ? 'Aktif' : 'Pasif';
@@ -320,25 +305,56 @@ const updateUsageChart = (labels, data) => {
         ],
     };
 
+    const maxValue = data.length ? Math.max(...data) : 0;
+    const stepSize = maxValue <= 6 ? 1 : Math.ceil(maxValue / 5);
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        layout: { padding: 8 },
+        elements: {
+            point: { radius: 4, hoverRadius: 6 },
+            line: { borderWidth: 3, borderCapStyle: 'round' },
+        },
+        plugins: {
+            legend: {
+                labels: { color: '#f8fafc', font: { family: 'Inter, "Segoe UI", sans-serif', size: 13 } },
+            },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                borderColor: 'rgba(56, 189, 248, 0.4)',
+                borderWidth: 1,
+                titleColor: '#f8fafc',
+                bodyColor: '#f8fafc',
+            },
+        },
+        scales: {
+            x: {
+                ticks: { color: '#cbd5f5', maxRotation: 0, minRotation: 0, autoSkip: true },
+                grid: { color: 'rgba(148, 163, 184, 0.18)', drawBorder: false },
+            },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#cbd5f5',
+                    callback: (value) => (Number.isInteger(value) ? value : ''),
+                    stepSize: stepSize,
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.15)', drawBorder: false },
+            },
+        },
+    };
+
     if (!usageChart) {
         usageChart = new Chart(canvas, {
             type: 'line',
             data: chartData,
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        labels: { color: '#f8fafc' },
-                    },
-                },
-                scales: {
-                    x: { ticks: { color: '#cbd5f5' }, grid: { color: 'rgba(148, 163, 184, 0.2)' } },
-                    y: { ticks: { color: '#cbd5f5' }, grid: { color: 'rgba(148, 163, 184, 0.15)' } },
-                },
-            },
+            options: chartOptions,
         });
     } else {
         usageChart.data = chartData;
+        usageChart.options = chartOptions;
         usageChart.update();
     }
 };
@@ -449,22 +465,46 @@ const renderClientUsageChart = (rows) => {
                 label: 'Toplam İstek',
                 data: totals,
                 borderColor: '#60a5fa',
-                backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                backgroundColor: 'rgba(96, 165, 250, 0.18)',
                 fill: true,
                 tension: 0.35,
             },
         ],
     };
 
+    const maxValue = totals.length ? Math.max(...totals) : 0;
+    const stepSize = maxValue <= 6 ? 1 : Math.ceil(maxValue / 5);
+
     const options = {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        layout: { padding: 6 },
+        elements: {
+            point: { radius: 4, hoverRadius: 6 },
+            line: { borderWidth: 3, borderCapStyle: 'round' },
+        },
         plugins: {
-            legend: { labels: { color: '#e2e8f0' } },
+            legend: { labels: { color: '#e2e8f0', font: { family: 'Inter, "Segoe UI", sans-serif', size: 13 } } },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                borderColor: 'rgba(96, 165, 250, 0.4)',
+                borderWidth: 1,
+                titleColor: '#f8fafc',
+                bodyColor: '#f8fafc',
+            },
         },
         scales: {
-            x: { ticks: { color: '#cbd5f5' }, grid: { color: 'rgba(148, 163, 184, 0.18)' } },
-            y: { ticks: { color: '#cbd5f5' }, grid: { color: 'rgba(148, 163, 184, 0.12)' }, beginAtZero: true },
+            x: { ticks: { color: '#cbd5f5', maxRotation: 0, minRotation: 0, autoSkip: true }, grid: { color: 'rgba(148, 163, 184, 0.16)', drawBorder: false } },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#cbd5f5',
+                    callback: (value) => (Number.isInteger(value) ? value : ''),
+                    stepSize: stepSize,
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.12)', drawBorder: false },
+            },
         },
     };
 
