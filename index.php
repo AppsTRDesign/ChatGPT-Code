@@ -1,11 +1,20 @@
-<?php require __DIR__ . '/templates/header.php'; ?>
+<?php
+require __DIR__ . '/templates/header.php';
+
+$ctaLabel = 'Hemen Başla';
+$ctaUrl = '/register';
+if (App\Auth::check()) {
+    $ctaLabel = 'QR Oluştur';
+    $ctaUrl = '/client/qr-builder';
+}
+?>
 <section class="py-5">
     <div class="row align-items-center">
         <div class="col-lg-6">
             <h1 class="display-4 fw-bold">Kurumsal QR Kod Yönetimi</h1>
             <p class="lead text-white-50">NoaSoft QR Menu ile saniyeler içerisinde QR kodlarınızı oluşturun, logonuzu yerleştirin ve API üzerinden sınırsız entegrasyon sağlayın.</p>
             <div class="d-flex gap-3">
-                <a href="/register" class="btn btn-primary btn-lg">Hemen Başla</a>
+                <a href="<?= $ctaUrl ?>" class="btn btn-primary btn-lg"><?= App\Helpers::e($ctaLabel) ?></a>
                 <a href="/api" class="btn btn-outline-primary btn-lg">API Dokümantasyonu</a>
             </div>
         </div>

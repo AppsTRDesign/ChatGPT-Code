@@ -15,15 +15,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/client/tokens');
     }
 
-    $label = trim($_POST['label'] ?? 'API Token');
-    $token = TokenManager::create((int) $user['id'], $label);
-    Helpers::flash('message', 'Yeni token oluşturuldu: ' . $token);
-    redirect('/client/tokens');
-}
+    $action = $_POST['action'] ?? 'create';
+    $tokenId = (int) ($_POST['token_id'] ?? 0);
 
-if (isset($_GET['revoke'])) {
-    TokenManager::revoke((int) $_GET['revoke'], (int) $user['id']);
-    Helpers::flash('message', 'Token pasif hale getirildi.');
+    switch ($action) {
+        case 'revoke':
+            TokenManager::revoke($tokenId, (int) $user['id']);
+            Helpers::flash('message', 'Token pasif hale getirildi.');
+            break;
+        case 'restore':
+            TokenManager::restore($tokenId, (int) $user['id']);
+            Helpers::flash('message', 'Token tekrar aktifleştirildi.');
+            break;
+        case 'delete':
+            TokenManager::delete($tokenId, (int) $user['id']);
+            Helpers::flash('message', 'Token tamamen silindi.');
+            break;
+        default:
+            $label = trim($_POST['label'] ?? 'API Token');
+            $token = TokenManager::create((int) $user['id'], $label);
+            Helpers::flash('message', 'Yeni token oluşturuldu: ' . $token);
+            break;
+    }
+
     redirect('/client/tokens');
 }
 
@@ -37,6 +51,7 @@ require __DIR__ . '/../templates/header.php';
             <h2 class="h4">Yeni Token Oluştur</h2>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                <input type="hidden" name="action" value="create">
                 <div class="mb-3">
                     <label class="form-label">Token Etiketi</label>
                     <input type="text" class="form-control" name="label" placeholder="Örn: Mobil Uygulama" required>
@@ -59,18 +74,40 @@ require __DIR__ . '/../templates/header.php';
                         </tr>
                     </thead>
                     <tbody>
+                        <?php if (!$tokens): ?>
+                            <tr>
+                                <td colspan="4" class="text-center text-white-50">Henüz token oluşturmadınız.</td>
+                            </tr>
+                        <?php else: ?>
                         <?php foreach ($tokens as $token): ?>
                             <tr>
                                 <td><?= Helpers::e($token['label']) ?></td>
                                 <td><small class="text-white-50"><?= Helpers::e($token['token']) ?></small></td>
                                 <td><?= $token['revoked_at'] ? '<span class="badge bg-danger">Pasif</span>' : '<span class="badge bg-success">Aktif</span>' ?></td>
                                 <td>
-                                    <?php if (!$token['revoked_at']): ?>
-                                        <a href="?revoke=<?= Helpers::e($token['id']) ?>" class="btn btn-sm btn-outline-light" data-confirm="Token pasif edilsin mi?">Pasif Et</a>
-                                    <?php endif; ?>
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                                            <input type="hidden" name="token_id" value="<?= Helpers::e($token['id']) ?>">
+                                            <?php if ($token['revoked_at']): ?>
+                                                <input type="hidden" name="action" value="restore">
+                                                <button type="submit" class="btn btn-sm btn-outline-success">Aktif Et</button>
+                                            <?php else: ?>
+                                                <input type="hidden" name="action" value="revoke">
+                                                <button type="submit" class="btn btn-sm btn-outline-light" data-confirm="Token pasif edilsin mi?">Pasif Et</button>
+                                            <?php endif; ?>
+                                        </form>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                                            <input type="hidden" name="token_id" value="<?= Helpers::e($token['id']) ?>">
+                                            <input type="hidden" name="action" value="delete">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Token tamamen silinecek. Onaylıyor musunuz?">Sil</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>

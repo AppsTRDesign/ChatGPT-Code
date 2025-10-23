@@ -37,6 +37,11 @@ class Auth
         unset($_SESSION['user']);
     }
 
+    public static function check(): bool
+    {
+        return isset($_SESSION['user']);
+    }
+
     public static function user(): ?array
     {
         return $_SESSION['user'] ?? null;

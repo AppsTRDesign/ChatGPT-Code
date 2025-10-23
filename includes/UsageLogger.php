@@ -28,4 +28,22 @@ class UsageLogger
         $stmt->execute(['user_id' => $userId]);
         return (int) $stmt->fetchColumn();
     }
+
+    public static function totalUsageInRange(int $userId, string $start, ?string $end = null): int
+    {
+        $query = 'SELECT COUNT(*) FROM api_usage_logs WHERE user_id = :user_id AND status = "success" AND created_at >= :start';
+        $params = [
+            'user_id' => $userId,
+            'start' => $start,
+        ];
+
+        if ($end) {
+            $query .= ' AND created_at <= :end';
+            $params['end'] = $end;
+        }
+
+        $stmt = Helpers::db()->prepare($query);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
 }

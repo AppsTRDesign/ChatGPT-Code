@@ -37,4 +37,16 @@ class TokenManager
         $stmt = Helpers::db()->prepare('UPDATE api_tokens SET revoked_at = NOW() WHERE id = :id AND user_id = :user_id');
         return $stmt->execute(['id' => $tokenId, 'user_id' => $userId]);
     }
+
+    public static function restore(int $tokenId, int $userId): bool
+    {
+        $stmt = Helpers::db()->prepare('UPDATE api_tokens SET revoked_at = NULL WHERE id = :id AND user_id = :user_id');
+        return $stmt->execute(['id' => $tokenId, 'user_id' => $userId]);
+    }
+
+    public static function delete(int $tokenId, int $userId): bool
+    {
+        $stmt = Helpers::db()->prepare('DELETE FROM api_tokens WHERE id = :id AND user_id = :user_id');
+        return $stmt->execute(['id' => $tokenId, 'user_id' => $userId]);
+    }
 }

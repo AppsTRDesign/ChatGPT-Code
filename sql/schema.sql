@@ -12,6 +12,8 @@ CREATE TABLE packages (
     name VARCHAR(120) NOT NULL,
     description TEXT,
     monthly_limit INT NOT NULL,
+    duration_days INT NOT NULL DEFAULT 30,
+    features TEXT,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
     is_active TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -26,6 +28,9 @@ CREATE TABLE user_packages (
     note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     activated_at TIMESTAMP NULL,
+    expires_at TIMESTAMP NULL,
+    limit_snapshot INT DEFAULT NULL,
+    duration_days INT DEFAULT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -77,7 +82,7 @@ CREATE TABLE payment_notifications (
 INSERT INTO users (username, email, password, role) VALUES
 ('admin', 'admin@qrmenu.noasoft.org', '$2y$12$qvP60IWAGEcLbDnmr0fLqugHlViMLGAM8Nt.bSPemwwgWyhXGfPwS', 'admin');
 
-INSERT INTO packages (name, description, monthly_limit, price, is_active) VALUES
-('Başlangıç', 'Ayda 500 QR API isteği', 500, 99.90, 1),
-('Profesyonel', 'Ayda 2.500 QR API isteği', 2500, 249.90, 1),
-('Kurumsal', 'Ayda 10.000 QR API isteği', 10000, 599.90, 1);
+INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active) VALUES
+('Başlangıç', 'Ayda 500 QR API isteği', 500, 30, "500 API isteği\nRenk & arka plan özelleştirme\nLogo ekleme", 99.90, 1),
+('Profesyonel', 'Ayda 2.500 QR API isteği', 2500, 30, "2.500 API isteği\nÖncelikli destek\nRenk & logo varyasyonları", 249.90, 1),
+('Kurumsal', 'Ayda 10.000 QR API isteği', 10000, 30, "10.000 API isteği\nÇoklu ekip yönetimi\nÖzel alan adı yönlendirme", 599.90, 1);

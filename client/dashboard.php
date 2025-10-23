@@ -54,9 +54,18 @@ require __DIR__ . '/../templates/header.php';
         <div class="card p-4 mb-4">
             <h3 class="h5">Aktif Paket</h3>
             <?php if ($active): ?>
+                <?php $limitValue = (int) ($active['limit_snapshot'] ?? $active['monthly_limit']); ?>
                 <p class="mb-1">Paket: <strong><?= Helpers::e($active['name']) ?></strong></p>
-                <p class="mb-1">Aylık Limit: <?= Helpers::e($active['monthly_limit']) ?></p>
-                <p class="mb-0">Kalan Limit: <?= Helpers::e(Subscription::usageLeft((int) $user['id']) ?? 'Sınırsız') ?></p>
+                <p class="mb-1">Limit: <?= Helpers::e($limitValue > 0 ? $limitValue : 'Sınırsız') ?></p>
+                <?php
+                $expiryLabel = 'Süre tanımlı değil';
+                if (!empty($active['expires_at']) && ($timestamp = strtotime((string) $active['expires_at'])) !== false) {
+                    $expiryLabel = date('d.m.Y', $timestamp);
+                }
+                $remaining = Subscription::usageLeft((int) $user['id']);
+                ?>
+                <p class="mb-1">Bitiş Tarihi: <?= Helpers::e($expiryLabel) ?></p>
+                <p class="mb-0">Kalan Kullanım: <?= Helpers::e($remaining === null ? 'Sınırsız' : $remaining) ?></p>
             <?php else: ?>
                 <p class="text-white-50">Aktif bir paketiniz bulunmuyor.</p>
                 <a href="/client/purchase" class="btn btn-outline-primary w-100">Paket Satın Al</a>

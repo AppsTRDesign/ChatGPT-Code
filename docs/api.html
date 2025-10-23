@@ -17,14 +17,14 @@
 <body class="py-5">
 <div class="container">
     <h1 class="display-5 mb-4">NoaSoft QR Menu API</h1>
-    <p class="lead">JSON tabanlı token yapısı ile QR kod üretimini otomatikleştirin. Her istek aylık paket limitiniz kapsamında değerlendirilir.</p>
+    <p class="lead">JSON tabanlı token yapısı ile QR kod üretimini otomatikleştirin. Her başarılı istek aktif paketinizin limit ve sürelerinden düşer.</p>
 
     <h2 class="h4 mt-5">Kimlik Doğrulama</h2>
     <p>Admin veya müşteri panelinde oluşturduğunuz tokenı <code>Authorization: Bearer &lt;TOKEN&gt;</code> başlığı ile, JSON gövdesinde <code>token</code> alanında veya GET isteklerinde <code>?token=&lt;TOKEN&gt;</code> parametresi ile gönderin.</p>
 
     <h2 class="h4 mt-4">Endpoint</h2>
     <p><code>https://qrmenu.noasoft.org/api/v1/qr</code></p>
-    <p class="text-white-50">POST isteğinde JSON gövdesi, GET isteğinde sorgu parametreleri kullanılır.</p>
+    <p class="text-white-50">POST isteğinde JSON gövdesi, GET isteğinde sorgu parametreleri kullanılır. Doğrudan görüntü yerleştirmek için <code>output=image</code> veya <code>embed=1</code> parametresini ekleyebilirsiniz.</p>
 
     <h3 class="h5">POST Örneği</h3>
 <pre><code>POST /api/v1/qr
@@ -44,27 +44,29 @@ Content-Type: application/json
   data=https%3A%2F%2Fornek.com%2Fmenu&
   color=%230d6efd&
   background=%230b132b&
-  format=json</code></pre>
-    <p><code>format=json</code> parametresi eklendiğinde base64 çıktılı JSON yanıtı döner. Parametre olmadan direkt PNG çıktısı elde edebilirsiniz.</p>
+  embed=1</code></pre>
+    <p><code>format=json</code> veya <code>output=json</code> parametreleri eklendiğinde base64 çıktılı JSON yanıtı döner. Parametre olmadan direkt PNG çıktısı elde edebilirsiniz.</p>
 
     <h3 class="h5">Başarılı Yanıt</h3>
 <pre><code>{
   "status": "success",
   "image": "iVBORw0KGgo...",
-  "mime": "image/png"
+  "mime": "image/png",
+  "embed_url": "https://qrmenu.noasoft.org/api/v1/qr?token=TOKEN&data=..."
 }</code></pre>
     <p>Dönen <code>image</code> alanı base64 kodlu PNG verisidir. Uygulamanızda <code>data:image/png;base64,</code> ön eki ile kullanabilirsiniz.</p>
 
     <h2 class="h4 mt-4">Hata Kodları</h2>
     <ul>
         <li><strong>400</strong> - Parametre eksikliği veya hatalı istek</li>
-        <li><strong>401</strong> - Token geçersiz veya paket bulunamadı</li>
-        <li><strong>429</strong> - Aylık limit aşıldı</li>
+        <li><strong>401</strong> - Token geçersiz, paket yok veya süresi doldu</li>
+        <li><strong>429</strong> - Paket limitiniz doldu</li>
         <li><strong>500</strong> - QR oluşturma sırasında hata</li>
     </ul>
 
     <h2 class="h4 mt-4">Paket Limitleri</h2>
-    <p>Her başarılı QR üretimi aboneliğinizin aylık limitinden düşer. Admin panelinden paketlerinizi yükseltebilir veya banka havalesi ile ödeme bildirimi yapabilirsiniz.</p>
+    <p>Her başarılı QR üretimi aboneliğinizin aktif paketinde tanımlanan limit ve sürelerden düşer. Paket süresi dolduğunda API erişimi otomatik olarak durur.</p>
+    <p>Tokenlarınızı müşteri panelinden pasif hâle getirebilir veya silebilirsiniz. Pasif tokenlar ile yapılan istekler reddedilir.</p>
 
     <footer class="mt-5 text-white-50">
         &copy; 2024 NoaSoft QR Menu

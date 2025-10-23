@@ -148,6 +148,46 @@ a:hover {
     border: 1px solid rgba(13, 110, 253, 0.45);
 }
 
+.package-card {
+    border-radius: 1.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.package-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 32px rgba(13, 110, 253, 0.25);
+}
+
+.package-card.border-primary {
+    border-width: 2px !important;
+    box-shadow: 0 18px 36px rgba(13, 110, 253, 0.35);
+}
+
+.price-badge {
+    background: linear-gradient(120deg, rgba(13, 110, 253, 0.8), rgba(64, 152, 255, 0.9));
+    border: none;
+    font-size: 0.95rem;
+    color: #fff;
+}
+
+.form-floating > label {
+    color: #0b132b;
+}
+
+.form-floating .form-select {
+    background-color: #fff;
+    color: #0b132b;
+}
+
+.form-floating .form-select:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.35);
+}
+
+.form-floating.bg-white {
+    padding: 0.5rem;
+    border-radius: 1rem;
+}
+
 pre {
     background: rgba(29, 38, 64, 0.85);
     border-radius: 1rem;

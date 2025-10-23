@@ -71,10 +71,10 @@ if (!$tokenRow) {
 $userId = (int) $tokenRow['user_id'];
 $subscription = Subscription::activeForUser($userId);
 if (!$subscription) {
-    UsageLogger::log($userId, 'api_qr', 'error', 'Paket yok');
+    UsageLogger::log($userId, 'api_qr', 'error', 'Paket yok veya süresi doldu');
     http_response_code(401);
     header('Content-Type: application/json');
-    echo json_encode(['status' => 'error', 'message' => 'Aktif paket bulunamadı']);
+    echo json_encode(['status' => 'error', 'message' => 'Aktif paket bulunamadı veya kullanım süresi sona erdi']);
     exit;
 }
 
@@ -83,7 +83,7 @@ if ($remaining !== null && $remaining <= 0) {
     UsageLogger::log($userId, 'api_qr', 'error', 'Limit dolu');
     http_response_code(429);
     header('Content-Type: application/json');
-    echo json_encode(['status' => 'error', 'message' => 'Aylık limitiniz doldu']);
+    echo json_encode(['status' => 'error', 'message' => 'Paket kullanım limitiniz doldu']);
     exit;
 }
 
@@ -127,9 +127,20 @@ try {
 
     UsageLogger::log($userId, 'api_qr', 'success', 'API isteği');
 
-    if ($method === 'GET' && strtolower((string) ($data['format'] ?? '')) !== 'json') {
+    $formatParam = strtolower((string) ($data['format'] ?? ''));
+    $outputParam = strtolower((string) ($data['output'] ?? ''));
+    $embed = filter_var($data['embed'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $wantsJson = $formatParam === 'json' || $outputParam === 'json';
+    $wantsImage = $outputParam === 'image' || $embed;
+
+    if ($method === 'GET' && !$wantsJson) {
+        $wantsImage = true;
+    }
+
+    if ($wantsImage) {
         header('Content-Type: image/png');
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Access-Control-Allow-Origin: *');
         echo $imageData;
     } else {
         header('Content-Type: application/json');
@@ -137,6 +148,7 @@ try {
             'status' => 'success',
             'image' => base64_encode($imageData),
             'mime' => 'image/png',
+            'embed_url' => sprintf('%s/api/v1/qr?token=%s&data=%s', rtrim(BASE_URL, '/'), urlencode($token), urlencode($content)),
         ]);
     }
 } catch (Throwable $e) {

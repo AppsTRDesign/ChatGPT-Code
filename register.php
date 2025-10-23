@@ -5,6 +5,11 @@ require __DIR__ . '/vendor/autoload.php';
 use App\Auth;
 use App\Helpers;
 
+if (Auth::check()) {
+    $destination = Auth::user()['role'] === 'admin' ? '/admin/dashboard' : '/client/dashboard';
+    redirect($destination);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');

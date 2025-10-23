@@ -18,14 +18,43 @@ class PackageManager
         return $package ?: null;
     }
 
-    public static function create(string $name, string $description, int $monthlyLimit, float $price): bool
+    public static function create(string $name, string $description, int $monthlyLimit, int $durationDays, string $features, float $price): bool
     {
-        $stmt = Helpers::db()->prepare('INSERT INTO packages (name, description, monthly_limit, price, is_active) VALUES (:name, :description, :monthly_limit, :price, 1)');
+        $stmt = Helpers::db()->prepare('INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active) VALUES (:name, :description, :monthly_limit, :duration_days, :features, :price, 1)');
         return $stmt->execute([
             'name' => $name,
             'description' => $description,
             'monthly_limit' => $monthlyLimit,
+            'duration_days' => $durationDays,
+            'features' => $features,
             'price' => $price,
         ]);
+    }
+
+    public static function update(int $id, string $name, string $description, int $monthlyLimit, int $durationDays, string $features, float $price, bool $isActive): bool
+    {
+        $stmt = Helpers::db()->prepare('UPDATE packages SET name = :name, description = :description, monthly_limit = :monthly_limit, duration_days = :duration_days, features = :features, price = :price, is_active = :is_active WHERE id = :id');
+        return $stmt->execute([
+            'id' => $id,
+            'name' => $name,
+            'description' => $description,
+            'monthly_limit' => $monthlyLimit,
+            'duration_days' => $durationDays,
+            'features' => $features,
+            'price' => $price,
+            'is_active' => $isActive ? 1 : 0,
+        ]);
+    }
+
+    public static function delete(int $id): bool
+    {
+        $stmt = Helpers::db()->prepare('DELETE FROM packages WHERE id = :id');
+        return $stmt->execute(['id' => $id]);
+    }
+
+    public static function toggle(int $id): bool
+    {
+        $stmt = Helpers::db()->prepare('UPDATE packages SET is_active = IF(is_active = 1, 0, 1) WHERE id = :id');
+        return $stmt->execute(['id' => $id]);
     }
 }
