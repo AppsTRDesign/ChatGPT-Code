@@ -27,13 +27,13 @@ $user = Auth::user();
         <h2 class="h4">Admin Paneli</h2>
         <p class="text-white-50 mb-4"><?= Helpers::e($user['username']) ?></p>
         <nav class="nav flex-column gap-2">
-            <a class="nav-link" href="/admin/dashboard.php">Gösterge Paneli</a>
-            <a class="nav-link" href="/admin/users.php">Üyeler</a>
-            <a class="nav-link" href="/admin/packages.php">Paketler</a>
-            <a class="nav-link" href="/admin/payments.php">Ödeme Bildirimleri</a>
-            <a class="nav-link" href="/admin/settings.php">Ayarlar</a>
-            <a class="nav-link" href="/admin/usage.php">API Raporları</a>
-            <a class="nav-link" href="/logout.php">Çıkış</a>
+            <a class="nav-link" href="/admin/dashboard">Gösterge Paneli</a>
+            <a class="nav-link" href="/admin/users">Üyeler</a>
+            <a class="nav-link" href="/admin/packages">Paketler</a>
+            <a class="nav-link" href="/admin/payments">Ödeme Bildirimleri</a>
+            <a class="nav-link" href="/admin/settings">Ayarlar</a>
+            <a class="nav-link" href="/admin/usage">API Raporları</a>
+            <a class="nav-link" href="/logout">Çıkış</a>
         </nav>
     </aside>
     <main class="flex-grow-1 p-5">

@@ -12,7 +12,7 @@ $db = Helpers::db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-        redirect('/client/profile.php');
+        redirect('/client/profile');
     }
 
     $email = trim($_POST['email'] ?? '');
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     Helpers::flash('message', 'Profil güncellendi.');
-    redirect('/client/profile.php');
+    redirect('/client/profile');
 }
 
 $stmt = $db->prepare('SELECT * FROM users WHERE id = :id');

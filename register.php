@@ -8,7 +8,7 @@ use App\Helpers;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-        redirect('/register.php');
+        redirect('/register');
     }
 
     $username = trim($_POST['username'] ?? '');
@@ -17,11 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (Auth::register($username, $email, $password)) {
         Helpers::flash('message', 'Kayıt başarılı. Lütfen giriş yapın.');
-        redirect('/login.php');
+        redirect('/login');
     }
 
     Helpers::flash('message', 'Kayıt sırasında bir sorun oluştu.');
-    redirect('/register.php');
+    redirect('/register');
 }
 
 require __DIR__ . '/templates/header.php';

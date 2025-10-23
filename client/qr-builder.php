@@ -62,9 +62,26 @@ window.addEventListener('load', () => {
         return;
     }
 
-    Dropzone.autoDiscover = false;
-    const dropzone = new Dropzone('#logoDropzone', {
-        url: '/client/upload-logo.php',
+    const dropzoneElement = document.getElementById('logoDropzone');
+    if (!dropzoneElement) {
+        return;
+    }
+
+    let existingInstance = null;
+    if (typeof Dropzone.forElement === 'function') {
+        try {
+            existingInstance = Dropzone.forElement(dropzoneElement);
+        } catch (error) {
+            existingInstance = null;
+        }
+    }
+
+    if (existingInstance) {
+        existingInstance.destroy();
+    }
+
+    const dropzone = new Dropzone(dropzoneElement, {
+        url: '/client/upload-logo',
         maxFiles: 1,
         acceptedFiles: 'image/*',
         addRemoveLinks: true,
@@ -95,7 +112,7 @@ window.addEventListener('load', () => {
         event.preventDefault();
         const form = event.target;
         const formData = new FormData(form);
-        const response = await fetch('/client/generate-qr.php', {
+        const response = await fetch('/client/generate-qr', {
             method: 'POST',
             body: formData
         });

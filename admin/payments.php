@@ -16,14 +16,14 @@ if (isset($_GET['approve'])) {
         Subscription::activate((int) $packageId);
     }
     Helpers::flash('message', 'Ödeme onaylandı ve paket aktifleştirildi.');
-    redirect('/admin/payments.php');
+    redirect('/admin/payments');
 }
 
 if (isset($_GET['reject'])) {
     $id = (int) $_GET['reject'];
     $db->prepare('UPDATE payment_notifications SET status = "rejected", reviewed_at = NOW() WHERE id = :id')->execute(['id' => $id]);
     Helpers::flash('message', 'Ödeme reddedildi.');
-    redirect('/admin/payments.php');
+    redirect('/admin/payments');
 }
 
 $notifications = $db->query('SELECT pn.*, u.username, p.name as package_name FROM payment_notifications pn JOIN users u ON u.id = pn.user_id LEFT JOIN user_packages up ON up.id = pn.user_package_id LEFT JOIN packages p ON p.id = up.package_id ORDER BY pn.created_at DESC')->fetchAll();

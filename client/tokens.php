@@ -12,19 +12,19 @@ $user = Auth::user();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-        redirect('/client/tokens.php');
+        redirect('/client/tokens');
     }
 
     $label = trim($_POST['label'] ?? 'API Token');
     $token = TokenManager::create((int) $user['id'], $label);
     Helpers::flash('message', 'Yeni token oluşturuldu: ' . $token);
-    redirect('/client/tokens.php');
+    redirect('/client/tokens');
 }
 
 if (isset($_GET['revoke'])) {
     TokenManager::revoke((int) $_GET['revoke'], (int) $user['id']);
     Helpers::flash('message', 'Token pasif hale getirildi.');
-    redirect('/client/tokens.php');
+    redirect('/client/tokens');
 }
 
 $tokens = TokenManager::list((int) $user['id']);

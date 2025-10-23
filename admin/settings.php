@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'bank_enabled' => isset($_POST['bank_enabled']) ? 1 : 0,
     ]);
     Helpers::flash('message', 'Ayarlar güncellendi.');
-    redirect('/admin/settings.php');
+    redirect('/admin/settings');
 }
 
 $settings = Payment::settings();

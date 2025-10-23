@@ -11,7 +11,7 @@ $db = Helpers::db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-        redirect('/client/payment-notify.php');
+        redirect('/client/payment-notify');
     }
 
     $packageId = (int) $_POST['user_package_id'];
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
 
     Helpers::flash('message', 'Ödeme bildiriminiz alınmıştır. En kısa sürede değerlendirilecektir.');
-    redirect('/client/payment-notify.php');
+    redirect('/client/payment-notify');
 }
 
 $stmt = $db->prepare('SELECT up.*, p.name FROM user_packages up JOIN packages p ON p.id = up.package_id WHERE up.user_id = :user_id AND up.payment_method = "bank" ORDER BY up.created_at DESC');

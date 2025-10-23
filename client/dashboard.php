@@ -21,7 +21,7 @@ require __DIR__ . '/../templates/header.php';
         <div class="card p-4 h-100">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2 class="h4 mb-0">Hoş geldiniz, <?= Helpers::e($user['username']) ?></h2>
-                <a href="/client/qr-builder.php" class="btn btn-primary">QR Oluştur</a>
+                <a href="/client/qr-builder" class="btn btn-primary">QR Oluştur</a>
             </div>
             <p class="text-white-50">Aktif paketiniz ile dakikalar içerisinde sınırsız QR kodlar oluşturun. API kullanım raporlarını aşağıdan inceleyebilirsiniz.</p>
             <div class="table-responsive">
@@ -59,7 +59,7 @@ require __DIR__ . '/../templates/header.php';
                 <p class="mb-0">Kalan Limit: <?= Helpers::e(Subscription::usageLeft((int) $user['id']) ?? 'Sınırsız') ?></p>
             <?php else: ?>
                 <p class="text-white-50">Aktif bir paketiniz bulunmuyor.</p>
-                <a href="/client/purchase.php" class="btn btn-outline-primary w-100">Paket Satın Al</a>
+                <a href="/client/purchase" class="btn btn-outline-primary w-100">Paket Satın Al</a>
             <?php endif; ?>
         </div>
         <div class="card p-4">

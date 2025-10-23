@@ -1,0 +1,22 @@
+RewriteEngine On
+RewriteBase /
+
+RewriteRule ^$ index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^api/v1/qr/?$ api/qr.php [QSA,L]
+RewriteRule ^api/?$ api.php [QSA,L]
+
+RewriteRule ^admin/?$ admin/dashboard.php [QSA,L]
+RewriteRule ^client/?$ client/dashboard.php [QSA,L]
+RewriteRule ^admin/([a-z0-9-]+)/?$ admin/$1.php [QSA,L,NC]
+RewriteRule ^client/([a-z0-9-]+)/?$ client/$1.php [QSA,L,NC]
+
+RewriteRule ^login/?$ login.php [QSA,L]
+RewriteRule ^register/?$ register.php [QSA,L]
+RewriteRule ^logout/?$ logout.php [QSA,L]
+
+RewriteRule ^([a-z0-9-]+)/?$ $1.php [QSA,L,NC]

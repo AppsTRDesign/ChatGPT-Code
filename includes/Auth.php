@@ -46,7 +46,7 @@ class Auth
     {
         $user = self::user();
         if (!$user || $user['role'] !== $role) {
-            redirect('/login.php');
+            redirect('/login');
         }
     }
 

@@ -1,3 +1,7 @@
+if (window.Dropzone) {
+    Dropzone.autoDiscover = false;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const flash = document.querySelector('[data-flash-message]');
     if (flash) {
@@ -21,8 +25,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 confirmButtonText: 'Evet',
                 cancelButtonText: 'Vazgeç'
             }).then((result) => {
-                if (result.isConfirmed) {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                if (element.tagName === 'A' && element.getAttribute('href')) {
                     window.location.href = element.getAttribute('href');
+                    return;
+                }
+
+                const form = element.closest('form');
+                if (form) {
+                    form.submit();
                 }
             });
         });

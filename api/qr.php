@@ -8,19 +8,41 @@ use App\Subscription;
 use App\QrService;
 use App\UsageLogger;
 
-header('Content-Type: application/json');
+$method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+$data = [];
 
-$input = file_get_contents('php://input');
-if ($input === false || $input === '') {
-    http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Boş istek']);
-    exit;
+if ($method === 'GET') {
+    $data = $_GET;
+} elseif (stripos($contentType, 'application/json') !== false) {
+    $raw = file_get_contents('php://input');
+    if ($raw !== false && $raw !== '') {
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+            echo json_encode(['status' => 'error', 'message' => 'Geçersiz JSON']);
+            exit;
+        }
+        $data = $decoded;
+    }
+} else {
+    $data = $_POST;
+    if (!$data) {
+        $raw = file_get_contents('php://input');
+        if ($raw !== false && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $data = $decoded;
+            }
+        }
+    }
 }
 
-$data = json_decode($input, true);
-if (!is_array($data)) {
+if (!is_array($data) || $data === []) {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Geçersiz JSON']);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Boş veya desteklenmeyen istek']);
     exit;
 }
 
@@ -33,6 +55,7 @@ if (!$token && isset($_SERVER['HTTP_AUTHORIZATION'])) {
 
 if (!$token) {
     http_response_code(401);
+    header('Content-Type: application/json');
     echo json_encode(['status' => 'error', 'message' => 'Token gerekli']);
     exit;
 }
@@ -40,6 +63,7 @@ if (!$token) {
 $tokenRow = TokenManager::validate($token);
 if (!$tokenRow) {
     http_response_code(401);
+    header('Content-Type: application/json');
     echo json_encode(['status' => 'error', 'message' => 'Token geçersiz']);
     exit;
 }
@@ -49,6 +73,7 @@ $subscription = Subscription::activeForUser($userId);
 if (!$subscription) {
     UsageLogger::log($userId, 'api_qr', 'error', 'Paket yok');
     http_response_code(401);
+    header('Content-Type: application/json');
     echo json_encode(['status' => 'error', 'message' => 'Aktif paket bulunamadı']);
     exit;
 }
@@ -57,6 +82,7 @@ $remaining = Subscription::usageLeft($userId);
 if ($remaining !== null && $remaining <= 0) {
     UsageLogger::log($userId, 'api_qr', 'error', 'Limit dolu');
     http_response_code(429);
+    header('Content-Type: application/json');
     echo json_encode(['status' => 'error', 'message' => 'Aylık limitiniz doldu']);
     exit;
 }
@@ -64,6 +90,7 @@ if ($remaining !== null && $remaining <= 0) {
 $content = trim($data['data'] ?? '');
 if ($content === '') {
     http_response_code(400);
+    header('Content-Type: application/json');
     echo json_encode(['status' => 'error', 'message' => 'İçerik boş olamaz']);
     exit;
 }
@@ -83,7 +110,7 @@ try {
         }
         file_put_contents($tempFile, $image);
         $logoPath = $tempFile;
-    } elseif (!empty($data['logo_upload'])) {
+    } elseif ($method !== 'GET' && !empty($data['logo_upload'])) {
         $tempFile = tempnam(__DIR__ . '/../uploads/temp', 'api_logo_');
         $binary = base64_decode($data['logo_upload'], true);
         if ($binary === false) {
@@ -100,14 +127,22 @@ try {
 
     UsageLogger::log($userId, 'api_qr', 'success', 'API isteği');
 
-    echo json_encode([
-        'status' => 'success',
-        'image' => base64_encode($imageData),
-        'mime' => 'image/png',
-    ]);
+    if ($method === 'GET' && strtolower((string) ($data['format'] ?? '')) !== 'json') {
+        header('Content-Type: image/png');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        echo $imageData;
+    } else {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => 'success',
+            'image' => base64_encode($imageData),
+            'mime' => 'image/png',
+        ]);
+    }
 } catch (Throwable $e) {
     UsageLogger::log($userId, 'api_qr', 'error', $e->getMessage());
     http_response_code(500);
+    header('Content-Type: application/json');
     echo json_encode(['status' => 'error', 'message' => 'QR kod oluşturulamadı']);
 } finally {
     if ($tempFile && file_exists($tempFile)) {

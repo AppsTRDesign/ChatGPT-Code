@@ -5,8 +5,8 @@ require __DIR__ . '/../vendor/autoload.php';
 use App\Auth;
 
 if (!Auth::user()) {
-    redirect('/login.php');
+    redirect('/login');
 }
 
 Auth::requireRole('admin');
-redirect('/admin/dashboard.php');
+redirect('/admin/dashboard');

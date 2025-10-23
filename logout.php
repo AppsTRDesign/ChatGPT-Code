@@ -7,4 +7,4 @@ use App\Helpers;
 
 Auth::logout();
 Helpers::flash('message', 'Başarıyla çıkış yapıldı.');
-redirect('/index.php');
+redirect('/');

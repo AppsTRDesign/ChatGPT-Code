@@ -15,14 +15,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         PackageManager::create($name, $description, $limit, $price);
         Helpers::flash('message', 'Paket oluşturuldu.');
     }
-    redirect('/admin/packages.php');
+    redirect('/admin/packages');
 }
 
 if (isset($_GET['toggle'])) {
     $id = (int) $_GET['toggle'];
     $db->prepare('UPDATE packages SET is_active = IF(is_active = 1, 0, 1) WHERE id = :id')->execute(['id' => $id]);
     Helpers::flash('message', 'Paket durumu güncellendi.');
-    redirect('/admin/packages.php');
+    redirect('/admin/packages');
 }
 
 $packages = $db->query('SELECT * FROM packages ORDER BY created_at DESC')->fetchAll();

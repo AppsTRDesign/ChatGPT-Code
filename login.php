@@ -8,7 +8,7 @@ use App\Helpers;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-        redirect('/login.php');
+        redirect('/login');
     }
 
     $username = trim($_POST['username'] ?? '');
@@ -16,15 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (Auth::login($username, $password)) {
         Helpers::flash('message', 'Hoş geldiniz.');
-        $redirect = '/client/dashboard.php';
+        $redirect = '/client/dashboard';
         if (Auth::user()['role'] === 'admin') {
-            $redirect = '/admin/dashboard.php';
+            $redirect = '/admin/dashboard';
         }
         redirect($redirect);
     }
 
     Helpers::flash('message', 'Kullanıcı adı veya şifre hatalı.');
-    redirect('/login.php');
+    redirect('/login');
 }
 
 require __DIR__ . '/templates/header.php';

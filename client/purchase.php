@@ -17,14 +17,14 @@ $db = Helpers::db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-        redirect('/client/purchase.php');
+        redirect('/client/purchase');
     }
 
     $packageId = (int) $_POST['package_id'];
     $package = PackageManager::find($packageId);
     if (!$package) {
         Helpers::flash('message', 'Paket bulunamadı.');
-        redirect('/client/purchase.php');
+        redirect('/client/purchase');
     }
 
     $method = $payment['iyzico_enabled'] ? ($_POST['payment_method'] ?? 'iyzico') : 'bank';
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Helpers::flash('message', 'İyzico ile ödeme için yönlendirme yapılacaktır. (Test ortamı)');
     }
 
-    redirect('/client/purchase.php');
+    redirect('/client/purchase');
 }
 
 $stmt = $db->prepare('SELECT up.*, p.name FROM user_packages up JOIN packages p ON p.id = up.package_id WHERE user_id = :user_id ORDER BY up.created_at DESC');
@@ -89,7 +89,7 @@ require __DIR__ . '/../templates/header.php';
     <div class="col-lg-6">
         <div class="card p-4 h-100">
             <h2 class="h4">Geçmiş Talepler</h2>
-            <p class="text-white-50">Banka havalesi yaptıysanız <a href="/client/payment-notify.php" class="link-light">ödeme bildirim formu</a> üzerinden dekontu iletebilirsiniz.</p>
+            <p class="text-white-50">Banka havalesi yaptıysanız <a href="/client/payment-notify" class="link-light">ödeme bildirim formu</a> üzerinden dekontu iletebilirsiniz.</p>
             <div class="table-responsive">
                 <table class="table table-striped align-middle">
                     <thead>

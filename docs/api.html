@@ -8,9 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { background: #0b132b; color: #f1f6f9; font-family: 'Poppins', sans-serif; }
-        code { color: #61dafb; }
-        pre { background: rgba(29, 38, 64, 0.85); padding: 1rem; border-radius: 1rem; }
-        a { color: #61dafb; }
+        code { color: #8ab8ff; }
+        pre { background: rgba(29, 38, 64, 0.85); padding: 1.25rem; border-radius: 1rem; border: 1px solid rgba(13, 110, 253, 0.25); }
+        a { color: #8ab8ff; }
         a:hover { color: #fff; }
     </style>
 </head>
@@ -20,21 +20,32 @@
     <p class="lead">JSON tabanlı token yapısı ile QR kod üretimini otomatikleştirin. Her istek aylık paket limitiniz kapsamında değerlendirilir.</p>
 
     <h2 class="h4 mt-5">Kimlik Doğrulama</h2>
-    <p>Admin veya müşteri panelinde oluşturduğunuz tokenı <code>Authorization: Bearer &lt;TOKEN&gt;</code> başlığı ile veya JSON gövdesinde <code>token</code> alanında gönderin.</p>
+    <p>Admin veya müşteri panelinde oluşturduğunuz tokenı <code>Authorization: Bearer &lt;TOKEN&gt;</code> başlığı ile, JSON gövdesinde <code>token</code> alanında veya GET isteklerinde <code>?token=&lt;TOKEN&gt;</code> parametresi ile gönderin.</p>
 
     <h2 class="h4 mt-4">Endpoint</h2>
-    <p><code>POST https://qrmenu.noasoft.org/api/qr.php</code></p>
+    <p><code>https://qrmenu.noasoft.org/api/v1/qr</code></p>
+    <p class="text-white-50">POST isteğinde JSON gövdesi, GET isteğinde sorgu parametreleri kullanılır.</p>
 
-    <h3 class="h5">Örnek İstek</h3>
-<pre><code>{
+    <h3 class="h5">POST Örneği</h3>
+<pre><code>POST /api/v1/qr
+Content-Type: application/json
+{
   "token": "TOKENINIZ",
   "data": "https://ornek.com/menu",
   "color": "#0d6efd",
   "background": "#0b132b",
   "logo_url": "https://ornek.com/logo.png"
 }</code></pre>
-
     <p>Logo eklemek için <code>logo_url</code> alanını kullanabilir veya base64 kodlu görsel için <code>logo_upload</code> alanını gönderebilirsiniz.</p>
+
+    <h3 class="h5">GET Örneği</h3>
+<pre><code>https://qrmenu.noasoft.org/api/v1/qr?
+  token=TOKENINIZ&
+  data=https%3A%2F%2Fornek.com%2Fmenu&
+  color=%230d6efd&
+  background=%230b132b&
+  format=json</code></pre>
+    <p><code>format=json</code> parametresi eklendiğinde base64 çıktılı JSON yanıtı döner. Parametre olmadan direkt PNG çıktısı elde edebilirsiniz.</p>
 
     <h3 class="h5">Başarılı Yanıt</h3>
 <pre><code>{
@@ -42,21 +53,21 @@
   "image": "iVBORw0KGgo...",
   "mime": "image/png"
 }</code></pre>
-
     <p>Dönen <code>image</code> alanı base64 kodlu PNG verisidir. Uygulamanızda <code>data:image/png;base64,</code> ön eki ile kullanabilirsiniz.</p>
 
     <h2 class="h4 mt-4">Hata Kodları</h2>
     <ul>
-        <li><strong>401</strong> - Token geçersiz veya paket bulunamadı.</li>
-        <li><strong>429</strong> - Aylık limit aşıldı.</li>
-        <li><strong>400</strong> - Parametre eksikliği.</li>
+        <li><strong>400</strong> - Parametre eksikliği veya hatalı istek</li>
+        <li><strong>401</strong> - Token geçersiz veya paket bulunamadı</li>
+        <li><strong>429</strong> - Aylık limit aşıldı</li>
+        <li><strong>500</strong> - QR oluşturma sırasında hata</li>
     </ul>
 
     <h2 class="h4 mt-4">Paket Limitleri</h2>
     <p>Her başarılı QR üretimi aboneliğinizin aylık limitinden düşer. Admin panelinden paketlerinizi yükseltebilir veya banka havalesi ile ödeme bildirimi yapabilirsiniz.</p>
 
     <footer class="mt-5 text-white-50">
-        &copy; <?= date('Y') ?> NoaSoft QR Menu
+        &copy; 2024 NoaSoft QR Menu
     </footer>
 </div>
 </body>
