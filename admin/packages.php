@@ -68,6 +68,7 @@ $csrfToken = Helpers::csrfToken();
                     class="table table-dark table-hover align-middle"
                     data-toggle="table"
                     data-url="/admin/data/packages"
+                    data-side-pagination="server"
                     data-search="true"
                     data-pagination="true"
                     data-page-list="[10, 25, 50]"
