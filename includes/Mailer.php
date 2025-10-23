@@ -83,14 +83,14 @@ class Mailer
     <meta charset="UTF-8">
     <title>{$title}</title>
     <style>
-        body { background: #050b1d; color: #e2e8f0; font-family: 'Poppins', Arial, sans-serif; margin: 0; padding: 0; }
+        body { background: #070f24; color: #f1f5f9; font-family: 'Poppins', Arial, sans-serif; margin: 0; padding: 0; }
         .wrapper { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
-        .card { background: linear-gradient(135deg, rgba(28, 37, 65, 0.95), rgba(17, 24, 43, 0.95)); border-radius: 20px; padding: 36px; box-shadow: 0 32px 80px rgba(8, 12, 24, 0.55); }
-        .card h1 { margin-top: 0; font-size: 26px; color: #f1f5f9; }
-        .card p { color: rgba(226, 232, 240, 0.92); line-height: 1.6; font-size: 16px; }
+        .card { background: linear-gradient(135deg, rgba(21, 36, 64, 0.96), rgba(10, 24, 44, 0.96)); border-radius: 22px; padding: 36px; box-shadow: 0 28px 72px rgba(8, 12, 24, 0.55); }
+        .card h1 { margin-top: 0; font-size: 26px; color: rgba(248, 250, 252, 0.98); }
+        .card p { color: rgba(226, 232, 240, 0.94); line-height: 1.65; font-size: 16px; }
         .btn { display: inline-block; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; padding: 12px 28px; border-radius: 999px; text-decoration: none; font-weight: 600; letter-spacing: 0.02em; }
         .btn:hover { filter: brightness(1.05); }
-        .footer { text-align: center; margin-top: 28px; font-size: 13px; color: rgba(148, 163, 184, 0.75); }
+        .footer { text-align: center; margin-top: 28px; font-size: 13px; color: rgba(186, 197, 223, 0.8); }
         a { color: #7dd3fc; }
         a:hover { color: #bae6fd; }
     </style>

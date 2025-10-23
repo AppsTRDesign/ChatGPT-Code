@@ -12,17 +12,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
-    respond('Geçersiz oturum anahtarı.', false);
-    return;
+    return respond('Geçersiz oturum anahtarı.', false);
 }
 
 $id = (int) ($_POST['id'] ?? 0);
-if ($id && PackageManager::delete($id)) {
-    respond('Paket silindi.', true);
-    return;
+if ($id <= 0) {
+    return respond('Paket bulunamadı.', false);
 }
 
-respond('Paket silinemedi.', false);
+$success = PackageManager::toggle($id);
+$message = $success ? 'Paket durumu güncellendi.' : 'Paket durumu güncellenemedi.';
+
+respond($message, $success);
 return;
 
 function respond(string $message, bool $success): void

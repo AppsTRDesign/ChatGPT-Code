@@ -30,7 +30,11 @@ require __DIR__ . '/../templates/header.php';
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Arka Plan Rengi</label>
-                        <input type="color" class="form-control form-control-color" name="background" value="#0b132b">
+                        <input type="color" class="form-control form-control-color" name="background" id="backgroundInput" value="#0b132b">
+                        <div class="form-check form-switch mt-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="transparentBackground" name="transparent_background" value="1">
+                            <label class="form-check-label" for="transparentBackground">Arka planı transparan yap</label>
+                        </div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Genişlik (px)</label>
@@ -144,6 +148,8 @@ window.addEventListener('load', () => {
     const ratioSelect = document.getElementById('aspectRatio');
     const widthInput = document.getElementById('widthInput');
     const heightInput = document.getElementById('heightInput');
+    const backgroundInput = document.getElementById('backgroundInput');
+    const transparentToggle = document.getElementById('transparentBackground');
 
     const syncHeight = () => {
         if (!ratioSelect || !widthInput || !heightInput) {
@@ -176,6 +182,20 @@ window.addEventListener('load', () => {
     }
     if (widthInput) {
         widthInput.addEventListener('input', syncHeight);
+    }
+
+    if (transparentToggle && backgroundInput) {
+        const toggleBackground = () => {
+            if (transparentToggle.checked) {
+                backgroundInput.setAttribute('disabled', 'disabled');
+                backgroundInput.classList.add('opacity-50');
+            } else {
+                backgroundInput.removeAttribute('disabled');
+                backgroundInput.classList.remove('opacity-50');
+            }
+        };
+        toggleBackground();
+        transparentToggle.addEventListener('change', toggleBackground);
     }
 
     form.addEventListener('submit', async (event) => {

@@ -79,6 +79,44 @@ const paymentStatusMap = {
 };
 
 window.appHandlers = {
+    packageResponseHandler: (response) => response,
+    packagePriceFormatter: (value) => {
+        const price = Number(value || 0);
+        return `${price.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+    },
+    packageFeaturesFormatter: (value, row) => {
+        const pieces = [];
+        if (row.description) {
+            pieces.push(`<div class="mb-2 text-white-50 small">${escapeHtml(row.description)}</div>`);
+        }
+        const features = typeof value === 'string' ? value.split(/\r?\n/) : [];
+        const items = features.filter((item) => item.trim().length).map((item) => `<li>${escapeHtml(item.trim())}</li>`);
+        if (items.length) {
+            pieces.push(`<ul class="list-unstyled mb-0 small">${items.join('')}</ul>`);
+        }
+        if (!pieces.length) {
+            return '<span class="text-white-50">-</span>';
+        }
+        return pieces.join('');
+    },
+    packageStatusFormatter: (value) => {
+        const active = value === true || value === 1 || value === '1';
+        const label = active ? 'Aktif' : 'Pasif';
+        const badge = active ? 'bg-success' : 'bg-secondary';
+        return `<span class="badge rounded-pill ${badge}">${label}</span>`;
+    },
+    packageActionsFormatter: (value, row) => {
+        const table = document.getElementById('packagesTable');
+        const csrf = table ? table.dataset.csrf || '' : '';
+        const toggleLabel = row.is_active ? 'Pasif Yap' : 'Aktif Yap';
+        const id = encodeURIComponent(row.id);
+        const buttons = [
+            `<button type="button" class="btn btn-sm btn-outline-light" data-ajax-action data-url="/admin/package-toggle" data-id="${id}" data-table="packagesTable" data-csrf="${csrf}">${toggleLabel}</button>`,
+            `<a href="/admin/package-edit?id=${id}" class="btn btn-sm btn-outline-primary">Düzenle</a>`,
+            `<button type="button" class="btn btn-sm btn-outline-danger" data-ajax-action data-action-value="delete" data-url="/admin/package-delete" data-id="${id}" data-table="packagesTable" data-csrf="${csrf}" data-confirm="Paket silinecek. Onaylıyor musunuz?">Sil</button>`,
+        ];
+        return `<div class="d-flex flex-wrap gap-2 justify-content-end">${buttons.join('')}</div>`;
+    },
     userResponseHandler: (response) => response,
     roleFormatter: (value, row) => {
         const role = value === 'admin' ? 'Admin' : 'Müşteri';

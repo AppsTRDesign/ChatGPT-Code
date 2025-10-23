@@ -104,6 +104,16 @@ if ($content === '') {
 
 $color = $data['color'] ?? '#0d6efd';
 $background = $data['background'] ?? '#0b132b';
+$backgroundTransparent = false;
+if (isset($data['background_transparent'])) {
+    $backgroundTransparent = filter_var($data['background_transparent'], FILTER_VALIDATE_BOOLEAN);
+}
+if (is_string($background) && strtolower($background) === 'transparent') {
+    $backgroundTransparent = true;
+}
+if ($backgroundTransparent) {
+    $background = 'transparent';
+}
 $width = isset($data['width']) ? (int) $data['width'] : 512;
 $height = isset($data['height']) ? (int) $data['height'] : 512;
 $aspectRatio = isset($data['aspect_ratio']) ? trim((string) $data['aspect_ratio']) : '';
@@ -177,6 +187,7 @@ try {
         'background' => $background,
         'width' => $width,
         'height' => $height,
+        'background_transparent' => $backgroundTransparent,
     ], $logoPath, $formats);
 
     UsageLogger::log($userId, 'api_qr', 'success', 'API isteği');
@@ -204,7 +215,9 @@ try {
             $embedParams['color'] = $color;
         }
 
-        if ($background) {
+        if ($backgroundTransparent) {
+            $embedParams['background_transparent'] = 'true';
+        } elseif ($background) {
             $embedParams['background'] = $background;
         }
 

@@ -40,6 +40,11 @@ if ($remaining !== null && $remaining <= 0) {
 $data = trim($_POST['data'] ?? '');
 $color = trim($_POST['color'] ?? '#0d6efd');
 $background = trim($_POST['background'] ?? '#0b132b');
+$transparentBackground = isset($_POST['transparent_background']) && $_POST['transparent_background'] === '1';
+if ($transparentBackground || strtolower((string) $background) === 'transparent') {
+    $background = 'transparent';
+    $transparentBackground = true;
+}
 $width = (int) ($_POST['width'] ?? 512);
 $height = (int) ($_POST['height'] ?? 512);
 $aspectRatio = trim((string) ($_POST['aspect_ratio'] ?? ''));
@@ -89,6 +94,7 @@ try {
         'background' => $background,
         'width' => $width,
         'height' => $height,
+        'background_transparent' => $transparentBackground,
     ], $logoPath, $formats);
 
     UsageLogger::log((int) $user['id'], 'client_qr', 'success', 'Panel üretimi');

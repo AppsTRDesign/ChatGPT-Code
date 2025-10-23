@@ -38,6 +38,7 @@ require __DIR__ . '/templates/header.php';
   "data": "https://ornek.com/menu",
   "color": "#0d6efd",
   "background": "#0b132b",
+  "background_transparent": false,
   "width": 640,
   "height": 480,
   "aspect_ratio": "4:3",
@@ -45,7 +46,7 @@ require __DIR__ . '/templates/header.php';
   "logo_url": "https://ornek.com/logo.png",
   "embed": true
 }</code></pre>
-            <p class="mb-0 text-white-50">Base64 logo göndermek için <code>logo_upload</code> alanını kullanın. <code>formats</code> alanı birden çok çıktı türünü aynı anda döndürür. <code>aspect_ratio</code> parametresi (ör. <code>1:1</code>, <code>4:3</code>) yüksekliği otomatik hesaplar; <code>custom</code> göndererek serbest değer verebilirsiniz.</p>
+            <p class="mb-0 text-white-50">Base64 logo göndermek için <code>logo_upload</code> alanını kullanın. <code>formats</code> alanı birden çok çıktı türünü aynı anda döndürür. <code>aspect_ratio</code> parametresi (ör. <code>1:1</code>, <code>4:3</code>) yüksekliği otomatik hesaplar; <code>custom</code> göndererek serbest değer verebilirsiniz. PNG çıktılarında şeffaf arka plan istiyorsanız <code>background_transparent</code> değerini <code>true</code> yapın.</p>
         </div>
     </div>
     <div class="col-lg-6">
@@ -58,7 +59,8 @@ require __DIR__ . '/templates/header.php';
   width=640&
   aspect_ratio=1:1&
   format=svg&
-  output=image</code></pre>
+  output=image&
+  background_transparent=true</code></pre>
             <p class="text-white-50">Varsayılan olarak PNG çıktısı döner. JSON cevap almak için <code>&format=json</code> veya <code>&output=json</code> parametrelerini ekleyin; JSON yanıtta tüm seçtiğiniz formatlar base64 olarak döner.</p>
         </div>
     </div>

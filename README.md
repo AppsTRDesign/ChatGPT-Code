@@ -3,12 +3,12 @@
 NoaSoft QR Menu; PHP 8 / MySQL üzerinde çalışan, paket bazlı lisanslama ve gelişmiş QR üretim özelliklerini tek çatı altında toplayan çok kiracılı bir SaaS altyapısıdır. Proje Plesk AlmaLinux 8 ortamlarına kurulmaya hazırdır ve hem müşteri hem admin panelleri mavi-siyah, modern ve tamamen mobil uyumlu olarak tasarlanmıştır.
 
 ## Öne Çıkan Özellikler
-- **QR üretimi**: chillerlan/php-qrcode entegrasyonu ile PNG/JPG/SVG çıktıları, renk & arka plan seçimi, şeffaf logoları otomatik hizalama ve en-boy oranı kontrolü.
+- **QR üretimi**: chillerlan/php-qrcode entegrasyonu ile PNG/JPG/SVG çıktıları, renk & arka plan seçimi, şeffaf logoları otomatik hizalama, isteğe bağlı transparan arka plan ve en-boy oranı kontrolü.
 - **Paket ve abonelik yönetimi**: Admin panelinden sınırlı veya sınırsız paketler oluşturma, süre & limit tanımlama, ücretsiz aylık 100 istekli başlangıç paketi.
 - **Ödeme altyapısı**: İyzico test modunda kredi kartı ödemeleri, banka havalesi IBAN bilgisi, ödeme bildirim takibi, satın alımlar için onay/red/eksik ödeme iş akışları.
 - **API güvenliği**: JSON tabanlı token üretimi, token pasifleştirme/silme, kullanım limitlerinin anlık güncellenmesi ve %50/%25/%5 eşiklerinde otomatik e-posta uyarıları.
-- **Raporlama**: Admin panelinde günlük/haftalık/aylık/yıllık API raporları, grafikler ve PDF/Excel dışa aktarma; müşteri panelinde kişisel API grafikleri ve kart görünümüne sahip Bootstrap tablolar.
-- **Marka yönetimi**: Dropzone ile logo & favicon yükleme, site başlığı/meta/HTML header-footer düzenleme, tema ile uyumlu e-posta şablonları, varsayılan durumda logo yerine site adı gösterimi.
+- **Raporlama & tablolar**: Admin panelinde günlük/haftalık/aylık/yıllık API raporları, grafikler ve PDF/Excel dışa aktarma; müşteri panelinde kişisel API grafikleri. Tüm tablolar Bootstrap Table bileşeniyle arama, sayfalama ve kart görünümü sunar.
+- **Marka yönetimi**: Dropzone ile logo & favicon yükleme, site başlığı/meta/HTML header-footer düzenleme, tema ile uyumlu ve okunabilir e-posta şablonları, varsayılan durumda logo yerine site adı gösterimi.
 - **Bildirimler**: SweetAlert tabanlı geri bildirimler, AJAX işlemleri, e-posta doğrulama/şifre sıfırlama akışları ve yapılandırılabilir PHP mailer/PHPMailer katmanı.
 
 ## Kurulum Adımları

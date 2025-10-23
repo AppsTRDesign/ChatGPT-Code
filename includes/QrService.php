@@ -15,6 +15,11 @@ class QrService
         $scale = max(4, (int) ($options['scale'] ?? 10));
         $color = $options['color'] ?? '#0d6efd';
         $background = $options['background'] ?? '#0b132b';
+        $transparentBackground = !empty($options['background_transparent'])
+            || (is_string($background) && strtolower($background) === 'transparent');
+        if ($transparentBackground) {
+            $background = null;
+        }
 
         $qrOptions = new QROptions([
             'version' => $options['version'] ?? 5,
@@ -35,9 +40,9 @@ class QrService
 
         imagealphablending($qrImage, false);
         imagesavealpha($qrImage, true);
-        $qrImage = self::recolor($qrImage, $color, $background);
+        $qrImage = self::recolor($qrImage, $color, $background, $transparentBackground);
 
-        $qrImage = self::resize($qrImage, $width, $height, $background);
+        $qrImage = self::resize($qrImage, $width, $height, $background, $transparentBackground);
 
         if ($logoPath) {
             self::overlayLogo($qrImage, $logoPath);
@@ -79,7 +84,7 @@ class QrService
         return $results;
     }
 
-    private static function recolor($image, string $foregroundHex, string $backgroundHex)
+    private static function recolor($image, string $foregroundHex, ?string $backgroundHex, bool $transparent)
     {
         $width = imagesx($image);
         $height = imagesy($image);
@@ -89,10 +94,13 @@ class QrService
         imagesavealpha($result, true);
 
         [$fr, $fg, $fb] = self::hexToRgb($foregroundHex);
-        [$br, $bg, $bb] = self::hexToRgb($backgroundHex);
-
         $fgColor = imagecolorallocatealpha($result, $fr, $fg, $fb, 0);
-        $bgColor = imagecolorallocatealpha($result, $br, $bg, $bb, 0);
+        if ($transparent) {
+            $bgColor = imagecolorallocatealpha($result, 0, 0, 0, 127);
+        } else {
+            [$br, $bg, $bb] = self::hexToRgb($backgroundHex ?? '#0b132b');
+            $bgColor = imagecolorallocatealpha($result, $br, $bg, $bb, 0);
+        }
 
         for ($y = 0; $y < $height; $y++) {
             for ($x = 0; $x < $width; $x++) {
@@ -107,7 +115,7 @@ class QrService
         return $result;
     }
 
-    private static function resize($image, int $width, int $height, string $backgroundHex)
+    private static function resize($image, int $width, int $height, ?string $backgroundHex, bool $transparent)
     {
         $currentWidth = imagesx($image);
         $currentHeight = imagesy($image);
@@ -120,8 +128,12 @@ class QrService
         imagealphablending($resized, false);
         imagesavealpha($resized, true);
 
-        [$br, $bg, $bb] = self::hexToRgb($backgroundHex);
-        $bgColor = imagecolorallocatealpha($resized, $br, $bg, $bb, 0);
+        if ($transparent) {
+            $bgColor = imagecolorallocatealpha($resized, 0, 0, 0, 127);
+        } else {
+            [$br, $bg, $bb] = self::hexToRgb($backgroundHex ?? '#0b132b');
+            $bgColor = imagecolorallocatealpha($resized, $br, $bg, $bb, 0);
+        }
         imagefilledrectangle($resized, 0, 0, $width, $height, $bgColor);
 
         imagecopyresampled($resized, $image, 0, 0, 0, 0, $width, $height, $currentWidth, $currentHeight);

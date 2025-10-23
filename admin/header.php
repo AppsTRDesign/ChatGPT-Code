@@ -26,7 +26,7 @@ $logoUrl = Settings::logoUrl();
 </head>
 <body>
 <div class="d-flex">
-    <aside class="sidebar offcanvas-lg offcanvas-start text-white p-0 d-flex flex-column" tabindex="-1" id="adminSidebar" data-bs-scroll="true">
+    <aside class="sidebar offcanvas offcanvas-lg offcanvas-start text-white p-0 d-flex flex-column" tabindex="-1" id="adminSidebar" data-bs-scroll="true" data-bs-backdrop="true">
         <div class="offcanvas-header d-lg-none">
             <h2 class="h5 mb-0">Menü</h2>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Kapat"></button>
