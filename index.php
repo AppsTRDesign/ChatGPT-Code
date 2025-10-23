@@ -15,7 +15,7 @@ if (App\Auth::check()) {
             <p class="lead text-white-50">NoaSoft QR Menu ile saniyeler içerisinde QR kodlarınızı oluşturun, logonuzu yerleştirin ve API üzerinden sınırsız entegrasyon sağlayın.</p>
             <div class="d-flex gap-3">
                 <a href="<?= $ctaUrl ?>" class="btn btn-primary btn-lg"><?= App\Helpers::e($ctaLabel) ?></a>
-                <a href="/api" class="btn btn-outline-primary btn-lg">API Dokümantasyonu</a>
+                <a href="/api-docs" class="btn btn-outline-primary btn-lg">API Dokümantasyonu</a>
             </div>
         </div>
         <div class="col-lg-6 text-center">

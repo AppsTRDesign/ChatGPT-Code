@@ -13,6 +13,10 @@ class UsageLogger
             'status' => $status,
             'note' => $note,
         ]);
+
+        if ($status === 'success') {
+            Subscription::handleUsageThresholds($userId);
+        }
     }
 
     public static function statsForUser(int $userId): array

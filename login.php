@@ -10,6 +10,11 @@ if (Auth::check()) {
     redirect($destination);
 }
 
+$pendingVerification = $_SESSION['pending_verification_user'] ?? null;
+if ($pendingVerification) {
+    unset($_SESSION['pending_verification_user']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
         Helpers::flash('message', 'Geçersiz oturum anahtarı.');
@@ -50,7 +55,16 @@ require __DIR__ . '/templates/header.php';
                 </div>
                 <button type="submit" class="btn btn-primary w-100">Giriş Yap</button>
             </form>
+            <div class="mt-3 d-flex flex-column gap-2">
+                <a href="/forgot-password" class="link-light">Şifrenizi mi unuttunuz?</a>
+                <a href="/verify-resend" class="link-light">Doğrulama mailini tekrar gönder</a>
+            </div>
         </div>
     </div>
 </div>
+<?php if ($pendingVerification): ?>
+    <div class="alert alert-warning mt-4" role="alert">
+        E-posta doğrulama bağlantısı yeniden gönderildi. Gelen kutunuzu kontrol edin.
+    </div>
+<?php endif; ?>
 <?php require __DIR__ . '/templates/footer.php'; ?>

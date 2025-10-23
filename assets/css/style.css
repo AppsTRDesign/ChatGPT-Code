@@ -169,6 +169,21 @@ a:hover {
     background: rgba(17, 24, 43, 1);
 }
 
+.navbar-logo {
+    max-height: 48px;
+    width: auto;
+}
+
+.iyzico-frame {
+    background: #fff;
+    border-radius: 1rem;
+    min-height: 420px;
+}
+
+.iyzico-frame iframe {
+    border-radius: 1rem;
+}
+
 .dropzone {
     border: 2px dashed rgba(13, 110, 253, 0.6);
     background: rgba(12, 19, 43, 0.75);

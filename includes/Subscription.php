@@ -15,7 +15,7 @@ class Subscription
 
     public static function activeForUser(int $userId): ?array
     {
-        $stmt = Helpers::db()->prepare('SELECT up.*, p.name, p.monthly_limit, p.duration_days AS package_duration FROM user_packages up JOIN packages p ON p.id = up.package_id WHERE up.user_id = :user_id AND up.status = "active" AND (up.expires_at IS NULL OR up.expires_at > NOW()) ORDER BY up.activated_at DESC LIMIT 1');
+        $stmt = Helpers::db()->prepare('SELECT up.*, p.name, p.monthly_limit, p.duration_days AS package_duration, u.email, u.username FROM user_packages up JOIN packages p ON p.id = up.package_id JOIN users u ON u.id = up.user_id WHERE up.user_id = :user_id AND up.status = "active" AND (up.expires_at IS NULL OR up.expires_at > NOW()) ORDER BY up.activated_at DESC LIMIT 1');
         $stmt->execute(['user_id' => $userId]);
         $row = $stmt->fetch();
         return $row ?: null;
@@ -51,7 +51,7 @@ class Subscription
         $duration = max(1, (int) $row['duration_days']);
         $expiresAt = (new \DateTimeImmutable())->modify('+' . $duration . ' days')->format('Y-m-d H:i:s');
 
-        $update = $db->prepare('UPDATE user_packages SET status = "active", activated_at = NOW(), expires_at = :expires_at, limit_snapshot = :limit_snapshot, duration_days = :duration_days WHERE id = :id');
+        $update = $db->prepare('UPDATE user_packages SET status = "active", activated_at = NOW(), expires_at = :expires_at, limit_snapshot = :limit_snapshot, duration_days = :duration_days, threshold_50_notified = 0, threshold_25_notified = 0, threshold_5_notified = 0 WHERE id = :id');
         return $update->execute([
             'id' => $userPackageId,
             'expires_at' => $expiresAt,
@@ -100,5 +100,65 @@ class Subscription
         $used = UsageLogger::totalUsageInRange($userId, $start, $end);
 
         return max(0, $limit - $used);
+    }
+
+    public static function handleUsageThresholds(int $userId): void
+    {
+        $subscription = self::activeForUser($userId);
+        if (!$subscription) {
+            return;
+        }
+
+        $limit = (int) ($subscription['limit_snapshot'] ?? $subscription['monthly_limit']);
+        if ($limit <= 0) {
+            return;
+        }
+
+        $activatedAt = $subscription['activated_at'] ?? null;
+        if (!$activatedAt) {
+            return;
+        }
+
+        $used = UsageLogger::totalUsageInRange($userId, $activatedAt, $subscription['expires_at'] ?? null);
+        $remaining = max(0, $limit - $used);
+        if ($remaining <= 0) {
+            return;
+        }
+
+        $percentRemaining = ($remaining / $limit) * 100;
+        $thresholds = [
+            50 => 'threshold_50_notified',
+            25 => 'threshold_25_notified',
+            5 => 'threshold_5_notified',
+        ];
+
+        foreach ($thresholds as $percent => $column) {
+            if (!empty($subscription[$column])) {
+                continue;
+            }
+
+            if ($percentRemaining <= $percent) {
+                self::notifyThreshold($subscription, $percent, $remaining, $limit, $column);
+            }
+        }
+    }
+
+    private static function notifyThreshold(array $subscription, int $percent, int $remaining, int $limit, string $column): void
+    {
+        $db = Helpers::db();
+        $stmt = $db->prepare("UPDATE user_packages SET {$column} = 1 WHERE id = :id");
+        $stmt->execute(['id' => $subscription['id']]);
+
+        $email = $subscription['email'] ?? null;
+        if (!$email) {
+            return;
+        }
+
+        $subject = sprintf('API kullanım limitiniz %% %d seviyesine düştü', $percent);
+        $content = '<h1>Limit Uyarısı</h1>'
+            . '<p>Aktif paketinizin ' . $limit . ' isteklik kotasından yalnızca ' . $remaining . ' kullanım kaldı.</p>'
+            . '<p>Kesintisiz devam etmek için panelden yeni paket satın alabilir veya limitinizi artırabilirsiniz.</p>';
+        $body = Mailer::template('API Kullanım Uyarısı', $content);
+        Mailer::send($email, $subject, $body, true);
     }
 }

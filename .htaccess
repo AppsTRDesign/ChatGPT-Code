@@ -8,7 +8,8 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 RewriteRule ^api/v1/qr/?$ api/qr.php [QSA,L]
-RewriteRule ^api/?$ api.php [QSA,L]
+RewriteRule ^api-docs/?$ api-docs.php [QSA,L]
+RewriteRule ^api/?$ api-docs.php [QSA,L]
 
 RewriteRule ^admin/?$ admin/dashboard.php [QSA,L]
 RewriteRule ^client/?$ client/dashboard.php [QSA,L]

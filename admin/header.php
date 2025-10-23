@@ -4,9 +4,12 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use App\Auth;
 use App\Helpers;
+use App\Settings;
 
 Auth::requireRole('admin');
 $user = Auth::user();
+$siteName = Settings::siteName();
+$logoUrl = Settings::logoUrl();
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -14,7 +17,7 @@ $user = Auth::user();
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin | <?= Helpers::e(APP_NAME) ?></title>
+    <title>Admin | <?= Helpers::e($siteName) ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@5/dark.css" rel="stylesheet">
@@ -24,7 +27,12 @@ $user = Auth::user();
 <body>
 <div class="d-flex">
     <aside class="sidebar p-4 vh-100 position-sticky" style="min-width:260px;">
-        <h2 class="h4">Admin Paneli</h2>
+        <h2 class="h5 d-flex align-items-center gap-2">
+            <?php if ($logoUrl): ?>
+                <img src="<?= Helpers::e($logoUrl) ?>" alt="<?= Helpers::e($siteName) ?>" class="navbar-logo">
+            <?php endif; ?>
+            <span>Admin Paneli</span>
+        </h2>
         <p class="text-white-50 mb-4"><?= Helpers::e($user['username']) ?></p>
         <nav class="nav flex-column gap-2">
             <a class="nav-link" href="/admin/dashboard">Gösterge Paneli</a>

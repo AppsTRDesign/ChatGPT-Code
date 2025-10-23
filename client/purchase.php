@@ -4,6 +4,7 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use App\Auth;
 use App\Helpers;
+use App\IyzicoService;
 use App\PackageManager;
 use App\Payment;
 use App\Subscription;
@@ -13,6 +14,9 @@ $user = Auth::user();
 $packages = PackageManager::allActive();
 $payment = Payment::settings();
 $db = Helpers::db();
+$stmtUser = $db->prepare('SELECT username, email FROM users WHERE id = :id');
+$stmtUser->execute(['id' => $user['id']]);
+$userProfile = $stmtUser->fetch() ?: $user;
 $activePackage = Subscription::activeForUser((int) $user['id']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -46,11 +50,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($method === 'bank') {
         Helpers::flash('message', 'Satın alma talebiniz alındı. Ödeme bildiriminizi ilettiğinizde admin tarafından onaylanacaktır.');
-    } else {
-        if ($purchaseId > 0) {
-            Subscription::activate($purchaseId);
+        redirect('/client/purchase');
+    }
+
+    if ($purchaseId > 0) {
+        $checkout = IyzicoService::initializeCheckout([
+            'id' => $user['id'],
+            'email' => $userProfile['email'] ?? $user['email'],
+            'username' => $userProfile['username'] ?? $user['username'],
+        ], $package, $purchaseId);
+
+        if ($checkout['success']) {
+            $_SESSION['iyzico_checkout'] = [
+                'purchase_id' => $purchaseId,
+                'content' => $checkout['content'] ?? null,
+                'payment_url' => $checkout['paymentPageUrl'] ?? null,
+            ];
+            redirect('/client/iyzico-pay?purchase=' . $purchaseId);
         }
-        Helpers::flash('message', 'İyzico üzerinden yapılan ödemeniz onaylandı. Paketiniz hemen aktifleştirildi.');
+
+        Helpers::flash('message', 'İyzico ödeme başlatılamadı: ' . ($checkout['message'] ?? 'Bilinmeyen hata'));
+    } else {
+        Helpers::flash('message', 'Satın alma talebi oluşturulamadı.');
     }
 
     redirect('/client/purchase');

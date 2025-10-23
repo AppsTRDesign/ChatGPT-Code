@@ -68,6 +68,14 @@ if (!$tokenRow) {
     exit;
 }
 
+if (isset($tokenRow['email_verified']) && (int) $tokenRow['email_verified'] === 0) {
+    UsageLogger::log((int) $tokenRow['user_id'], 'api_qr', 'error', 'E-posta doğrulanmadı');
+    http_response_code(401);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Hesabınız doğrulanmadı. Lütfen e-posta onayı yapın.']);
+    exit;
+}
+
 $userId = (int) $tokenRow['user_id'];
 $subscription = Subscription::activeForUser($userId);
 if (!$subscription) {

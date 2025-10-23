@@ -20,12 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
-    if (Auth::register($username, $email, $password)) {
-        Helpers::flash('message', 'Kayıt başarılı. Lütfen giriş yapın.');
+    $userId = Auth::register($username, $email, $password);
+    if ($userId) {
+        Auth::createVerification($userId, $email);
+        Helpers::flash('message', 'Kayıt başarılı. E-postanızı doğrulamak için gelen kutunuzu kontrol edin.');
         redirect('/login');
     }
 
-    Helpers::flash('message', 'Kayıt sırasında bir sorun oluştu.');
+    Helpers::flash('message', 'Kayıt sırasında bir sorun oluştu. Kullanıcı adı veya e-posta daha önce kullanılmış olabilir.');
     redirect('/register');
 }
 

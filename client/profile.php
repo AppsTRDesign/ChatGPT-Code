@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $db->prepare('UPDATE users SET email = :email WHERE id = :id');
     $stmt->execute(['email' => $email, 'id' => $user['id']]);
+    $_SESSION['user']['email'] = $email;
 
     if ($password !== '') {
         $stmt = $db->prepare('UPDATE users SET password = :password WHERE id = :id');

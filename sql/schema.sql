@@ -3,6 +3,9 @@ CREATE TABLE users (
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(120) DEFAULT NULL,
     password VARCHAR(255) NOT NULL,
+    email_verified TINYINT(1) DEFAULT 0,
+    verification_token VARCHAR(120) DEFAULT NULL,
+    verification_sent_at TIMESTAMP NULL,
     role ENUM('admin','client') DEFAULT 'client',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -31,6 +34,9 @@ CREATE TABLE user_packages (
     expires_at TIMESTAMP NULL,
     limit_snapshot INT DEFAULT NULL,
     duration_days INT DEFAULT NULL,
+    threshold_50_notified TINYINT(1) DEFAULT 0,
+    threshold_25_notified TINYINT(1) DEFAULT 0,
+    threshold_5_notified TINYINT(1) DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -60,10 +66,64 @@ CREATE TABLE payment_settings (
     iyzico_enabled TINYINT(1) DEFAULT 0,
     iyzico_api_key VARCHAR(255) DEFAULT '',
     iyzico_secret_key VARCHAR(255) DEFAULT '',
+    iyzico_base_url VARCHAR(255) DEFAULT 'https://sandbox-api.iyzipay.com',
     bank_account TEXT,
     bank_enabled TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE mail_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    is_active TINYINT(1) DEFAULT 0,
+    transport ENUM('mail','smtp') DEFAULT 'mail',
+    host VARCHAR(190) DEFAULT NULL,
+    port INT DEFAULT NULL,
+    username VARCHAR(190) DEFAULT NULL,
+    password VARCHAR(190) DEFAULT NULL,
+    encryption ENUM('none','ssl','tls') DEFAULT 'none',
+    from_email VARCHAR(190) DEFAULT NULL,
+    from_name VARCHAR(190) DEFAULT NULL,
+    reply_to_email VARCHAR(190) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    `key` VARCHAR(120) NOT NULL UNIQUE,
+    value TEXT,
+    updated_at TIMESTAMP NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(120) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE email_verifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token VARCHAR(120) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NULL,
+    consumed_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE iyzico_transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_package_id INT NOT NULL,
+    iyzico_token VARCHAR(120) NOT NULL,
+    status VARCHAR(60) NOT NULL,
+    raw_response TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL,
+    FOREIGN KEY (user_package_id) REFERENCES user_packages(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE payment_notifications (
@@ -79,8 +139,8 @@ CREATE TABLE payment_notifications (
     FOREIGN KEY (user_package_id) REFERENCES user_packages(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO users (username, email, password, role) VALUES
-('admin', 'admin@qrmenu.noasoft.org', '$2y$12$qvP60IWAGEcLbDnmr0fLqugHlViMLGAM8Nt.bSPemwwgWyhXGfPwS', 'admin');
+INSERT INTO users (username, email, password, role, email_verified) VALUES
+('admin', 'admin@qrmenu.noasoft.org', '$2y$12$qvP60IWAGEcLbDnmr0fLqugHlViMLGAM8Nt.bSPemwwgWyhXGfPwS', 'admin', 1);
 
 INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active) VALUES
 ('Başlangıç', 'Ayda 500 QR API isteği', 500, 30, "500 API isteği\nRenk & arka plan özelleştirme\nLogo ekleme", 99.90, 1),
