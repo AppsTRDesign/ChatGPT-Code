@@ -2,6 +2,9 @@
 
 namespace App;
 
+use DateTimeImmutable;
+use Throwable;
+
 class Subscription
 {
     public const STATUS_LABELS = [
@@ -160,5 +163,68 @@ class Subscription
             . '<p>Kesintisiz devam etmek için panelden yeni paket satın alabilir veya limitinizi artırabilirsiniz.</p>';
         $body = Mailer::template('API Kullanım Uyarısı', $content);
         Mailer::send($email, $subject, $body, true);
+    }
+
+    public static function ensureFreeTier(int $userId): void
+    {
+        $active = self::activeForUser($userId);
+        if ($active) {
+            return;
+        }
+
+        self::grantFreePackage($userId);
+    }
+
+    public static function grantFreePackage(int $userId): void
+    {
+        $db = Helpers::db();
+
+        try {
+            $db->beginTransaction();
+
+            $stmt = $db->prepare('SELECT id FROM packages WHERE name = :name LIMIT 1');
+            $stmt->execute(['name' => 'Ücretsiz']);
+            $packageId = $stmt->fetchColumn();
+
+            if (!$packageId) {
+                $insert = $db->prepare('INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active) VALUES (:name, :description, :monthly_limit, :duration_days, :features, 0, 1)');
+                $insert->execute([
+                    'name' => 'Ücretsiz',
+                    'description' => 'Her ay 100 API isteği içeren ücretsiz paket',
+                    'monthly_limit' => 100,
+                    'duration_days' => 30,
+                    'features' => "100 API isteği\nTemel renk ayarı\nLogo desteği",
+                ]);
+                $packageId = (int) $db->lastInsertId();
+            }
+
+            $existing = $db->prepare('SELECT id FROM user_packages WHERE user_id = :user_id AND package_id = :package_id AND status = "active" AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1');
+            $existing->execute([
+                'user_id' => $userId,
+                'package_id' => $packageId,
+            ]);
+
+            if ($existing->fetchColumn()) {
+                $db->commit();
+                return;
+            }
+
+            $expiresAt = (new DateTimeImmutable('+30 days'))->format('Y-m-d H:i:s');
+
+            $insertUserPackage = $db->prepare('INSERT INTO user_packages (user_id, package_id, status, payment_method, created_at, activated_at, expires_at, limit_snapshot, duration_days) VALUES (:user_id, :package_id, "active", "bank", NOW(), NOW(), :expires_at, :limit_snapshot, :duration_days)');
+            $insertUserPackage->execute([
+                'user_id' => $userId,
+                'package_id' => $packageId,
+                'expires_at' => $expiresAt,
+                'limit_snapshot' => 100,
+                'duration_days' => 30,
+            ]);
+
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+        }
     }
 }

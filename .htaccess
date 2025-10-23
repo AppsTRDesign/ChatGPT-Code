@@ -13,6 +13,7 @@ RewriteRule ^api/?$ api-docs.php [QSA,L]
 
 RewriteRule ^admin/?$ admin/dashboard.php [QSA,L]
 RewriteRule ^client/?$ client/dashboard.php [QSA,L]
+RewriteRule ^admin/data/([a-z0-9-]+)/?$ admin/data/$1.php [QSA,L,NC]
 RewriteRule ^admin/([a-z0-9-]+)/?$ admin/$1.php [QSA,L,NC]
 RewriteRule ^client/([a-z0-9-]+)/?$ client/$1.php [QSA,L,NC]
 

@@ -143,6 +143,7 @@ INSERT INTO users (username, email, password, role, email_verified) VALUES
 ('admin', 'admin@qrmenu.noasoft.org', '$2y$12$qvP60IWAGEcLbDnmr0fLqugHlViMLGAM8Nt.bSPemwwgWyhXGfPwS', 'admin', 1);
 
 INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active) VALUES
+('Ücretsiz', 'Ayda 100 QR API isteği sunan temel paket', 100, 30, "100 API isteği\nTemel renk ayarı\nLogo desteği", 0.00, 1),
 ('Başlangıç', 'Ayda 500 QR API isteği', 500, 30, "500 API isteği\nRenk & arka plan özelleştirme\nLogo ekleme", 99.90, 1),
 ('Profesyonel', 'Ayda 2.500 QR API isteği', 2500, 30, "2.500 API isteği\nÖncelikli destek\nRenk & logo varyasyonları", 249.90, 1),
 ('Kurumsal', 'Ayda 10.000 QR API isteği', 10000, 30, "10.000 API isteği\nÇoklu ekip yönetimi\nÖzel alan adı yönlendirme", 599.90, 1);

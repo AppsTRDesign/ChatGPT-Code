@@ -1,6 +1,5 @@
 <?php
-require __DIR__ . '/../config/config.php';
-require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
 use App\Helpers;
@@ -41,7 +40,35 @@ if ($remaining !== null && $remaining <= 0) {
 $data = trim($_POST['data'] ?? '');
 $color = trim($_POST['color'] ?? '#0d6efd');
 $background = trim($_POST['background'] ?? '#0b132b');
+$width = (int) ($_POST['width'] ?? 512);
+$height = (int) ($_POST['height'] ?? 512);
+$aspectRatio = trim((string) ($_POST['aspect_ratio'] ?? ''));
 $logo = trim($_POST['logo'] ?? '');
+$formatInput = $_POST['formats'] ?? ['png'];
+$formats = [];
+if (is_array($formatInput)) {
+    foreach ($formatInput as $format) {
+        $format = strtolower((string) $format);
+        if (in_array($format, ['png', 'jpg', 'svg'], true) && !in_array($format, $formats, true)) {
+            $formats[] = $format;
+        }
+    }
+}
+if (!$formats) {
+    $formats = ['png'];
+}
+
+$width = max(128, min($width, 2048));
+
+if ($aspectRatio !== '' && $aspectRatio !== 'custom' && preg_match('/^(\d+):(\d+)$/', $aspectRatio, $matches)) {
+    $ratioWidth = (int) $matches[1];
+    $ratioHeight = (int) $matches[2];
+    if ($ratioWidth > 0 && $ratioHeight > 0) {
+        $height = (int) round($width * ($ratioHeight / $ratioWidth));
+    }
+}
+
+$height = max(128, min($height, 2048));
 
 if ($data === '') {
     echo json_encode(['status' => 'error', 'message' => 'İçerik boş olamaz']);
@@ -57,13 +84,39 @@ if ($logo !== '') {
 }
 
 try {
-    $imageData = QrService::generate($data, [
+    $assets = QrService::generate($data, [
         'color' => $color,
         'background' => $background,
-    ], $logoPath);
-    $base64 = 'data:image/png;base64,' . base64_encode($imageData);
+        'width' => $width,
+        'height' => $height,
+    ], $logoPath, $formats);
+
     UsageLogger::log((int) $user['id'], 'client_qr', 'success', 'Panel üretimi');
-    echo json_encode(['status' => 'success', 'image' => $base64]);
+    $remainingAfter = Subscription::usageLeft((int) $user['id']);
+
+    $downloads = [];
+    $preview = null;
+    foreach ($assets as $format => $binary) {
+        $mime = $format === 'jpg' ? 'image/jpeg' : ($format === 'svg' ? 'image/svg+xml' : 'image/png');
+        $encoded = base64_encode($binary);
+        $dataUri = 'data:' . $mime . ';base64,' . $encoded;
+        if ($preview === null) {
+            $preview = $dataUri;
+        }
+        $downloads[] = [
+            'format' => $format,
+            'mime' => $mime,
+            'data' => $dataUri,
+            'label' => strtoupper($format),
+        ];
+    }
+
+    echo json_encode([
+        'status' => 'success',
+        'preview' => $preview,
+        'downloads' => $downloads,
+        'remaining' => $remainingAfter,
+    ]);
 } catch (Throwable $e) {
     UsageLogger::log((int) $user['id'], 'client_qr', 'error', $e->getMessage());
     echo json_encode(['status' => 'error', 'message' => 'QR kod oluşturulamadı']);

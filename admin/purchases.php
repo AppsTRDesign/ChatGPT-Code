@@ -8,157 +8,94 @@ $db = Helpers::db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
-        Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-        redirect('/admin/purchases');
+        respond('Geçersiz oturum anahtarı.', false);
     }
 
     $action = $_POST['action'] ?? '';
     $id = (int) ($_POST['id'] ?? 0);
 
     if ($id <= 0) {
-        Helpers::flash('message', 'Satın alma kaydı bulunamadı.');
-        redirect('/admin/purchases');
+        respond('Satın alma kaydı bulunamadı.', false);
     }
+
+    $message = 'Geçersiz işlem.';
+    $success = false;
 
     switch ($action) {
         case 'activate':
-            if (Subscription::activate($id)) {
-                Helpers::flash('message', 'Paket başarıyla aktifleştirildi.');
-            } else {
-                Helpers::flash('message', 'Paket aktifleştirilemedi.');
-            }
+            $success = Subscription::activate($id);
+            $message = $success ? 'Paket başarıyla aktifleştirildi.' : 'Paket aktifleştirilemedi.';
             break;
         case 'awaiting':
-            if (Subscription::updateStatus($id, 'awaiting_payment')) {
-                Helpers::flash('message', 'Paket durumu ödeme bekliyor olarak güncellendi.');
-            }
+            $success = Subscription::updateStatus($id, 'awaiting_payment');
+            $message = $success ? 'Durum ödeme bekliyor olarak güncellendi.' : $message;
             break;
         case 'missing':
-            if (Subscription::updateStatus($id, 'payment_missing')) {
-                Helpers::flash('message', 'Paket durumu eksik ödeme olarak işaretlendi.');
-            }
+            $success = Subscription::updateStatus($id, 'payment_missing');
+            $message = $success ? 'Durum eksik ödeme olarak işaretlendi.' : $message;
             break;
         case 'reject':
-            if (Subscription::updateStatus($id, 'rejected')) {
-                Helpers::flash('message', 'Paket talebi reddedildi.');
-            }
+            $success = Subscription::updateStatus($id, 'rejected');
+            $message = $success ? 'Paket talebi reddedildi.' : $message;
             break;
         case 'cancel':
-            if (Subscription::updateStatus($id, 'cancelled')) {
-                Helpers::flash('message', 'Paket talebi iptal edildi.');
-            }
-            break;
-        default:
-            Helpers::flash('message', 'Geçersiz işlem.');
+            $success = Subscription::updateStatus($id, 'cancelled');
+            $message = $success ? 'Paket talebi iptal edildi.' : $message;
             break;
     }
 
-    redirect('/admin/purchases');
+    respond($message, $success);
 }
 
-$purchases = $db->query('SELECT up.*, u.username, u.email, p.name AS package_name FROM user_packages up JOIN users u ON u.id = up.user_id JOIN packages p ON p.id = up.package_id ORDER BY up.created_at DESC')->fetchAll();
+$csrfToken = Helpers::csrfToken();
 ?>
 <h1 class="h3 mb-4">Satın Alımlar</h1>
 <div class="card p-4">
-    <div class="table-responsive">
-        <table class="table table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>Kullanıcı</th>
-                    <th>Paket</th>
-                    <th>Ödeme</th>
-                    <th>Durum</th>
-                    <th>Not</th>
-                    <th>Oluşturma</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!$purchases): ?>
-                    <tr>
-                        <td colspan="7" class="text-center text-white-50">Henüz satın alma talebi bulunmuyor.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($purchases as $purchase): ?>
-                        <?php
-                        $statusLabel = Subscription::statusLabel((string) $purchase['status']);
-                        $statusClass = [
-                            'active' => 'bg-success',
-                            'awaiting_payment' => 'bg-warning text-dark',
-                            'payment_missing' => 'bg-danger',
-                            'rejected' => 'bg-danger',
-                            'pending' => 'bg-secondary',
-                            'cancelled' => 'bg-secondary',
-                        ][$purchase['status']] ?? 'bg-secondary';
-                        $methodLabel = $purchase['payment_method'] === 'iyzico' ? 'Kredi Kartı (İyzico)' : 'Banka Havalesi';
-                        ?>
-                        <tr>
-                            <td>
-                                <strong><?= Helpers::e($purchase['username']) ?></strong><br>
-                                <small class="text-white-50"><?= Helpers::e($purchase['email']) ?></small>
-                            </td>
-                            <td>
-                                <?= Helpers::e($purchase['package_name']) ?><br>
-                                <?php if (!empty($purchase['expires_at'])): ?>
-                                    <small class="text-white-50">Bitiş: <?= Helpers::e($purchase['expires_at']) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td><?= Helpers::e($methodLabel) ?></td>
-                            <td><span class="badge <?= $statusClass ?>"><?= Helpers::e($statusLabel) ?></span></td>
-                            <td><?= $purchase['note'] ? '<small>' . Helpers::e($purchase['note']) . '</small>' : '<span class="text-white-50">-</span>' ?></td>
-                            <td>
-                                <small class="text-white-50">Talep: <?= Helpers::e($purchase['created_at']) ?></small><br>
-                                <?php if (!empty($purchase['activated_at'])): ?>
-                                    <small class="text-white-50">Aktif: <?= Helpers::e($purchase['activated_at']) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <div class="d-flex flex-column flex-lg-row gap-2">
-                                    <?php if ($purchase['status'] !== 'active'): ?>
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                            <input type="hidden" name="id" value="<?= Helpers::e($purchase['id']) ?>">
-                                            <input type="hidden" name="action" value="activate">
-                                            <button type="submit" class="btn btn-sm btn-primary">Onayla</button>
-                                        </form>
-                                    <?php endif; ?>
-                                    <?php if ($purchase['payment_method'] === 'bank' && $purchase['status'] !== 'active'): ?>
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                            <input type="hidden" name="id" value="<?= Helpers::e($purchase['id']) ?>">
-                                            <input type="hidden" name="action" value="awaiting">
-                                            <button type="submit" class="btn btn-sm btn-outline-light">Ödeme Bekleniyor</button>
-                                        </form>
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                            <input type="hidden" name="id" value="<?= Helpers::e($purchase['id']) ?>">
-                                            <input type="hidden" name="action" value="missing">
-                                            <button type="submit" class="btn btn-sm btn-outline-warning">Eksik Ödeme</button>
-                                        </form>
-                                    <?php endif; ?>
-                                    <?php if ($purchase['status'] !== 'rejected' && $purchase['status'] !== 'cancelled' && $purchase['status'] !== 'active'): ?>
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                            <input type="hidden" name="id" value="<?= Helpers::e($purchase['id']) ?>">
-                                            <input type="hidden" name="action" value="reject">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Bu satın alma reddedilecek. Onaylıyor musunuz?">Reddet</button>
-                                        </form>
-                                    <?php endif; ?>
-                                    <?php if ($purchase['status'] === 'active'): ?>
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                            <input type="hidden" name="id" value="<?= Helpers::e($purchase['id']) ?>">
-                                            <input type="hidden" name="action" value="cancel">
-                                            <button type="submit" class="btn btn-sm btn-outline-light" data-confirm="Aktif paket iptal edilecek. Emin misiniz?">İptal Et</button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+    <table
+        id="purchasesTable"
+        class="table table-dark table-hover"
+        data-toggle="table"
+        data-url="/admin/data/purchases"
+        data-search="true"
+        data-pagination="true"
+        data-page-list="[10, 25, 50]"
+        data-unique-id="id"
+        data-response-handler="window.appHandlers.purchaseResponseHandler"
+        data-csrf="<?= Helpers::e($csrfToken) ?>"
+        data-mobile-responsive="true"
+        data-locale="tr-TR"
+    >
+        <thead>
+            <tr>
+                <th data-field="username" data-sortable="true">Kullanıcı</th>
+                <th data-field="package_name" data-sortable="true">Paket</th>
+                <th data-field="payment_method" data-formatter="window.appHandlers.paymentFormatter" data-sortable="true">Ödeme</th>
+                <th data-field="status" data-formatter="window.appHandlers.purchaseStatusFormatter" data-sortable="true">Durum</th>
+                <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
+                <th data-field="created_at" data-formatter="window.appHandlers.purchaseDateFormatter" data-sortable="true">Tarih</th>
+                <th data-field="id" data-formatter="window.appHandlers.purchaseActionsFormatter" data-align="right">İşlemler</th>
+            </tr>
+        </thead>
+    </table>
 </div>
 <?php require __DIR__ . '/footer.php'; ?>
+
+<?php
+function respond(string $message, bool $success): void
+{
+    $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+        && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    $acceptsJson = str_contains(strtolower($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+
+    if ($isAjax || $acceptsJson) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => $success ? 'success' : 'error',
+            'message' => $message,
+        ]);
+        exit;
+    }
+
+    Helpers::flash('message', $message);
+    redirect('/admin/purchases');
+}

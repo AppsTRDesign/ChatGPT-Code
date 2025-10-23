@@ -40,6 +40,10 @@ class Auth
             'email_verified' => (int) ($user['email_verified'] ?? 0),
         ];
 
+        if ($user['role'] === 'client') {
+            Subscription::ensureFreeTier((int) $user['id']);
+        }
+
         return true;
     }
 
@@ -78,7 +82,9 @@ class Auth
                 'password' => $hashed,
                 'role' => 'client',
             ]);
-            return (int) $db->lastInsertId();
+            $userId = (int) $db->lastInsertId();
+            Subscription::grantFreePackage($userId);
+            return $userId;
         } catch (PDOException $e) {
             return false;
         }

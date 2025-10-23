@@ -1,6 +1,5 @@
 <?php
-require __DIR__ . '/../config/config.php';
-require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/config.php';
 
 use App\Helpers;
 use App\TokenManager;
@@ -105,6 +104,20 @@ if ($content === '') {
 
 $color = $data['color'] ?? '#0d6efd';
 $background = $data['background'] ?? '#0b132b';
+$width = isset($data['width']) ? (int) $data['width'] : 512;
+$height = isset($data['height']) ? (int) $data['height'] : 512;
+$aspectRatio = isset($data['aspect_ratio']) ? trim((string) $data['aspect_ratio']) : '';
+$width = max(128, min($width, 2048));
+
+if ($aspectRatio !== '' && $aspectRatio !== 'custom' && preg_match('/^(\d+):(\d+)$/', $aspectRatio, $matches)) {
+    $ratioWidth = (int) $matches[1];
+    $ratioHeight = (int) $matches[2];
+    if ($ratioWidth > 0 && $ratioHeight > 0) {
+        $height = (int) round($width * ($ratioHeight / $ratioWidth));
+    }
+}
+
+$height = max(128, min($height, 2048));
 
 $logoPath = null;
 $tempFile = null;
@@ -128,15 +141,27 @@ try {
         $logoPath = $tempFile;
     }
 
-    $imageData = QrService::generate($content, [
-        'color' => $color,
-        'background' => $background,
-    ], $logoPath);
-
-    UsageLogger::log($userId, 'api_qr', 'success', 'API isteği');
-
-    $formatParam = strtolower((string) ($data['format'] ?? ''));
+    $formatParam = strtolower((string) ($data['format'] ?? 'png'));
     $outputParam = strtolower((string) ($data['output'] ?? ''));
+    $formatList = $data['formats'] ?? [];
+    if (is_string($formatList)) {
+        $formatList = array_map('trim', explode(',', $formatList));
+    }
+    if (!is_array($formatList)) {
+        $formatList = [];
+    }
+
+    $validFormats = ['png', 'jpg', 'svg'];
+    $formatParam = in_array($formatParam, $validFormats, true) ? $formatParam : 'png';
+
+    $requestedFormats = [];
+    foreach ($formatList as $fmt) {
+        $fmt = strtolower((string) $fmt);
+        if (in_array($fmt, $validFormats, true) && !in_array($fmt, $requestedFormats, true)) {
+            $requestedFormats[] = $fmt;
+        }
+    }
+
     $embed = filter_var($data['embed'] ?? false, FILTER_VALIDATE_BOOLEAN);
     $wantsJson = $formatParam === 'json' || $outputParam === 'json';
     $wantsImage = $outputParam === 'image' || $embed;
@@ -145,16 +170,34 @@ try {
         $wantsImage = true;
     }
 
+    $formats = $wantsImage && !$wantsJson ? [$formatParam] : ($requestedFormats ?: [$formatParam]);
+
+    $assets = QrService::generate($content, [
+        'color' => $color,
+        'background' => $background,
+        'width' => $width,
+        'height' => $height,
+    ], $logoPath, $formats);
+
+    UsageLogger::log($userId, 'api_qr', 'success', 'API isteği');
+    $remainingAfter = Subscription::usageLeft($userId);
+
     if ($wantsImage) {
-        header('Content-Type: image/png');
+        $selectedFormat = $formats[0];
+        $mime = $selectedFormat === 'jpg' ? 'image/jpeg' : ($selectedFormat === 'svg' ? 'image/svg+xml' : 'image/png');
+        $binary = $assets[$selectedFormat] ?? reset($assets);
+        header('Content-Type: ' . $mime);
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Access-Control-Allow-Origin: *');
-        echo $imageData;
+        echo $binary;
     } else {
         $embedParams = [
             'token' => $token,
             'data' => $content,
             'output' => 'image',
+            'format' => $formatParam,
+            'width' => $width,
+            'height' => $height,
         ];
 
         if ($color) {
@@ -165,18 +208,32 @@ try {
             $embedParams['background'] = $background;
         }
 
+        if ($aspectRatio !== '' && $aspectRatio !== 'custom') {
+            $embedParams['aspect_ratio'] = $aspectRatio;
+        }
+
         if (!empty($data['logo_url'])) {
             $embedParams['logo_url'] = $data['logo_url'];
         }
 
         $embedUrl = rtrim(BASE_URL, '/') . '/api/v1/qr?' . http_build_query($embedParams, '', '&', PHP_QUERY_RFC3986);
 
+        $downloads = [];
+        foreach ($assets as $format => $binary) {
+            $mime = $format === 'jpg' ? 'image/jpeg' : ($format === 'svg' ? 'image/svg+xml' : 'image/png');
+            $downloads[] = [
+                'format' => $format,
+                'mime' => $mime,
+                'data' => base64_encode($binary),
+            ];
+        }
+
         header('Content-Type: application/json');
         echo json_encode([
             'status' => 'success',
-            'image' => base64_encode($imageData),
-            'mime' => 'image/png',
+            'downloads' => $downloads,
             'embed_url' => $embedUrl,
+            'remaining' => $remainingAfter,
         ]);
     }
 } catch (Throwable $e) {

@@ -1,6 +1,5 @@
 <?php
-require __DIR__ . '/../config/config.php';
-require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
 header('Content-Type: application/json');
@@ -22,7 +21,7 @@ if ($file['error'] !== UPLOAD_ERR_OK) {
 }
 
 $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-$allowed = ['png', 'jpg', 'jpeg'];
+$allowed = ['png', 'jpg', 'jpeg', 'svg'];
 if (!in_array($ext, $allowed, true)) {
     echo json_encode(['status' => 'error', 'message' => 'Geçersiz dosya formatı']);
     exit;

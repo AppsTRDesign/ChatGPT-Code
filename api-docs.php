@@ -23,7 +23,7 @@ require __DIR__ . '/templates/header.php';
                         <h2 class="h5">Temel Endpoint</h2>
                         <p class="mb-2"><code>https://qrmenu.noasoft.org/api/v1/qr</code></p>
                         <p class="text-white-50 mb-2">POST isteğinde JSON gövdesi, GET isteğinde sorgu parametreleri kullanın. Her başarılı istek aboneliğinizin aktif paketindeki kullanım hakkından düşer.</p>
-                        <p class="text-white-50 mb-0">Doğrudan <code>&lt;img src&gt;</code> kullanımı için <code>output=image</code> veya <code>embed=1</code> parametresi ekleyin.</p>
+                        <p class="text-white-50 mb-0">Doğrudan <code>&lt;img src&gt;</code> kullanımı için <code>output=image</code> veya <code>embed=1</code> parametresi ekleyin. <code>width</code>, <code>height</code>, <code>aspect_ratio</code> ve <code>format</code> parametreleri ile çıktıyı özelleştirebilirsiniz.</p>
                     </div>
                 </div>
             </div>
@@ -38,10 +38,14 @@ require __DIR__ . '/templates/header.php';
   "data": "https://ornek.com/menu",
   "color": "#0d6efd",
   "background": "#0b132b",
+  "width": 640,
+  "height": 480,
+  "aspect_ratio": "4:3",
+  "formats": ["png", "svg"],
   "logo_url": "https://ornek.com/logo.png",
   "embed": true
 }</code></pre>
-            <p class="mb-0 text-white-50">Base64 logo göndermek için <code>logo_upload</code> alanını kullanın.</p>
+            <p class="mb-0 text-white-50">Base64 logo göndermek için <code>logo_upload</code> alanını kullanın. <code>formats</code> alanı birden çok çıktı türünü aynı anda döndürür. <code>aspect_ratio</code> parametresi (ör. <code>1:1</code>, <code>4:3</code>) yüksekliği otomatik hesaplar; <code>custom</code> göndererek serbest değer verebilirsiniz.</p>
         </div>
     </div>
     <div class="col-lg-6">
@@ -51,10 +55,11 @@ require __DIR__ . '/templates/header.php';
 <pre><code>https://qrmenu.noasoft.org/api/v1/qr?
   token=TOKENINIZ&
   data=https%3A%2F%2Fornek.com%2Fmenu&
-  color=%230d6efd&
-  background=%230b132b&
+  width=640&
+  aspect_ratio=1:1&
+  format=svg&
   output=image</code></pre>
-            <p class="text-white-50">Varsayılan olarak PNG çıktısı döner. JSON cevap almak için <code>&format=json</code> veya <code>&output=json</code> parametrelerini ekleyin.</p>
+            <p class="text-white-50">Varsayılan olarak PNG çıktısı döner. JSON cevap almak için <code>&format=json</code> veya <code>&output=json</code> parametrelerini ekleyin; JSON yanıtta tüm seçtiğiniz formatlar base64 olarak döner.</p>
         </div>
     </div>
     <div class="col-lg-6">
@@ -73,11 +78,14 @@ require __DIR__ . '/templates/header.php';
             <h2 class="h4 mb-3">Başarılı Yanıt (JSON)</h2>
 <pre><code>{
   "status": "success",
-  "image": "iVBORw0KGgo...",
-  "mime": "image/png",
-  "embed_url": "https://qrmenu.noasoft.org/api/v1/qr?token=TOKEN&data=..."
+  "downloads": [
+    { "format": "png", "mime": "image/png", "data": "iVBORw0KGgo..." },
+    { "format": "svg", "mime": "image/svg+xml", "data": "PHN2ZyB4bWxu..." }
+  ],
+  "embed_url": "https://qrmenu.noasoft.org/api/v1/qr?token=TOKEN&data=...&output=image",
+  "remaining": 96
 }</code></pre>
-            <p class="text-white-50 mb-0">Dönen <code>image</code> alanı base64 kodlu PNG verisidir. <code>data:image/png;base64,</code> ön eki ile kullanabilirsiniz.</p>
+            <p class="text-white-50 mb-0"><code>downloads</code> alanında her format base64 olarak döner. <code>remaining</code> değeri mevcut paketinizde kalan hakkınızı gösterir.</p>
         </div>
     </div>
     <div class="col-lg-6">

@@ -1,6 +1,5 @@
 <?php
-require __DIR__ . '/../config/config.php';
-require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
 use App\Helpers;
@@ -12,24 +11,39 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
-    Helpers::flash('message', 'Geçersiz oturum anahtarı.');
-    redirect('/admin/users');
+    return respond('Geçersiz oturum anahtarı.', false);
 }
 
 $id = (int) ($_POST['id'] ?? 0);
 if ($id <= 0) {
-    Helpers::flash('message', 'Geçersiz kullanıcı.');
-    redirect('/admin/users');
+    return respond('Geçersiz kullanıcı.', false);
 }
 
 if ($id === (int) Auth::user()['id']) {
-    Helpers::flash('message', 'Kendi hesabınızı silemezsiniz.');
-    redirect('/admin/users');
+    return respond('Kendi hesabınızı silemezsiniz.', false);
 }
 
 $db = Helpers::db();
 $delete = $db->prepare('DELETE FROM users WHERE id = :id');
 $delete->execute(['id' => $id]);
 
-Helpers::flash('message', 'Üye başarıyla silindi.');
-redirect('/admin/users');
+return respond('Üye başarıyla silindi.', true);
+
+function respond(string $message, bool $success): never
+{
+    $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+        && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    $acceptsJson = str_contains(strtolower($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json');
+
+    if ($isAjax || $acceptsJson) {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'status' => $success ? 'success' : 'error',
+            'message' => $message,
+        ]);
+        exit;
+    }
+
+    Helpers::flash('message', $message);
+    redirect('/admin/users');
+}

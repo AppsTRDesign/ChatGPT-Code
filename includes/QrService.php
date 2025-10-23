@@ -4,89 +4,79 @@ namespace App;
 
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
+use RuntimeException;
 
 class QrService
 {
-    public static function generate(string $data, array $options = [], ?string $logoPath = null): string
+    public static function generate(string $data, array $options = [], ?string $logoPath = null, array $formats = ['png']): array
     {
-        $defaults = [
-            'version' => 5,
+        $width = max(128, (int) ($options['width'] ?? 512));
+        $height = max(128, (int) ($options['height'] ?? $width));
+        $scale = max(4, (int) ($options['scale'] ?? 10));
+        $color = $options['color'] ?? '#0d6efd';
+        $background = $options['background'] ?? '#0b132b';
+
+        $qrOptions = new QROptions([
+            'version' => $options['version'] ?? 5,
             'outputType' => QRCode::OUTPUT_IMAGE_PNG,
             'eccLevel' => QRCode::ECC_H,
-            'scale' => $options['scale'] ?? 6,
-            'imageTransparent' => false,
+            'scale' => $scale,
             'imageBase64' => false,
+            'imageTransparent' => false,
             'imageTransparentTransparent' => false,
-        ];
-
-        $qrOptions = new QROptions($defaults);
+        ]);
 
         $qr = new QRCode($qrOptions);
         $imageData = $qr->render($data);
-
         $qrImage = imagecreatefromstring($imageData);
         if (!$qrImage) {
-            return $imageData;
+            throw new RuntimeException('QR kodu oluşturulamadı.');
         }
 
-        $color = $options['color'] ?? '#0d6efd';
-        $background = $options['background'] ?? '#0b132b';
+        imagealphablending($qrImage, false);
+        imagesavealpha($qrImage, true);
         $qrImage = self::recolor($qrImage, $color, $background);
 
-        if (!$logoPath) {
-            ob_start();
-            imagepng($qrImage);
-            $colored = ob_get_clean();
-            imagedestroy($qrImage);
-            return $colored;
+        $qrImage = self::resize($qrImage, $width, $height, $background);
+
+        if ($logoPath) {
+            self::overlayLogo($qrImage, $logoPath);
         }
 
-        $logoContent = file_get_contents($logoPath);
-        if ($logoContent === false) {
-            ob_start();
-            imagepng($qrImage);
-            $colored = ob_get_clean();
-            imagedestroy($qrImage);
-            return $colored;
-        }
-
-        $logoImage = imagecreatefromstring($logoContent);
-        if (!$logoImage) {
-            ob_start();
-            imagepng($qrImage);
-            $colored = ob_get_clean();
-            imagedestroy($qrImage);
-            return $colored;
-        }
-
-        $qrWidth = imagesx($qrImage);
-        $qrHeight = imagesy($qrImage);
-        $logoWidth = imagesx($logoImage);
-        $logoHeight = imagesy($logoImage);
-
-        $desiredWidth = (int) ($qrWidth * 0.25);
-        $scale = $desiredWidth / $logoWidth;
-        $desiredHeight = (int) ($logoHeight * $scale);
-
-        $resizedLogo = imagecreatetruecolor($desiredWidth, $desiredHeight);
-        imagealphablending($resizedLogo, false);
-        imagesavealpha($resizedLogo, true);
-        imagecopyresampled($resizedLogo, $logoImage, 0, 0, 0, 0, $desiredWidth, $desiredHeight, $logoWidth, $logoHeight);
-
-        $destX = (int) (($qrWidth - $desiredWidth) / 2);
-        $destY = (int) (($qrHeight - $desiredHeight) / 2);
-
-        imagecopy($qrImage, $resizedLogo, $destX, $destY, 0, 0, $desiredWidth, $desiredHeight);
+        $results = [];
 
         ob_start();
         imagepng($qrImage);
-        $finalImage = ob_get_clean();
+        $pngBinary = ob_get_clean();
+
+        if (in_array('png', $formats, true)) {
+            $results['png'] = $pngBinary;
+        }
+
+        if (in_array('jpg', $formats, true)) {
+            $jpg = imagecreatetruecolor($width, $height);
+            $white = imagecolorallocate($jpg, 255, 255, 255);
+            imagefilledrectangle($jpg, 0, 0, $width, $height, $white);
+            imagecopy($jpg, $qrImage, 0, 0, 0, 0, $width, $height);
+            ob_start();
+            imagejpeg($jpg, null, 92);
+            $results['jpg'] = ob_get_clean();
+            imagedestroy($jpg);
+        }
+
+        if (in_array('svg', $formats, true)) {
+            $encoded = base64_encode($pngBinary);
+            $results['svg'] = sprintf(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="%1$d" height="%2$d" viewBox="0 0 %1$d %2$d"><image href="data:image/png;base64,%3$s" width="%1$d" height="%2$d" /></svg>',
+                $width,
+                $height,
+                $encoded
+            );
+        }
 
         imagedestroy($qrImage);
-        imagedestroy($logoImage);
-        imagedestroy($resizedLogo);
 
-        return $finalImage;
+        return $results;
     }
 
     private static function recolor($image, string $foregroundHex, string $backgroundHex)
@@ -115,6 +105,71 @@ class QrService
 
         imagedestroy($image);
         return $result;
+    }
+
+    private static function resize($image, int $width, int $height, string $backgroundHex)
+    {
+        $currentWidth = imagesx($image);
+        $currentHeight = imagesy($image);
+
+        if ($currentWidth === $width && $currentHeight === $height) {
+            return $image;
+        }
+
+        $resized = imagecreatetruecolor($width, $height);
+        imagealphablending($resized, false);
+        imagesavealpha($resized, true);
+
+        [$br, $bg, $bb] = self::hexToRgb($backgroundHex);
+        $bgColor = imagecolorallocatealpha($resized, $br, $bg, $bb, 0);
+        imagefilledrectangle($resized, 0, 0, $width, $height, $bgColor);
+
+        imagecopyresampled($resized, $image, 0, 0, 0, 0, $width, $height, $currentWidth, $currentHeight);
+        imagedestroy($image);
+
+        return $resized;
+    }
+
+    private static function overlayLogo($qrImage, string $logoPath): void
+    {
+        $logoContent = @file_get_contents($logoPath);
+        if ($logoContent === false) {
+            return;
+        }
+
+        $logoImage = @imagecreatefromstring($logoContent);
+        if (!$logoImage) {
+            return;
+        }
+
+        imagealphablending($qrImage, true);
+        imagesavealpha($qrImage, true);
+        imagealphablending($logoImage, true);
+        imagesavealpha($logoImage, true);
+
+        $qrWidth = imagesx($qrImage);
+        $qrHeight = imagesy($qrImage);
+        $logoWidth = imagesx($logoImage);
+        $logoHeight = imagesy($logoImage);
+
+        $desiredWidth = max(20, (int) ($qrWidth * 0.25));
+        $scale = $desiredWidth / $logoWidth;
+        $desiredHeight = max(20, (int) ($logoHeight * $scale));
+
+        $resizedLogo = imagecreatetruecolor($desiredWidth, $desiredHeight);
+        imagealphablending($resizedLogo, false);
+        imagesavealpha($resizedLogo, true);
+        $transparent = imagecolorallocatealpha($resizedLogo, 0, 0, 0, 127);
+        imagefill($resizedLogo, 0, 0, $transparent);
+        imagecopyresampled($resizedLogo, $logoImage, 0, 0, 0, 0, $desiredWidth, $desiredHeight, $logoWidth, $logoHeight);
+
+        $destX = (int) (($qrWidth - $desiredWidth) / 2);
+        $destY = (int) (($qrHeight - $desiredHeight) / 2);
+
+        imagecopy($qrImage, $resizedLogo, $destX, $destY, 0, 0, $desiredWidth, $desiredHeight);
+
+        imagedestroy($logoImage);
+        imagedestroy($resizedLogo);
     }
 
     private static function hexToRgb(string $hex): array

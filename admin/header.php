@@ -1,6 +1,5 @@
 <?php
-require __DIR__ . '/../config/config.php';
-require __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
 use App\Helpers;
@@ -22,6 +21,7 @@ $logoUrl = Settings::logoUrl();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@5/dark.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-table@1.22.1/dist/bootstrap-table.min.css" rel="stylesheet">
     <link href="<?= asset('assets/css/style.css') ?>" rel="stylesheet">
 </head>
 <body>
