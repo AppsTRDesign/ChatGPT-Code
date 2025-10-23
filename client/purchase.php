@@ -193,28 +193,30 @@ require __DIR__ . '/../templates/header.php';
         <div class="card p-4 h-100">
             <h2 class="h4">Geçmiş Talepler</h2>
             <p class="text-white-50">Banka havalesi yaptıysanız <a href="/client/payment-notify" class="link-light">ödeme bildirim formu</a> üzerinden dekontu iletebilirsiniz.</p>
-            <table
-                id="purchaseHistoryTable"
-                class="table table-dark table-hover"
-                data-toggle="table"
-                data-url="/client/data/purchase-history"
-                data-pagination="true"
-                data-page-size="5"
-                data-mobile-responsive="true"
-                data-card-view="true"
-                data-unique-id="id"
-                data-locale="tr-TR"
-                data-response-handler="window.appHandlers.clientPurchaseHistoryResponse"
-            >
-                <thead>
-                    <tr>
-                        <th data-field="name" data-sortable="true">Paket</th>
-                        <th data-field="status" data-formatter="window.appHandlers.clientPurchaseStatusFormatter" data-sortable="true">Durum</th>
-                        <th data-field="payment_method" data-formatter="window.appHandlers.clientPurchasePaymentFormatter" data-sortable="true">Ödeme</th>
-                        <th data-field="created_at" data-formatter="window.appHandlers.clientPurchaseDateFormatter" data-sortable="true">Talep</th>
-                    </tr>
-                </thead>
-            </table>
+            <div class="table-responsive">
+                <table
+                    id="purchaseHistoryTable"
+                    class="table table-dark table-hover align-middle"
+                    data-toggle="table"
+                    data-url="/client/data/purchase-history"
+                    data-pagination="true"
+                    data-page-size="5"
+                    data-mobile-responsive="true"
+                    data-card-view="false"
+                    data-unique-id="id"
+                    data-locale="tr-TR"
+                    data-response-handler="window.appHandlers.clientPurchaseHistoryResponse"
+                >
+                    <thead>
+                        <tr>
+                            <th data-field="name" data-sortable="true">Paket</th>
+                            <th data-field="status" data-formatter="window.appHandlers.clientPurchaseStatusFormatter" data-sortable="true">Durum</th>
+                            <th data-field="payment_method" data-formatter="window.appHandlers.clientPurchasePaymentFormatter" data-sortable="true">Ödeme</th>
+                            <th data-field="created_at" data-formatter="window.appHandlers.clientPurchaseDateFormatter" data-sortable="true">Talep</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
         </div>
     </div>
 </div>

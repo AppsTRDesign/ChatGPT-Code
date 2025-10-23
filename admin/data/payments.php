@@ -18,4 +18,7 @@ $sql = 'SELECT pn.id, pn.amount, pn.status, pn.note, pn.created_at, pn.reviewed_
         ORDER BY pn.created_at DESC';
 $rows = $db->query($sql)->fetchAll();
 
-echo json_encode(['rows' => $rows]);
+echo json_encode([
+    'total' => count($rows),
+    'rows' => $rows,
+]);

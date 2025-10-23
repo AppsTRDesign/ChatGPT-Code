@@ -62,31 +62,33 @@ require __DIR__ . '/../templates/header.php';
     <div class="col-lg-7">
         <div class="card p-4">
             <h2 class="h4">Tokenlarım</h2>
-            <table
-                id="tokensTable"
-                class="table table-dark table-hover"
-                data-toggle="table"
-                data-url="/client/data/tokens"
-                data-pagination="true"
-                data-page-size="6"
-                data-search="false"
-                data-mobile-responsive="true"
-                data-card-view="true"
-                data-unique-id="id"
-                data-locale="tr-TR"
-                data-response-handler="window.appHandlers.clientTokenResponseHandler"
-                data-csrf="<?= Helpers::e($csrfToken) ?>"
-            >
-                <thead>
-                    <tr>
-                        <th data-field="label" data-sortable="true">Etiket</th>
-                        <th data-field="token" data-formatter="window.appHandlers.clientTokenValueFormatter">Token</th>
-                        <th data-field="status" data-formatter="window.appHandlers.clientTokenStatusFormatter" data-sortable="true">Durum</th>
-                        <th data-field="created_at" data-formatter="window.appHandlers.clientTokenDateFormatter" data-sortable="true">Oluşturulma</th>
-                        <th data-field="id" data-formatter="window.appHandlers.clientTokenActionsFormatter" data-align="right"></th>
-                    </tr>
-                </thead>
-            </table>
+            <div class="table-responsive">
+                <table
+                    id="tokensTable"
+                    class="table table-dark table-hover align-middle"
+                    data-toggle="table"
+                    data-url="/client/data/tokens"
+                    data-pagination="true"
+                    data-page-size="6"
+                    data-search="false"
+                    data-mobile-responsive="true"
+                    data-card-view="false"
+                    data-unique-id="id"
+                    data-locale="tr-TR"
+                    data-response-handler="window.appHandlers.clientTokenResponseHandler"
+                    data-csrf="<?= Helpers::e($csrfToken) ?>"
+                >
+                    <thead>
+                        <tr>
+                            <th data-field="label" data-sortable="true">Etiket</th>
+                            <th data-field="token" data-formatter="window.appHandlers.clientTokenValueFormatter">Token</th>
+                            <th data-field="status" data-formatter="window.appHandlers.clientTokenStatusFormatter" data-sortable="true">Durum</th>
+                            <th data-field="created_at" data-formatter="window.appHandlers.clientTokenDateFormatter" data-sortable="true">Oluşturulma</th>
+                            <th data-field="id" data-formatter="window.appHandlers.clientTokenActionsFormatter" data-align="right"></th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
         </div>
     </div>
 </div>

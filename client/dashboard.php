@@ -20,20 +20,20 @@ require __DIR__ . '/../templates/header.php';
                 <a href="/client/qr-builder" class="btn btn-primary">QR Oluştur</a>
             </div>
             <p class="text-white-50">Aktif paketiniz ile dakikalar içerisinde QR kodlar oluşturun. API kullanım trendlerinizi grafikten takip edin, detaylı loglara tabloda göz atın.</p>
-            <div class="client-usage-chart mb-4">
-                <canvas id="clientUsageChart" height="220"></canvas>
+            <div class="chart-container mb-4">
+                <canvas id="clientUsageChart"></canvas>
             </div>
-            <div>
+            <div class="table-responsive">
                 <table
                     id="clientUsageTable"
-                    class="table table-dark table-hover"
+                    class="table table-dark table-hover align-middle"
                     data-toggle="table"
                     data-url="/client/data/usage"
                     data-pagination="true"
                     data-page-size="7"
                     data-search="false"
                     data-mobile-responsive="true"
-                    data-card-view="true"
+                    data-card-view="false"
                     data-unique-id="date"
                     data-locale="tr-TR"
                     data-response-handler="window.appHandlers.clientUsageResponseHandler"

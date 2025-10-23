@@ -24,4 +24,7 @@ $data = array_map(static function (array $row) use ($currentId) {
     ];
 }, $rows);
 
-echo json_encode(['rows' => $data]);
+echo json_encode([
+    'total' => count($data),
+    'rows' => $data,
+]);

@@ -44,31 +44,34 @@ $csrfToken = Helpers::csrfToken();
 ?>
 <h1 class="h3 mb-4">Ödeme Bildirimleri</h1>
 <div class="card p-4">
-    <table
-        id="paymentsTable"
-        class="table table-dark table-hover"
-        data-toggle="table"
-        data-url="/admin/data/payments"
-        data-search="true"
-        data-pagination="true"
-        data-page-list="[10,25,50]"
-        data-unique-id="id"
-        data-csrf="<?= Helpers::e($csrfToken) ?>"
-        data-response-handler="window.appHandlers.paymentsResponseHandler"
-        data-mobile-responsive="true"
-        data-locale="tr-TR"
-    >
-        <thead>
-            <tr>
-                <th data-field="username" data-sortable="true">Kullanıcı</th>
-                <th data-field="package_name" data-sortable="true">Paket</th>
-                <th data-field="amount" data-sortable="true">Tutar</th>
-                <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
-                <th data-field="status" data-formatter="window.appHandlers.paymentStatusFormatter" data-sortable="true">Durum</th>
-                <th data-field="id" data-formatter="window.appHandlers.paymentActionsFormatter" data-align="right">İşlemler</th>
-            </tr>
-        </thead>
-    </table>
+    <div class="table-responsive">
+        <table
+            id="paymentsTable"
+            class="table table-dark table-hover align-middle"
+            data-toggle="table"
+            data-url="/admin/data/payments"
+            data-search="true"
+            data-pagination="true"
+            data-page-list="[10,25,50]"
+            data-unique-id="id"
+            data-csrf="<?= Helpers::e($csrfToken) ?>"
+            data-response-handler="window.appHandlers.paymentsResponseHandler"
+            data-mobile-responsive="true"
+            data-card-view="false"
+            data-locale="tr-TR"
+        >
+            <thead>
+                <tr>
+                    <th data-field="username" data-sortable="true">Kullanıcı</th>
+                    <th data-field="package_name" data-sortable="true">Paket</th>
+                    <th data-field="amount" data-sortable="true">Tutar</th>
+                    <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
+                    <th data-field="status" data-formatter="window.appHandlers.paymentStatusFormatter" data-sortable="true">Durum</th>
+                    <th data-field="id" data-formatter="window.appHandlers.paymentActionsFormatter" data-align="right">İşlemler</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
 </div>
 <?php require __DIR__ . '/footer.php'; ?>
 

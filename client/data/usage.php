@@ -18,5 +18,6 @@ $data = array_map(static function (array $row) {
 }, $rows);
 
 echo json_encode([
+    'total' => count($data),
     'rows' => $data,
 ]);

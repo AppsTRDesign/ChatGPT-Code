@@ -16,4 +16,7 @@ $sql = 'SELECT l.id, l.endpoint, l.status, l.note, l.created_at, u.username, u.e
         LIMIT 500';
 $rows = $db->query($sql)->fetchAll();
 
-echo json_encode(['rows' => $rows]);
+echo json_encode([
+    'total' => count($rows),
+    'rows' => $rows,
+]);

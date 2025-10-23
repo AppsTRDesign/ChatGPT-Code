@@ -62,33 +62,35 @@ $csrfToken = Helpers::csrfToken();
     <div class="col-lg-7">
         <div class="card p-4">
             <h2 class="h5">Mevcut Paketler</h2>
-            <table
-                id="packagesTable"
-                class="table table-dark table-hover"
-                data-toggle="table"
-                data-url="/admin/data/packages"
-                data-search="true"
-                data-pagination="true"
-                data-page-list="[10, 25, 50]"
-                data-unique-id="id"
-                data-mobile-responsive="true"
-                data-card-view="true"
-                data-response-handler="window.appHandlers.packageResponseHandler"
-                data-locale="tr-TR"
-                data-csrf="<?= Helpers::e($csrfToken) ?>"
-            >
-                <thead>
-                    <tr>
-                        <th data-field="name" data-sortable="true">Ad</th>
-                        <th data-field="monthly_limit" data-align="right" data-sortable="true">Aylık Limit</th>
-                        <th data-field="duration_days" data-align="right" data-sortable="true">Süre (gün)</th>
-                        <th data-field="price" data-align="right" data-formatter="window.appHandlers.packagePriceFormatter" data-sortable="true">Fiyat</th>
-                        <th data-field="features" data-formatter="window.appHandlers.packageFeaturesFormatter">Özellikler</th>
-                        <th data-field="is_active" data-formatter="window.appHandlers.packageStatusFormatter" data-sortable="true">Durum</th>
-                        <th data-field="id" data-formatter="window.appHandlers.packageActionsFormatter" data-align="right">İşlemler</th>
-                    </tr>
-                </thead>
-            </table>
+            <div class="table-responsive">
+                <table
+                    id="packagesTable"
+                    class="table table-dark table-hover align-middle"
+                    data-toggle="table"
+                    data-url="/admin/data/packages"
+                    data-search="true"
+                    data-pagination="true"
+                    data-page-list="[10, 25, 50]"
+                    data-unique-id="id"
+                    data-mobile-responsive="true"
+                    data-card-view="false"
+                    data-response-handler="window.appHandlers.packageResponseHandler"
+                    data-locale="tr-TR"
+                    data-csrf="<?= Helpers::e($csrfToken) ?>"
+                >
+                    <thead>
+                        <tr>
+                            <th data-field="name" data-sortable="true">Ad</th>
+                            <th data-field="monthly_limit" data-align="right" data-sortable="true">Aylık Limit</th>
+                            <th data-field="duration_days" data-align="right" data-sortable="true">Süre (gün)</th>
+                            <th data-field="price" data-align="right" data-formatter="window.appHandlers.packagePriceFormatter" data-sortable="true">Fiyat</th>
+                            <th data-field="features" data-formatter="window.appHandlers.packageFeaturesFormatter">Özellikler</th>
+                            <th data-field="is_active" data-formatter="window.appHandlers.packageStatusFormatter" data-sortable="true">Durum</th>
+                            <th data-field="id" data-formatter="window.appHandlers.packageActionsFormatter" data-align="right">İşlemler</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
         </div>
     </div>
 </div>

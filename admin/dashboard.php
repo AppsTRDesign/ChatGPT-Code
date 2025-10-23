@@ -63,8 +63,8 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
                 <h2 class="h5 mb-0">Trafik ve Üyelik</h2>
                 <span class="badge bg-primary-subtle text-white">Son 14 Gün</span>
             </div>
-            <div style="min-height:260px;">
-                <canvas id="dashboardTrafficChart" height="240"></canvas>
+            <div class="chart-container" style="min-height:260px;">
+                <canvas id="dashboardTrafficChart"></canvas>
             </div>
         </div>
     </div>
@@ -82,8 +82,8 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
         <h2 class="h5 mb-0">Gelir Analizi</h2>
         <span class="badge bg-success-subtle text-white">Onaylı Ödemeler</span>
     </div>
-    <div style="min-height:260px;">
-        <canvas id="dashboardRevenueChart" height="220"></canvas>
+    <div class="chart-container" style="min-height:260px;">
+        <canvas id="dashboardRevenueChart"></canvas>
     </div>
 </div>
 <script>

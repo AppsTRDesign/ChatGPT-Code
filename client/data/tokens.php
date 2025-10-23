@@ -22,5 +22,6 @@ $rows = array_map(static function (array $token) {
 }, $list);
 
 echo json_encode([
+    'total' => count($rows),
     'rows' => $rows,
 ]);

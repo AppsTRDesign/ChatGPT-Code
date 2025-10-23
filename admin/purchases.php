@@ -51,33 +51,36 @@ $csrfToken = Helpers::csrfToken();
 ?>
 <h1 class="h3 mb-4">Satın Alımlar</h1>
 <div class="card p-4">
-    <table
-        id="purchasesTable"
-        class="table table-dark table-hover"
-        data-toggle="table"
-        data-url="/admin/data/purchases"
-        data-search="true"
-        data-pagination="true"
-        data-page-list="[10, 25, 50]"
-        data-unique-id="id"
-        data-response-handler="window.appHandlers.purchaseResponseHandler"
-        data-csrf="<?= Helpers::e($csrfToken) ?>"
-        data-mobile-responsive="true"
-        data-locale="tr-TR"
-    >
-        <thead>
-            <tr>
-                <th data-field="username" data-sortable="true">Kullanıcı</th>
-                <th data-field="package_name" data-sortable="true">Paket</th>
-                <th data-field="payment_method" data-formatter="window.appHandlers.paymentFormatter" data-sortable="true">Ödeme</th>
-                <th data-field="status" data-formatter="window.appHandlers.purchaseStatusFormatter" data-sortable="true">Durum</th>
-                <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
-                <th data-field="last_error" data-formatter="window.appHandlers.purchaseErrorFormatter">Hata Kaydı</th>
-                <th data-field="created_at" data-formatter="window.appHandlers.purchaseDateFormatter" data-sortable="true">Tarih</th>
-                <th data-field="id" data-formatter="window.appHandlers.purchaseActionsFormatter" data-align="right">İşlemler</th>
-            </tr>
-        </thead>
-    </table>
+    <div class="table-responsive">
+        <table
+            id="purchasesTable"
+            class="table table-dark table-hover align-middle"
+            data-toggle="table"
+            data-url="/admin/data/purchases"
+            data-search="true"
+            data-pagination="true"
+            data-page-list="[10, 25, 50]"
+            data-unique-id="id"
+            data-response-handler="window.appHandlers.purchaseResponseHandler"
+            data-csrf="<?= Helpers::e($csrfToken) ?>"
+            data-mobile-responsive="true"
+            data-card-view="false"
+            data-locale="tr-TR"
+        >
+            <thead>
+                <tr>
+                    <th data-field="username" data-sortable="true">Kullanıcı</th>
+                    <th data-field="package_name" data-sortable="true">Paket</th>
+                    <th data-field="payment_method" data-formatter="window.appHandlers.paymentFormatter" data-sortable="true">Ödeme</th>
+                    <th data-field="status" data-formatter="window.appHandlers.purchaseStatusFormatter" data-sortable="true">Durum</th>
+                    <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
+                    <th data-field="last_error" data-formatter="window.appHandlers.purchaseErrorFormatter">Hata Kaydı</th>
+                    <th data-field="created_at" data-formatter="window.appHandlers.purchaseDateFormatter" data-sortable="true">Tarih</th>
+                    <th data-field="id" data-formatter="window.appHandlers.purchaseActionsFormatter" data-align="right">İşlemler</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
 </div>
 <?php require __DIR__ . '/footer.php'; ?>
 

@@ -18,7 +18,9 @@ require __DIR__ . '/header.php';
                     <button class="btn btn-sm btn-outline-light" data-export="excel">Excel İndir</button>
                 </div>
             </div>
-            <canvas id="usageChart" height="220"></canvas>
+            <div class="chart-container">
+                <canvas id="usageChart"></canvas>
+            </div>
         </div>
     </div>
     <div class="col-lg-4">
@@ -30,29 +32,31 @@ require __DIR__ . '/header.php';
 </div>
 
 <div class="card p-4 mt-4">
-    <table
-        id="usageTable"
-        class="table table-dark table-hover"
-        data-toggle="table"
-        data-url="/admin/data/usage"
-        data-search="true"
-        data-pagination="true"
-        data-page-list="[25, 50, 100]"
-        data-unique-id="id"
-        data-response-handler="window.appHandlers.usageResponseHandler"
-        data-mobile-responsive="true"
-        data-card-view="true"
-        data-locale="tr-TR"
-    >
-        <thead>
-            <tr>
-                <th data-field="username" data-sortable="true">Kullanıcı</th>
-                <th data-field="endpoint" data-sortable="true">Endpoint</th>
-                <th data-field="status" data-formatter="window.appHandlers.usageStatusFormatter" data-sortable="true">Durum</th>
-                <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
-                <th data-field="created_at" data-sortable="true">Tarih</th>
-            </tr>
-        </thead>
-    </table>
+    <div class="table-responsive">
+        <table
+            id="usageTable"
+            class="table table-dark table-hover align-middle"
+            data-toggle="table"
+            data-url="/admin/data/usage"
+            data-search="true"
+            data-pagination="true"
+            data-page-list="[25, 50, 100]"
+            data-unique-id="id"
+            data-response-handler="window.appHandlers.usageResponseHandler"
+            data-mobile-responsive="true"
+            data-card-view="false"
+            data-locale="tr-TR"
+        >
+            <thead>
+                <tr>
+                    <th data-field="username" data-sortable="true">Kullanıcı</th>
+                    <th data-field="endpoint" data-sortable="true">Endpoint</th>
+                    <th data-field="status" data-formatter="window.appHandlers.usageStatusFormatter" data-sortable="true">Durum</th>
+                    <th data-field="note" data-formatter="window.appHandlers.noteFormatter">Not</th>
+                    <th data-field="created_at" data-sortable="true">Tarih</th>
+                </tr>
+            </thead>
+        </table>
+    </div>
 </div>
 <?php require __DIR__ . '/footer.php'; ?>
