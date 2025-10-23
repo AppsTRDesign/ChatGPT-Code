@@ -25,17 +25,6 @@ $allowedSort = [
     'created_at',
 ];
 
-$hasUpdatedAt = false;
-try {
-    $columnStmt = $db->query("SHOW COLUMNS FROM packages LIKE 'updated_at'");
-    $hasUpdatedAt = (bool) $columnStmt->fetch();
-    if ($hasUpdatedAt) {
-        $allowedSort[] = 'updated_at';
-    }
-} catch (\PDOException $e) {
-    $hasUpdatedAt = false;
-}
-
 if (!in_array($sort, $allowedSort, true)) {
     $sort = 'created_at';
 }
@@ -58,12 +47,7 @@ $total = (int) $countStmt->fetchColumn();
 
 $totalAll = (int) $db->query('SELECT COUNT(*) FROM packages')->fetchColumn();
 
-$selectColumns = 'id, name, description, monthly_limit, duration_days, features, price, is_active, created_at';
-if ($hasUpdatedAt) {
-    $selectColumns .= ', updated_at';
-}
-
-$sql = "SELECT $selectColumns
+$sql = "SELECT id, name, description, monthly_limit, duration_days, features, price, is_active, created_at
         FROM packages
         $where
         ORDER BY $sort $order
@@ -81,7 +65,7 @@ $stmt->execute();
 
 $rows = $stmt->fetchAll();
 
-$data = array_map(static function (array $row) use ($hasUpdatedAt) {
+$data = array_map(static function (array $row) {
     return [
         'id' => (int) $row['id'],
         'name' => $row['name'],
@@ -92,7 +76,6 @@ $data = array_map(static function (array $row) use ($hasUpdatedAt) {
         'price' => (float) $row['price'],
         'is_active' => (int) $row['is_active'] === 1,
         'created_at' => $row['created_at'],
-        'updated_at' => $hasUpdatedAt ? ($row['updated_at'] ?? null) : null,
     ];
 }, $rows);
 
