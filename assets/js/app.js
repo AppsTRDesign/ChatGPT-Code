@@ -39,6 +39,18 @@ const formatDateTime = (value) => {
     return date.toLocaleString('tr-TR');
 };
 
+const formatDateOnly = (value) => {
+    if (!value) {
+        return '-';
+    }
+    const normalised = value.length === 10 ? `${value}T00:00:00` : value.replace(' ', 'T');
+    const date = new Date(normalised);
+    if (Number.isNaN(date.getTime())) {
+        return escapeHtml(value);
+    }
+    return date.toLocaleDateString('tr-TR');
+};
+
 const refreshTable = (tableId) => {
     if (!tableId || !window.jQuery) {
         return;
@@ -162,12 +174,93 @@ window.appHandlers = {
                 : { label: escapeHtml(value), class: 'bg-secondary' };
         return `<span class="badge rounded-pill ${status.class}">${escapeHtml(status.label)}</span>`;
     },
+    clientUsageResponseHandler: (response) => response,
+    clientUsageDateFormatter: (value) => formatDateOnly(value),
+    clientTokenResponseHandler: (response) => response,
+    clientTokenStatusFormatter: (value) => {
+        const status = value === 'revoked'
+            ? { label: 'Pasif', class: 'bg-danger' }
+            : { label: 'Aktif', class: 'bg-success' };
+        return `<span class="badge rounded-pill ${status.class}">${status.label}</span>`;
+    },
+    clientTokenValueFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        return `<span class="d-inline-block w-100 text-break small font-monospace">${escapeHtml(value)}</span>`;
+    },
+    clientTokenDateFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        return `<span class="small">${formatDateTime(value)}</span>`;
+    },
+    clientTokenActionsFormatter: (value, row) => {
+        const table = document.getElementById('tokensTable');
+        if (!table) {
+            return '';
+        }
+        const csrf = table.dataset.csrf || '';
+        const forms = [];
+        if (row.status === 'revoked') {
+            forms.push(`
+                <form method="post" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="${escapeHtml(csrf)}">
+                    <input type="hidden" name="token_id" value="${escapeHtml(row.id)}">
+                    <input type="hidden" name="action" value="restore">
+                    <button type="submit" class="btn btn-sm btn-outline-success">Aktif Et</button>
+                </form>
+            `);
+        } else {
+            forms.push(`
+                <form method="post" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="${escapeHtml(csrf)}">
+                    <input type="hidden" name="token_id" value="${escapeHtml(row.id)}">
+                    <input type="hidden" name="action" value="revoke">
+                    <button type="submit" class="btn btn-sm btn-outline-light" data-confirm="Token pasif edilsin mi?">Pasif Et</button>
+                </form>
+            `);
+        }
+        forms.push(`
+            <form method="post" class="d-inline">
+                <input type="hidden" name="csrf_token" value="${escapeHtml(csrf)}">
+                <input type="hidden" name="token_id" value="${escapeHtml(row.id)}">
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Token tamamen silinecek. Onaylıyor musunuz?">Sil</button>
+            </form>
+        `);
+        return `<div class="d-flex flex-wrap gap-2 justify-content-end">${forms.join('')}</div>`;
+    },
+    clientPurchaseHistoryResponse: (response) => response,
+    clientPurchaseStatusFormatter: (value, row) => {
+        const fallbackLabel = row && row.status_label ? row.status_label : value;
+        const map = subscriptionStatusMap[value] || { label: fallbackLabel, class: 'bg-secondary' };
+        const label = row && row.status_label ? row.status_label : map.label;
+        return `<span class="badge rounded-pill ${map.class}">${escapeHtml(label)}</span>`;
+    },
+    clientPurchasePaymentFormatter: (value) => {
+        if (value === 'iyzico') {
+            return '<span class="badge bg-info text-dark">Kredi Kartı (İyzico)</span>';
+        }
+        if (value === 'bank') {
+            return '<span class="badge bg-primary">Banka Havalesi</span>';
+        }
+        return `<span class="badge bg-secondary">${escapeHtml(value || '-')}</span>`;
+    },
+    clientPurchaseDateFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        return `<span class="small">${formatDateTime(value)}</span>`;
+    },
 };
 
 let usageChart;
 let usageMetrics = [];
 let dashboardTrafficChart;
 let dashboardRevenueChart;
+let clientUsageChart;
+let clientUsageMetrics = [];
 
 const updateUsageChart = (labels, data) => {
     const canvas = document.getElementById('usageChart');
@@ -299,6 +392,90 @@ const exportUsage = (format) => {
         const workbook = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Rapor');
         window.XLSX.writeFile(workbook, 'api-raporu.xlsx');
+    }
+};
+
+const renderClientUsageChart = (rows) => {
+    const canvas = document.getElementById('clientUsageChart');
+    if (!canvas || !window.Chart) {
+        return;
+    }
+
+    const labels = rows.map((row) => row.label).reverse();
+    const totals = rows.map((row) => Number(row.total || 0)).reverse();
+
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: 'Toplam İstek',
+                data: totals,
+                borderColor: '#60a5fa',
+                backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                fill: true,
+                tension: 0.35,
+            },
+        ],
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#e2e8f0' } },
+        },
+        scales: {
+            x: { ticks: { color: '#cbd5f5' }, grid: { color: 'rgba(148, 163, 184, 0.18)' } },
+            y: { ticks: { color: '#cbd5f5' }, grid: { color: 'rgba(148, 163, 184, 0.12)' }, beginAtZero: true },
+        },
+    };
+
+    if (!clientUsageChart) {
+        clientUsageChart = new Chart(canvas, {
+            type: 'line',
+            data,
+            options,
+        });
+    } else {
+        clientUsageChart.data = data;
+        clientUsageChart.options = options;
+        clientUsageChart.update();
+    }
+};
+
+const updateClientUsageSummary = (summary) => {
+    const container = document.getElementById('clientUsageSummary');
+    if (!container) {
+        return;
+    }
+
+    if (!summary || (Number(summary.total) === 0 && Number(summary.peak) === 0 && Number(summary.latest) === 0)) {
+        container.innerHTML = '<li class="text-white-50">Henüz kullanım verisi yok.</li>';
+        return;
+    }
+
+    const rows = [];
+    rows.push(`<li class="mb-2"><strong>Toplam İstek:</strong> ${Number(summary.total || 0)}</li>`);
+    rows.push(`<li class="mb-2"><strong>Son Dönem:</strong> ${Number(summary.latest || 0)}</li>`);
+    rows.push(`<li class="mb-2"><strong>Günlük Ortalama:</strong> ${Number(summary.average || 0)}</li>`);
+    rows.push(`<li class="mb-0"><strong>Zirve:</strong> ${Number(summary.peak || 0)}</li>`);
+    container.innerHTML = rows.join('');
+};
+
+const loadClientUsageMetrics = async () => {
+    if (!window.clientUsageConfig || !window.clientUsageConfig.endpoint) {
+        return;
+    }
+
+    try {
+        const response = await fetch(window.clientUsageConfig.endpoint, { headers: { Accept: 'application/json' } });
+        const json = await response.json();
+        clientUsageMetrics = json.rows || [];
+        renderClientUsageChart(clientUsageMetrics);
+        updateClientUsageSummary(json.summary || null);
+    } catch (error) {
+        console.error('Kullanıcı kullanım verileri yüklenemedi', error);
+        updateClientUsageSummary(null);
     }
 };
 
@@ -690,4 +867,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     loadDashboardMetrics();
+    loadClientUsageMetrics();
 });

@@ -83,13 +83,16 @@ class Mailer
     <meta charset="UTF-8">
     <title>{$title}</title>
     <style>
-        body { background-color: #0b132b; color: #f8f9fa; font-family: 'Poppins', Arial, sans-serif; margin: 0; padding: 0; }
-        .wrapper { max-width: 600px; margin: 0 auto; padding: 32px; }
-        .card { background: #1c2541; border-radius: 16px; padding: 32px; box-shadow: 0 20px 45px rgba(13, 34, 64, 0.35); }
-        .card h1 { margin-top: 0; font-size: 24px; }
-        .btn { display: inline-block; background: linear-gradient(135deg, #1d8cf8, #3358f4); color: #fff; padding: 12px 24px; border-radius: 999px; text-decoration: none; font-weight: 600; }
-        .footer { text-align: center; margin-top: 24px; font-size: 12px; color: rgba(248, 249, 250, 0.6); }
-        a { color: #1d8cf8; }
+        body { background: #050b1d; color: #e2e8f0; font-family: 'Poppins', Arial, sans-serif; margin: 0; padding: 0; }
+        .wrapper { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
+        .card { background: linear-gradient(135deg, rgba(28, 37, 65, 0.95), rgba(17, 24, 43, 0.95)); border-radius: 20px; padding: 36px; box-shadow: 0 32px 80px rgba(8, 12, 24, 0.55); }
+        .card h1 { margin-top: 0; font-size: 26px; color: #f1f5f9; }
+        .card p { color: rgba(226, 232, 240, 0.92); line-height: 1.6; font-size: 16px; }
+        .btn { display: inline-block; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; padding: 12px 28px; border-radius: 999px; text-decoration: none; font-weight: 600; letter-spacing: 0.02em; }
+        .btn:hover { filter: brightness(1.05); }
+        .footer { text-align: center; margin-top: 28px; font-size: 13px; color: rgba(148, 163, 184, 0.75); }
+        a { color: #7dd3fc; }
+        a:hover { color: #bae6fd; }
     </style>
 </head>
 <body>

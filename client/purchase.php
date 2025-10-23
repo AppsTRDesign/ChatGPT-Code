@@ -77,10 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/client/purchase');
 }
 
-$stmt = $db->prepare('SELECT up.*, p.name FROM user_packages up JOIN packages p ON p.id = up.package_id WHERE user_id = :user_id ORDER BY up.created_at DESC');
-$stmt->execute(['user_id' => $user['id']]);
-$history = $stmt->fetchAll();
-
 require __DIR__ . '/../templates/header.php';
 ?>
 <div class="row g-4">
@@ -197,30 +193,28 @@ require __DIR__ . '/../templates/header.php';
         <div class="card p-4 h-100">
             <h2 class="h4">Geçmiş Talepler</h2>
             <p class="text-white-50">Banka havalesi yaptıysanız <a href="/client/payment-notify" class="link-light">ödeme bildirim formu</a> üzerinden dekontu iletebilirsiniz.</p>
-            <div class="table-responsive">
-                <table class="table table-striped align-middle">
-                    <thead>
-                        <tr>
-                            <th>Paket</th>
-                            <th>Durum</th>
-                            <th>Ödeme</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($history as $row): ?>
-                            <?php
-                            $statusLabel = Subscription::statusLabel((string) $row['status']);
-                            $methodLabel = $row['payment_method'] === 'iyzico' ? 'Kredi Kartı (İyzico)' : 'Banka Havalesi';
-                            ?>
-                            <tr>
-                                <td><?= Helpers::e($row['name']) ?></td>
-                                <td><?= Helpers::e($statusLabel) ?></td>
-                                <td><?= Helpers::e($methodLabel) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+            <table
+                id="purchaseHistoryTable"
+                class="table table-dark table-hover"
+                data-toggle="table"
+                data-url="/client/data/purchase-history"
+                data-pagination="true"
+                data-page-size="5"
+                data-mobile-responsive="true"
+                data-card-view="true"
+                data-unique-id="id"
+                data-locale="tr-TR"
+                data-response-handler="window.appHandlers.clientPurchaseHistoryResponse"
+            >
+                <thead>
+                    <tr>
+                        <th data-field="name" data-sortable="true">Paket</th>
+                        <th data-field="status" data-formatter="window.appHandlers.clientPurchaseStatusFormatter" data-sortable="true">Durum</th>
+                        <th data-field="payment_method" data-formatter="window.appHandlers.clientPurchasePaymentFormatter" data-sortable="true">Ödeme</th>
+                        <th data-field="created_at" data-formatter="window.appHandlers.clientPurchaseDateFormatter" data-sortable="true">Talep</th>
+                    </tr>
+                </thead>
+            </table>
         </div>
     </div>
 </div>

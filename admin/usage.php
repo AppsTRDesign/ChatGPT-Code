@@ -41,6 +41,7 @@ require __DIR__ . '/header.php';
         data-unique-id="id"
         data-response-handler="window.appHandlers.usageResponseHandler"
         data-mobile-responsive="true"
+        data-card-view="true"
         data-locale="tr-TR"
     >
         <thead>

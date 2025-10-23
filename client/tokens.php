@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/client/tokens');
 }
 
-$tokens = TokenManager::list((int) $user['id']);
+$csrfToken = Helpers::csrfToken();
 
 require __DIR__ . '/../templates/header.php';
 ?>
@@ -49,7 +49,7 @@ require __DIR__ . '/../templates/header.php';
         <div class="card p-4">
             <h2 class="h4">Yeni Token Oluştur</h2>
             <form method="post">
-                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                <input type="hidden" name="csrf_token" value="<?= Helpers::e($csrfToken) ?>">
                 <input type="hidden" name="action" value="create">
                 <div class="mb-3">
                     <label class="form-label">Token Etiketi</label>
@@ -62,54 +62,31 @@ require __DIR__ . '/../templates/header.php';
     <div class="col-lg-7">
         <div class="card p-4">
             <h2 class="h4">Tokenlarım</h2>
-            <div class="table-responsive">
-                <table class="table table-striped align-middle">
-                    <thead>
-                        <tr>
-                            <th>Etiket</th>
-                            <th>Token</th>
-                            <th>Durum</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (!$tokens): ?>
-                            <tr>
-                                <td colspan="4" class="text-center text-white-50">Henüz token oluşturmadınız.</td>
-                            </tr>
-                        <?php else: ?>
-                        <?php foreach ($tokens as $token): ?>
-                            <tr>
-                                <td><?= Helpers::e($token['label']) ?></td>
-                                <td><small class="text-white-50"><?= Helpers::e($token['token']) ?></small></td>
-                                <td><?= $token['revoked_at'] ? '<span class="badge bg-danger">Pasif</span>' : '<span class="badge bg-success">Aktif</span>' ?></td>
-                                <td>
-                                    <div class="d-flex gap-2 justify-content-end">
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                            <input type="hidden" name="token_id" value="<?= Helpers::e($token['id']) ?>">
-                                            <?php if ($token['revoked_at']): ?>
-                                                <input type="hidden" name="action" value="restore">
-                                                <button type="submit" class="btn btn-sm btn-outline-success">Aktif Et</button>
-                                            <?php else: ?>
-                                                <input type="hidden" name="action" value="revoke">
-                                                <button type="submit" class="btn btn-sm btn-outline-light" data-confirm="Token pasif edilsin mi?">Pasif Et</button>
-                                            <?php endif; ?>
-                                        </form>
-                                        <form method="post" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                                            <input type="hidden" name="token_id" value="<?= Helpers::e($token['id']) ?>">
-                                            <input type="hidden" name="action" value="delete">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" data-confirm="Token tamamen silinecek. Onaylıyor musunuz?">Sil</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+            <table
+                id="tokensTable"
+                class="table table-dark table-hover"
+                data-toggle="table"
+                data-url="/client/data/tokens"
+                data-pagination="true"
+                data-page-size="6"
+                data-search="false"
+                data-mobile-responsive="true"
+                data-card-view="true"
+                data-unique-id="id"
+                data-locale="tr-TR"
+                data-response-handler="window.appHandlers.clientTokenResponseHandler"
+                data-csrf="<?= Helpers::e($csrfToken) ?>"
+            >
+                <thead>
+                    <tr>
+                        <th data-field="label" data-sortable="true">Etiket</th>
+                        <th data-field="token" data-formatter="window.appHandlers.clientTokenValueFormatter">Token</th>
+                        <th data-field="status" data-formatter="window.appHandlers.clientTokenStatusFormatter" data-sortable="true">Durum</th>
+                        <th data-field="created_at" data-formatter="window.appHandlers.clientTokenDateFormatter" data-sortable="true">Oluşturulma</th>
+                        <th data-field="id" data-formatter="window.appHandlers.clientTokenActionsFormatter" data-align="right"></th>
+                    </tr>
+                </thead>
+            </table>
         </div>
     </div>
 </div>

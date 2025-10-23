@@ -365,6 +365,19 @@ code {
     color: #d5e6ff;
 }
 
+.client-usage-chart {
+    position: relative;
+    border-radius: 1.25rem;
+    background: rgba(13, 19, 43, 0.85);
+    border: 1px solid rgba(37, 99, 235, 0.35);
+    padding: 1.5rem;
+}
+
+.client-usage-chart canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 footer {
     background: rgba(12, 19, 43, 0.7);
     padding: 2rem 0;
