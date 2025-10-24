@@ -15,6 +15,11 @@ if (!Settings::onesignalEnabled()) {
     return;
 }
 
+if (!Helpers::tableExists('web_push_campaigns')) {
+    echo json_encode(['campaigns' => []]);
+    return;
+}
+
 try {
     $user = Auth::user();
     $userId = $user ? (int) $user['id'] : null;
@@ -26,63 +31,86 @@ try {
     }
 
     $sessionKey = Activity::sessionKey();
-
     $db = Helpers::db();
 
-    $columns = [];
-    try {
-        $columnStmt = $db->query("SHOW COLUMNS FROM web_push_campaigns");
-        $columns = array_map(static fn(array $row) => $row['Field'] ?? null, $columnStmt->fetchAll());
-    } catch (\Throwable $schemaException) {
-        $columns = [];
+    $columns = Helpers::tableColumns('web_push_campaigns');
+    $columnSet = array_flip($columns);
+
+    $hasAudience = isset($columnSet['audience']);
+    $hasTargetIds = isset($columnSet['target_ids']);
+    $hasStatus = isset($columnSet['status']);
+    $hasTargetUrl = isset($columnSet['target_url']);
+    $hasImagePath = isset($columnSet['image_path']);
+    $hasSentAt = isset($columnSet['sent_at']);
+
+    $selectParts = ['id', 'title', 'message'];
+    $selectParts[] = $hasTargetUrl ? 'target_url' : 'NULL AS target_url';
+    $selectParts[] = $hasImagePath ? 'image_path' : 'NULL AS image_path';
+    if ($hasAudience) {
+        $selectParts[] = 'audience';
     }
 
-    $columns = array_filter(array_map(static fn($value) => is_string($value) ? strtolower($value) : null, $columns));
-    $hasAudience = in_array('audience', $columns, true);
-    $hasTargetIds = in_array('target_ids', $columns, true);
+    $whereParts = [];
+    $params = [];
 
-    $whereParts = ["status = 'sent'"];
-    $params = [
-        'user_id' => $userId,
-        'session_key' => $sessionKey,
-    ];
+    if ($hasStatus) {
+        $whereParts[] = "status = 'sent'";
+    }
 
     if ($hasAudience) {
         $targetClauses = ["audience = 'all'"];
+        $params['user_id'] = $userId;
+
         if ($hasTargetIds) {
             $targetClauses[] = "(:user_id IS NOT NULL AND (FIND_IN_SET(CONCAT('user:', :user_id), COALESCE(target_ids, '')) OR FIND_IN_SET(:user_id, COALESCE(target_ids, ''))))";
-            $targetClauses[] = "(:player_id IS NOT NULL AND (FIND_IN_SET(CONCAT('player:', :player_id), COALESCE(target_ids, '')) OR FIND_IN_SET(:player_id, COALESCE(target_ids, ''))))";
             $params['player_id'] = $playerId;
-        } else {
-            $targetClauses[] = '(:user_id IS NOT NULL)';
+            $targetClauses[] = "(:player_id IS NOT NULL AND (FIND_IN_SET(CONCAT('player:', :player_id), COALESCE(target_ids, '')) OR FIND_IN_SET(:player_id, COALESCE(target_ids, ''))))";
         }
 
         $whereParts[] = '(' . implode(' OR ', $targetClauses) . ')';
     }
 
-    $whereSql = 'WHERE ' . implode(' AND ', $whereParts);
+    $whereSql = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
 
-    $sql = "SELECT id, title, message, target_url, image_path" . ($hasAudience ? ', audience' : '') . "
-            FROM web_push_campaigns
-            $whereSql
-              AND id NOT IN (
+    $exclusionSql = '';
+    $hasEventsTable = Helpers::tableExists('web_push_events');
+    if ($hasEventsTable) {
+        $exclusionSql = <<<SQL
+ AND id NOT IN (
                   SELECT campaign_id FROM web_push_events
                   WHERE event_type = 'delivered' AND session_key = :session_key
               )
-            ORDER BY sent_at DESC
-            LIMIT 10";
+SQL;
+        $params['session_key'] = $sessionKey;
+    }
+
+    $orderColumn = $hasSentAt ? 'sent_at' : 'id';
+
+    $sql = sprintf(
+        'SELECT %s FROM web_push_campaigns %s%s ORDER BY %s DESC LIMIT 10',
+        implode(', ', $selectParts),
+        $whereSql,
+        $exclusionSql,
+        $orderColumn
+    );
 
     $stmt = $db->prepare($sql);
-    $stmt->execute($params);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue(':' . $key, $value);
+    }
+    $stmt->execute();
 
     $campaigns = [];
     $logoUrl = Settings::logoUrl();
     $baseUrl = rtrim(BASE_URL, '/');
 
     foreach ($stmt->fetchAll() as $row) {
-        Activity::logPushEvent((int) $row['id'], 'delivered');
+        if ($hasEventsTable) {
+            Activity::logPushEvent((int) $row['id'], 'delivered');
+        }
 
-        $image = $row['image_path'] ?: ($logoUrl ? $logoUrl : null);
+        $imagePath = $row['image_path'] ?? null;
+        $image = $imagePath ?: ($logoUrl ? $logoUrl : null);
         if ($image && !str_starts_with($image, 'http://') && !str_starts_with($image, 'https://')) {
             $image = $baseUrl . '/' . ltrim($image, '/');
         }
@@ -91,7 +119,7 @@ try {
             'id' => (int) $row['id'],
             'title' => $row['title'],
             'message' => $row['message'],
-            'target_url' => $row['target_url'],
+            'target_url' => $row['target_url'] ?? null,
             'image_url' => $image,
         ];
     }
@@ -99,6 +127,5 @@ try {
     echo json_encode(['campaigns' => $campaigns]);
 } catch (\Throwable $exception) {
     error_log('Push poll failed: ' . $exception->getMessage());
-    http_response_code(500);
-    echo json_encode(['campaigns' => [], 'error' => 'Bildirimler alınamadı.']);
+    echo json_encode(['campaigns' => []]);
 }

@@ -47,13 +47,22 @@ class Notifications
         $stmt->execute(['player_id' => $playerId]);
     }
 
-    public static function playerIds(?array $userIds = null): array
+    public static function playerIds(?array $userIds = null, bool $allowSync = true): array
     {
         $db = Helpers::db();
 
         if ($userIds === null) {
             $stmt = $db->query('SELECT player_id FROM onesignal_subscriptions');
-            return array_values(array_unique(array_filter(array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id'))));
+            $players = array_values(array_unique(array_filter(array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id'))));
+
+            if (!$players && $allowSync && Settings::onesignalEnabled()) {
+                $sync = self::syncFromOneSignal();
+                if (!empty($sync['success'])) {
+                    return self::playerIds(null, false);
+                }
+            }
+
+            return $players;
         }
 
         $userIds = array_values(array_unique(array_map('intval', $userIds)));
@@ -65,7 +74,16 @@ class Notifications
         $stmt = $db->prepare("SELECT player_id FROM onesignal_subscriptions WHERE external_id IN ($placeholders)");
         $stmt->execute($userIds);
 
-        return array_values(array_unique(array_filter(array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id'))));
+        $players = array_values(array_unique(array_filter(array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id'))));
+
+        if (!$players && $allowSync && Settings::onesignalEnabled()) {
+            $sync = self::syncFromOneSignal();
+            if (!empty($sync['success'])) {
+                return self::playerIds($userIds, false);
+            }
+        }
+
+        return $players;
     }
 
     public static function syncFromOneSignal(): array

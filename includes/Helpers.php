@@ -70,4 +70,59 @@ class Helpers
         ]);
         exit;
     }
+
+    public static function tableExists(string $table): bool
+    {
+        $table = trim($table);
+        if ($table === '') {
+            return false;
+        }
+
+        try {
+            $stmt = self::db()->prepare('SHOW TABLES LIKE :table');
+            $stmt->execute(['table' => $table]);
+            return $stmt->fetchColumn() !== false;
+        } catch (\Throwable $exception) {
+            error_log('Table existence check failed: ' . $exception->getMessage());
+            return false;
+        }
+    }
+
+    public static function tableColumns(string $table): array
+    {
+        $table = preg_replace('/[^A-Za-z0-9_]/', '', $table);
+        if ($table === '') {
+            return [];
+        }
+
+        try {
+            if (!self::tableExists($table)) {
+                return [];
+            }
+
+            $stmt = self::db()->query(sprintf('SHOW COLUMNS FROM `%s`', $table));
+            $columns = [];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                if (!empty($row['Field']) && is_string($row['Field'])) {
+                    $columns[] = strtolower($row['Field']);
+                }
+            }
+
+            return $columns;
+        } catch (\Throwable $exception) {
+            error_log('Table column fetch failed: ' . $exception->getMessage());
+            return [];
+        }
+    }
+
+    public static function columnExists(string $table, string $column): bool
+    {
+        $column = strtolower(preg_replace('/[^A-Za-z0-9_]/', '', $column));
+        if ($column === '') {
+            return false;
+        }
+
+        $columns = self::tableColumns($table);
+        return in_array($column, $columns, true);
+    }
 }

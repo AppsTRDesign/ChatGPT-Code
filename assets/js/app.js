@@ -497,7 +497,13 @@ const initPushForms = () => {
         $table.on('load-success.bs.table', () => {
             updateRecipients();
             if (!Number.isNaN(preselectUser) && preselectUser > 0) {
-                $table.bootstrapTable('checkBy', { field: 'id', values: [preselectUser] });
+                const rows = $table.bootstrapTable('getData');
+                const matchIds = rows
+                    .filter((row) => Number(row.external_id || 0) === preselectUser)
+                    .map((row) => row.id);
+                if (matchIds.length) {
+                    $table.bootstrapTable('checkBy', { field: 'id', values: matchIds });
+                }
             }
         });
     }
@@ -616,15 +622,25 @@ window.appHandlers = {
         if (!row) {
             return '<span class="text-white-50">-</span>';
         }
-        const name = value || 'Ziyaretçi';
+        const name = value ? value.toString() : '';
         if (row.guest) {
-            return `<span class="badge bg-secondary text-uppercase">${escapeHtml(name)}</span>`;
+            const suffixSource = row.player_id ? row.player_id.toString() : '';
+            const suffix = suffixSource ? suffixSource.slice(-6) : '';
+            const suffixHtml = suffix ? `<span class="small text-white-50 ms-2">#${escapeHtml(suffix)}</span>` : '';
+            return `<span class="badge bg-secondary text-uppercase">Ziyaretçi</span>${suffixHtml}`;
+        }
+        if (!name) {
+            return '<span class="text-white-50">-</span>';
         }
         return escapeHtml(name);
     },
     pushRecipientEmailFormatter: (value, row) => {
         if (!value) {
-            return row && row.guest ? '<span class="text-white-50">-</span>' : '<span class="text-white-50">-</span>';
+            if (row && row.player_id) {
+                const masked = row.player_id.toString().replace(/^(.{4}).*(.{4})$/, '$1…$2');
+                return `<span class="small text-white-50">${escapeHtml(masked)}</span>`;
+            }
+            return '<span class="text-white-50">-</span>';
         }
         return `<span class="small">${escapeHtml(value)}</span>`;
     },
