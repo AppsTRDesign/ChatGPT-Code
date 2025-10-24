@@ -32,6 +32,8 @@ if (!Settings::onesignalEnabled()) {
 $payload = json_decode(file_get_contents('php://input'), true) ?? [];
 $playerId = trim((string) ($payload['player_id'] ?? ''));
 $platform = trim((string) ($payload['platform'] ?? 'web'));
+$language = trim((string) ($payload['language'] ?? ''));
+$country = trim((string) ($payload['country'] ?? ''));
 
 if ($playerId === '') {
     $previous = trim((string) ($payload['previous'] ?? ''));
@@ -42,7 +44,12 @@ if ($playerId === '') {
     exit;
 }
 
-$registered = Notifications::registerPlayer((int) $user['id'], $playerId, $platform ?: null);
+$meta = [
+    'language' => $language !== '' ? $language : null,
+    'country' => $country !== '' ? $country : null,
+];
+
+$registered = Notifications::registerPlayer((int) $user['id'], $playerId, $platform !== '' ? $platform : null, $meta);
 
 if (!$registered) {
     http_response_code(500);

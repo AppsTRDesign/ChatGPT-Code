@@ -11,7 +11,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 $db = Helpers::db();
 $rows = $db->query('SELECT u.id, u.username, u.email, u.role, u.created_at,
-       EXISTS(SELECT 1 FROM onesignal_subscriptions s WHERE s.user_id = u.id) AS has_player
+       EXISTS(SELECT 1 FROM onesignal_subscriptions s WHERE s.external_id = u.id) AS has_player
     FROM users u
     ORDER BY created_at DESC')->fetchAll();
 $currentId = (int) Auth::user()['id'];

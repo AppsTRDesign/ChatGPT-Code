@@ -317,6 +317,29 @@ const initOneSignalClient = () => {
 
                     const platform = await resolveSubscriptionPlatform(hintPlatform);
 
+                    const locale = (navigator.language || '').trim();
+                    let language = '';
+                    let country = '';
+                    if (locale) {
+                        const normalized = locale.replace('_', '-');
+                        const parts = normalized.split('-');
+                        language = parts[0] || '';
+                        country = parts.length > 1 ? parts[1] || '' : '';
+                    }
+
+                    const payload = {
+                        player_id: id,
+                        platform,
+                    };
+
+                    if (language) {
+                        payload.language = language.toLowerCase();
+                    }
+
+                    if (country) {
+                        payload.country = country.toUpperCase();
+                    }
+
                     const response = await fetch(config.registerEndpoint || '/client/onesignal-register', {
                         method: 'POST',
                         headers: {
@@ -324,10 +347,7 @@ const initOneSignalClient = () => {
                             'X-Requested-With': 'XMLHttpRequest',
                         },
                         credentials: 'same-origin',
-                        body: JSON.stringify({
-                            player_id: id,
-                            platform,
-                        }),
+                        body: JSON.stringify(payload),
                     });
 
                     const raw = await response.text();
@@ -491,6 +511,64 @@ const initPushForms = () => {
 
 initOneSignalClient();
 
+const initOneSignalSyncButton = () => {
+    const button = document.querySelector('[data-onesignal-sync]');
+    if (!button) {
+        return;
+    }
+
+    const originalLabel = button.innerHTML;
+
+    button.addEventListener('click', async () => {
+        if (button.disabled) {
+            return;
+        }
+
+        const csrf = button.dataset.csrf || '';
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Eşitleniyor...';
+
+        try {
+            const response = await fetch('/admin/onesignal-sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ csrf_token: csrf }),
+            });
+
+            let data = null;
+            try {
+                data = await response.json();
+            } catch (error) {
+                data = null;
+            }
+
+            const success = !!(data && data.success && response.ok);
+            const message = (data && data.message) || (success ? 'OneSignal aboneleri eşitlendi.' : 'Eşitleme sırasında hata oluştu.');
+
+            if (window.Swal) {
+                Swal.fire({ icon: success ? 'success' : 'error', title: message, confirmButtonColor: '#0d6efd' });
+            }
+
+            if (success) {
+                refreshTable('pushRecipientsTable');
+            }
+        } catch (error) {
+            console.error('OneSignal eşitleme hatası', error);
+            if (window.Swal) {
+                Swal.fire({ icon: 'error', title: 'OneSignal cihazları alınamadı.', confirmButtonColor: '#0d6efd' });
+            }
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalLabel;
+        }
+    });
+};
+
 const refreshTable = (tableId) => {
     if (!tableId || !window.jQuery) {
         return;
@@ -558,16 +636,6 @@ window.appHandlers = {
         const table = document.getElementById('usersTable');
         const csrf = table ? table.dataset.csrf || '' : '';
         const buttons = [];
-        const onesignalEnabled = document.body && document.body.dataset.onesignalEnabled === '1';
-
-        if (onesignalEnabled) {
-            if (row.has_player) {
-                buttons.push(`<a href="/admin/push?user=${encodeURIComponent(row.id)}" class="btn btn-sm btn-outline-info">Push Gönder</a>`);
-            } else {
-                buttons.push('<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Push Yok</button>');
-            }
-        }
-
         buttons.push(`<a href="/admin/user-edit?id=${encodeURIComponent(row.id)}" class="btn btn-sm btn-outline-primary">Düzenle</a>`);
 
         if (!row.self) {
@@ -1875,6 +1943,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initWebPushPolling();
     initFirebaseButtons();
     initPushForms();
+    initOneSignalSyncButton();
 
     document.querySelectorAll('[data-confirm]').forEach((element) => {
         if (element.dataset.confirmInitialized) {

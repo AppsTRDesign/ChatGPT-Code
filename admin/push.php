@@ -74,6 +74,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <h1 class="h3 mb-4">Web Push Bildirimleri</h1>
+<?php if ($oneSignalEnabled): ?>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <p class="text-white-50 small mb-0">OneSignal cihazlarınızı yönetmek için aboneleri eşitleyebilirsiniz.</p>
+        <button type="button" class="btn btn-outline-info btn-sm" data-onesignal-sync data-csrf="<?= Helpers::e($csrfToken) ?>">
+            OneSignal abonelerini eşitle
+        </button>
+    </div>
+<?php endif; ?>
 <?php if (!$oneSignalEnabled): ?>
     <div class="alert alert-warning">OneSignal ayarları pasif. Bildirimler yalnızca dahili web push merkezi üzerinden gösterilecektir.</div>
 <?php endif; ?>

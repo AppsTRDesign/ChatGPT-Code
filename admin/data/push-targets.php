@@ -12,7 +12,7 @@ header('Content-Type: application/json; charset=utf-8');
 $db = Helpers::db();
 $sql = "SELECT u.id, u.username, u.email, COUNT(s.id) AS player_count, MAX(s.last_active) AS last_active
         FROM users u
-        JOIN onesignal_subscriptions s ON s.user_id = u.id
+        JOIN onesignal_subscriptions s ON s.external_id = u.id
         WHERE u.role = 'client'
         GROUP BY u.id, u.username, u.email
         ORDER BY player_count DESC, last_active DESC";
