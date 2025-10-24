@@ -15,7 +15,7 @@ if ($id <= 0) {
     redirect('/admin/users');
 }
 
-$stmt = $db->prepare('SELECT id, username, email, role FROM users WHERE id = :id');
+$stmt = $db->prepare('SELECT id, username, email, role, is_approved, login_blocked, email_verified FROM users WHERE id = :id');
 $stmt->execute(['id' => $id]);
 $userRow = $stmt->fetch();
 
@@ -37,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $role = $_POST['role'] ?? 'client';
     $password = trim($_POST['password'] ?? '');
+    $isApproved = isset($_POST['is_approved']) ? 1 : 0;
+    $loginBlocked = isset($_POST['login_blocked']) ? 1 : 0;
 
     if ($username === '' || $email === '') {
         Helpers::flash('message', 'Kullanıcı adı ve e-posta alanları boş bırakılamaz.');
@@ -51,10 +53,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'username' => $username,
         'email' => $email,
         'role' => $role,
+        'is_approved' => $isApproved,
+        'login_blocked' => $loginBlocked,
         'id' => $id,
     ];
 
-    $sql = 'UPDATE users SET username = :username, email = :email, role = :role';
+    $sql = 'UPDATE users SET username = :username, email = :email, role = :role, is_approved = :is_approved, login_blocked = :login_blocked';
 
     if ($password !== '') {
         $sql .= ', password = :password';
@@ -67,6 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $update->execute($params);
 
     $messages = ['Üye bilgileri güncellendi.'];
+
+    if ($isApproved !== (int) ($userRow['is_approved'] ?? 1)) {
+        $messages[] = $isApproved ? 'Üye onaylandı.' : 'Üye onayı kaldırıldı.';
+    }
+
+    if ($loginBlocked !== (int) ($userRow['login_blocked'] ?? 0)) {
+        $messages[] = $loginBlocked ? 'Kullanıcının giriş izni kapatıldı.' : 'Kullanıcının giriş izni açıldı.';
+    }
 
     if (isset($_POST['package_id'])) {
         $packageId = (int) $_POST['package_id'];
@@ -114,6 +126,27 @@ require __DIR__ . '/header.php';
             <label class="form-label">Şifre (Opsiyonel)</label>
             <input type="password" class="form-control" name="password" placeholder="Yeni şifre">
             <small class="form-text">Şifre girmediğinizde mevcut şifre korunur.</small>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Üyelik Onayı</label>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="userApproved" name="is_approved" value="1" <?= (int) ($userRow['is_approved'] ?? 1) === 1 ? 'checked' : '' ?>>
+                <label class="form-check-label" for="userApproved">Üye onaylı</label>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Giriş İzni</label>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="userLoginBlocked" name="login_blocked" value="1" <?= (int) ($userRow['login_blocked'] ?? 0) === 1 ? 'checked' : '' ?>>
+                <label class="form-check-label" for="userLoginBlocked">Girişi engelle</label>
+            </div>
+            <small class="form-text text-white-50">Aktif olduğunda kullanıcı giriş yapamaz.</small>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">E-posta Doğrulama</label>
+            <div class="form-control bg-transparent border border-secondary text-white-50">
+                <?= (int) ($userRow['email_verified'] ?? 0) === 1 ? 'Doğrulandı' : 'Bekliyor' ?>
+            </div>
         </div>
         <div class="col-md-6">
             <label class="form-label">Paket Yönetimi</label>

@@ -3,6 +3,7 @@ require __DIR__ . '/header.php';
 
 use App\Helpers;
 use App\PackageManager;
+use App\QrService;
 
 $id = (int) ($_GET['id'] ?? 0);
 $package = PackageManager::find($id);
@@ -24,16 +25,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $duration = max(1, (int) ($_POST['duration_days'] ?? 30));
     $price = (float) ($_POST['price'] ?? 0);
     $features = trim($_POST['features'] ?? '');
+    $selectedTypes = $_POST['qr_features'] ?? [];
+    if (!is_array($selectedTypes)) {
+        $selectedTypes = [];
+    }
+    $selectedTypes = QrService::sanitiseTypeList($selectedTypes);
     $isActive = isset($_POST['is_active']) && (int) $_POST['is_active'] === 1;
 
+    if (!$selectedTypes) {
+        Helpers::flash('message', 'En az bir QR türü seçmelisiniz.');
+        redirect('/admin/package-edit?id=' . $id);
+    }
+
     if ($name && $monthlyLimit > 0) {
-        PackageManager::update($id, $name, $description, $monthlyLimit, $duration, $features, $price, $isActive);
+        PackageManager::update($id, $name, $description, $monthlyLimit, $duration, $features, $price, $isActive, $selectedTypes);
         Helpers::flash('message', 'Paket güncellendi.');
         redirect('/admin/packages');
     }
 
     Helpers::flash('message', 'Lütfen tüm alanları eksiksiz doldurun.');
     redirect('/admin/package-edit?id=' . $id);
+}
+
+$qrTypeOptions = QrService::supportedTypes();
+$selectedTypes = QrService::decodeTypeList($package['qr_features'] ?? null);
+if ($selectedTypes === null) {
+    $selectedTypes = array_keys($qrTypeOptions);
 }
 ?>
 <h1 class="h3 mb-4">Paketi Düzenle</h1>
@@ -65,6 +82,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="mb-3 mt-3">
             <label class="form-label">Özellikler (Her satır bir özellik)</label>
             <textarea name="features" class="form-control" rows="5" placeholder="Örn: 500 API isteği"><?= Helpers::e($package['features'] ?? '') ?></textarea>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">İzin Verilen QR Türleri</label>
+            <div class="row g-2">
+                <?php foreach ($qrTypeOptions as $type => $label): ?>
+                    <?php $checked = in_array($type, $selectedTypes, true); ?>
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="qrTypeEdit-<?= Helpers::e($type) ?>" name="qr_features[]" value="<?= Helpers::e($type) ?>" <?= $checked ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="qrTypeEdit-<?= Helpers::e($type) ?>"><?= Helpers::e($label) ?></label>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <small class="text-white-50">Seçimi temizlemek, ilgili türde QR üretimini engeller.</small>
         </div>
         <div class="form-check form-switch mb-4">
             <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" value="1" <?= $package['is_active'] ? 'checked' : '' ?>>

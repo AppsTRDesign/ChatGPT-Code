@@ -18,9 +18,11 @@ class PackageManager
         return $package ?: null;
     }
 
-    public static function create(string $name, string $description, int $monthlyLimit, int $durationDays, string $features, float $price): bool
+    public static function create(string $name, string $description, int $monthlyLimit, int $durationDays, string $features, float $price, array $qrTypes = []): bool
     {
-        $stmt = Helpers::db()->prepare('INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active) VALUES (:name, :description, :monthly_limit, :duration_days, :features, :price, 1)');
+        $qrFeatures = QrService::encodeTypeList($qrTypes);
+
+        $stmt = Helpers::db()->prepare('INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active, qr_features) VALUES (:name, :description, :monthly_limit, :duration_days, :features, :price, 1, :qr_features)');
         return $stmt->execute([
             'name' => $name,
             'description' => $description,
@@ -28,12 +30,15 @@ class PackageManager
             'duration_days' => $durationDays,
             'features' => $features,
             'price' => $price,
+            'qr_features' => $qrFeatures,
         ]);
     }
 
-    public static function update(int $id, string $name, string $description, int $monthlyLimit, int $durationDays, string $features, float $price, bool $isActive): bool
+    public static function update(int $id, string $name, string $description, int $monthlyLimit, int $durationDays, string $features, float $price, bool $isActive, array $qrTypes = []): bool
     {
-        $stmt = Helpers::db()->prepare('UPDATE packages SET name = :name, description = :description, monthly_limit = :monthly_limit, duration_days = :duration_days, features = :features, price = :price, is_active = :is_active WHERE id = :id');
+        $qrFeatures = QrService::encodeTypeList($qrTypes);
+
+        $stmt = Helpers::db()->prepare('UPDATE packages SET name = :name, description = :description, monthly_limit = :monthly_limit, duration_days = :duration_days, features = :features, price = :price, is_active = :is_active, qr_features = :qr_features WHERE id = :id');
         return $stmt->execute([
             'id' => $id,
             'name' => $name,
@@ -43,6 +48,7 @@ class PackageManager
             'features' => $features,
             'price' => $price,
             'is_active' => $isActive ? 1 : 0,
+            'qr_features' => $qrFeatures,
         ]);
     }
 

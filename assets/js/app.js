@@ -298,6 +298,24 @@ window.appHandlers = {
         const badgeClass = value === 'admin' ? 'bg-danger' : 'bg-info';
         return `<span class="badge rounded-pill ${badgeClass}">${escapeHtml(role)}</span>`;
     },
+    userStatusFormatter: (value, row) => {
+        const badges = [];
+        if (row.login_blocked) {
+            badges.push('<span class="badge rounded-pill bg-danger">Giriş Yasaklı</span>');
+        } else if (!row.is_approved) {
+            badges.push('<span class="badge rounded-pill bg-warning text-dark">Onay Bekliyor</span>');
+        } else {
+            badges.push('<span class="badge rounded-pill bg-success">Onaylı</span>');
+        }
+
+        if (row.email_verified) {
+            badges.push('<span class="badge rounded-pill bg-info text-dark">E-posta Onaylı</span>');
+        } else {
+            badges.push('<span class="badge rounded-pill bg-secondary">E-posta Bekliyor</span>');
+        }
+
+        return `<div class="d-flex flex-wrap gap-1">${badges.join('')}</div>`;
+    },
     userActionsFormatter: (value, row) => {
         const table = document.getElementById('usersTable');
         const csrf = table ? table.dataset.csrf || '' : '';

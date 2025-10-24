@@ -32,6 +32,7 @@ $csrfToken = Helpers::csrfToken();
                     <th data-field="username" data-sortable="true">Kullanıcı Adı</th>
                     <th data-field="email" data-sortable="true">E-posta</th>
                     <th data-field="role" data-formatter="window.appHandlers.roleFormatter" data-sortable="true">Rol</th>
+                    <th data-field="status" data-formatter="window.appHandlers.userStatusFormatter">Durum</th>
                     <th data-field="created_at" data-sortable="true">Kayıt Tarihi</th>
                     <th data-field="id" data-formatter="window.appHandlers.userActionsFormatter" data-align="right">İşlemler</th>
                 </tr>

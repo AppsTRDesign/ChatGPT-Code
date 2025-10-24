@@ -40,6 +40,26 @@ if ($remaining !== null && $remaining <= 0) {
 
 $type = strtolower(trim((string) ($_POST['qr_type'] ?? 'url')));
 $content = '';
+$allowedTypes = Subscription::allowedQrTypesFromRow($subscription);
+
+if ($allowedTypes !== null && !in_array($type, $allowedTypes, true)) {
+    $labels = QrService::supportedTypes();
+    if ($allowedTypes === []) {
+        $message = 'Paketinizde kullanılabilir QR türü bulunmuyor. Lütfen paket ayarlarınızı güncelleyin.';
+    } else {
+        $allowedLabels = [];
+        foreach ($allowedTypes as $allowedType) {
+            if (isset($labels[$allowedType])) {
+                $allowedLabels[] = $labels[$allowedType];
+            }
+        }
+        $list = $allowedLabels ? implode(', ', $allowedLabels) : 'belirlenen seçenekler';
+        $message = 'Paketiniz bu QR türünü desteklemiyor. Kullanabileceğiniz türler: ' . $list;
+    }
+
+    echo json_encode(['status' => 'error', 'message' => $message]);
+    exit;
+}
 
 try {
     $content = QrService::buildContent($type, $_POST);

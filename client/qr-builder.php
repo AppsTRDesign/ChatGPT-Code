@@ -3,11 +3,33 @@ require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
 use App\Helpers;
+use App\QrService;
 use App\Subscription;
 
 Auth::requireRole('client');
 $user = Auth::user();
+$activeSubscription = Subscription::activeForUser((int) $user['id']);
 $remaining = Subscription::usageLeft((int) $user['id']);
+$allowedQrTypes = Subscription::allowedQrTypesFromRow($activeSubscription);
+$qrTypeLabels = QrService::supportedTypes();
+$noAllowedTypes = false;
+$allowedTypeSummary = null;
+if (is_array($allowedQrTypes)) {
+    if ($allowedQrTypes === []) {
+        $noAllowedTypes = true;
+    } else {
+        $summary = [];
+        foreach ($allowedQrTypes as $allowedType) {
+            if (isset($qrTypeLabels[$allowedType])) {
+                $summary[] = $qrTypeLabels[$allowedType];
+            }
+        }
+        if ($summary) {
+            $allowedTypeSummary = implode(', ', $summary);
+        }
+    }
+}
+$allowedTypesJson = json_encode($allowedQrTypes, JSON_UNESCAPED_UNICODE);
 
 require __DIR__ . '/../templates/header.php';
 ?>
@@ -16,6 +38,11 @@ require __DIR__ . '/../templates/header.php';
         <div class="card p-4">
             <h2 class="h4 mb-3">QR Oluştur</h2>
             <p class="text-white-50">Logo yükledikten sonra içerik türünü seçerek QR kodunuzu oluşturabilirsiniz. Her sekme, URL, metin, etkinlik veya sosyal ağ gibi senaryolar için hazır şablonlar sunar.</p>
+            <?php if ($noAllowedTypes): ?>
+                <div class="alert alert-warning">Paketinizde kullanılabilir QR türü bulunmuyor. Lütfen paket satın alarak veya yöneticinizle görüşerek erişimi genişletin.</div>
+            <?php elseif ($allowedTypeSummary): ?>
+                <div class="alert alert-info small">Bu paket ile oluşturabileceğiniz QR türleri: <?= Helpers::e($allowedTypeSummary) ?></div>
+            <?php endif; ?>
             <form id="qrForm">
                 <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
                 <input type="hidden" name="logo" id="logoInput">
@@ -327,13 +354,18 @@ window.addEventListener('load', () => {
     const typeInput = document.getElementById('qrTypeInput');
     const tabContainer = document.getElementById('qrTypeTabs');
     const tabContent = document.getElementById('qrTypeContent');
+    const allowedTypes = <?= $allowedTypesJson ?>;
+    const hasRestrictions = Array.isArray(allowedTypes);
+    const allowedSet = new Set(hasRestrictions ? allowedTypes : []);
+    const hasAnyAllowedType = !hasRestrictions || allowedSet.size > 0;
 
     const togglePaneState = (activeId) => {
         if (!tabContent) {
             return;
         }
+        const normalizedId = (activeId || '').replace('#', '');
         tabContent.querySelectorAll('.tab-pane').forEach((pane) => {
-            const shouldDisable = pane.id !== activeId.replace('#', '');
+            const shouldDisable = normalizedId === '' || pane.id !== normalizedId;
             pane.querySelectorAll('input, textarea, select').forEach((field) => {
                 if (shouldDisable) {
                     field.setAttribute('disabled', 'disabled');
@@ -344,10 +376,32 @@ window.addEventListener('load', () => {
         });
     };
 
+    const disableFormForNoTypes = () => {
+        if (!form) {
+            return;
+        }
+        form.querySelectorAll('input, textarea, select, button').forEach((field) => {
+            if (field.name === 'csrf_token') {
+                return;
+            }
+            field.setAttribute('disabled', 'disabled');
+        });
+    };
+
     if (tabContainer) {
-        togglePaneState('qrPaneUrl');
-        tabContainer.querySelectorAll('[data-bs-toggle="pill"]').forEach((tab) => {
+        const navButtons = Array.from(tabContainer.querySelectorAll('[data-bs-toggle="pill"]'));
+
+        navButtons.forEach((tab) => {
+            tab.addEventListener('click', (event) => {
+                if (tab.classList.contains('disabled')) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            });
             tab.addEventListener('shown.bs.tab', (event) => {
+                if (tab.classList.contains('disabled')) {
+                    return;
+                }
                 const target = event.target.getAttribute('data-bs-target');
                 const type = event.target.getAttribute('data-type');
                 if (target) {
@@ -361,9 +415,56 @@ window.addEventListener('load', () => {
                 }
             });
         });
+
+        const disableTab = (tab) => {
+            tab.classList.add('disabled');
+            tab.setAttribute('aria-disabled', 'true');
+            tab.setAttribute('tabindex', '-1');
+        };
+
+        let fallbackTab = null;
+        navButtons.forEach((tab) => {
+            const type = tab.getAttribute('data-type');
+            if (!type) {
+                return;
+            }
+            if (hasRestrictions && !allowedSet.has(type)) {
+                disableTab(tab);
+            } else if (!fallbackTab) {
+                fallbackTab = tab;
+            }
+        });
+
+        if (hasRestrictions) {
+            if (allowedSet.size === 0) {
+                disableFormForNoTypes();
+            } else {
+                const currentActive = tabContainer.querySelector('.nav-link.active');
+                if (!currentActive || currentActive.classList.contains('disabled')) {
+                    if (fallbackTab) {
+                        bootstrap.Tab.getOrCreateInstance(fallbackTab).show();
+                    }
+                }
+            }
+        }
+
+        const activeTab = tabContainer.querySelector('.nav-link.active');
+        if (activeTab && !activeTab.classList.contains('disabled')) {
+            const target = activeTab.getAttribute('data-bs-target');
+            if (target) {
+                togglePaneState(target);
+            }
+            if (typeInput) {
+                typeInput.value = activeTab.getAttribute('data-type') || typeInput.value;
+            }
+        } else if (!hasRestrictions) {
+            togglePaneState('qrPaneUrl');
+        } else if (allowedSet.size === 0) {
+            togglePaneState('');
+        }
     }
 
-    if (window.Dropzone) {
+    if (window.Dropzone && hasAnyAllowedType) {
         const dropzoneElement = document.getElementById('logoDropzone');
         if (dropzoneElement) {
             try {
@@ -404,6 +505,10 @@ window.addEventListener('load', () => {
     }
 
     if (!form) {
+        return;
+    }
+
+    if (!hasAnyAllowedType) {
         return;
     }
 

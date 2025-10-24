@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../config/config.php';
 
 use App\Auth;
 use App\Helpers;
+use App\QrService;
 
 Auth::requireRole('admin');
 Helpers::requireAjax();
@@ -48,7 +49,7 @@ $total = (int) $countStmt->fetchColumn();
 
 $totalAll = (int) $db->query('SELECT COUNT(*) FROM packages')->fetchColumn();
 
-$sql = "SELECT id, name, description, monthly_limit, duration_days, features, price, is_active, created_at
+$sql = "SELECT id, name, description, monthly_limit, duration_days, features, price, is_active, created_at, qr_features
         FROM packages
         $where
         ORDER BY $sort $order
@@ -77,6 +78,7 @@ $data = array_map(static function (array $row) {
         'price' => (float) $row['price'],
         'is_active' => (int) $row['is_active'] === 1,
         'created_at' => $row['created_at'],
+        'qr_features' => QrService::decodeTypeList($row['qr_features'] ?? null),
     ];
 }, $rows);
 

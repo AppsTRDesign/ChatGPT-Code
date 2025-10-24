@@ -19,10 +19,37 @@ class Subscription
 
     public static function activeForUser(int $userId): ?array
     {
-        $stmt = Helpers::db()->prepare('SELECT up.*, p.name, p.monthly_limit, p.duration_days AS package_duration, u.email, u.username FROM user_packages up JOIN packages p ON p.id = up.package_id JOIN users u ON u.id = up.user_id WHERE up.user_id = :user_id AND up.status = "active" AND (up.expires_at IS NULL OR up.expires_at > NOW()) ORDER BY up.activated_at DESC LIMIT 1');
+        $stmt = Helpers::db()->prepare('SELECT up.*, p.name, p.monthly_limit, p.duration_days AS package_duration, p.qr_features, u.email, u.username FROM user_packages up JOIN packages p ON p.id = up.package_id JOIN users u ON u.id = up.user_id WHERE up.user_id = :user_id AND up.status = "active" AND (up.expires_at IS NULL OR up.expires_at > NOW()) ORDER BY up.activated_at DESC LIMIT 1');
         $stmt->execute(['user_id' => $userId]);
         $row = $stmt->fetch();
         return $row ?: null;
+    }
+
+    public static function allowedQrTypesFromRow(?array $subscription): ?array
+    {
+        if (!$subscription) {
+            return null;
+        }
+
+        $allowed = QrService::decodeTypeList($subscription['qr_features'] ?? null);
+
+        return $allowed;
+    }
+
+    public static function allowedQrTypes(int $userId): ?array
+    {
+        $subscription = self::activeForUser($userId);
+        return self::allowedQrTypesFromRow($subscription);
+    }
+
+    public static function isQrTypeAllowed(?array $subscription, string $type): bool
+    {
+        $allowed = self::allowedQrTypesFromRow($subscription);
+        if ($allowed === null) {
+            return true;
+        }
+
+        return in_array($type, $allowed, true);
     }
 
     public static function requestPurchase(int $userId, int $packageId, string $paymentMethod, ?string $note = null): int
@@ -257,13 +284,15 @@ class Subscription
             $packageId = $stmt->fetchColumn();
 
             if (!$packageId) {
-                $insert = $db->prepare('INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active) VALUES (:name, :description, :monthly_limit, :duration_days, :features, 0, 1)');
+                $qrFeatures = QrService::encodeTypeList(array_keys(QrService::supportedTypes()));
+                $insert = $db->prepare('INSERT INTO packages (name, description, monthly_limit, duration_days, features, price, is_active, qr_features) VALUES (:name, :description, :monthly_limit, :duration_days, :features, 0, 1, :qr_features)');
                 $insert->execute([
                     'name' => 'Ücretsiz',
                     'description' => 'Her ay 100 API isteği içeren ücretsiz paket',
                     'monthly_limit' => 100,
                     'duration_days' => 30,
                     'features' => "100 API isteği\nTemel renk ayarı\nLogo desteği",
+                    'qr_features' => $qrFeatures,
                 ]);
                 $packageId = (int) $db->lastInsertId();
             }

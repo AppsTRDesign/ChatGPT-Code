@@ -25,6 +25,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 | İçerik Şablonları | URL, metin, e-posta, SMS, telefon, Wi-Fi, konum, etkinlik, WhatsApp, sosyal medya (Facebook/Instagram/YouTube), kripto cüzdanları ve özel JSON/payload sekmeleri. |
 | QR Geçmişi | Hem müşteri hem admin panelinde oluşturulan QR kayıtlarını saklama, indirme, silme; API çağrılarından gelen kayıtlar dahil. |
 | Abonelik & Paketler | Ücretsiz başlangıç paketi (aylık 100 istek), süre/limit tanımlı paketler, admin tarafında ekleme-düzenleme-silme, kullanıcıya paket atama ve durdurma. |
+| Paket Bazlı QR Yetkileri | Her paket için izin verilen QR içerik şablonlarını seçme; müşteri paneli ve API, paket kapsamı dışındaki türleri otomatik olarak engeller. |
 | Ödeme Süreçleri | İyzico (test) kredi kartı ödemeleri, banka havalesi/IBAN bilgisi ve bildirim akışı, satın alma onay/red/eksik ödeme iş akışları, gerçek zamanlı kullanım güncellemesi. |
 | API Güvenliği | JSON tabanlı token üretimi, token pasifleştirme/silme, tek cihaz kayıt kontrolü, GET/POST desteği, `<img>` ile gömülebilir uç nokta, kullanım eşik e-postaları (%50/%25/%5). |
 | Raporlama | Günlük/haftalık/aylık/yıllık API kullanım grafikleri, bootstrap-table tablolar, PDF/Excel dışa aktarma (Türkçe karakter desteği). |
@@ -33,6 +34,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 | Sosyal Giriş | Firebase destekli Google, Facebook, Twitter, GitHub, Microsoft, Apple, Yahoo ile tek tıkla kayıt/giriş; admin ayarlarında etkinleştirilebilir. |
 | Marka Yönetimi | Dropzone ile logo/favicon yükleme, marka öğeleri kartları, logo yoksa site adı gösterimi, footer/header içeriklerini ve meta verilerini canlı güncelleme. |
 | Analitik & Entegrasyon | Google Analytics ölçüm kimliği, Firebase yapılandırması, API dokümantasyonunu iç siteye gömme ve dil dosyalarıyla özelleştirme. |
+| Üye Yönetimi | Admin panelinden üyeleri onaylama/onayı kaldırma ve giriş yasağı verme; onaysız veya yasaklı hesaplar giriş ve API çağrılarında engellenir. |
 
 ## Detaylı Modüller
 ### QR Servisi
@@ -41,7 +43,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - `client/generate-qr.php` ve `api/qr.php` hem panel hem API üzerinden gelen istekleri işler, limit düşümlerini anlık günceller ve `includes/QrHistory.php` aracılığıyla kayıt tutar.
 
 ### Abonelik & Kullanım
-- `includes/Subscription.php` paket süreleri, limitler ve durum değişikliklerini izler; admin tarafında kullanıcıya paket atamayı destekler.
+- `includes/Subscription.php` paket süreleri, limitler, paket bazlı QR yetkileri ve durum değişikliklerini izler; admin tarafında kullanıcıya paket atamayı destekler.
 - `includes/UsageLogger.php` kullanım sayaçlarını takip eder, eşik bildirim e-postalarını tetikler.
 - `admin/packages.php` paket yönetimi, `admin/data/packages.php` AJAX veri kaynağı sağlar.
 
@@ -50,7 +52,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - Banka havalesi bildirimleri `client/payment-notify.php` üzerinden alınır, durumlar admin `admin/purchases.php` ekranından yönetilir.
 
 ### Kullanıcı & Kimlik Doğrulama
-- `includes/Auth.php` oturum açma, tek cihaz kayıt kontrolü, e-posta doğrulama ve şifre sıfırlama süreçlerini uygular.
+- `includes/Auth.php` oturum açma, tek cihaz kayıt kontrolü, e-posta doğrulama, admin onay/giriş yasağı denetimleri ve şifre sıfırlama süreçlerini uygular.
 - `firebase-auth.php` ile sosyal giriş JSON Web Token doğrulaması yapılır.
 - `forgot-password.php` ve `reset-password.php` süreçleri PHPMailer veya PHP mail() üzerinden çalışacak şekilde yapılandırılır.
 
@@ -79,7 +81,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 ## Paneller ve İş Akışları
 ### Müşteri Paneli (`/client`)
 - **Dashboard**: Kullanım grafikleri, kalan limit, aktif paket bilgisi, son satın alımlar.
-- **QR Oluşturucu**: Sekmeli içerik şablonları, logo yükleme, renk/format ayarları, transparan arka plan seçimi.
+- **QR Oluşturucu**: Sekmeli içerik şablonları, logo yükleme, renk/format ayarları, transparan arka plan seçimi; paketinizde izin verilen QR türleri dışındaki sekmeler otomatik olarak devre dışı kalır.
 - **QR Geçmişi**: Oluşturulan QR kayıtları için indirme (PNG/JPG/SVG) ve silme.
 - **Paket Satın Alma**: Paket kartları, İyzico & banka havalesi akışları, ödeme durum takipleri.
 - **API Tokenları**: Token üretme, pasifleştirme, silme; kalan kullanım bilgileri.
@@ -88,9 +90,9 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 
 ### Admin Paneli (`/admin`)
 - **Dashboard**: Bekleyen/onaylı satın alımlar, gelir grafikleri, API kullanım grafikleri, hızlı linkler.
-- **Paketler**: Paket oluşturma/düzenleme/silme, aktif/pasif toggles, paketleri kullanıcıya atama.
+- **Paketler**: Paket oluşturma/düzenleme/silme, aktif/pasif toggles, paketleri kullanıcıya atama ve paket bazlı QR türü yetkilendirmeleri.
 - **Satın Alımlar & Ödemeler**: Banka/Iyzico işlemleri, durum yönetimi, hata kayıtları.
-- **Kullanıcılar**: Düzenleme (paket değiştirme dahil), silme.
+- **Kullanıcılar**: Düzenleme (paket değiştirme dahil), onay verme/kaldırma, giriş yasağı açma/kapama ve silme.
 - **QR Geçmişi**: Tüm üyelerin QR kayıtları, indirme/silme, kaynak (API/panel) bilgisi.
 - **API Kullanımı**: Filtrelenebilir tablolar, PDF/Excel ihracı.
 - **Ayarlar**: Site marka öğeleri, mail ayarları, Firebase, Google Analytics, dil dosyaları, API dokümantasyonu yönetimi.

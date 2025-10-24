@@ -26,7 +26,7 @@ class TokenManager
 
     public static function validate(string $token): ?array
     {
-        $stmt = Helpers::db()->prepare('SELECT t.*, u.role, u.username, u.email_verified FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE token = :token AND revoked_at IS NULL');
+        $stmt = Helpers::db()->prepare('SELECT t.*, u.role, u.username, u.email_verified, u.is_approved, u.login_blocked FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE token = :token AND revoked_at IS NULL');
         $stmt->execute(['token' => $token]);
         $row = $stmt->fetch();
         return $row ?: null;

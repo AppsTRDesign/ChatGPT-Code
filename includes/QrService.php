@@ -11,6 +11,78 @@ use RuntimeException;
 
 class QrService
 {
+    private const TYPE_LABELS = [
+        'url' => 'URL',
+        'text' => 'Metin',
+        'email' => 'E-posta',
+        'phone' => 'Telefon',
+        'sms' => 'SMS',
+        'wifi' => 'Wi-Fi',
+        'location' => 'Konum',
+        'event' => 'Etkinlik',
+        'facebook' => 'Facebook',
+        'instagram' => 'Instagram',
+        'twitter' => 'Twitter',
+        'youtube' => 'YouTube',
+        'whatsapp' => 'WhatsApp',
+        'bitcoin' => 'Bitcoin',
+        'ethereum' => 'Ethereum',
+        'custom' => 'Özel Veri',
+    ];
+
+    public static function supportedTypes(): array
+    {
+        return self::TYPE_LABELS;
+    }
+
+    /**
+     * @param array<string>|string $types
+     * @return array<int, string>
+     */
+    public static function sanitiseTypeList($types): array
+    {
+        if (is_string($types)) {
+            $decoded = json_decode($types, true);
+            $types = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($types)) {
+            return [];
+        }
+
+        $supported = array_keys(self::TYPE_LABELS);
+        $sanitised = [];
+
+        foreach ($types as $type) {
+            $type = strtolower(trim((string) $type));
+            if (in_array($type, $supported, true) && !in_array($type, $sanitised, true)) {
+                $sanitised[] = $type;
+            }
+        }
+
+        return $sanitised;
+    }
+
+    public static function encodeTypeList(array $types): ?string
+    {
+        $sanitised = self::sanitiseTypeList($types);
+        return json_encode($sanitised, JSON_UNESCAPED_UNICODE);
+    }
+
+    public static function decodeTypeList(?string $raw): ?array
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        return self::sanitiseTypeList($decoded);
+    }
+
     public static function buildContent(string $type, array $input): string
     {
         $type = strtolower(trim($type));

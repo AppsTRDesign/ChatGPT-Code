@@ -5,6 +5,7 @@ namespace App;
 use PDO;
 use PDOException;
 use DateTimeImmutable;
+use RuntimeException;
 
 class Auth
 {
@@ -16,6 +17,8 @@ class Auth
             'role' => $user['role'],
             'email' => $user['email'] ?? null,
             'email_verified' => (int) ($user['email_verified'] ?? 0),
+            'is_approved' => (int) ($user['is_approved'] ?? 1),
+            'login_blocked' => (int) ($user['login_blocked'] ?? 0),
         ];
     }
 
@@ -61,6 +64,16 @@ class Auth
         }
 
         if (!password_verify($password, $user['password'])) {
+            return false;
+        }
+
+        if ((int) ($user['login_blocked'] ?? 0) === 1) {
+            Helpers::flash('message', 'Hesabınız erişime kapatılmıştır. Lütfen destek ekibimizle iletişime geçin.');
+            return false;
+        }
+
+        if ((int) ($user['is_approved'] ?? 1) === 0) {
+            Helpers::flash('message', 'Hesabınız henüz onaylanmadı. Lütfen yönetici onayını bekleyin.');
             return false;
         }
 
@@ -303,9 +316,19 @@ class Auth
                 'email' => $email !== '' ? $email : null,
                 'role' => 'client',
                 'email_verified' => $verified ? 1 : 0,
+                'is_approved' => 1,
+                'login_blocked' => 0,
             ];
 
             Subscription::grantFreePackage($user['id']);
+        }
+
+        if ((int) ($user['login_blocked'] ?? 0) === 1) {
+            throw new RuntimeException('Hesabınız erişime kapatılmıştır. Lütfen destek ekibiyle iletişime geçin.');
+        }
+
+        if ((int) ($user['is_approved'] ?? 1) === 0) {
+            throw new RuntimeException('Hesabınız henüz onaylanmadı.');
         }
 
         self::startSession($user);

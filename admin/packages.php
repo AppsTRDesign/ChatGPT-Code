@@ -3,6 +3,7 @@ require __DIR__ . '/header.php';
 
 use App\Helpers;
 use App\PackageManager;
+use App\QrService;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
@@ -16,9 +17,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $duration = max(1, (int) ($_POST['duration_days'] ?? 30));
     $price = (float) ($_POST['price'] ?? 0);
     $features = trim($_POST['features'] ?? '');
+    $selectedTypes = $_POST['qr_features'] ?? array_keys(QrService::supportedTypes());
+    if (!is_array($selectedTypes)) {
+        $selectedTypes = [];
+    }
+    $selectedTypes = QrService::sanitiseTypeList($selectedTypes);
+
+    if (!$selectedTypes) {
+        Helpers::flash('message', 'En az bir QR türü seçmelisiniz.');
+        redirect('/admin/packages');
+    }
 
     if ($name && $limit > 0) {
-        PackageManager::create($name, $description, $limit, $duration, $features, $price);
+        PackageManager::create($name, $description, $limit, $duration, $features, $price, $selectedTypes);
         Helpers::flash('message', 'Paket oluşturuldu.');
     }
 
@@ -26,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $csrfToken = Helpers::csrfToken();
+$qrTypeOptions = QrService::supportedTypes();
 ?>
 <h1 class="h3 mb-4">Paketler</h1>
 
@@ -56,6 +68,20 @@ $csrfToken = Helpers::csrfToken();
         <div class="col-12">
             <label class="form-label" for="packageFeatures">Özellikler (Her satır bir özellik)</label>
             <textarea id="packageFeatures" name="features" class="form-control" rows="4" placeholder="Örn: 500 API isteği"></textarea>
+        </div>
+        <div class="col-12">
+            <label class="form-label">İzin Verilen QR Türleri</label>
+            <div class="row g-2">
+                <?php foreach ($qrTypeOptions as $type => $label): ?>
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="qrType-<?= Helpers::e($type) ?>" name="qr_features[]" value="<?= Helpers::e($type) ?>" checked>
+                            <label class="form-check-label" for="qrType-<?= Helpers::e($type) ?>"><?= Helpers::e($label) ?></label>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <small class="text-white-50">Paket kapsamındaki içerik türlerini seçin.</small>
         </div>
         <div class="col-12">
             <button type="submit" class="btn btn-primary w-100">Kaydet</button>

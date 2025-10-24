@@ -47,7 +47,15 @@ if ($provider === '' && !empty($verified['provider'])) {
     $provider = strtolower((string) $verified['provider']);
 }
 
-if (!Auth::loginWithFirebase($verified, $provider ?: 'firebase')) {
+try {
+    $loginResult = Auth::loginWithFirebase($verified, $provider ?: 'firebase');
+} catch (\RuntimeException $e) {
+    http_response_code(403);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    exit;
+}
+
+if (!$loginResult) {
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Sosyal giriş sırasında bir hata oluştu.']);
     exit;

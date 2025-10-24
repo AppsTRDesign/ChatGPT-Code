@@ -68,6 +68,22 @@ if (!$tokenRow) {
     exit;
 }
 
+if (isset($tokenRow['login_blocked']) && (int) $tokenRow['login_blocked'] === 1) {
+    UsageLogger::log((int) $tokenRow['user_id'], 'api_qr', 'error', 'Hesap erişime kapalı');
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Hesabınız engellendi. Lütfen destek ile iletişime geçin.']);
+    exit;
+}
+
+if (isset($tokenRow['is_approved']) && (int) $tokenRow['is_approved'] === 0) {
+    UsageLogger::log((int) $tokenRow['user_id'], 'api_qr', 'error', 'Hesap onay bekliyor');
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Hesabınız henüz onaylanmadı.']);
+    exit;
+}
+
 if (isset($tokenRow['email_verified']) && (int) $tokenRow['email_verified'] === 0) {
     UsageLogger::log((int) $tokenRow['user_id'], 'api_qr', 'error', 'E-posta doğrulanmadı');
     http_response_code(401);
@@ -101,6 +117,29 @@ if ($type === '') {
         $data['custom_data'] = $data['data'];
     }
     $type = 'custom';
+}
+
+$allowedTypes = Subscription::allowedQrTypesFromRow($subscription);
+if ($allowedTypes !== null && !in_array($type, $allowedTypes, true)) {
+    $labels = QrService::supportedTypes();
+    if ($allowedTypes === []) {
+        $message = 'Paketinizde kullanılabilir QR türü bulunmuyor. Lütfen paket seçeneklerinizi güncelleyin.';
+    } else {
+        $allowedLabels = [];
+        foreach ($allowedTypes as $allowedType) {
+            if (isset($labels[$allowedType])) {
+                $allowedLabels[] = $labels[$allowedType];
+            }
+        }
+        $list = $allowedLabels ? implode(', ', $allowedLabels) : 'paketinizde yer alan seçenekler';
+        $message = 'Seçilen paket bu QR türünü desteklemiyor. Kullanabileceğiniz türler: ' . $list;
+    }
+
+    UsageLogger::log($userId, 'api_qr', 'error', 'Desteklenmeyen tür: ' . $type);
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => $message]);
+    exit;
 }
 
 try {
