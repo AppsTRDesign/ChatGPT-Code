@@ -597,6 +597,108 @@ code {
     }
 }
 
+.inline-notification {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: min(340px, calc(100% - 2rem));
+    background: rgba(12, 19, 36, 0.96);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 16px;
+    color: #f8fafc;
+    padding: 1.25rem;
+    z-index: 1055;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(10px);
+}
+
+.inline-notification.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.inline-notification.closing {
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.inline-notification-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.inline-notification-logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.inline-notification-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    flex: 1;
+}
+
+.inline-notification-image {
+    margin: 0.5rem 0 1rem;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.inline-notification-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.inline-notification-body {
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: #e2e8f0;
+}
+
+.inline-notification-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.inline-notification.hover {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.45);
+}
+
+.notification-dropzone {
+    border: 2px dashed rgba(59, 130, 246, 0.4) !important;
+    border-radius: 16px !important;
+    background: rgba(15, 23, 42, 0.5) !important;
+    color: #cbd5f5 !important;
+}
+
+.notification-dropzone .dz-message {
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: inherit;
+}
+
+@media (max-width: 576px) {
+    .inline-notification {
+        right: 1rem;
+        left: 1rem;
+        width: auto;
+        padding: 1rem;
+    }
+}
+
 footer {
     background: rgba(12, 19, 43, 0.7);
     padding: 2rem 0;

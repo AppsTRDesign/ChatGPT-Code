@@ -101,6 +101,38 @@ CREATE TABLE session_activity (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE web_notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT DEFAULT NULL,
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    languages_json TEXT DEFAULT NULL,
+    platforms_json TEXT DEFAULT NULL,
+    url TEXT DEFAULT NULL,
+    image_path VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE web_notification_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    notification_id INT NOT NULL,
+    session_key VARCHAR(120) NOT NULL,
+    user_id INT DEFAULT NULL,
+    action ENUM('delivered','clicked','dismissed') NOT NULL,
+    ip VARCHAR(45) DEFAULT NULL,
+    user_agent TEXT,
+    platform VARCHAR(60) DEFAULT NULL,
+    language VARCHAR(20) DEFAULT NULL,
+    country VARCHAR(80) DEFAULT NULL,
+    city VARCHAR(80) DEFAULT NULL,
+    referer TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_notification_session_action (notification_id, session_key, action),
+    INDEX idx_notification_action (notification_id, action),
+    FOREIGN KEY (notification_id) REFERENCES web_notifications(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE payment_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     iyzico_enabled TINYINT(1) DEFAULT 0,

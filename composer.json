@@ -6,7 +6,8 @@
         "php": "^8.0",
         "chillerlan/php-qrcode": "^4.3",
         "iyzico/iyzipay": "^2.0",
-        "phpmailer/phpmailer": "^6.8"
+        "phpmailer/phpmailer": "^6.8",
+        "geoip2/geoip2": "^2.12"
     },
     "autoload": {
         "psr-4": {

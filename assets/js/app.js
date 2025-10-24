@@ -487,6 +487,50 @@ window.appHandlers = {
         const url = escapeHtml(value);
         return `<a href="${url}" target="_blank" rel="noopener" class="link-light text-decoration-underline">${url}</a>`;
     },
+    webNotificationResponse: (response) => {
+        const select = document.getElementById('notificationFilter');
+        if (select && response && Array.isArray(response.filters)) {
+            const current = select.value;
+            const options = ['<option value="">Tüm Bildirimler</option>'];
+            response.filters.forEach((item) => {
+                const value = String(item.id);
+                const selected = current === value ? ' selected' : '';
+                options.push(`<option value="${value}"${selected}>${escapeHtml(item.title)}</option>`);
+            });
+            select.innerHTML = options.join('');
+        }
+
+        const rows = (response.rows || []).map((row) => ({
+            ...row,
+            targets: {
+                languages: row.languages,
+                platforms: row.platforms,
+            },
+        }));
+        return { ...response, rows };
+    },
+    webNotificationTarget: (value, row) => {
+        const parse = (raw) => {
+            if (!raw) {
+                return [];
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                return [];
+            }
+        };
+
+        const languages = parse(row.languages);
+        const platforms = parse(row.platforms);
+        const languageLabel = languages.length ? languages.map((code) => code.toUpperCase()).join(', ') : 'Tüm Diller';
+        const platformLabel = platforms.length
+            ? platforms.map((platform) => (platform === 'mobile' ? 'Mobil' : 'Masaüstü')).join(', ')
+            : 'Tüm Platformlar';
+
+        return `<div class="d-flex flex-column"><span>${escapeHtml(languageLabel)}</span><span class="text-white-50 small">${escapeHtml(platformLabel)}</span></div>`;
+    },
     onlineHandler: (response) => {
         const rows = (response.rows || []).map((row) => ({
             ...row,
@@ -510,6 +554,13 @@ let clientUsageMetrics = [];
 
 let onlineChart;
 let onlineMetrics = [];
+
+let notificationChart;
+let notificationMetrics = [];
+const notificationQueue = [];
+let notificationActive = false;
+const notificationSeen = new Set();
+const notificationEventCache = new Set();
 
 
 const updateUsageChart = (labels, data) => {
@@ -656,10 +707,10 @@ const updateOnlineSummary = (rows) => {
         return;
     }
     const totals = rows.map((row) => Number(row.total || 0));
-    const current = totals[totals.length - 1];
-    const peak = Math.max(...totals);
+    const current = rows.length ? Number(rows[0].total || 0) : 0;
+    const peak = totals.length ? Math.max(...totals) : 0;
     const sum = totals.reduce((acc, value) => acc + value, 0);
-    const average = Math.round(sum / totals.length);
+    const average = totals.length ? Math.round(sum / totals.length) : 0;
     container.innerHTML = `
         <li class="mb-2"><strong>Güncel Aktif:</strong> ${current}</li>
         <li class="mb-2"><strong>Ortalama:</strong> ${average}</li>
@@ -727,6 +778,402 @@ const exportOnline = (format) => {
         window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Rapor');
         window.XLSX.writeFile(workbook, 'canli-ziyaretci-raporu.xlsx');
     }
+};
+
+const updateNotificationChart = (rows) => {
+    const canvas = document.getElementById('notificationChart');
+    if (!canvas || !window.Chart) {
+        return;
+    }
+
+    const labels = rows.map((row) => row.label).reverse();
+    const delivered = rows.map((row) => Number(row.delivered || 0)).reverse();
+    const clicked = rows.map((row) => Number(row.clicked || 0)).reverse();
+    const dismissed = rows.map((row) => Number(row.dismissed || 0)).reverse();
+
+    const datasets = [
+        {
+            label: 'Gösterildi',
+            data: delivered,
+            backgroundColor: 'rgba(56, 189, 248, 0.6)',
+            borderColor: '#38bdf8',
+            borderWidth: 1.5,
+            borderRadius: 10,
+            maxBarThickness: 32,
+        },
+        {
+            label: 'Tıklandı',
+            data: clicked,
+            backgroundColor: 'rgba(16, 185, 129, 0.6)',
+            borderColor: '#10b981',
+            borderWidth: 1.5,
+            borderRadius: 10,
+            maxBarThickness: 32,
+        },
+        {
+            label: 'Kapatıldı',
+            data: dismissed,
+            backgroundColor: 'rgba(250, 204, 21, 0.6)',
+            borderColor: '#facc15',
+            borderWidth: 1.5,
+            borderRadius: 10,
+            maxBarThickness: 32,
+        },
+    ];
+
+    const maxValue = Math.max(
+        ...(delivered.length ? delivered : [0]),
+        ...(clicked.length ? clicked : [0]),
+        ...(dismissed.length ? dismissed : [0]),
+    );
+    const stepSize = maxValue <= 6 ? 1 : Math.ceil(maxValue / 5);
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: 8 },
+        scales: {
+            x: {
+                ticks: { color: '#cbd5f5', maxRotation: 0, minRotation: 0, autoSkip: true },
+                grid: { color: 'rgba(148, 163, 184, 0.08)', drawBorder: false },
+                stacked: true,
+            },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#cbd5f5',
+                    callback: (value) => (Number.isInteger(value) ? value : ''),
+                    stepSize,
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.12)', drawBorder: false },
+                stacked: true,
+            },
+        },
+        plugins: {
+            legend: { labels: { color: '#e2e8f0' } },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                borderColor: 'rgba(56, 189, 248, 0.4)',
+                borderWidth: 1,
+                titleColor: '#f8fafc',
+                bodyColor: '#f8fafc',
+            },
+        },
+    };
+
+    const data = { labels, datasets };
+
+    if (!notificationChart) {
+        notificationChart = new Chart(canvas, { type: 'bar', data, options });
+    } else {
+        notificationChart.data = data;
+        notificationChart.options = options;
+        notificationChart.update();
+    }
+};
+
+const updateNotificationSummary = (rows) => {
+    const container = document.getElementById('notificationSummary');
+    if (!container) {
+        return;
+    }
+
+    if (!rows.length) {
+        container.innerHTML = '<li class="text-white-50">Veri bulunamadı.</li>';
+        return;
+    }
+
+    const totals = rows.reduce((acc, row) => ({
+        delivered: acc.delivered + Number(row.delivered || 0),
+        clicked: acc.clicked + Number(row.clicked || 0),
+        dismissed: acc.dismissed + Number(row.dismissed || 0),
+    }), { delivered: 0, clicked: 0, dismissed: 0 });
+
+    const ctr = totals.delivered ? ((totals.clicked / totals.delivered) * 100).toFixed(1) : '0.0';
+    const dismissRate = totals.delivered ? ((totals.dismissed / totals.delivered) * 100).toFixed(1) : '0.0';
+
+    container.innerHTML = `
+        <li class="mb-2"><strong>Toplam Gösterim:</strong> ${totals.delivered}</li>
+        <li class="mb-2"><strong>Toplam Tıklama:</strong> ${totals.clicked}</li>
+        <li class="mb-2"><strong>Kapatılma:</strong> ${totals.dismissed}</li>
+        <li class="mb-0"><strong>Tıklanma Oranı:</strong> %${ctr} / <strong>Kapatma:</strong> %${dismissRate}</li>
+    `;
+};
+
+const loadNotificationMetrics = async (range, notificationId) => {
+    const params = new URLSearchParams({ range });
+    if (notificationId) {
+        params.set('notification_id', notificationId);
+    }
+
+    try {
+        const response = await fetch(`/admin/data/web-notification-metrics?${params.toString()}`, { headers: { Accept: 'application/json' } });
+        const data = await response.json();
+        notificationMetrics = data.rows || [];
+        updateNotificationChart(notificationMetrics);
+        updateNotificationSummary(notificationMetrics);
+    } catch (error) {
+        console.error('Bildirim metrikleri yüklenemedi', error);
+    }
+};
+
+const exportNotificationMetrics = (format) => {
+    if (!notificationMetrics.length) {
+        Swal.fire({ icon: 'warning', title: 'İndirilecek veri bulunamadı.', confirmButtonColor: '#0d6efd' });
+        return;
+    }
+
+    const rows = notificationMetrics.map((row) => [
+        row.label,
+        Number(row.delivered || 0),
+        Number(row.clicked || 0),
+        Number(row.dismissed || 0),
+    ]);
+
+    if (format === 'pdf' && window.jspdf && window.jspdf.jsPDF) {
+        const doc = new window.jspdf.jsPDF({ orientation: 'landscape' });
+        registerTurkishFont(doc);
+        doc.setFont('DejaVuSans', 'bold');
+        doc.setFontSize(16);
+        doc.text('Web Bildirim Raporu', 14, 18);
+        doc.setFont('DejaVuSans', 'normal');
+        doc.autoTable({
+            head: [['Dönem', 'Gösterildi', 'Tıklandı', 'Kapatıldı']],
+            body: rows,
+            startY: 26,
+            styles: {
+                font: 'DejaVuSans',
+                fontStyle: 'normal',
+                fillColor: [13, 17, 35],
+                textColor: [241, 246, 249],
+            },
+            headStyles: {
+                font: 'DejaVuSans',
+                fontStyle: 'bold',
+                fillColor: [56, 189, 248],
+                textColor: 20,
+            },
+            alternateRowStyles: { fillColor: [24, 33, 58] },
+        });
+        doc.save('web-bildirim-raporu.pdf');
+        return;
+    }
+
+    if (format === 'excel' && window.XLSX) {
+        const worksheet = window.XLSX.utils.aoa_to_sheet([
+            ['Dönem', 'Gösterildi', 'Tıklandı', 'Kapatıldı'],
+            ...rows,
+        ]);
+        const workbook = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Rapor');
+        window.XLSX.writeFile(workbook, 'web-bildirim-raporu.xlsx');
+    }
+};
+
+const detectClientLanguage = () => {
+    const language = navigator.language || navigator.userLanguage || '';
+    return language ? language.toLowerCase() : '';
+};
+
+const detectClientPlatform = () => {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    return /android|iphone|ipad|ipod|mobile/.test(ua) ? 'mobile' : 'desktop';
+};
+
+const removeNotificationElement = (element) => {
+    if (!element) {
+        notificationActive = false;
+        return;
+    }
+    element.classList.add('closing');
+    setTimeout(() => {
+        element.remove();
+        notificationActive = false;
+        if (notificationQueue.length) {
+            displayNextNotification();
+        }
+    }, 220);
+};
+
+const recordNotificationEvent = async (notification, action) => {
+    const key = `${notification.id}:${action}`;
+    if (notificationEventCache.has(key)) {
+        return;
+    }
+    notificationEventCache.add(key);
+
+    try {
+        await fetch('/client/data/notification-event.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                id: notification.id,
+                action,
+                language: detectClientLanguage(),
+                platform: detectClientPlatform(),
+            }),
+        });
+    } catch (error) {
+        console.warn('Bildirim olayı kaydedilemedi', error);
+    }
+};
+
+const buildNotificationElement = (notification) => {
+    const container = document.createElement('div');
+    container.className = 'inline-notification shadow-lg';
+    container.setAttribute('role', 'status');
+    container.dataset.notificationId = notification.id;
+
+    const header = document.createElement('div');
+    header.className = 'inline-notification-header';
+
+    if (notification.logo) {
+        const logo = document.createElement('img');
+        logo.src = notification.logo;
+        logo.alt = 'Logo';
+        logo.className = 'inline-notification-logo';
+        header.appendChild(logo);
+    }
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'inline-notification-title';
+    titleWrap.textContent = notification.title;
+    header.appendChild(titleWrap);
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn-close btn-close-white';
+    closeButton.setAttribute('aria-label', 'Kapat');
+    header.appendChild(closeButton);
+
+    container.appendChild(header);
+
+    if (notification.image) {
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'inline-notification-image';
+        const img = document.createElement('img');
+        img.src = notification.image;
+        img.alt = notification.title;
+        imageWrap.appendChild(img);
+        container.appendChild(imageWrap);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'inline-notification-body';
+    body.innerText = notification.message;
+    container.appendChild(body);
+
+    if (notification.url) {
+        const actions = document.createElement('div');
+        actions.className = 'inline-notification-actions';
+        const link = document.createElement('a');
+        link.href = notification.url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.className = 'btn btn-sm btn-primary';
+        link.textContent = 'Detayları Gör';
+        link.addEventListener('click', () => {
+            recordNotificationEvent(notification, 'clicked');
+            removeNotificationElement(container);
+        });
+        actions.appendChild(link);
+        container.appendChild(actions);
+    }
+
+    closeButton.addEventListener('click', () => {
+        recordNotificationEvent(notification, 'dismissed');
+        removeNotificationElement(container);
+    });
+
+    container.addEventListener('mouseenter', () => {
+        container.classList.add('hover');
+    });
+    container.addEventListener('mouseleave', () => {
+        container.classList.remove('hover');
+    });
+
+    return container;
+};
+
+const displayNextNotification = () => {
+    if (notificationActive || !notificationQueue.length) {
+        return;
+    }
+    const notification = notificationQueue.shift();
+    notificationActive = true;
+    const element = buildNotificationElement(notification);
+    document.body.appendChild(element);
+    setTimeout(() => {
+        element.classList.add('visible');
+    }, 10);
+
+    const duration = notification.url ? 12000 : 9000;
+    setTimeout(() => {
+        if (document.body.contains(element)) {
+            recordNotificationEvent(notification, 'dismissed');
+            removeNotificationElement(element);
+        }
+    }, duration);
+};
+
+const enqueueNotifications = (items) => {
+    items.forEach((item) => {
+        if (!item || typeof item.id === 'undefined') {
+            return;
+        }
+        if (notificationSeen.has(item.id)) {
+            return;
+        }
+        notificationSeen.add(item.id);
+        notificationQueue.push(item);
+    });
+
+    if (!notificationActive) {
+        displayNextNotification();
+    }
+};
+
+const pollNotifications = async () => {
+    try {
+        const language = detectClientLanguage();
+        const platform = detectClientPlatform();
+        const params = new URLSearchParams();
+        if (language) {
+            params.set('lang', language);
+        }
+        if (platform) {
+            params.set('platform', platform);
+        }
+        const response = await fetch(`/client/data/notifications${params.toString() ? `?${params.toString()}` : ''}`, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'include',
+        });
+        const data = await response.json();
+        if (data && data.status === 'ok' && Array.isArray(data.notifications)) {
+            enqueueNotifications(data.notifications);
+        }
+    } catch (error) {
+        console.warn('Bildirimler alınamadı', error);
+    }
+};
+
+const startNotificationPolling = () => {
+    if (!window.fetch) {
+        return;
+    }
+
+    const loop = async () => {
+        await pollNotifications();
+        setTimeout(loop, 45000);
+    };
+
+    setTimeout(loop, 3000);
 };
 
 const startHeartbeat = () => {
@@ -1204,6 +1651,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startHeartbeat();
     initFirebaseButtons();
+    startNotificationPolling();
 
     document.querySelectorAll('[data-confirm]').forEach((element) => {
         if (element.dataset.confirmInitialized) {
@@ -1248,6 +1696,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         event.preventDefault();
         submitAjaxAction(button);
+    });
+
+    document.querySelectorAll('[data-refresh-table]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            const target = button.dataset.refreshTable;
+            if (target && window.jQuery) {
+                window.jQuery(target).bootstrapTable('refresh');
+            }
+        });
     });
 
     if (window.Dropzone) {
@@ -1422,6 +1880,27 @@ document.addEventListener('DOMContentLoaded', () => {
             window.jQuery('#onlineTable').bootstrapTable('refresh');
         });
     }
+
+    const notificationRange = document.getElementById('notificationRange');
+    const notificationFilter = document.getElementById('notificationFilter');
+    if (notificationRange) {
+        const load = () => {
+            const selectedId = notificationFilter && notificationFilter.value ? Number(notificationFilter.value) : null;
+            loadNotificationMetrics(notificationRange.value, selectedId || undefined);
+        };
+        load();
+        notificationRange.addEventListener('change', load);
+        if (notificationFilter) {
+            notificationFilter.addEventListener('change', load);
+        }
+    }
+
+    document.querySelectorAll('[data-notification-export]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            exportNotificationMetrics(button.dataset.notificationExport);
+        });
+    });
 
     loadDashboardMetrics();
     loadClientUsageMetrics();

@@ -29,7 +29,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 | Ödeme Süreçleri | İyzico (test) kredi kartı ödemeleri, banka havalesi/IBAN bilgisi ve bildirim akışı, satın alma onay/red/eksik ödeme iş akışları, gerçek zamanlı kullanım güncellemesi. |
 | API Güvenliği | JSON tabanlı token üretimi, token pasifleştirme/silme, tek cihaz kayıt kontrolü, GET/POST desteği, `<img>` ile gömülebilir uç nokta, kullanım eşik e-postaları (%50/%25/%5). |
 | Raporlama | Günlük/haftalık/aylık/yıllık API kullanım grafikleri, bootstrap-table tablolar, PDF/Excel dışa aktarma (Türkçe karakter desteği). |
-| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı. |
+| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı, canlı oturumlara özel yerel web bildirimleri (dil/platform hedefleme, görsel/li linkli içerik, otomatik metrik takibi). |
 | Canlı Ziyaretçiler | Oturum kalp atışı (AJAX ping), ülke/şehir/platform/referer & arama sorgusu istatistikleri, gerçek zamanlı tablo ve grafikler, PDF/Excel export. |
 | Sosyal Giriş | Firebase destekli Google, Facebook, Twitter, GitHub, Microsoft, Apple, Yahoo ile tek tıkla kayıt/giriş; admin ayarlarında etkinleştirilebilir. |
 | Marka Yönetimi | Dropzone ile logo/favicon yükleme, marka öğeleri kartları, logo yoksa site adı gösterimi, footer/header içeriklerini ve meta verilerini canlı güncelleme. |
@@ -58,6 +58,12 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 
 ### Bildirimler
 - `includes/Mailer.php` ve `includes/MailSettings.php` mail altyapısını yönetir; admin panelinde SMTP/PHPMailer aktif/pasif seçilebilir.
+
+### Web Bildirimleri
+- `admin/web-notifications.php` kart tabanlı arayüzüyle başlık, açıklama, dil/platform hedefleme ve Dropzone destekli görsel ekleme ile yerel web bildirimleri oluşturur.
+- `admin/data/web-notifications.php` ve `admin/data/web-notification-metrics.php` bootstrap-table listesi ile Chart.js grafiğine veri sağlar; gönderim/tıklama/kapatma istatistikleri PDF/Excel olarak indirilebilir.
+- `client/data/notifications.php` aktif oturumlar için uygun bildirimleri seçer; `includes/NotificationService.php` teslim/kapatma/tıklama olaylarını IP, ülke, şehir, platform ve dil bilgileriyle kaydeder.
+- `assets/js/app.js` mobil uyumlu inline toast bileşeniyle bildirimleri görüntüler, kapatılan ya da tıklanan mesajları yeniden göstermeden kuyruğu yönetir.
 
 ### Canlı Ziyaretçi İzleme
 - `includes/Activity.php` oturum anahtarlarını yönetir, IP/platform/referer/arama verilerini saklar ve heartbeat güncellemelerini işler.
@@ -96,9 +102,10 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 ## Entegrasyonlar
 - **chillerlan/php-qrcode** – QR üretim kütüphanesi.
 - **PHPMailer** – SMTP tabanlı e-posta gönderimi (istenirse PHP mail()).
-- **Iyzico** – Test ödeme altyapısı (API anahtarları admin ayarlarında). 
+- **Iyzico** – Test ödeme altyapısı (API anahtarları admin ayarlarında).
 - **Firebase Authentication** – Sosyal giriş ve token doğrulama.
 - **Google Analytics** – Ölçüm kimliği admin ayarlarından yönetilir.
+- **MaxMind GeoIP2** – `geoip2/geoip2` kütüphanesiyle GeoLite2 City veritabanı üzerinden ülke/şehir tespiti (isteğe bağlı, canlı ziyaretçi ve bildirim metrikleri için önerilir).
 - **bootstrap-table, Chart.js, Dropzone, SweetAlert2** – Ön uç bileşenleri.
 
 ## Gereksinimler
@@ -107,6 +114,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - Composer
 - cURL, GD, OpenSSL, PDO, mbstring eklentileri
 - Plesk AlmaLinux 8 üzerinde root dizine kurulum (public alt klasörü olmadan)
+- (Opsiyonel) MaxMind GeoLite2 City `.mmdb` veritabanı — GeoIP özellikleri için `storage/geo/GeoLite2-City.mmdb` konumuna kopyalayın veya `settings` tablosunda `geo_database_path` anahtarını belirleyin.
 
 ## Kurulum
 1. Projeyi sunucunuzun kök dizinine kopyalayın.
@@ -131,6 +139,8 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
   - Firebase proje kimliği, API anahtarları ve aktif/pasif durumu
   - Google Analytics ölçüm kimliği
   - API dokümantasyonu ve çoklu dil JSON dosyalarının yönetimi
+- **Admin > Web Bildirimleri** ekranından; dil ve platform bazlı yerel bildirimler oluşturabilir, Dropzone ile görsel ekleyebilir, gönderim/tıklama/kapatma istatistiklerini Chart.js grafiği üzerinden izleyebilir ve PDF/Excel çıktısı alabilirsiniz.
+- GeoIP kullanmak için GeoLite2 City dosyasını `storage/geo/GeoLite2-City.mmdb` konumuna yerleştirin veya `settings` tablosuna `geo_database_path` anahtarı ekleyerek özel yol tanımlayın.
 
 ## API Kılavuzu
 - **Temel uç nokta**: `https://qrmenu.noasoft.org/api/v1/qr`

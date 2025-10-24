@@ -27,7 +27,7 @@ class Activity
             $ip = self::clientIp();
             $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 1000);
             $platform = self::detectPlatform($userAgent);
-            $geo = self::detectGeo();
+            $geo = self::detectGeo($ip);
             $referer = self::resolveReferer();
             $search = self::detectSearch($referer);
             $lastUrl = self::currentUrl($area);
@@ -153,8 +153,16 @@ SQL;
         return 'Diğer';
     }
 
-    private static function detectGeo(): array
+    private static function detectGeo(?string $ip): array
     {
+        $lookup = Geo::lookup($ip);
+        if (!empty($lookup['country']) || !empty($lookup['city'])) {
+            return [
+                'country' => $lookup['country'] ?? null,
+                'city' => $lookup['city'] ?? null,
+            ];
+        }
+
         $country = $_SERVER['HTTP_CF_IPCOUNTRY'] ?? $_SERVER['GEOIP_COUNTRY_CODE'] ?? $_SERVER['HTTP_X_APPENGINE_COUNTRY'] ?? null;
         $city = $_SERVER['HTTP_CF_IPCITY'] ?? $_SERVER['GEOIP_CITY'] ?? $_SERVER['HTTP_X_APPENGINE_CITY'] ?? null;
 
