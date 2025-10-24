@@ -21,6 +21,7 @@ $appConfig = [
         'enabled' => Settings::onesignalEnabled(),
         'appId' => Settings::onesignalAppId(),
         'registerEndpoint' => '/client/onesignal-register',
+        'workerPath' => '/OneSignalSDKWorker.js',
     ],
     'user' => $currentUser ? [
         'id' => (int) $currentUser['id'],

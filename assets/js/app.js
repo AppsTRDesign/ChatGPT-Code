@@ -175,51 +175,128 @@ const initOneSignalClient = () => {
         return;
     }
 
+    const storageKey = 'onesignal_prompt_last';
+    const storage = (() => {
+        try {
+            return window.localStorage || null;
+        } catch (error) {
+            return null;
+        }
+    })();
+
+    const shouldPrompt = () => {
+        if (!storage) {
+            return true;
+        }
+        const cooldownMs = 1000 * 60 * 60 * 12; // 12 hours
+        const last = parseInt(storage.getItem(storageKey) || '0', 10);
+        return Number.isNaN(last) || Date.now() - last > cooldownMs;
+    };
+
+    const markPrompt = () => {
+        if (!storage) {
+            return;
+        }
+        storage.setItem(storageKey, `${Date.now()}`);
+    };
+
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal) => {
-        await OneSignal.init({
-            appId: config.appId,
-            notifyButton: { enable: false },
-            allowLocalhostAsSecureOrigin: true,
-        });
+        try {
+            await OneSignal.init({
+                appId: config.appId,
+                notifyButton: { enable: false },
+                allowLocalhostAsSecureOrigin: true,
+                serviceWorkerConfig: {
+                    path: config.workerPath || '/OneSignalSDKWorker.js',
+                    scope: '/',
+                    workerName: 'OneSignalSDKWorker.js',
+                },
+            });
 
-        const register = async () => {
-            try {
-                const id = await OneSignal.User.PushSubscription.id;
-                if (!id) {
+            const register = async () => {
+                try {
+                    const id = await OneSignal.User.PushSubscription.id;
+                    if (!id) {
+                        return;
+                    }
+                    await fetch(config.registerEndpoint || '/client/onesignal-register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            player_id: id,
+                            platform: OneSignal.User.PushSubscription.token?.type || 'web',
+                        }),
+                    });
+                } catch (error) {
+                    console.warn('OneSignal register failed', error);
+                }
+            };
+
+            const unregister = async (previousId) => {
+                if (!previousId) {
                     return;
                 }
-                await fetch(config.registerEndpoint || '/client/onesignal-register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        player_id: id,
-                        platform: OneSignal.User.PushSubscription.token?.type || 'web',
-                    }),
-                });
-            } catch (error) {
-                // silently ignore registration errors
-            }
-        };
-
-        OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
-            if (event.id) {
-                await register();
-            } else if (event.previousId) {
                 try {
                     await fetch(config.registerEndpoint || '/client/onesignal-register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ player_id: '', previous: event.previousId }),
+                        body: JSON.stringify({ player_id: '', previous: previousId }),
                     });
                 } catch (error) {
-                    // ignore
+                    console.warn('OneSignal unregister failed', error);
+                }
+            };
+
+            OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
+                if (event.id) {
+                    await register();
+                } else if (event.previousId) {
+                    await unregister(event.previousId);
+                }
+            });
+
+            OneSignal.Notifications.addEventListener('permissionChange', async ({ permission }) => {
+                if (permission === 'granted') {
+                    await register();
+                } else if (permission === 'denied') {
+                    const previous = await OneSignal.User.PushSubscription.id.catch(() => null);
+                    if (previous) {
+                        await unregister(previous);
+                    }
+                }
+            });
+
+            const permission = await OneSignal.Notifications.permission;
+            if (permission === 'granted') {
+                await register();
+                return;
+            }
+
+            if (permission === 'default' && shouldPrompt()) {
+                markPrompt();
+                if (window.Swal) {
+                    const result = await Swal.fire({
+                        icon: 'info',
+                        title: 'Bildirimlere izin verin',
+                        text: 'Güncellemeleri kaçırmamak için tarayıcı bildirimlerine izin verin.',
+                        showCancelButton: true,
+                        confirmButtonText: 'İzin ver',
+                        cancelButtonText: 'Daha sonra',
+                        confirmButtonColor: '#0d6efd',
+                    });
+                    if (!result.isConfirmed) {
+                        return;
+                    }
+                }
+
+                const outcome = await OneSignal.Notifications.requestPermission({ fallbackToSettings: true });
+                if (outcome === 'granted') {
+                    await register();
                 }
             }
-        });
-
-        if (await OneSignal.User.PushSubscription.optedIn()) {
-            await register();
+        } catch (error) {
+            console.error('OneSignal başlangıç hatası', error);
         }
     });
 };
