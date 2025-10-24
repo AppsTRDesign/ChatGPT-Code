@@ -179,4 +179,40 @@ class Settings
         $value = trim((string) self::get('google_analytics_id', ''));
         return $value !== '' ? $value : null;
     }
+
+    public static function onesignalEnabled(): bool
+    {
+        if (!self::boolFrom(self::get('onesignal_enabled', '0'), false)) {
+            return false;
+        }
+
+        return self::onesignalAppId() !== null && self::onesignalRestKey() !== null;
+    }
+
+    public static function onesignalAppId(): ?string
+    {
+        $value = trim((string) self::get('onesignal_app_id', ''));
+        return $value !== '' ? $value : null;
+    }
+
+    public static function onesignalRestKey(): ?string
+    {
+        $value = trim((string) self::get('onesignal_rest_key', ''));
+        return $value !== '' ? $value : null;
+    }
+
+    public static function onesignalSafariWebId(): ?string
+    {
+        $value = trim((string) self::get('onesignal_safari_web_id', ''));
+        return $value !== '' ? $value : null;
+    }
+
+    public static function onesignalConfig(): array
+    {
+        return [
+            'enabled' => self::onesignalEnabled(),
+            'appId' => self::onesignalAppId(),
+            'safariWebId' => self::onesignalSafariWebId(),
+        ];
+    }
 }

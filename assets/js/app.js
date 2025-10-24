@@ -168,6 +168,73 @@ const initFirebaseButtons = () => {
         });
     });
 };
+
+const initOneSignal = async () => {
+    const config = appConfig.onesignal || {};
+    if (!config.enabled || !config.appId) {
+        return;
+    }
+
+    if (!window.OneSignalDeferred) {
+        window.OneSignalDeferred = [];
+    }
+
+    window.OneSignalDeferred.push(async (OneSignal) => {
+        try {
+            await OneSignal.init({
+                appId: config.appId,
+                allowLocalhostAsSecureOrigin: true,
+                serviceWorkerPath: config.workerPath || '/OneSignalSDKWorker.js',
+                serviceWorkerUpdaterPath: config.updaterPath || '/OneSignalSDKUpdaterWorker.js',
+                safari_web_id: config.safariWebId || undefined,
+                notifyButton: { enable: false },
+            });
+
+            const permission = await OneSignal.Notifications.permission;
+            if (permission === 'default') {
+                setTimeout(() => {
+                    Swal.fire({
+                        title: 'Bildirimlere izin verin',
+                        text: 'QR güncellemelerini anında alabilmek için bildirim izni vermek ister misiniz?',
+                        icon: 'info',
+                        showCancelButton: true,
+                        confirmButtonColor: '#0d6efd',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'İzin Ver',
+                        cancelButtonText: 'Daha Sonra',
+                    }).then(async (result) => {
+                        if (result.isConfirmed) {
+                            try {
+                                await OneSignal.Notifications.requestPermission();
+                            } catch (error) {
+                                console.warn('Bildirim izni alınamadı', error);
+                            }
+                        }
+                    });
+                }, 1500);
+            }
+
+            if (appConfig.user && appConfig.user.id) {
+                try {
+                    await OneSignal.login(String(appConfig.user.id));
+                    if (appConfig.user.role) {
+                        await OneSignal.User.addTag('role', appConfig.user.role);
+                    }
+                } catch (error) {
+                    console.warn('OneSignal login başarısız', error);
+                }
+            }
+        } catch (error) {
+            console.error('OneSignal init hatası', error);
+        }
+    });
+
+    try {
+        await loadScript('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js');
+    } catch (error) {
+        console.error('OneSignal SDK yüklenemedi', error);
+    }
+};
 const refreshTable = (tableId) => {
     if (!tableId || !window.jQuery) {
         return;
@@ -480,6 +547,53 @@ window.appHandlers = {
         const windowValue = windowSelect ? windowSelect.value : '5';
         return { ...params, window: windowValue };
     },
+    pushTargetResponse: (response) => {
+        const totalBadge = document.getElementById('pushTargetTotal');
+        if (totalBadge && typeof response?.totalNotFiltered === 'number') {
+            totalBadge.textContent = `${response.totalNotFiltered} kayıt`;
+        }
+        return response;
+    },
+    pushTargetQuery: (params) => {
+        const next = { ...params };
+        if (next.sort === 'platform') {
+            next.sort = 'device_type';
+        }
+        return next;
+    },
+    pushCampaignResponse: (response) => {
+        const totalBadge = document.getElementById('pushCampaignTotal');
+        if (totalBadge && typeof response?.totalNotFiltered === 'number') {
+            totalBadge.textContent = `${response.totalNotFiltered} kampanya`;
+        }
+        return response;
+    },
+    pushStatusFormatter: (value) => {
+        const map = {
+            queued: { label: 'Sırada', class: 'bg-warning text-dark' },
+            sent: { label: 'Gönderildi', class: 'bg-success' },
+            failed: { label: 'Başarısız', class: 'bg-danger' },
+        };
+        const status = map[value] || { label: value, class: 'bg-secondary' };
+        return `<span class="badge rounded-pill ${status.class}">${escapeHtml(status.label)}</span>`;
+    },
+    pushStatsFormatter: (value) => {
+        if (!value || typeof value !== 'object') {
+            return '<span class="text-white-50">-</span>';
+        }
+        const successful = Number(value.successful ?? value.recipients ?? 0);
+        const delivered = Number(value.delivered ?? successful);
+        const opened = Number(value.opened ?? value.converted ?? 0);
+        const clicked = Number(value.clicked ?? 0);
+        return `
+            <div class="d-flex flex-column gap-1 small">
+                <span>Gönderildi: <strong>${successful}</strong></span>
+                <span>Teslim: <strong>${delivered}</strong></span>
+                <span>Açıldı: <strong>${opened}</strong></span>
+                <span>Tıklandı: <strong>${clicked}</strong></span>
+            </div>
+        `;
+    },
 };
 
 let usageChart;
@@ -491,6 +605,11 @@ let clientUsageMetrics = [];
 
 let onlineChart;
 let onlineMetrics = [];
+
+let pushChart;
+let pushMetrics = [];
+let pushSummary = null;
+let pushRefreshPending = false;
 
 const updateUsageChart = (labels, data) => {
     const canvas = document.getElementById('usageChart');
@@ -645,6 +764,171 @@ const updateOnlineSummary = (rows) => {
         <li class="mb-2"><strong>Ortalama:</strong> ${average}</li>
         <li class="mb-0"><strong>Zirve:</strong> ${peak}</li>
     `;
+};
+
+const initPushManager = () => {
+    const config = window.pushConfig || null;
+    if (!config) {
+        return;
+    }
+
+    const form = document.getElementById('pushForm');
+    const submitButton = document.getElementById('pushSubmitButton');
+    const syncButton = document.getElementById('syncOnesignalButton');
+    const refreshButton = document.getElementById('refreshPushStatsButton');
+    const manager = document.getElementById('pushManager');
+
+    if (manager && !config.enabled) {
+        manager.querySelectorAll('input, textarea, select, button').forEach((el) => {
+            if (el && el.id !== 'syncOnesignalButton') {
+                el.disabled = true;
+            }
+        });
+    }
+
+    const refreshAll = async ({ silent = true, refreshStats = true } = {}) => {
+        if (refreshStats && config.refreshEndpoint) {
+            await refreshPushAnalytics({ silent: true });
+        }
+        refreshTable('pushTargetsTable');
+        refreshTable('pushCampaignTable');
+        await loadPushStats();
+        if (!silent && config.enabled) {
+            Swal.fire({ icon: 'success', title: 'İstatistikler yenilendi.', confirmButtonColor: '#0d6efd' });
+        }
+    };
+
+    if (config.enabled) {
+        refreshAll({ silent: true });
+    } else {
+        loadPushStats();
+    }
+
+    if (syncButton) {
+        syncButton.addEventListener('click', async (event) => {
+            event.preventDefault();
+            if (!config.syncEndpoint) {
+                return;
+            }
+            syncButton.disabled = true;
+            try {
+                const response = await fetch(config.syncEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new URLSearchParams({ csrf_token: config.csrf }),
+                });
+                const json = await response.json();
+                const success = json?.status === 'success';
+                Swal.fire({
+                    icon: success ? 'success' : 'error',
+                    title: json?.message || (success ? 'Aboneler güncellendi.' : 'Eşitleme başarısız oldu.'),
+                    confirmButtonColor: '#0d6efd',
+                });
+                if (success) {
+                    await refreshAll({ silent: true });
+                }
+            } catch (error) {
+                console.error('Abone eşitleme hatası', error);
+                Swal.fire({ icon: 'error', title: 'Aboneler eşitlenemedi.', confirmButtonColor: '#0d6efd' });
+            } finally {
+                syncButton.disabled = false;
+            }
+        });
+    }
+
+    if (refreshButton) {
+        refreshButton.addEventListener('click', async (event) => {
+            event.preventDefault();
+            refreshButton.disabled = true;
+            try {
+                await refreshPushAnalytics({ silent: false });
+                await refreshAll({ silent: true, refreshStats: false });
+            } finally {
+                refreshButton.disabled = false;
+            }
+        });
+    }
+
+    if (form) {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!config.enabled) {
+                Swal.fire({ icon: 'warning', title: 'OneSignal ayarlarını tamamlayın.', confirmButtonColor: '#0d6efd' });
+                return;
+            }
+
+            const formData = new FormData(form);
+            const targetType = formData.get('target_type') === 'players' ? 'players' : 'all';
+            let playerIds = [];
+            if (targetType === 'players') {
+                try {
+                    playerIds = (window.jQuery ? window.jQuery('#pushTargetsTable').bootstrapTable('getSelections') : [])
+                        .map((row) => row.player_id)
+                        .filter(Boolean);
+                } catch (error) {
+                    console.warn('Seçimler alınamadı', error);
+                }
+                if (!playerIds.length) {
+                    Swal.fire({ icon: 'warning', title: 'En az bir abone seçmelisiniz.', confirmButtonColor: '#0d6efd' });
+                    return;
+                }
+            }
+
+            const payload = {
+                csrf_token: config.csrf,
+                title: formData.get('title') || '',
+                message: formData.get('message') || '',
+                language: formData.get('language') || 'tr',
+                url: formData.get('url') || '',
+                image_path: formData.get('image_path') || '',
+                target_type: targetType,
+                player_ids: playerIds,
+            };
+
+            if (submitButton) {
+                submitButton.disabled = true;
+            }
+
+            try {
+                const response = await fetch(config.sendEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify(payload),
+                });
+                const json = await response.json();
+                const success = json?.status === 'success';
+                Swal.fire({
+                    icon: success ? 'success' : 'error',
+                    title: json?.message || (success ? 'Bildirim sıraya alındı.' : 'Gönderim başarısız.'),
+                    confirmButtonColor: '#0d6efd',
+                });
+                if (success) {
+                    form.reset();
+                    const preview = document.getElementById('pushImagePreview');
+                    if (preview) {
+                        preview.innerHTML = 'Görsel seçilmedi.';
+                    }
+                    if (window.jQuery) {
+                        window.jQuery('#pushTargetsTable').bootstrapTable('uncheckAll');
+                    }
+                    await refreshAll({ silent: true });
+                }
+            } catch (error) {
+                console.error('Push gönderimi başarısız', error);
+                Swal.fire({ icon: 'error', title: 'Bildirim gönderilemedi.', confirmButtonColor: '#0d6efd' });
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                }
+            }
+        });
+    }
 };
 
 const loadOnlineMetrics = async (range) => {
@@ -1079,6 +1363,181 @@ const updateDashboardSummary = (summary) => {
     container.innerHTML = rows.join('') || '<li class="text-white-50">Özet verisi bulunamadı.</li>';
 };
 
+const renderPushChart = (rows) => {
+    const canvas = document.getElementById('pushStatsChart');
+    if (!canvas || !window.Chart) {
+        return;
+    }
+
+    const labels = rows.map((row) => row.label).reverse();
+    const sent = rows.map((row) => Number(row.sent ?? row.queued ?? 0)).reverse();
+    const delivered = rows.map((row) => Number(row.delivered ?? 0)).reverse();
+    const opened = rows.map((row) => Number(row.opened ?? 0)).reverse();
+    const clicked = rows.map((row) => Number(row.clicked ?? 0)).reverse();
+
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: 'Gönderildi',
+                data: sent,
+                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                borderColor: '#3b82f6',
+                borderWidth: 1.5,
+                borderRadius: 8,
+            },
+            {
+                label: 'Teslim',
+                data: delivered,
+                backgroundColor: 'rgba(34, 197, 94, 0.6)',
+                borderColor: '#22c55e',
+                borderWidth: 1.5,
+                borderRadius: 8,
+            },
+            {
+                label: 'Açıldı',
+                data: opened,
+                backgroundColor: 'rgba(14, 165, 233, 0.5)',
+                borderColor: '#0ea5e9',
+                borderWidth: 1.5,
+                borderRadius: 8,
+            },
+            {
+                label: 'Tıklandı',
+                data: clicked,
+                backgroundColor: 'rgba(244, 114, 182, 0.6)',
+                borderColor: '#f472b6',
+                borderWidth: 1.5,
+                borderRadius: 8,
+            },
+        ],
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {
+                stacked: false,
+                ticks: { color: '#cbd5f5', autoSkip: true, maxRotation: 0 },
+                grid: { color: 'rgba(148, 163, 184, 0.15)', drawBorder: false },
+            },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#cbd5f5',
+                    callback: (value) => (Number.isInteger(value) ? value : ''),
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.12)', drawBorder: false },
+            },
+        },
+        plugins: {
+            legend: { labels: { color: '#f8fafc', font: { family: 'Inter, "Segoe UI", sans-serif', size: 12 } } },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                borderWidth: 0,
+            },
+        },
+    };
+
+    if (!pushChart) {
+        pushChart = new Chart(canvas, { type: 'bar', data, options });
+    } else {
+        pushChart.data = data;
+        pushChart.options = options;
+        pushChart.update();
+    }
+};
+
+const updatePushSummary = (summary) => {
+    const container = document.getElementById('pushStatsSummary');
+    if (!container) {
+        return;
+    }
+
+    if (!summary) {
+        container.innerHTML = '<li class="text-white-50">Henüz istatistik yok.</li>';
+        return;
+    }
+
+    const lines = [
+        `<li><strong>Gönderildi:</strong> ${Number(summary.sent ?? summary.queued ?? 0)}</li>`,
+        `<li><strong>Teslim:</strong> ${Number(summary.delivered ?? 0)}</li>`,
+        `<li><strong>Açıldı:</strong> ${Number(summary.opened ?? 0)}</li>`,
+        `<li><strong>Tıklandı:</strong> ${Number(summary.clicked ?? 0)}</li>`,
+    ];
+
+    container.innerHTML = lines.join('');
+};
+
+const refreshPushAnalytics = async ({ silent = false } = {}) => {
+    const config = window.pushConfig || null;
+    if (!config || !config.refreshEndpoint) {
+        return false;
+    }
+    if (pushRefreshPending) {
+        return false;
+    }
+
+    pushRefreshPending = true;
+    try {
+        const params = new URLSearchParams();
+        if (config.csrf) {
+            params.append('csrf_token', config.csrf);
+        }
+
+        const response = await fetch(config.refreshEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: params,
+        });
+        let json = null;
+        try {
+            json = await response.json();
+        } catch (error) {
+            json = null;
+        }
+        const success = json?.status === 'success';
+        if (!silent) {
+            Swal.fire({
+                icon: success ? 'success' : 'error',
+                title: json?.message || (success ? 'İstatistikler güncellendi.' : 'İstatistikler güncellenemedi.'),
+                confirmButtonColor: '#0d6efd',
+            });
+        }
+        return success;
+    } catch (error) {
+        console.error('Push istatistik güncellemesi başarısız', error);
+        if (!silent) {
+            Swal.fire({ icon: 'error', title: 'İstatistikler güncellenemedi.', confirmButtonColor: '#0d6efd' });
+        }
+        return false;
+    } finally {
+        pushRefreshPending = false;
+    }
+};
+
+const loadPushStats = async () => {
+    const config = window.pushConfig || null;
+    if (!config || !config.statsEndpoint) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${config.statsEndpoint}?range=30`, { headers: { Accept: 'application/json' } });
+        const json = await response.json();
+        pushMetrics = json.rows || [];
+        pushSummary = json.summary || null;
+        renderPushChart(pushMetrics);
+        updatePushSummary(pushSummary);
+    } catch (error) {
+        console.error('Push istatistikleri yüklenemedi', error);
+    }
+};
+
 const loadDashboardMetrics = async () => {
     if (!window.dashboardConfig || !window.dashboardConfig.endpoint) {
         return;
@@ -1184,6 +1643,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startHeartbeat();
     initFirebaseButtons();
+    initOneSignal();
+    initPushManager();
 
     document.querySelectorAll('[data-confirm]').forEach((element) => {
         if (element.dataset.confirmInitialized) {
@@ -1240,9 +1701,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = element.dataset.dropzoneUrl;
             const type = element.dataset.dropzoneType || 'logo';
             const csrf = element.dataset.dropzoneCsrf || '';
-            const accepted = type === 'favicon'
-                ? 'image/png,image/x-icon,image/svg+xml'
-                : 'image/png,image/jpeg,image/svg+xml';
+            let accepted = 'image/png,image/jpeg,image/svg+xml';
+            if (type === 'favicon') {
+                accepted = 'image/png,image/x-icon,image/svg+xml';
+            } else if (type === 'push') {
+                accepted = 'image/png,image/jpeg,image/webp,image/gif';
+            }
             const message = element.dataset.dropzoneMessage || 'Dosyayı sürükleyip bırakın veya tıklayın';
 
             const dz = new Dropzone(element, {

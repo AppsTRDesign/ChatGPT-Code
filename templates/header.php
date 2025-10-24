@@ -28,6 +28,12 @@ $appConfig = [
 if (empty($appConfig['firebase']['config'])) {
     $appConfig['firebase']['config'] = null;
 }
+$onesignalConfig = Settings::onesignalConfig();
+if (!empty($onesignalConfig['enabled'])) {
+    $onesignalConfig['workerPath'] = '/OneSignalSDKWorker.js';
+    $onesignalConfig['updaterPath'] = '/OneSignalSDKUpdaterWorker.js';
+}
+$appConfig['onesignal'] = $onesignalConfig;
 ?>
 <!DOCTYPE html>
 <html lang="tr">

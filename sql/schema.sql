@@ -176,6 +176,57 @@ CREATE TABLE payment_notifications (
     FOREIGN KEY (user_package_id) REFERENCES user_packages(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE onesignal_subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    player_id VARCHAR(80) NOT NULL UNIQUE,
+    external_id VARCHAR(120) DEFAULT NULL,
+    language VARCHAR(10) DEFAULT NULL,
+    country VARCHAR(10) DEFAULT NULL,
+    city VARCHAR(120) DEFAULT NULL,
+    ip VARCHAR(45) DEFAULT NULL,
+    device_type VARCHAR(60) DEFAULT NULL,
+    device_model VARCHAR(120) DEFAULT NULL,
+    device_os VARCHAR(60) DEFAULT NULL,
+    sdk VARCHAR(60) DEFAULT NULL,
+    last_active TIMESTAMP NULL,
+    tags_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE web_push_campaigns (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    onesignal_id VARCHAR(120) DEFAULT NULL,
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    language VARCHAR(10) DEFAULT 'tr',
+    url TEXT,
+    image_path TEXT,
+    target_type ENUM('all','players') DEFAULT 'all',
+    target_count INT DEFAULT 0,
+    status ENUM('queued','sent','failed') DEFAULT 'queued',
+    stats_json TEXT,
+    created_by INT DEFAULT NULL,
+    sent_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE web_push_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    campaign_id INT NOT NULL,
+    event_type ENUM('queued','sent','delivered','opened','clicked') NOT NULL,
+    player_id VARCHAR(80) DEFAULT NULL,
+    country VARCHAR(10) DEFAULT NULL,
+    city VARCHAR(120) DEFAULT NULL,
+    ip VARCHAR(45) DEFAULT NULL,
+    platform VARCHAR(120) DEFAULT NULL,
+    referer TEXT,
+    count INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (campaign_id) REFERENCES web_push_campaigns(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO users (username, email, password, role, email_verified) VALUES
 ('admin', 'admin@qrmenu.noasoft.org', '$2y$12$qvP60IWAGEcLbDnmr0fLqugHlViMLGAM8Nt.bSPemwwgWyhXGfPwS', 'admin', 1);
 

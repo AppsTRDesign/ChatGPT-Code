@@ -28,7 +28,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 | Ödeme Süreçleri | İyzico (test) kredi kartı ödemeleri, banka havalesi/IBAN bilgisi ve bildirim akışı, satın alma onay/red/eksik ödeme iş akışları, gerçek zamanlı kullanım güncellemesi. |
 | API Güvenliği | JSON tabanlı token üretimi, token pasifleştirme/silme, tek cihaz kayıt kontrolü, GET/POST desteği, `<img>` ile gömülebilir uç nokta, kullanım eşik e-postaları (%50/%25/%5). |
 | Raporlama | Günlük/haftalık/aylık/yıllık API kullanım grafikleri, bootstrap-table tablolar, PDF/Excel dışa aktarma (Türkçe karakter desteği). |
-| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı. |
+| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı, OneSignal v16 tabanlı web push kampanyaları (dropzone görselleri, URL yönlendirmesi, aboneleri eşitleme & istatistik yenileme butonları, şehir/ülke/platform bazlı grafikli raporlama). |
 | Canlı Ziyaretçiler | Oturum kalp atışı (AJAX ping), ülke/şehir/platform/referer & arama sorgusu istatistikleri, gerçek zamanlı tablo ve grafikler, PDF/Excel export. |
 | Sosyal Giriş | Firebase destekli Google, Facebook, Twitter, GitHub, Microsoft, Apple, Yahoo ile tek tıkla kayıt/giriş; admin ayarlarında etkinleştirilebilir. |
 | Marka Yönetimi | Dropzone ile logo/favicon yükleme, marka öğeleri kartları, logo yoksa site adı gösterimi, footer/header içeriklerini ve meta verilerini canlı güncelleme. |
@@ -56,6 +56,10 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 
 ### Bildirimler
 - `includes/Mailer.php` ve `includes/MailSettings.php` mail altyapısını yönetir; admin panelinde SMTP/PHPMailer aktif/pasif seçilebilir.
+- `includes/OneSignal.php` OneSignal REST API entegrasyonunu üstlenir; `admin/onesignal-sync.php` ile abone listesi eşitlenir, `refreshCampaignStats()` çağrılarıyla kampanya istatistikleri güncellenir.
+- `admin/push.php` görsel destekli web push kampanyalarını yönetir; `admin/push-send.php`, `admin/data/push-targets.php`, `admin/data/push-campaigns.php` ve `admin/data/push-stats.php` AJAX tabloları ve grafikleri besler.
+- `admin/push-refresh.php` OneSignal API'sinden gönderim geçmişini çekerek `web_push_events` tablosunu şehir/ülke/IP/platform bazında yeniler, grafiklerin güncel kalmasını sağlar.
+- `OneSignalSDKWorker.js` ve `OneSignalSDKUpdaterWorker.js` en güncel v16 web SDK için servis çalışanı kancalarını içerir.
 
 ### Canlı Ziyaretçi İzleme
 - `includes/Activity.php` oturum anahtarlarını yönetir, IP/platform/referer/arama verilerini saklar ve heartbeat güncellemelerini işler.
@@ -97,6 +101,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - **Iyzico** – Test ödeme altyapısı (API anahtarları admin ayarlarında). 
 - **Firebase Authentication** – Sosyal giriş ve token doğrulama.
 - **Google Analytics** – Ölçüm kimliği admin ayarlarından yönetilir.
+- **OneSignal** – Web push aboneliklerinin senkronu ve kampanya gönderimleri.
 - **bootstrap-table, Chart.js, Dropzone, SweetAlert2** – Ön uç bileşenleri.
 
 ## Gereksinimler
@@ -127,6 +132,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
   - İyzico API anahtarları ve mod durumu
   - Banka havalesi hesap/IBAN bilgileri
   - Firebase proje kimliği, API anahtarları ve aktif/pasif durumu
+  - OneSignal App ID / REST API anahtarı ve Safari Web ID (aktif/pasif)
   - Google Analytics ölçüm kimliği
   - API dokümantasyonu ve çoklu dil JSON dosyalarının yönetimi
 

@@ -80,6 +80,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'google_analytics_id' => trim($_POST['google_analytics_id'] ?? ''),
         ]);
         Helpers::flash('message', 'Google Analytics ayarları güncellendi.');
+    } elseif ($section === 'onesignal') {
+        Settings::setMany([
+            'onesignal_enabled' => isset($_POST['onesignal_enabled']) ? '1' : '0',
+            'onesignal_app_id' => trim($_POST['onesignal_app_id'] ?? ''),
+            'onesignal_rest_key' => trim($_POST['onesignal_rest_key'] ?? ''),
+            'onesignal_safari_web_id' => trim($_POST['onesignal_safari_web_id'] ?? ''),
+        ]);
+        Helpers::flash('message', 'OneSignal ayarları güncellendi.');
     }
 
     redirect('/admin/settings');
@@ -95,6 +103,10 @@ $firebaseProviders = Settings::firebaseProviders();
 $firebaseEnabled = Settings::firebaseEnabled();
 $gaEnabled = Settings::googleAnalyticsEnabled();
 $gaId = Settings::googleAnalyticsId();
+$onesignalEnabled = Settings::onesignalEnabled();
+$onesignalAppId = Settings::onesignalAppId();
+$onesignalSafari = Settings::onesignalSafariWebId();
+$onesignalRest = Settings::onesignalRestKey();
 $providerLabels = [
     'google' => 'Google',
     'facebook' => 'Facebook',
@@ -343,6 +355,34 @@ $providerLabels = [
                 <button type="submit" class="btn btn-primary">Kaydet</button>
             </form>
             <p class="small text-white-50 mt-3 mb-0">Analytics kodu tüm sayfalara otomatik olarak eklenecektir.</p>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card p-4 h-100">
+            <h2 class="h5 mb-3">OneSignal Web Push</h2>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                <input type="hidden" name="section" value="onesignal">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="onesignal_enabled" name="onesignal_enabled" <?= $onesignalEnabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="onesignal_enabled">OneSignal entegrasyonunu aktif et</label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">App ID</label>
+                    <input type="text" class="form-control" name="onesignal_app_id" value="<?= Helpers::e($onesignalAppId ?? '') ?>" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autocomplete="off">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">REST API Anahtarı</label>
+                    <input type="text" class="form-control" name="onesignal_rest_key" value="<?= Helpers::e($onesignalRest ?? '') ?>" autocomplete="off" placeholder="NTk4Z...">
+                    <small class="text-white-50">Sunucu anahtarınız yalnızca yönetici panelinde saklanır.</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Safari Web ID (Opsiyonel)</label>
+                    <input type="text" class="form-control" name="onesignal_safari_web_id" value="<?= Helpers::e($onesignalSafari ?? '') ?>" placeholder="web.onesignal.auto....">
+                </div>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </form>
+            <p class="small text-white-50 mt-3 mb-0">OneSignal Web SDK v16 ile uyumludur. Ayarları kaydettikten sonra abone listesini eşitleyin.</p>
         </div>
     </div>
 </div>
