@@ -410,6 +410,10 @@ a:hover {
     pointer-events: none;
 }
 
+.table-row-guest {
+    opacity: 0.85;
+}
+
 .push-preview {
     min-height: 120px;
     border-radius: 1rem;

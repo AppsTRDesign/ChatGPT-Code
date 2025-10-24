@@ -53,7 +53,7 @@ class Notifications
 
         if ($userIds === null) {
             $stmt = $db->query('SELECT player_id FROM onesignal_subscriptions');
-            return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id');
+            return array_values(array_unique(array_filter(array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id'))));
         }
 
         $userIds = array_values(array_unique(array_map('intval', $userIds)));
@@ -65,7 +65,7 @@ class Notifications
         $stmt = $db->prepare("SELECT player_id FROM onesignal_subscriptions WHERE external_id IN ($placeholders)");
         $stmt->execute($userIds);
 
-        return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id');
+        return array_values(array_unique(array_filter(array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'player_id'))));
     }
 
     public static function syncFromOneSignal(): array

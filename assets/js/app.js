@@ -603,6 +603,59 @@ window.appHandlers = {
         }
         return `<span class="small">${formatDateTime(value)}</span>`;
     },
+    pushRecipientsHandler: (response) => response,
+    pushRecipientRowStyle: (row) => {
+        if (row && row.guest) {
+            return {
+                classes: 'table-row-guest',
+            };
+        }
+        return {};
+    },
+    pushRecipientNameFormatter: (value, row) => {
+        if (!row) {
+            return '<span class="text-white-50">-</span>';
+        }
+        const name = value || 'Ziyaretçi';
+        if (row.guest) {
+            return `<span class="badge bg-secondary text-uppercase">${escapeHtml(name)}</span>`;
+        }
+        return escapeHtml(name);
+    },
+    pushRecipientEmailFormatter: (value, row) => {
+        if (!value) {
+            return row && row.guest ? '<span class="text-white-50">-</span>' : '<span class="text-white-50">-</span>';
+        }
+        return `<span class="small">${escapeHtml(value)}</span>`;
+    },
+    pushRecipientPlatformFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        const label = value.toString().toLowerCase();
+        const map = {
+            web: 'Web',
+            chrome: 'Chrome',
+            firefox: 'Firefox',
+            safari: 'Safari',
+        };
+        return `<span class="badge bg-info text-dark">${escapeHtml(map[label] || value)}</span>`;
+    },
+    pushRecipientLocaleFormatter: (value, row) => {
+        const language = (row && row.language) ? row.language.toString().toLowerCase() : '';
+        const country = (row && row.country) ? row.country.toString().toUpperCase() : '';
+        if (!language && !country) {
+            return '<span class="text-white-50">-</span>';
+        }
+        const parts = [];
+        if (language) {
+            parts.push(language);
+        }
+        if (country) {
+            parts.push(country);
+        }
+        return `<span class="small">${escapeHtml(parts.join(' / '))}</span>`;
+    },
     packageResponseHandler: (response) => response,
     packagePriceFormatter: (value) => {
         const price = Number(value || 0);

@@ -23,14 +23,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $imagePath = trim($_POST['image_path'] ?? '');
     $audience = $_POST['audience'] ?? 'all';
     $recipientsRaw = trim($_POST['recipients'] ?? '');
-    $recipients = array_filter(array_map('intval', $recipientsRaw !== '' ? explode(',', $recipientsRaw) : []));
+    $rawItems = array_filter(array_map('trim', $recipientsRaw !== '' ? explode(',', $recipientsRaw) : []));
+    $recipientUsers = [];
+    $recipientPlayers = [];
+    $normalizedRecipients = [];
+
+    foreach ($rawItems as $item) {
+        if ($item === '') {
+            continue;
+        }
+
+        if (str_starts_with($item, 'player:')) {
+            $playerId = trim(substr($item, 7));
+            if ($playerId !== '') {
+                $recipientPlayers[] = $playerId;
+                $normalizedRecipients[] = 'player:' . $playerId;
+            }
+            continue;
+        }
+
+        if (str_starts_with($item, 'user:')) {
+            $userId = (int) substr($item, 5);
+            if ($userId > 0) {
+                $recipientUsers[] = $userId;
+                $normalizedRecipients[] = 'user:' . $userId;
+            }
+            continue;
+        }
+
+        if (ctype_digit($item)) {
+            $userId = (int) $item;
+            if ($userId > 0) {
+                $recipientUsers[] = $userId;
+                $normalizedRecipients[] = 'user:' . $userId;
+            }
+        }
+    }
 
     if ($title === '' || $message === '') {
         Helpers::flash('message', 'Başlık ve mesaj alanları zorunludur.');
         redirect('/admin/push');
     }
 
-    if ($audience === 'selected' && empty($recipients)) {
+    if ($audience === 'selected' && empty($normalizedRecipients)) {
         Helpers::flash('message', 'En az bir üye seçmelisiniz.');
         redirect('/admin/push');
     }
@@ -44,14 +79,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'target_url' => $link !== '' ? $link : null,
         'image_path' => $imagePath !== '' ? $imagePath : null,
         'audience' => $audience === 'selected' ? 'selected' : 'all',
-        'target_ids' => $audience === 'selected' ? implode(',', $recipients) : null,
+        'target_ids' => $audience === 'selected' ? implode(',', $normalizedRecipients) : null,
         'created_by' => $currentUserId,
     ]);
 
     $messages = ['Bildirim kuyruğa alındı ve web push geçmişine eklendi.'];
 
     if ($oneSignalEnabled) {
-        $playerIds = $audience === 'all' ? Notifications::playerIds() : Notifications::playerIds($recipients);
+        if ($audience === 'all') {
+            $playerIds = Notifications::playerIds();
+        } else {
+            $playerIds = [];
+            if ($recipientUsers) {
+                $playerIds = array_merge($playerIds, Notifications::playerIds($recipientUsers));
+            }
+            if ($recipientPlayers) {
+                $playerIds = array_merge($playerIds, $recipientPlayers);
+            }
+            $playerIds = array_values(array_unique(array_filter($playerIds)));
+        }
         if ($playerIds) {
             $result = Notifications::sendPush($playerIds, $title, $message, [
                 'url' => $link !== '' ? $link : null,
@@ -151,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     data-click-to-select="true"
                     data-maintain-selected="true"
                     data-response-handler="window.appHandlers.pushRecipientsHandler"
+                    data-row-style="window.appHandlers.pushRecipientRowStyle"
                     data-checkbox-header="false"
                     data-mobile-responsive="true"
                     data-toolbar-align="left"
@@ -159,9 +206,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <thead>
                     <tr>
                         <th data-field="state" data-checkbox="true"></th>
-                        <th data-field="username" data-sortable="true">Kullanıcı</th>
-                        <th data-field="email" data-sortable="true">E-posta</th>
-                        <th data-field="players" data-sortable="true">Cihaz</th>
+                        <th data-field="username" data-sortable="true" data-formatter="window.appHandlers.pushRecipientNameFormatter">Kullanıcı</th>
+                        <th data-field="email" data-sortable="true" data-formatter="window.appHandlers.pushRecipientEmailFormatter">E-posta</th>
+                        <th data-field="platform" data-sortable="true" data-formatter="window.appHandlers.pushRecipientPlatformFormatter">Platform</th>
+                        <th data-field="language" data-sortable="true" data-formatter="window.appHandlers.pushRecipientLocaleFormatter">Dil / Ülke</th>
                         <th data-field="last_active" data-sortable="true" data-formatter="window.appHandlers.dateTimeFormatter">Son Aktif</th>
                     </tr>
                     </thead>
