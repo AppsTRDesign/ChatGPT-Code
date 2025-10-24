@@ -11,17 +11,9 @@ $user = Auth::user();
 $siteName = Settings::siteName();
 $logoUrl = Settings::logoUrl();
 $faviconUrl = Settings::faviconUrl();
-$oneSignalEnabled = Settings::onesignalEnabled();
-$oneSignalAppId = Settings::onesignalAppId();
 Activity::track('admin');
 $appConfig = [
     'baseUrl' => rtrim(BASE_URL, '/'),
-    'onesignal' => [
-        'enabled' => $oneSignalEnabled,
-        'appId' => $oneSignalAppId,
-        'registerEndpoint' => '/client/onesignal-register',
-        'workerPath' => '/OneSignalSDKWorker.js',
-    ],
     'user' => [
         'id' => (int) $user['id'],
         'role' => $user['role'],
@@ -47,7 +39,7 @@ $appConfig = [
     <link href="<?= asset('assets/css/style.css') ?>" rel="stylesheet">
     <script>window.APP_CONFIG = <?= json_encode($appConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
 </head>
-<body data-onesignal-enabled="<?= $oneSignalEnabled ? '1' : '0' ?>">
+<body>
 <div class="admin-shell d-flex">
     <aside class="sidebar offcanvas offcanvas-lg offcanvas-start text-white p-0 d-flex flex-column" tabindex="-1" id="adminSidebar" data-bs-scroll="true" data-bs-backdrop="true">
         <div class="offcanvas-header d-lg-none">

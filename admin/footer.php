@@ -11,9 +11,6 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.0/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="<?= asset('assets/js/fonts.js') ?>"></script>
-<?php if (\App\Settings::onesignalEnabled() && \App\Settings::onesignalAppId()): ?>
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" async></script>
-<?php endif; ?>
 <script src="<?= asset('assets/js/app.js') ?>"></script>
 </body>
 </html>

@@ -80,18 +80,6 @@ CREATE TABLE qr_codes (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE onesignal_subscriptions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    external_id INT NULL,
-    player_id VARCHAR(190) NOT NULL,
-    platform VARCHAR(60) DEFAULT NULL,
-    language VARCHAR(15) DEFAULT NULL,
-    country VARCHAR(5) DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uniq_player (player_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE web_push_campaigns (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(150) NOT NULL,

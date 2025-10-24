@@ -19,12 +19,6 @@ $appConfig = [
         'config' => Settings::firebaseConfig(),
         'endpoint' => '/firebase-auth',
     ],
-    'onesignal' => [
-        'enabled' => Settings::onesignalEnabled(),
-        'appId' => Settings::onesignalAppId(),
-        'registerEndpoint' => '/client/onesignal-register',
-        'workerPath' => '/OneSignalSDKWorker.js',
-    ],
     'user' => $currentUser ? [
         'id' => (int) $currentUser['id'],
         'role' => $currentUser['role'],
@@ -33,9 +27,6 @@ $appConfig = [
 ];
 if (empty($appConfig['firebase']['config'])) {
     $appConfig['firebase']['config'] = null;
-}
-if (!$appConfig['onesignal']['appId']) {
-    $appConfig['onesignal']['appId'] = null;
 }
 ?>
 <!DOCTYPE html>

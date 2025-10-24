@@ -169,23 +169,6 @@ class Settings
         return $filtered;
     }
 
-    public static function onesignalEnabled(): bool
-    {
-        return self::boolFrom(self::get('onesignal_enabled', '0'), false);
-    }
-
-    public static function onesignalAppId(): ?string
-    {
-        $value = trim((string) self::get('onesignal_app_id', ''));
-        return $value !== '' ? $value : null;
-    }
-
-    public static function onesignalRestKey(): ?string
-    {
-        $value = trim((string) self::get('onesignal_rest_api_key', ''));
-        return $value !== '' ? $value : null;
-    }
-
     public static function googleAnalyticsEnabled(): bool
     {
         return self::boolFrom(self::get('google_analytics_enabled', '0'), false);

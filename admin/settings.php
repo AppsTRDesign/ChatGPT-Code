@@ -74,13 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'firebase_providers' => $providers,
         ]);
         Helpers::flash('message', 'Firebase ayarları güncellendi.');
-    } elseif ($section === 'onesignal') {
-        Settings::setMany([
-            'onesignal_enabled' => isset($_POST['onesignal_enabled']) ? '1' : '0',
-            'onesignal_app_id' => trim($_POST['onesignal_app_id'] ?? ''),
-            'onesignal_rest_api_key' => trim($_POST['onesignal_rest_api_key'] ?? ''),
-        ]);
-        Helpers::flash('message', 'OneSignal ayarları güncellendi.');
     } elseif ($section === 'analytics') {
         Settings::setMany([
             'google_analytics_enabled' => isset($_POST['google_analytics_enabled']) ? '1' : '0',
@@ -100,9 +93,6 @@ $faviconUrl = Settings::faviconUrl();
 $firebaseConfig = $siteSettings['firebase_config'] ?? '';
 $firebaseProviders = Settings::firebaseProviders();
 $firebaseEnabled = Settings::firebaseEnabled();
-$oneSignalEnabled = Settings::onesignalEnabled();
-$oneSignalAppId = Settings::onesignalAppId();
-$oneSignalRest = Settings::onesignalRestKey();
 $gaEnabled = Settings::googleAnalyticsEnabled();
 $gaId = Settings::googleAnalyticsId();
 $providerLabels = [
@@ -334,29 +324,6 @@ $providerLabels = [
                 </div>
                 <button type="submit" class="btn btn-primary">Kaydet</button>
             </form>
-        </div>
-    </div>
-    <div class="col-xl-6">
-        <div class="card p-4 h-100">
-            <h2 class="h5 mb-3">OneSignal Push Bildirimleri</h2>
-            <form method="post">
-                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
-                <input type="hidden" name="section" value="onesignal">
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="onesignal_enabled" name="onesignal_enabled" <?= $oneSignalEnabled ? 'checked' : '' ?>>
-                    <label class="form-check-label" for="onesignal_enabled">OneSignal entegrasyonu aktif</label>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">OneSignal App ID</label>
-                    <input type="text" class="form-control" name="onesignal_app_id" value="<?= Helpers::e($oneSignalAppId ?? '') ?>" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">REST API Key</label>
-                    <input type="text" class="form-control" name="onesignal_rest_api_key" value="<?= Helpers::e($oneSignalRest ?? '') ?>">
-                </div>
-                <button type="submit" class="btn btn-primary">Kaydet</button>
-            </form>
-            <p class="small text-white-50 mt-3 mb-0">Push bildirim gönderebilmek için App ID ve REST anahtarını girmeniz gerekir.</p>
         </div>
     </div>
     <div class="col-xl-6">

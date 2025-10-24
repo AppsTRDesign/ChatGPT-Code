@@ -2,10 +2,6 @@
 require __DIR__ . '/header.php';
 
 use App\Helpers;
-use App\Notifications;
-use App\Settings;
-
-$oneSignalEnabled = Settings::onesignalEnabled();
 $csrfToken = Helpers::csrfToken();
 $preselectUser = isset($_GET['user']) ? (int) $_GET['user'] : null;
 
@@ -25,20 +21,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $recipientsRaw = trim($_POST['recipients'] ?? '');
     $rawItems = array_filter(array_map('trim', $recipientsRaw !== '' ? explode(',', $recipientsRaw) : []));
     $recipientUsers = [];
-    $recipientPlayers = [];
     $normalizedRecipients = [];
 
     foreach ($rawItems as $item) {
         if ($item === '') {
-            continue;
-        }
-
-        if (str_starts_with($item, 'player:')) {
-            $playerId = trim(substr($item, 7));
-            if ($playerId !== '') {
-                $recipientPlayers[] = $playerId;
-                $normalizedRecipients[] = 'player:' . $playerId;
-            }
             continue;
         }
 
@@ -83,54 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'created_by' => $currentUserId,
     ]);
 
-    $messages = ['Bildirim kuyruğa alındı ve web push geçmişine eklendi.'];
-
-    if ($oneSignalEnabled) {
-        if ($audience === 'all') {
-            $playerIds = Notifications::playerIds();
-        } else {
-            $playerIds = [];
-            if ($recipientUsers) {
-                $playerIds = array_merge($playerIds, Notifications::playerIds($recipientUsers));
-            }
-            if ($recipientPlayers) {
-                $playerIds = array_merge($playerIds, $recipientPlayers);
-            }
-            $playerIds = array_values(array_unique(array_filter($playerIds)));
-        }
-        if ($playerIds) {
-            $result = Notifications::sendPush($playerIds, $title, $message, [
-                'url' => $link !== '' ? $link : null,
-                'image' => $imagePath !== '' ? $imagePath : null,
-            ]);
-            if ($result['success']) {
-                $messages[] = 'OneSignal üzerinden cihazlara gönderim başlatıldı.';
-            } else {
-                $messages[] = 'OneSignal gönderimi başarısız: ' . ($result['message'] ?? 'bilinmeyen hata');
-            }
-        } else {
-            $messages[] = 'Seçilen kriterlere uygun OneSignal cihazı bulunamadı.';
-        }
-    } else {
-        $messages[] = 'OneSignal pasif olduğu için yalnızca dahili web push kullanılacaktır.';
-    }
-
-    Helpers::flash('message', implode(' ', $messages));
+    Helpers::flash('message', 'Bildirim kuyruğa alındı ve web push geçmişine eklendi.');
     redirect('/admin/push');
 }
 ?>
 <h1 class="h3 mb-4">Web Push Bildirimleri</h1>
-<?php if ($oneSignalEnabled): ?>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <p class="text-white-50 small mb-0">OneSignal cihazlarınızı yönetmek için aboneleri eşitleyebilirsiniz.</p>
-        <button type="button" class="btn btn-outline-info btn-sm" data-onesignal-sync data-csrf="<?= Helpers::e($csrfToken) ?>">
-            OneSignal abonelerini eşitle
-        </button>
-    </div>
-<?php endif; ?>
-<?php if (!$oneSignalEnabled): ?>
-    <div class="alert alert-warning">OneSignal ayarları pasif. Bildirimler yalnızca dahili web push merkezi üzerinden gösterilecektir.</div>
-<?php endif; ?>
 <div class="row g-4">
     <div class="col-xl-6">
         <div class="card p-4 h-100">
@@ -197,7 +140,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     data-click-to-select="true"
                     data-maintain-selected="true"
                     data-response-handler="window.appHandlers.pushRecipientsHandler"
-                    data-row-style="window.appHandlers.pushRecipientRowStyle"
                     data-checkbox-header="false"
                     data-mobile-responsive="true"
                     data-toolbar-align="left"
@@ -208,9 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <th data-field="state" data-checkbox="true"></th>
                         <th data-field="username" data-sortable="true" data-formatter="window.appHandlers.pushRecipientNameFormatter">Kullanıcı</th>
                         <th data-field="email" data-sortable="true" data-formatter="window.appHandlers.pushRecipientEmailFormatter">E-posta</th>
-                        <th data-field="platform" data-sortable="true" data-formatter="window.appHandlers.pushRecipientPlatformFormatter">Platform</th>
-                        <th data-field="language" data-sortable="true" data-formatter="window.appHandlers.pushRecipientLocaleFormatter">Dil / Ülke</th>
-                        <th data-field="last_active" data-sortable="true" data-formatter="window.appHandlers.dateTimeFormatter">Son Aktif</th>
+                        <th data-field="created_at" data-sortable="true" data-formatter="window.appHandlers.dateTimeFormatter">Kayıt Tarihi</th>
                     </tr>
                     </thead>
                 </table>

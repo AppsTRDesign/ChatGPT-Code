@@ -28,12 +28,12 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 | Ödeme Süreçleri | İyzico (test) kredi kartı ödemeleri, banka havalesi/IBAN bilgisi ve bildirim akışı, satın alma onay/red/eksik ödeme iş akışları, gerçek zamanlı kullanım güncellemesi. |
 | API Güvenliği | JSON tabanlı token üretimi, token pasifleştirme/silme, tek cihaz kayıt kontrolü, GET/POST desteği, `<img>` ile gömülebilir uç nokta, kullanım eşik e-postaları (%50/%25/%5). |
 | Raporlama | Günlük/haftalık/aylık/yıllık API kullanım grafikleri, bootstrap-table tablolar, PDF/Excel dışa aktarma (Türkçe karakter desteği). |
-| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı, OneSignal push bildirimleri (toplu/tek kullanıcı, görsel destekli) ve dahili web push kampanyaları. |
+| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı ve görsel destekli dahili web push kampanyaları. |
 | Web Push Analitiği | Dropzone ile görsel yüklemeli kampanyalar, <code>&lt;img&gt;</code> gömme linkleri, teslim/görüntülenme/tıklama kayıtları, Chart.js grafikleri ve PDF/Excel dışa aktarma. |
 | Canlı Ziyaretçiler | Oturum kalp atışı (AJAX ping), ülke/şehir/platform/referer & arama sorgusu istatistikleri, gerçek zamanlı tablo ve grafikler, PDF/Excel export. |
 | Sosyal Giriş | Firebase destekli Google, Facebook, Twitter, GitHub, Microsoft, Apple, Yahoo ile tek tıkla kayıt/giriş; admin ayarlarında etkinleştirilebilir. |
 | Marka Yönetimi | Dropzone ile logo/favicon yükleme, marka öğeleri kartları, logo yoksa site adı gösterimi, footer/header içeriklerini ve meta verilerini canlı güncelleme. |
-| Analitik & Entegrasyon | Google Analytics ölçüm kimliği, OneSignal, Firebase yapılandırması, API dokümantasyonunu iç siteye gömme ve dil dosyalarıyla özelleştirme. |
+| Analitik & Entegrasyon | Google Analytics ölçüm kimliği, Firebase yapılandırması, API dokümantasyonunu iç siteye gömme ve dil dosyalarıyla özelleştirme. |
 
 ## Detaylı Modüller
 ### QR Servisi
@@ -57,8 +57,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 
 ### Bildirimler
 - `includes/Mailer.php` ve `includes/MailSettings.php` mail altyapısını yönetir; admin panelinde SMTP/PHPMailer aktif/pasif seçilebilir.
-- `includes/Notifications.php` OneSignal REST çağrılarını yönetir; `admin/push.php` toplu veya seçili üyeye görselli push gönderir.
-- `admin/push.php` aynı form üzerinden dahili web push kampanyalarını kaydeder, OneSignal gönderimini tetikler ve kampanya geçmişini Chart.js grafikleriyle sunar.
+- `admin/push.php` dahili web push kampanyalarını kaydeder, seçili kullanıcı hedeflemelerini yönetir ve Chart.js grafikleriyle performans raporlar.
 - `admin/data/web-push-campaigns.php`, `admin/data/web-push-events.php`, `admin/data/web-push-metrics.php` kampanya tabloları ile teslim/görüntülenme/tıklama metriklerini servis eder.
 - `client/data/push-poll.php` ve `client/push-event.php` tarayıcıda gösterilen kampanyaları JSON olarak iletir ve görüntülenme/tıklama olaylarını kaydeder.
 
@@ -67,7 +66,6 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - `client/ping.php` ve `admin/ping.php` AJAX kalp atışı isteğiyle `session_activity` tablosunun güncel kalmasını sağlar.
 - `admin/online.php` Chart.js grafikleri, bootstrap-table listesi ve PDF/Excel dışa aktarma butonlarıyla canlı oturumları raporlar.
 - `admin/data/online.php` ve `admin/data/online-metrics.php` aktif kullanıcı tablolarının ve zaman serilerinin JSON veri kaynaklarını sağlar.
-- `client/onesignal-register.php` ile kullanıcı cihazları kaydedilir.
 
 ### Raporlama & Analitik
 - `admin/dashboard.php` gelir/usage grafikleri, bekleyen & onaylı satın alım metrikleri içerir.
@@ -75,7 +73,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - `admin/data/usage-metrics.php`, `client/data/usage-metrics.php` JSON veri kaynakları sunar.
 
 ### Marka & Ayarlar
-- `includes/Settings.php` site adı, logo, favicon, meta, sosyal giriş, OneSignal, Google Analytics gibi tüm konfigürasyonları saklar.
+- `includes/Settings.php` site adı, logo, favicon, meta, sosyal giriş, Google Analytics gibi tüm konfigürasyonları saklar.
 - `admin/settings.php` dropzone tabanlı logo/favicon yönetimi, site metaları, footer/header içerikleri ve entegrasyon anahtarlarının tamamını tek sayfadan düzenler.
 
 ## Paneller ve İş Akışları
@@ -86,24 +84,23 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - **Paket Satın Alma**: Paket kartları, İyzico & banka havalesi akışları, ödeme durum takipleri.
 - **API Tokenları**: Token üretme, pasifleştirme, silme; kalan kullanım bilgileri.
 - **Profil & Ayarlar**: Parola değişimi, sosyal giriş bağlantıları, e-posta doğrulama durumu.
-- **Dil & Bildirimler**: Firebase aktif ise sosyal giriş butonları otomatik görünür; OneSignal aktifse tarayıcı izinleri alınır.
+- **Dil & Bildirimler**: Firebase aktif ise sosyal giriş butonları otomatik görünür; web push kampanyaları tarayıcıda kart olarak gösterilir.
 
 ### Admin Paneli (`/admin`)
 - **Dashboard**: Bekleyen/onaylı satın alımlar, gelir grafikleri, API kullanım grafikleri, hızlı linkler.
 - **Paketler**: Paket oluşturma/düzenleme/silme, aktif/pasif toggles, paketleri kullanıcıya atama.
 - **Satın Alımlar & Ödemeler**: Banka/Iyzico işlemleri, durum yönetimi, hata kayıtları.
-- **Kullanıcılar**: Düzenleme (paket değiştirme dahil), silme, OneSignal push gönderme butonu.
+- **Kullanıcılar**: Düzenleme (paket değiştirme dahil), silme.
 - **QR Geçmişi**: Tüm üyelerin QR kayıtları, indirme/silme, kaynak (API/panel) bilgisi.
 - **API Kullanımı**: Filtrelenebilir tablolar, PDF/Excel ihracı.
 - **Push Bildirimleri**: Dropzone ile görsel eklenebilen, tüm üyelere veya seçili kullanıcıya anlık push gönderme.
-- **Ayarlar**: Site marka öğeleri, mail ayarları, Firebase, OneSignal, Google Analytics, dil dosyaları, API dokümantasyonu yönetimi.
+- **Ayarlar**: Site marka öğeleri, mail ayarları, Firebase, Google Analytics, dil dosyaları, API dokümantasyonu yönetimi.
 
 ## Entegrasyonlar
 - **chillerlan/php-qrcode** – QR üretim kütüphanesi.
 - **PHPMailer** – SMTP tabanlı e-posta gönderimi (istenirse PHP mail()).
 - **Iyzico** – Test ödeme altyapısı (API anahtarları admin ayarlarında). 
 - **Firebase Authentication** – Sosyal giriş ve token doğrulama.
-- **OneSignal** – Push bildirimleri ve cihaz kaydı.
 - **Google Analytics** – Ölçüm kimliği admin ayarlarından yönetilir.
 - **bootstrap-table, Chart.js, Dropzone, SweetAlert2** – Ön uç bileşenleri.
 
@@ -135,7 +132,6 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
   - İyzico API anahtarları ve mod durumu
   - Banka havalesi hesap/IBAN bilgileri
   - Firebase proje kimliği, API anahtarları ve aktif/pasif durumu
-  - OneSignal App ID & REST anahtarı, varsayılan ikon/görsel
   - Google Analytics ölçüm kimliği
   - API dokümantasyonu ve çoklu dil JSON dosyalarının yönetimi
 

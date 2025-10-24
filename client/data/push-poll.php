@@ -10,11 +10,6 @@ Helpers::requireAjax();
 
 header('Content-Type: application/json; charset=utf-8');
 
-if (!Settings::onesignalEnabled()) {
-    echo json_encode(['campaigns' => []]);
-    return;
-}
-
 if (!Helpers::tableExists('web_push_campaigns')) {
     echo json_encode(['campaigns' => []]);
     return;
@@ -23,13 +18,6 @@ if (!Helpers::tableExists('web_push_campaigns')) {
 try {
     $user = Auth::user();
     $userId = $user ? (int) $user['id'] : null;
-    $playerId = isset($_SESSION['onesignal_player_id']) && is_string($_SESSION['onesignal_player_id'])
-        ? trim($_SESSION['onesignal_player_id'])
-        : null;
-    if ($playerId === '') {
-        $playerId = null;
-    }
-
     $sessionKey = Activity::sessionKey();
     $db = Helpers::db();
 
@@ -63,8 +51,6 @@ try {
 
         if ($hasTargetIds) {
             $targetClauses[] = "(:user_id IS NOT NULL AND (FIND_IN_SET(CONCAT('user:', :user_id), COALESCE(target_ids, '')) OR FIND_IN_SET(:user_id, COALESCE(target_ids, ''))))";
-            $params['player_id'] = $playerId;
-            $targetClauses[] = "(:player_id IS NOT NULL AND (FIND_IN_SET(CONCAT('player:', :player_id), COALESCE(target_ids, '')) OR FIND_IN_SET(:player_id, COALESCE(target_ids, ''))))";
         }
 
         $whereParts[] = '(' . implode(' OR ', $targetClauses) . ')';
