@@ -368,9 +368,20 @@ window.addEventListener('load', () => {
             const shouldDisable = normalizedId === '' || pane.id !== normalizedId;
             pane.querySelectorAll('input, textarea, select').forEach((field) => {
                 if (shouldDisable) {
+                    if (!Object.prototype.hasOwnProperty.call(field.dataset, 'requiredState')) {
+                        field.dataset.requiredState = field.hasAttribute('required') ? 'true' : 'false';
+                    } else if (field.hasAttribute('required')) {
+                        field.dataset.requiredState = 'true';
+                    }
+                    if (field.hasAttribute('required')) {
+                        field.removeAttribute('required');
+                    }
                     field.setAttribute('disabled', 'disabled');
                 } else {
                     field.removeAttribute('disabled');
+                    if (field.dataset.requiredState === 'true') {
+                        field.setAttribute('required', 'required');
+                    }
                 }
             });
         });
@@ -571,6 +582,15 @@ window.addEventListener('load', () => {
         if (!wifiEncryption || !wifiPassword) {
             return;
         }
+        const pane = wifiPassword.closest('.tab-pane');
+        const isActive = pane && pane.classList.contains('active');
+
+        if (!isActive) {
+            wifiPassword.removeAttribute('required');
+            wifiPassword.setAttribute('disabled', 'disabled');
+            return;
+        }
+
         if (wifiEncryption.value === 'NOPASS') {
             wifiPassword.removeAttribute('required');
             wifiPassword.setAttribute('disabled', 'disabled');
