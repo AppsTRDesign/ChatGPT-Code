@@ -32,8 +32,8 @@ $pushConfig = [
         OneSignal ayarları tamamlanmamış veya devre dışı. Ayarlar &gt; OneSignal bölümünden bilgileri güncelledikten sonra buradan bildirim gönderebilirsiniz.
     </div>
 <?php endif; ?>
-<div class="row g-4" id="pushManager" data-enabled="<?= $pushConfig['enabled'] ? '1' : '0' ?>">
-    <div class="col-12 col-xl-5">
+<div class="row g-4 align-items-stretch" id="pushManager" data-enabled="<?= $pushConfig['enabled'] ? '1' : '0' ?>">
+    <div class="col-12 col-xxl-6 order-1">
         <div class="card p-4 h-100">
             <h2 class="h5 mb-3">Yeni Bildirim Gönder</h2>
             <form id="pushForm">
@@ -85,48 +85,9 @@ $pushConfig = [
                 <button type="submit" class="btn btn-primary w-100" id="pushSubmitButton">Bildirimi Gönder</button>
             </form>
         </div>
-        <div class="card p-4 mt-4">
-            <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center mb-3">
-                <h2 class="h5 mb-0">Gönderim Geçmişi</h2>
-                <span class="badge bg-secondary" id="pushCampaignTotal">0 kampanya</span>
-            </div>
-            <div class="row g-3 mb-3">
-                <div class="col-12 col-md-7">
-                    <div class="chart-container chart-container--push">
-                        <canvas id="pushStatsChart" height="240"></canvas>
-                    </div>
-                </div>
-                <div class="col-12 col-md-5">
-                    <ul class="list-unstyled mb-0" id="pushStatsSummary">
-                        <li class="text-white-50">Henüz istatistik yok.</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="table-responsive">
-                <table
-                    id="pushCampaignTable"
-                    class="table table-dark table-striped align-middle"
-                    data-toggle="table"
-                    data-url="<?= $pushConfig['campaignEndpoint'] ?>"
-                    data-search="true"
-                    data-pagination="true"
-                    data-side-pagination="server"
-                    data-response-handler="appHandlers.pushCampaignResponse"
-                >
-                    <thead>
-                        <tr>
-                            <th data-field="title" data-sortable="true">Başlık</th>
-                            <th data-field="created_at" data-sortable="true" data-formatter="appHandlers.dateTimeFormatter">Oluşturulma</th>
-                            <th data-field="status" data-formatter="appHandlers.pushStatusFormatter" data-sortable="true">Durum</th>
-                            <th data-field="stats" data-formatter="appHandlers.pushStatsFormatter">İstatistik</th>
-                        </tr>
-                    </thead>
-                </table>
-            </div>
-        </div>
     </div>
-    <div class="col-12 col-xl-7">
-        <div class="card p-4">
+    <div class="col-12 col-xxl-6 order-2">
+        <div class="card p-4 h-100">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                 <h2 class="h5 mb-0">Kayıtlı Aboneler</h2>
                 <span class="badge bg-primary" id="pushTargetTotal">0 kayıt</span>
@@ -154,6 +115,47 @@ $pushConfig = [
                             <th data-field="country" data-sortable="true">Ülke</th>
                             <th data-field="platform" data-sortable="true">Platform</th>
                             <th data-field="last_active" data-sortable="true" data-formatter="appHandlers.dateTimeFormatter">Son Aktif</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 order-3">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center mb-3">
+                <h2 class="h5 mb-0">Gönderim Geçmişi</h2>
+                <span class="badge bg-secondary" id="pushCampaignTotal">0 kampanya</span>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-12 col-lg-7">
+                    <div class="chart-container chart-container--push">
+                        <canvas id="pushStatsChart" height="240"></canvas>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-5">
+                    <ul class="list-unstyled mb-0" id="pushStatsSummary">
+                        <li class="text-white-50">Henüz istatistik yok.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table
+                    id="pushCampaignTable"
+                    class="table table-dark table-striped align-middle"
+                    data-toggle="table"
+                    data-url="<?= $pushConfig['campaignEndpoint'] ?>"
+                    data-search="true"
+                    data-pagination="true"
+                    data-side-pagination="server"
+                    data-response-handler="appHandlers.pushCampaignResponse"
+                >
+                    <thead>
+                        <tr>
+                            <th data-field="title" data-sortable="true">Başlık</th>
+                            <th data-field="created_at" data-sortable="true" data-formatter="appHandlers.dateTimeFormatter">Oluşturulma</th>
+                            <th data-field="status" data-formatter="appHandlers.pushStatusFormatter" data-sortable="true">Durum</th>
+                            <th data-field="stats" data-formatter="appHandlers.pushStatsFormatter">İstatistik</th>
                         </tr>
                     </thead>
                 </table>

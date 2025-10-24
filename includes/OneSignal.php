@@ -7,7 +7,7 @@ use Throwable;
 
 class OneSignal
 {
-    private const API_BASE = 'https://onesignal.com/api/v1';
+    private const API_BASE = 'https://api.onesignal.com/api/v1';
 
     public static function isEnabled(): bool
     {
@@ -54,15 +54,23 @@ class OneSignal
         $body = $options['json'] ?? null;
 
         $ch = curl_init($url);
+        $headers = ['Accept: application/json'];
+        if ($body !== null) {
+            $headers[] = 'Content-Type: application/json; charset=utf-8';
+        }
+
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => array_filter([
-                'Authorization: Basic ' . self::restKey(),
-                'Content-Type: application/json; charset=utf-8',
-            ]),
+            CURLOPT_HTTPHEADER => $headers,
             CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+            CURLOPT_USERPWD => self::restKey() . ':',
         ]);
+
+        if ($method === 'GET') {
+            curl_setopt($ch, CURLOPT_HTTPGET, true);
+        }
 
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_UNESCAPED_UNICODE));
@@ -84,7 +92,7 @@ class OneSignal
         }
 
         if ($status >= 400) {
-            $message = $decoded['errors'][0] ?? $decoded['error'] ?? 'OneSignal isteği başarısız oldu.';
+            $message = $decoded['errors'][0] ?? $decoded['error'] ?? ($decoded['message'] ?? 'OneSignal isteği başarısız oldu.');
             throw new RuntimeException($message . ' (HTTP ' . $status . ')');
         }
 
@@ -101,6 +109,7 @@ class OneSignal
 
         $offset = 0;
         $imported = 0;
+        $totalRemote = null;
         $db = Helpers::db();
         $query = 'INSERT INTO onesignal_subscriptions (player_id, external_id, language, country, city, ip, device_type, device_model, device_os, sdk, last_active, tags_json, created_at, updated_at)
 VALUES (:player_id, :external_id, :language, :country, :city, :ip, :device_type, :device_model, :device_os, :sdk, :last_active, :tags_json, NOW(), NOW())
@@ -119,57 +128,79 @@ ON DUPLICATE KEY UPDATE
     updated_at = NOW()';
         $stmt = $db->prepare($query);
 
-        do {
         $appId = self::appId();
 
-        $response = self::apiRequest('GET', 'players', [
-            'query' => [
-                'app_id' => $appId,
-                'limit' => $pageSize,
-                'offset' => $offset,
-            ],
-        ]);
-            $players = $response['players'] ?? [];
+        do {
+            $response = self::apiRequest('GET', 'players', [
+                'query' => [
+                    'app_id' => $appId,
+                    'limit' => $pageSize,
+                    'offset' => $offset,
+                ],
+            ]);
+
+            $players = $response['players'] ?? $response['subscriptions'] ?? [];
             if (!$players) {
                 break;
+            }
+
+            if (isset($response['total_count']) && is_numeric($response['total_count'])) {
+                $totalRemote = (int) $response['total_count'];
             }
 
             foreach ($players as $player) {
                 if (empty($player['id'])) {
                     continue;
                 }
-                $tags = $player['tags'] ?? null;
-                $city = null;
-                if (is_array($tags)) {
+
+                $tags = is_array($player['tags'] ?? null) ? $player['tags'] : null;
+                $location = is_array($player['location'] ?? null) ? $player['location'] : [];
+                $country = $player['country'] ?? $player['country_code'] ?? ($location['country'] ?? null);
+                $city = $player['city'] ?? ($location['city'] ?? null);
+                if (!$city && $tags) {
                     $city = $tags['city'] ?? $tags['City'] ?? $tags['CITY'] ?? null;
                     if (is_array($city)) {
                         $city = reset($city);
                     }
-                    $city = $city !== null ? (string) $city : null;
                 }
+
+                $lastActiveRaw = $player['last_active'] ?? $player['last_active_time'] ?? $player['last_active_on'] ?? $player['last_active_at'] ?? null;
+                $lastActive = null;
+                if ($lastActiveRaw) {
+                    if (is_numeric($lastActiveRaw)) {
+                        $lastActive = date('Y-m-d H:i:s', (int) $lastActiveRaw);
+                    } elseif (is_string($lastActiveRaw)) {
+                        $timestamp = strtotime($lastActiveRaw);
+                        if ($timestamp) {
+                            $lastActive = date('Y-m-d H:i:s', $timestamp);
+                        }
+                    }
+                }
+
                 $stmt->execute([
                     'player_id' => (string) $player['id'],
                     'external_id' => isset($player['external_user_id']) ? (string) $player['external_user_id'] : null,
                     'language' => isset($player['language']) ? substr((string) $player['language'], 0, 10) : null,
-                    'country' => isset($player['country']) ? substr((string) $player['country'], 0, 10) : null,
-                    'city' => $city ? mb_substr($city, 0, 120) : null,
+                    'country' => $country ? substr((string) $country, 0, 10) : null,
+                    'city' => $city ? mb_substr((string) $city, 0, 120) : null,
                     'ip' => isset($player['ip']) ? substr((string) $player['ip'], 0, 45) : null,
                     'device_type' => self::mapDeviceType($player['device_type'] ?? null),
                     'device_model' => isset($player['device_model']) ? substr((string) $player['device_model'], 0, 120) : null,
                     'device_os' => isset($player['device_os']) ? substr((string) $player['device_os'], 0, 60) : null,
                     'sdk' => isset($player['sdk']) ? substr((string) $player['sdk'], 0, 60) : null,
-                    'last_active' => isset($player['last_active']) && is_numeric($player['last_active'])
-                        ? date('Y-m-d H:i:s', (int) $player['last_active'])
-                        : null,
+                    'last_active' => $lastActive,
                     'tags_json' => $tags ? json_encode($tags, JSON_UNESCAPED_UNICODE) : null,
                 ]);
                 $imported++;
             }
 
-            $offset += $pageSize;
-        } while (count($players) === $pageSize);
+            $offset += count($players);
+            if ($totalRemote !== null && $offset >= $totalRemote) {
+                break;
+            }
+        } while (count($players) > 0);
 
-        return ['imported' => $imported];
+        return ['imported' => $imported, 'total' => $totalRemote ?? $imported];
     }
 
     private static function mapDeviceType(mixed $type): ?string
