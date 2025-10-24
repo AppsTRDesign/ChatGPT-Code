@@ -119,60 +119,6 @@ SQL;
         }
     }
 
-    public static function logPushEvent(int $campaignId, string $eventType, array $overrides = []): void
-    {
-        $eventType = strtolower($eventType);
-        if (!in_array($eventType, ['delivered', 'viewed', 'clicked'], true)) {
-            return;
-        }
-
-        $sessionKey = self::sessionKey();
-        $user = Auth::user();
-        $userId = $user ? (int) $user['id'] : null;
-        $info = self::sessionInfo();
-
-        $platform = $overrides['platform'] ?? ($info['platform'] ?? null);
-        $ip = $overrides['ip'] ?? ($info['ip'] ?? self::clientIp());
-        $country = $overrides['country'] ?? ($info['country'] ?? null);
-        $city = $overrides['city'] ?? ($info['city'] ?? null);
-        $referer = $overrides['referer'] ?? ($info['referer'] ?? null);
-        $searchEngine = $overrides['search_engine'] ?? ($info['search_engine'] ?? null);
-        $searchTerm = $overrides['search_term'] ?? ($info['search_term'] ?? null);
-        $userAgent = $overrides['user_agent'] ?? ($info['user_agent'] ?? ($_SERVER['HTTP_USER_AGENT'] ?? null));
-
-        try {
-            $db = Helpers::db();
-            $stmt = $db->prepare('INSERT INTO web_push_events (campaign_id, user_id, session_key, event_type, platform, ip, country, city, referer, search_engine, search_term, user_agent, created_at)
-                VALUES (:campaign_id, :user_id, :session_key, :event_type, :platform, :ip, :country, :city, :referer, :search_engine, :search_term, :user_agent, NOW())
-                ON DUPLICATE KEY UPDATE
-                    platform = VALUES(platform),
-                    ip = VALUES(ip),
-                    country = VALUES(country),
-                    city = VALUES(city),
-                    referer = VALUES(referer),
-                    search_engine = VALUES(search_engine),
-                    search_term = VALUES(search_term),
-                    user_agent = VALUES(user_agent),
-                    created_at = NOW()');
-            $stmt->execute([
-                'campaign_id' => $campaignId,
-                'user_id' => $userId,
-                'session_key' => $sessionKey,
-                'event_type' => $eventType,
-                'platform' => $platform,
-                'ip' => $ip,
-                'country' => $country,
-                'city' => $city,
-                'referer' => $referer,
-                'search_engine' => $searchEngine,
-                'search_term' => $searchTerm,
-                'user_agent' => $userAgent,
-            ]);
-        } catch (\Throwable $exception) {
-            error_log('Push event log failed: ' . $exception->getMessage());
-        }
-    }
-
     private static function resolveReferer(): ?string
     {
         if (!isset($_SESSION['activity_referer'])) {

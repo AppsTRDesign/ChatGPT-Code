@@ -66,7 +66,6 @@ $appConfig = [
                 <a class="nav-link" href="/admin/settings">Ayarlar</a>
                 <a class="nav-link" href="/admin/usage">API Raporları</a>
                 <a class="nav-link" href="/admin/qr-history">QR Kayıtları</a>
-                <a class="nav-link" href="/admin/push">Web Push Bildirimleri</a>
                 <a class="nav-link" href="/admin/online">Canlı Ziyaretçiler</a>
                 <a class="nav-link" href="/logout">Çıkış</a>
             </nav>

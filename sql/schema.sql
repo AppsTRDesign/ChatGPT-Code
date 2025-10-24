@@ -80,42 +80,6 @@ CREATE TABLE qr_codes (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE web_push_campaigns (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(150) NOT NULL,
-    message TEXT NOT NULL,
-    target_url VARCHAR(255) DEFAULT NULL,
-    image_path VARCHAR(255) DEFAULT NULL,
-    audience ENUM('all','selected') DEFAULT 'all',
-    target_ids TEXT,
-    status ENUM('sent','archived') DEFAULT 'sent',
-    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE web_push_events (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    campaign_id INT NOT NULL,
-    user_id INT DEFAULT NULL,
-    session_key VARCHAR(120) NOT NULL,
-    event_type ENUM('delivered','viewed','clicked') NOT NULL,
-    platform VARCHAR(60) DEFAULT NULL,
-    ip VARCHAR(45) DEFAULT NULL,
-    country VARCHAR(60) DEFAULT NULL,
-    city VARCHAR(60) DEFAULT NULL,
-    referer TEXT,
-    search_engine VARCHAR(60) DEFAULT NULL,
-    search_term VARCHAR(120) DEFAULT NULL,
-    user_agent TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uniq_campaign_event (campaign_id, session_key, event_type),
-    INDEX idx_campaign_event_type (campaign_id, event_type),
-    FOREIGN KEY (campaign_id) REFERENCES web_push_campaigns(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE session_activity (
     id INT AUTO_INCREMENT PRIMARY KEY,
     session_key VARCHAR(120) NOT NULL UNIQUE,

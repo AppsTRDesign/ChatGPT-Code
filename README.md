@@ -28,8 +28,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 | Ödeme Süreçleri | İyzico (test) kredi kartı ödemeleri, banka havalesi/IBAN bilgisi ve bildirim akışı, satın alma onay/red/eksik ödeme iş akışları, gerçek zamanlı kullanım güncellemesi. |
 | API Güvenliği | JSON tabanlı token üretimi, token pasifleştirme/silme, tek cihaz kayıt kontrolü, GET/POST desteği, `<img>` ile gömülebilir uç nokta, kullanım eşik e-postaları (%50/%25/%5). |
 | Raporlama | Günlük/haftalık/aylık/yıllık API kullanım grafikleri, bootstrap-table tablolar, PDF/Excel dışa aktarma (Türkçe karakter desteği). |
-| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı ve görsel destekli dahili web push kampanyaları. |
-| Web Push Analitiği | Dropzone ile görsel yüklemeli kampanyalar, <code>&lt;img&gt;</code> gömme linkleri, teslim/görüntülenme/tıklama kayıtları, Chart.js grafikleri ve PDF/Excel dışa aktarma. |
+| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı. |
 | Canlı Ziyaretçiler | Oturum kalp atışı (AJAX ping), ülke/şehir/platform/referer & arama sorgusu istatistikleri, gerçek zamanlı tablo ve grafikler, PDF/Excel export. |
 | Sosyal Giriş | Firebase destekli Google, Facebook, Twitter, GitHub, Microsoft, Apple, Yahoo ile tek tıkla kayıt/giriş; admin ayarlarında etkinleştirilebilir. |
 | Marka Yönetimi | Dropzone ile logo/favicon yükleme, marka öğeleri kartları, logo yoksa site adı gösterimi, footer/header içeriklerini ve meta verilerini canlı güncelleme. |
@@ -57,9 +56,6 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 
 ### Bildirimler
 - `includes/Mailer.php` ve `includes/MailSettings.php` mail altyapısını yönetir; admin panelinde SMTP/PHPMailer aktif/pasif seçilebilir.
-- `admin/push.php` dahili web push kampanyalarını kaydeder, seçili kullanıcı hedeflemelerini yönetir ve Chart.js grafikleriyle performans raporlar.
-- `admin/data/web-push-campaigns.php`, `admin/data/web-push-events.php`, `admin/data/web-push-metrics.php` kampanya tabloları ile teslim/görüntülenme/tıklama metriklerini servis eder.
-- `client/data/push-poll.php` ve `client/push-event.php` tarayıcıda gösterilen kampanyaları JSON olarak iletir ve görüntülenme/tıklama olaylarını kaydeder.
 
 ### Canlı Ziyaretçi İzleme
 - `includes/Activity.php` oturum anahtarlarını yönetir, IP/platform/referer/arama verilerini saklar ve heartbeat güncellemelerini işler.
@@ -84,7 +80,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - **Paket Satın Alma**: Paket kartları, İyzico & banka havalesi akışları, ödeme durum takipleri.
 - **API Tokenları**: Token üretme, pasifleştirme, silme; kalan kullanım bilgileri.
 - **Profil & Ayarlar**: Parola değişimi, sosyal giriş bağlantıları, e-posta doğrulama durumu.
-- **Dil & Bildirimler**: Firebase aktif ise sosyal giriş butonları otomatik görünür; web push kampanyaları tarayıcıda kart olarak gösterilir.
+- **Dil & Bildirimler**: Firebase aktif ise sosyal giriş butonları otomatik görünür.
 
 ### Admin Paneli (`/admin`)
 - **Dashboard**: Bekleyen/onaylı satın alımlar, gelir grafikleri, API kullanım grafikleri, hızlı linkler.
@@ -93,7 +89,6 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - **Kullanıcılar**: Düzenleme (paket değiştirme dahil), silme.
 - **QR Geçmişi**: Tüm üyelerin QR kayıtları, indirme/silme, kaynak (API/panel) bilgisi.
 - **API Kullanımı**: Filtrelenebilir tablolar, PDF/Excel ihracı.
-- **Push Bildirimleri**: Dropzone ile görsel eklenebilen, tüm üyelere veya seçili kullanıcıya anlık push gönderme.
 - **Ayarlar**: Site marka öğeleri, mail ayarları, Firebase, Google Analytics, dil dosyaları, API dokümantasyonu yönetimi.
 
 ## Entegrasyonlar
@@ -121,7 +116,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 4. Veritabanına `sql/schema.sql` dosyasını uygulayın. Varsayılan yönetici bilgileri:
    - Kullanıcı adı: `admin`
    - Şifre: `admin`
-5. `uploads/` altındaki klasörlerin yazılabilir olduğundan emin olun (`logos`, `brand`, `push`, `qr`, `temp`).
+5. `uploads/` altındaki klasörlerin yazılabilir olduğundan emin olun (`logos`, `qr`, `temp`).
 6. Web sunucusunda `.htaccess` dosyasının rewrite kurallarını desteklemesini sağlayın (Apache mod_rewrite).
 
 ## Konfigürasyon
@@ -170,7 +165,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - `assets/` – Tema CSS/JS dosyaları (Chart.js, bootstrap-table, Dropzone entegrasyonları dahil).
 - `includes/` – Çekirdek PHP sınıfları (Auth, Settings, Subscription, QrService, Notifications vb.).
 - `templates/` – Ortak header/footer şablonları.
-- `uploads/` – Logo, marka görselleri, push medya, QR çıktıları ve geçici dosyalar.
+- `uploads/` – Logo varlıkları, QR çıktıları ve geçici dosyalar.
 - `sql/schema.sql` – Veritabanı şeması.
 
 ## Geliştirme İpuçları
