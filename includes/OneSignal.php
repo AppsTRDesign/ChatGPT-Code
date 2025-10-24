@@ -59,7 +59,7 @@ class OneSignal
             $headers[] = 'Content-Type: application/json; charset=utf-8';
         }
 
-        $headers[] = 'Authorization: Basic ' . base64_encode(self::restKey() . ':');
+        $headers[] = 'Authorization: Basic ' . self::restKey();
 
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST => $method,
