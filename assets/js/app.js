@@ -203,6 +203,13 @@ const initOneSignalClient = () => {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal) => {
         try {
+            const pushSupported = typeof OneSignal.Notifications.isPushSupported === 'function'
+                ? await OneSignal.Notifications.isPushSupported()
+                : true;
+            if (!pushSupported) {
+                return;
+            }
+
             await OneSignal.init({
                 appId: config.appId,
                 notifyButton: { enable: false },
@@ -214,18 +221,60 @@ const initOneSignalClient = () => {
                 },
             });
 
+            const ensureSubscribed = async () => {
+                try {
+                    const permissionState = await OneSignal.Notifications.permission;
+                    if (permissionState !== 'granted') {
+                        return false;
+                    }
+                    const isSubscribed = await OneSignal.User.PushSubscription.subscribed;
+                    if (isSubscribed) {
+                        return true;
+                    }
+                    await OneSignal.User.PushSubscription.subscribe();
+                    return await OneSignal.User.PushSubscription.subscribed;
+                } catch (error) {
+                    console.warn('OneSignal subscribe failed', error);
+                    return false;
+                }
+            };
+
             const register = async () => {
                 try {
-                    const id = await OneSignal.User.PushSubscription.id;
+                    const subscribed = await ensureSubscribed();
+                    if (!subscribed) {
+                        return;
+                    }
+
+                    let id;
+                    try {
+                        id = await OneSignal.User.PushSubscription.id;
+                    } catch (error) {
+                        console.warn('OneSignal id unavailable', error);
+                        return;
+                    }
+
                     if (!id) {
                         return;
                     }
+
+                    let platform = 'web';
+                    try {
+                        const token = await OneSignal.User.PushSubscription.token;
+                        if (token && typeof token.type === 'string' && token.type !== '') {
+                            platform = token.type;
+                        }
+                    } catch (error) {
+                        // ignore token resolution issues and keep default platform
+                    }
+
                     await fetch(config.registerEndpoint || '/client/onesignal-register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
                         body: JSON.stringify({
                             player_id: id,
-                            platform: OneSignal.User.PushSubscription.token?.type || 'web',
+                            platform,
                         }),
                     });
                 } catch (error) {
@@ -241,6 +290,7 @@ const initOneSignalClient = () => {
                     await fetch(config.registerEndpoint || '/client/onesignal-register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
                         body: JSON.stringify({ player_id: '', previous: previousId }),
                     });
                 } catch (error) {
@@ -260,7 +310,12 @@ const initOneSignalClient = () => {
                 if (permission === 'granted') {
                     await register();
                 } else if (permission === 'denied') {
-                    const previous = await OneSignal.User.PushSubscription.id.catch(() => null);
+                    let previous = null;
+                    try {
+                        previous = await OneSignal.User.PushSubscription.id;
+                    } catch (error) {
+                        previous = null;
+                    }
                     if (previous) {
                         await unregister(previous);
                     }
