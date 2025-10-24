@@ -28,7 +28,9 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 | Ödeme Süreçleri | İyzico (test) kredi kartı ödemeleri, banka havalesi/IBAN bilgisi ve bildirim akışı, satın alma onay/red/eksik ödeme iş akışları, gerçek zamanlı kullanım güncellemesi. |
 | API Güvenliği | JSON tabanlı token üretimi, token pasifleştirme/silme, tek cihaz kayıt kontrolü, GET/POST desteği, `<img>` ile gömülebilir uç nokta, kullanım eşik e-postaları (%50/%25/%5). |
 | Raporlama | Günlük/haftalık/aylık/yıllık API kullanım grafikleri, bootstrap-table tablolar, PDF/Excel dışa aktarma (Türkçe karakter desteği). |
-| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı, OneSignal push bildirimleri (toplu/tek kullanıcı, görsel destekli). |
+| Bildirimler | SweetAlert bildirimleri, e-posta doğrulama ve şifre sıfırlama, yapılandırılabilir PHP mail/SMTP katmanı, OneSignal push bildirimleri (toplu/tek kullanıcı, görsel destekli) ve dahili web push kampanyaları. |
+| Web Push Analitiği | Dropzone ile görsel yüklemeli kampanyalar, <code>&lt;img&gt;</code> gömme linkleri, teslim/görüntülenme/tıklama kayıtları, Chart.js grafikleri ve PDF/Excel dışa aktarma. |
+| Canlı Ziyaretçiler | Oturum kalp atışı (AJAX ping), ülke/şehir/platform/referer & arama sorgusu istatistikleri, gerçek zamanlı tablo ve grafikler, PDF/Excel export. |
 | Sosyal Giriş | Firebase destekli Google, Facebook, Twitter, GitHub, Microsoft, Apple, Yahoo ile tek tıkla kayıt/giriş; admin ayarlarında etkinleştirilebilir. |
 | Marka Yönetimi | Dropzone ile logo/favicon yükleme, marka öğeleri kartları, logo yoksa site adı gösterimi, footer/header içeriklerini ve meta verilerini canlı güncelleme. |
 | Analitik & Entegrasyon | Google Analytics ölçüm kimliği, OneSignal, Firebase yapılandırması, API dokümantasyonunu iç siteye gömme ve dil dosyalarıyla özelleştirme. |
@@ -56,6 +58,15 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 ### Bildirimler
 - `includes/Mailer.php` ve `includes/MailSettings.php` mail altyapısını yönetir; admin panelinde SMTP/PHPMailer aktif/pasif seçilebilir.
 - `includes/Notifications.php` OneSignal REST çağrılarını yönetir; `admin/push.php` toplu veya seçili üyeye görselli push gönderir.
+- `admin/push.php` aynı form üzerinden dahili web push kampanyalarını kaydeder, OneSignal gönderimini tetikler ve kampanya geçmişini Chart.js grafikleriyle sunar.
+- `admin/data/web-push-campaigns.php`, `admin/data/web-push-events.php`, `admin/data/web-push-metrics.php` kampanya tabloları ile teslim/görüntülenme/tıklama metriklerini servis eder.
+- `client/data/push-poll.php` ve `client/push-event.php` tarayıcıda gösterilen kampanyaları JSON olarak iletir ve görüntülenme/tıklama olaylarını kaydeder.
+
+### Canlı Ziyaretçi İzleme
+- `includes/Activity.php` oturum anahtarlarını yönetir, IP/platform/referer/arama verilerini saklar ve heartbeat güncellemelerini işler.
+- `client/ping.php` ve `admin/ping.php` AJAX kalp atışı isteğiyle `session_activity` tablosunun güncel kalmasını sağlar.
+- `admin/online.php` Chart.js grafikleri, bootstrap-table listesi ve PDF/Excel dışa aktarma butonlarıyla canlı oturumları raporlar.
+- `admin/data/online.php` ve `admin/data/online-metrics.php` aktif kullanıcı tablolarının ve zaman serilerinin JSON veri kaynaklarını sağlar.
 - `client/onesignal-register.php` ile kullanıcı cihazları kaydedilir.
 
 ### Raporlama & Analitik

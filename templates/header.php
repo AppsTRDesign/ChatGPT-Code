@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
+use App\Activity;
 use App\Auth;
 use App\Helpers;
 use App\Settings;
@@ -10,6 +11,7 @@ $metaKeywords = Settings::metaKeywords();
 $logoUrl = Settings::logoUrl();
 $faviconUrl = Settings::faviconUrl();
 $currentUser = Auth::user();
+Activity::track($currentUser && $currentUser['role'] === 'admin' ? 'admin' : ($currentUser ? 'client' : 'public'));
 $appConfig = [
     'baseUrl' => rtrim(BASE_URL, '/'),
     'firebase' => [
@@ -27,6 +29,7 @@ $appConfig = [
         'id' => (int) $currentUser['id'],
         'role' => $currentUser['role'],
     ] : null,
+    'csrf' => Helpers::csrfToken(),
 ];
 if (empty($appConfig['firebase']['config'])) {
     $appConfig['firebase']['config'] = null;

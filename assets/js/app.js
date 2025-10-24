@@ -773,6 +773,80 @@ window.appHandlers = {
         const deleteButton = `<button type="button" class="btn btn-sm btn-outline-danger" data-ajax-action data-url="/admin/qr-delete" data-id="${row.id}" data-table="adminQrHistoryTable" data-csrf="${csrf}" data-confirm="QR kaydını silmek istediğinizden emin misiniz?">Sil</button>`;
         return `<div class="d-flex flex-wrap gap-2 justify-content-end">${downloadButtons}${deleteButton}</div>`;
     },
+    audienceFormatter: (value) => {
+        if (value === 'all') {
+            return '<span class="badge bg-primary">Tüm Üyeler</span>';
+        }
+        if (value === 'selected') {
+            return '<span class="badge bg-info text-dark">Seçili Üyeler</span>';
+        }
+        return `<span class="badge bg-secondary">${escapeHtml(value || '-')}</span>`;
+    },
+    pushEventFormatter: (value) => {
+        const map = {
+            delivered: { label: 'Gönderildi', class: 'bg-primary' },
+            viewed: { label: 'Görüntülendi', class: 'bg-success' },
+            clicked: { label: 'Tıklandı', class: 'bg-warning text-dark' },
+        };
+        const info = map[value] || { label: value || '-', class: 'bg-secondary' };
+        return `<span class="badge rounded-pill ${info.class}">${escapeHtml(info.label)}</span>`;
+    },
+    refererFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        const url = escapeHtml(value);
+        return `<a href="${url}" target="_blank" rel="noopener" class="link-light text-decoration-underline">${url}</a>`;
+    },
+    searchFormatter: (value, row) => {
+        const engine = row.search_engine || (value && value.engine);
+        const term = row.search_term || (value && value.term);
+        if (!engine && !term) {
+            return '<span class="text-white-50">-</span>';
+        }
+        if (engine && term) {
+            return `<span class="small">${escapeHtml(engine)}: ${escapeHtml(term)}</span>`;
+        }
+        if (engine) {
+            return `<span class="small">${escapeHtml(engine)}</span>`;
+        }
+        return `<span class="small">${escapeHtml(term)}</span>`;
+    },
+    urlFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        const url = escapeHtml(value);
+        return `<a href="${url}" target="_blank" rel="noopener" class="link-light text-decoration-underline">${url}</a>`;
+    },
+    webPushHandler: (response) => {
+        updateWebPushEventOptions(response.rows || []);
+        return response;
+    },
+    webPushEventsHandler: (response) => {
+        const rows = (response.rows || []).map((row) => ({
+            ...row,
+            search: { engine: row.search_engine, term: row.search_term },
+        }));
+        return { ...response, rows };
+    },
+    webPushEventsQuery: (params) => {
+        const select = document.getElementById('webPushEventFilter');
+        const campaignId = select ? select.value : '';
+        return { ...params, campaign_id: campaignId || '' };
+    },
+    onlineHandler: (response) => {
+        const rows = (response.rows || []).map((row) => ({
+            ...row,
+            search: { engine: row.search_engine, term: row.search_term },
+        }));
+        return { ...response, rows };
+    },
+    onlineQuery: (params) => {
+        const windowSelect = document.getElementById('onlineWindow');
+        const windowValue = windowSelect ? windowSelect.value : '5';
+        return { ...params, window: windowValue };
+    },
 };
 
 let usageChart;
@@ -781,6 +855,46 @@ let dashboardTrafficChart;
 let dashboardRevenueChart;
 let clientUsageChart;
 let clientUsageMetrics = [];
+
+const updateWebPushEventOptions = (() => {
+    const campaigns = new Map();
+    return (rows = []) => {
+        rows.forEach((row) => {
+            if (row && row.id) {
+                campaigns.set(String(row.id), row.title || `#${row.id}`);
+            }
+        });
+        const select = document.getElementById('webPushEventFilter');
+        if (!select) {
+            return;
+        }
+        const previous = select.value;
+        const fragment = document.createDocumentFragment();
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Tümü';
+        fragment.appendChild(defaultOption);
+        Array.from(campaigns.entries())
+            .sort((a, b) => a[1].localeCompare(b[1], 'tr'))
+            .forEach(([id, title]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = title;
+                fragment.appendChild(option);
+            });
+        select.innerHTML = '';
+        select.appendChild(fragment);
+        if (previous && campaigns.has(previous)) {
+            select.value = previous;
+        }
+    };
+})();
+
+let webPushChart;
+let webPushMetrics = [];
+let onlineChart;
+let onlineMetrics = [];
+const displayedCampaigns = new Set();
 
 const updateUsageChart = (labels, data) => {
     const canvas = document.getElementById('usageChart');
@@ -850,6 +964,464 @@ const updateUsageChart = (labels, data) => {
         usageChart.options = chartOptions;
         usageChart.update();
     }
+};
+
+const updateWebPushChart = (labels, delivered, viewed, clicked) => {
+    const canvas = document.getElementById('webPushChart');
+    if (!canvas || !window.Chart) {
+        return;
+    }
+
+    const datasets = [
+        {
+            label: 'Gönderildi',
+            data: delivered,
+            backgroundColor: 'rgba(59, 130, 246, 0.65)',
+            borderColor: '#3b82f6',
+            borderWidth: 1.5,
+            borderRadius: 8,
+            maxBarThickness: 36,
+        },
+        {
+            label: 'Görüntülendi',
+            data: viewed,
+            backgroundColor: 'rgba(34, 197, 94, 0.65)',
+            borderColor: '#22c55e',
+            borderWidth: 1.5,
+            borderRadius: 8,
+            maxBarThickness: 36,
+        },
+        {
+            label: 'Tıklandı',
+            data: clicked,
+            backgroundColor: 'rgba(250, 204, 21, 0.65)',
+            borderColor: '#facc15',
+            borderWidth: 1.5,
+            borderRadius: 8,
+            maxBarThickness: 36,
+        },
+    ];
+
+    const maxValue = [...delivered, ...viewed, ...clicked].reduce((acc, val) => Math.max(acc, val || 0), 0);
+    const stepSize = maxValue <= 6 ? 1 : Math.ceil(maxValue / 5);
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: 8 },
+        scales: {
+            x: {
+                stacked: false,
+                ticks: { color: '#cbd5f5', maxRotation: 0, minRotation: 0, autoSkip: true },
+                grid: { color: 'rgba(148, 163, 184, 0.08)', drawBorder: false },
+            },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#cbd5f5',
+                    callback: (value) => (Number.isInteger(value) ? value : ''),
+                    stepSize,
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.12)', drawBorder: false },
+            },
+        },
+        plugins: {
+            legend: { labels: { color: '#e2e8f0' } },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                borderColor: 'rgba(96, 165, 250, 0.4)',
+                borderWidth: 1,
+                titleColor: '#f8fafc',
+                bodyColor: '#f8fafc',
+            },
+        },
+    };
+
+    if (!webPushChart) {
+        webPushChart = new Chart(canvas, { type: 'bar', data: { labels, datasets }, options });
+    } else {
+        webPushChart.data = { labels, datasets };
+        webPushChart.options = options;
+        webPushChart.update();
+    }
+};
+
+const updateWebPushSummary = (rows) => {
+    const container = document.getElementById('webPushSummary');
+    if (!container) {
+        return;
+    }
+    if (!rows.length) {
+        container.innerHTML = '<li class="text-white-50">Veri bulunamadı.</li>';
+        return;
+    }
+    const totals = rows.reduce((acc, row) => {
+        acc.delivered += Number(row.delivered || 0);
+        acc.viewed += Number(row.viewed || 0);
+        acc.clicked += Number(row.clicked || 0);
+        return acc;
+    }, { delivered: 0, viewed: 0, clicked: 0 });
+    const campaigns = rows.length;
+    container.innerHTML = `
+        <li class="mb-2"><strong>Kampanya Sayısı:</strong> ${campaigns}</li>
+        <li class="mb-2"><strong>Gönderilen:</strong> ${totals.delivered}</li>
+        <li class="mb-2"><strong>Görüntülenen:</strong> ${totals.viewed}</li>
+        <li class="mb-0"><strong>Tıklanan:</strong> ${totals.clicked}</li>
+    `;
+};
+
+const loadWebPushMetrics = async (range) => {
+    try {
+        const response = await fetch(`/admin/data/web-push-metrics?range=${encodeURIComponent(range)}`, { headers: { Accept: 'application/json' } });
+        const json = await response.json();
+        webPushMetrics = json.rows || [];
+        const labels = webPushMetrics.map((row) => row.label).reverse();
+        const delivered = webPushMetrics.map((row) => Number(row.delivered || 0)).reverse();
+        const viewed = webPushMetrics.map((row) => Number(row.viewed || 0)).reverse();
+        const clicked = webPushMetrics.map((row) => Number(row.clicked || 0)).reverse();
+        updateWebPushChart(labels, delivered, viewed, clicked);
+        updateWebPushSummary(webPushMetrics);
+    } catch (error) {
+        console.error('Web push metrikleri yüklenemedi', error);
+    }
+};
+
+const exportWebPush = (format) => {
+    if (!webPushMetrics.length) {
+        Swal.fire({ icon: 'warning', title: 'İndirilecek veri bulunamadı.', confirmButtonColor: '#0d6efd' });
+        return;
+    }
+
+    const rows = webPushMetrics.map((row) => [row.label, Number(row.delivered || 0), Number(row.viewed || 0), Number(row.clicked || 0)]);
+
+    if (format === 'pdf' && window.jspdf && window.jspdf.jsPDF) {
+        const doc = new window.jspdf.jsPDF({ orientation: 'landscape' });
+        registerTurkishFont(doc);
+        doc.setFont('DejaVuSans', 'bold');
+        doc.setFontSize(16);
+        doc.text('Web Push Performans Raporu', 14, 18);
+        doc.setFont('DejaVuSans', 'normal');
+        doc.autoTable({
+            head: [['Dönem', 'Gönderildi', 'Görüntülendi', 'Tıklandı']],
+            body: rows,
+            startY: 26,
+            styles: {
+                font: 'DejaVuSans',
+                fontStyle: 'normal',
+                fillColor: [13, 17, 35],
+                textColor: [241, 246, 249],
+            },
+            headStyles: {
+                font: 'DejaVuSans',
+                fontStyle: 'bold',
+                fillColor: [59, 130, 246],
+                textColor: 255,
+            },
+            alternateRowStyles: { fillColor: [24, 33, 58] },
+        });
+        doc.save('web-push-raporu.pdf');
+        return;
+    }
+
+    if (format === 'excel' && window.XLSX) {
+        const worksheet = window.XLSX.utils.aoa_to_sheet([
+            ['Dönem', 'Gönderildi', 'Görüntülendi', 'Tıklandı'],
+            ...rows,
+        ]);
+        const workbook = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Rapor');
+        window.XLSX.writeFile(workbook, 'web-push-raporu.xlsx');
+    }
+};
+
+const updateOnlineChart = (labels, totals) => {
+    const canvas = document.getElementById('onlineChart');
+    if (!canvas || !window.Chart) {
+        return;
+    }
+
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: 'Aktif Oturum',
+                data: totals,
+                backgroundColor: 'rgba(168, 85, 247, 0.65)',
+                borderColor: '#a855f7',
+                borderWidth: 1.5,
+                borderRadius: 8,
+                maxBarThickness: 36,
+            },
+        ],
+    };
+
+    const maxValue = totals.length ? Math.max(...totals) : 0;
+    const stepSize = maxValue <= 6 ? 1 : Math.ceil(maxValue / 5);
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: 8 },
+        scales: {
+            x: {
+                ticks: { color: '#cbd5f5', maxRotation: 0, minRotation: 0, autoSkip: true },
+                grid: { color: 'rgba(148, 163, 184, 0.08)', drawBorder: false },
+            },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    color: '#cbd5f5',
+                    callback: (value) => (Number.isInteger(value) ? value : ''),
+                    stepSize,
+                },
+                grid: { color: 'rgba(148, 163, 184, 0.12)', drawBorder: false },
+            },
+        },
+        plugins: {
+            legend: { labels: { color: '#e2e8f0' } },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                borderColor: 'rgba(168, 85, 247, 0.4)',
+                borderWidth: 1,
+                titleColor: '#f8fafc',
+                bodyColor: '#f8fafc',
+            },
+        },
+    };
+
+    if (!onlineChart) {
+        onlineChart = new Chart(canvas, { type: 'bar', data, options });
+    } else {
+        onlineChart.data = data;
+        onlineChart.options = options;
+        onlineChart.update();
+    }
+};
+
+const updateOnlineSummary = (rows) => {
+    const container = document.getElementById('onlineSummary');
+    if (!container) {
+        return;
+    }
+    if (!rows.length) {
+        container.innerHTML = '<li class="text-white-50">Veri bulunamadı.</li>';
+        return;
+    }
+    const totals = rows.map((row) => Number(row.total || 0));
+    const current = totals[totals.length - 1];
+    const peak = Math.max(...totals);
+    const sum = totals.reduce((acc, value) => acc + value, 0);
+    const average = Math.round(sum / totals.length);
+    container.innerHTML = `
+        <li class="mb-2"><strong>Güncel Aktif:</strong> ${current}</li>
+        <li class="mb-2"><strong>Ortalama:</strong> ${average}</li>
+        <li class="mb-0"><strong>Zirve:</strong> ${peak}</li>
+    `;
+};
+
+const loadOnlineMetrics = async (range) => {
+    try {
+        const response = await fetch(`/admin/data/online-metrics?range=${encodeURIComponent(range)}`, { headers: { Accept: 'application/json' } });
+        const json = await response.json();
+        onlineMetrics = json.rows || [];
+        const labels = onlineMetrics.map((row) => row.label).reverse();
+        const totals = onlineMetrics.map((row) => Number(row.total || 0)).reverse();
+        updateOnlineChart(labels, totals);
+        updateOnlineSummary(onlineMetrics);
+    } catch (error) {
+        console.error('Online metrikler yüklenemedi', error);
+    }
+};
+
+const exportOnline = (format) => {
+    if (!onlineMetrics.length) {
+        Swal.fire({ icon: 'warning', title: 'İndirilecek veri bulunamadı.', confirmButtonColor: '#0d6efd' });
+        return;
+    }
+
+    const rows = onlineMetrics.map((row) => [row.label, Number(row.total || 0)]);
+
+    if (format === 'pdf' && window.jspdf && window.jspdf.jsPDF) {
+        const doc = new window.jspdf.jsPDF({ orientation: 'landscape' });
+        registerTurkishFont(doc);
+        doc.setFont('DejaVuSans', 'bold');
+        doc.setFontSize(16);
+        doc.text('Canlı Ziyaretçi Raporu', 14, 18);
+        doc.setFont('DejaVuSans', 'normal');
+        doc.autoTable({
+            head: [['Dönem', 'Aktif Oturum']],
+            body: rows,
+            startY: 26,
+            styles: {
+                font: 'DejaVuSans',
+                fontStyle: 'normal',
+                fillColor: [13, 17, 35],
+                textColor: [241, 246, 249],
+            },
+            headStyles: {
+                font: 'DejaVuSans',
+                fontStyle: 'bold',
+                fillColor: [168, 85, 247],
+                textColor: 255,
+            },
+            alternateRowStyles: { fillColor: [24, 33, 58] },
+        });
+        doc.save('canli-ziyaretci-raporu.pdf');
+        return;
+    }
+
+    if (format === 'excel' && window.XLSX) {
+        const worksheet = window.XLSX.utils.aoa_to_sheet([
+            ['Dönem', 'Aktif Oturum'],
+            ...rows,
+        ]);
+        const workbook = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Rapor');
+        window.XLSX.writeFile(workbook, 'canli-ziyaretci-raporu.xlsx');
+    }
+};
+
+const sendPushEvent = async (campaignId, event, extra = {}) => {
+    try {
+        const config = window.APP_CONFIG || {};
+        const csrf = config.csrf || '';
+        await fetch('/client/push-event.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': csrf,
+            },
+            body: JSON.stringify({ campaign_id: campaignId, event, ...extra }),
+        });
+    } catch (error) {
+        console.error('Push etkinliği kaydedilemedi', error);
+    }
+};
+
+const createToastContainer = () => {
+    let container = document.getElementById('webPushToastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'webPushToastContainer';
+        container.className = 'web-push-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(container);
+    }
+    return container;
+};
+
+const displayWebPushToast = (campaign) => {
+    if (!campaign || displayedCampaigns.has(campaign.id)) {
+        return;
+    }
+    displayedCampaigns.add(campaign.id);
+
+    const container = createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = 'toast show web-push-toast align-items-center text-bg-dark border-0 shadow-lg';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.dataset.bsAutohide = 'false';
+
+    const image = campaign.image_url ? `<img src="${campaign.image_url}" alt="" class="rounded me-3 web-push-thumb">` : '';
+    const actionButton = campaign.target_url
+        ? `<button type="button" class="btn btn-sm btn-primary mt-3" data-action="open">Detayları Gör</button>`
+        : '';
+
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <div class="d-flex align-items-center gap-3">
+                    ${image}
+                    <div>
+                        <h6 class="fw-semibold mb-1">${escapeHtml(campaign.title)}</h6>
+                        <p class="mb-0 small text-white-50">${escapeHtml(campaign.message)}</p>
+                        ${actionButton}
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Kapat"></button>
+        </div>
+    `;
+
+    container.appendChild(toast);
+
+    if (window.bootstrap && window.bootstrap.Toast) {
+        const toastInstance = new window.bootstrap.Toast(toast, { autohide: true, delay: 12000 });
+        toastInstance.show();
+    }
+
+    const referer = window.location.href;
+    setTimeout(() => {
+        sendPushEvent(campaign.id, 'viewed', { referer });
+    }, 1000);
+
+    toast.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target && target.matches('[data-action="open"]') && campaign.target_url) {
+            event.preventDefault();
+            sendPushEvent(campaign.id, 'clicked', { referer });
+            window.open(campaign.target_url, '_blank', 'noopener');
+        }
+    });
+
+    toast.addEventListener('hidden.bs.toast', () => {
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.parentElement.removeChild(toast);
+            }
+        }, 200);
+    });
+};
+
+const initWebPushPolling = () => {
+    if (!window.fetch || !window.APP_CONFIG) {
+        return;
+    }
+
+    const poll = async () => {
+        try {
+            const response = await fetch('/client/data/push-poll', { headers: { Accept: 'application/json' } });
+            if (!response.ok) {
+                throw new Error(`Status ${response.status}`);
+            }
+            const json = await response.json();
+            (json.campaigns || []).forEach((campaign) => displayWebPushToast(campaign));
+        } catch (error) {
+            console.error('Web push bildirimleri alınamadı', error);
+        } finally {
+            setTimeout(poll, 60000);
+        }
+    };
+
+    setTimeout(poll, 3000);
+};
+
+const startHeartbeat = () => {
+    if (!window.fetch || !window.APP_CONFIG || !window.APP_CONFIG.csrf) {
+        return;
+    }
+    const csrf = window.APP_CONFIG.csrf;
+    const path = window.location.pathname || '';
+    const endpoint = path.startsWith('/admin') ? '/admin/ping.php' : '/client/ping.php';
+
+    const ping = async () => {
+        try {
+            await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                },
+            });
+        } catch (error) {
+            console.warn('Heartbeat başarısız', error);
+        }
+    };
+
+    ping();
+    setInterval(ping, 60000);
 };
 
 const updateUsageSummary = (rows) => {
@@ -1299,6 +1871,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    startHeartbeat();
+    initWebPushPolling();
     initFirebaseButtons();
     initPushForms();
 
@@ -1486,6 +2060,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const webPushRange = document.getElementById('webPushRange');
+    if (webPushRange) {
+        loadWebPushMetrics(webPushRange.value);
+        webPushRange.addEventListener('change', () => loadWebPushMetrics(webPushRange.value));
+    }
+
+    document.querySelectorAll('[data-web-push-export]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            exportWebPush(button.dataset.webPushExport);
+        });
+    });
+
+    const webPushEventFilter = document.getElementById('webPushEventFilter');
+    if (webPushEventFilter && window.jQuery) {
+        webPushEventFilter.addEventListener('change', () => {
+            window.jQuery('#webPushEventsTable').bootstrapTable('refresh');
+        });
+    }
+
     const usageRange = document.getElementById('usageRange');
     if (usageRange) {
         loadUsageMetrics(usageRange.value);
@@ -1498,6 +2092,26 @@ document.addEventListener('DOMContentLoaded', () => {
             exportUsage(button.dataset.export);
         });
     });
+
+    const onlineRange = document.getElementById('onlineRange');
+    if (onlineRange) {
+        loadOnlineMetrics(onlineRange.value);
+        onlineRange.addEventListener('change', () => loadOnlineMetrics(onlineRange.value));
+    }
+
+    document.querySelectorAll('[data-online-export]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            exportOnline(button.dataset.onlineExport);
+        });
+    });
+
+    const onlineWindow = document.getElementById('onlineWindow');
+    if (onlineWindow && window.jQuery) {
+        onlineWindow.addEventListener('change', () => {
+            window.jQuery('#onlineTable').bootstrapTable('refresh');
+        });
+    }
 
     loadDashboardMetrics();
     loadClientUsageMetrics();

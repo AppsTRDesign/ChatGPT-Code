@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
 
+use App\Activity;
 use App\Auth;
 use App\Helpers;
 use App\Settings;
@@ -12,6 +13,7 @@ $logoUrl = Settings::logoUrl();
 $faviconUrl = Settings::faviconUrl();
 $oneSignalEnabled = Settings::onesignalEnabled();
 $oneSignalAppId = Settings::onesignalAppId();
+Activity::track('admin');
 $appConfig = [
     'baseUrl' => rtrim(BASE_URL, '/'),
     'onesignal' => [
@@ -24,6 +26,7 @@ $appConfig = [
         'id' => (int) $user['id'],
         'role' => $user['role'],
     ],
+    'csrf' => Helpers::csrfToken(),
 ];
 ?>
 <!DOCTYPE html>
@@ -72,7 +75,8 @@ $appConfig = [
                 <a class="nav-link" href="/admin/settings">Ayarlar</a>
                 <a class="nav-link" href="/admin/usage">API Raporları</a>
                 <a class="nav-link" href="/admin/qr-history">QR Kayıtları</a>
-                <a class="nav-link" href="/admin/push">Push Bildirimleri</a>
+                <a class="nav-link" href="/admin/push">Web Push Bildirimleri</a>
+                <a class="nav-link" href="/admin/online">Canlı Ziyaretçiler</a>
                 <a class="nav-link" href="/logout">Çıkış</a>
             </nav>
         </div>
