@@ -20,6 +20,9 @@ $siteName = Settings::siteName();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap-table@1.22.1/dist/bootstrap-table.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap-table@1.22.1/dist/locale/bootstrap-table-tr-TR.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<?php if (\App\Settings::onesignalEnabled() && \App\Settings::onesignalAppId()): ?>
+    <script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async></script>
+<?php endif; ?>
 <script src="<?= asset('assets/js/app.js') ?>"></script>
 </body>
 </html>

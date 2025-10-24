@@ -3,6 +3,7 @@ require_once __DIR__ . '/config/config.php';
 
 use App\Auth;
 use App\Helpers;
+use App\Settings;
 
 if (Auth::check()) {
     $destination = Auth::user()['role'] === 'admin' ? '/admin/dashboard' : '/client/dashboard';
@@ -36,6 +37,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/login');
 }
 
+$socialProviders = Settings::firebaseProviders();
+$showSocialLogin = Settings::firebaseEnabled() && !empty($socialProviders);
+$providerLabels = [
+    'google' => 'Google',
+    'facebook' => 'Facebook',
+    'twitter' => 'Twitter',
+    'github' => 'GitHub',
+    'microsoft' => 'Microsoft',
+    'apple' => 'Apple',
+    'yahoo' => 'Yahoo',
+];
+
 require __DIR__ . '/templates/header.php';
 ?>
 <div class="row justify-content-center">
@@ -58,6 +71,19 @@ require __DIR__ . '/templates/header.php';
                 <a href="/forgot-password" class="link-light">Şifrenizi mi unuttunuz?</a>
                 <a href="/verify-resend" class="link-light">Doğrulama mailini tekrar gönder</a>
             </div>
+            <?php if ($showSocialLogin): ?>
+                <div class="mt-4">
+                    <p class="text-white-50 small mb-2">Sosyal hesabınızla giriş yapın:</p>
+                    <div class="d-flex flex-wrap gap-2" data-social-auth>
+                        <?php foreach ($socialProviders as $provider): $key = strtolower($provider); ?>
+                            <?php if (!isset($providerLabels[$key])) { continue; } ?>
+                            <button type="button" class="btn btn-outline-info flex-grow-1" data-firebase-provider="<?= $key ?>">
+                                <?= $providerLabels[$key] ?> ile giriş
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>

@@ -42,6 +42,30 @@ class Settings
         self::$cache[$key] = is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : (string) $value;
     }
 
+    private static function boolFrom(mixed $value, bool $default = false): bool
+    {
+        if ($value === null) {
+            return $default;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = strtolower((string) $value);
+        return in_array($normalized, ['1', 'true', 'on', 'yes', 'enabled'], true);
+    }
+
+    private static function decodeJson(string $value, mixed $default = [])
+    {
+        if ($value === '') {
+            return $default;
+        }
+
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : $default;
+    }
+
     public static function setMany(array $pairs): void
     {
         foreach ($pairs as $key => $value) {
@@ -116,5 +140,60 @@ class Settings
         }
 
         return rtrim(BASE_URL, '/') . '/' . ltrim($path, '/');
+    }
+
+    public static function firebaseEnabled(): bool
+    {
+        return self::boolFrom(self::get('firebase_enabled', '0'), false);
+    }
+
+    public static function firebaseConfig(): array
+    {
+        $raw = (string) self::get('firebase_config', '');
+        return self::decodeJson($raw, []);
+    }
+
+    public static function firebaseProviders(): array
+    {
+        $allowed = ['google', 'facebook', 'twitter', 'github', 'microsoft', 'apple', 'yahoo'];
+        $raw = (string) self::get('firebase_providers', '[]');
+        $providers = self::decodeJson($raw, []);
+        if (!is_array($providers)) {
+            return [];
+        }
+
+        $filtered = array_values(array_intersect($allowed, array_map(static function ($value) {
+            return strtolower((string) $value);
+        }, $providers)));
+
+        return $filtered;
+    }
+
+    public static function onesignalEnabled(): bool
+    {
+        return self::boolFrom(self::get('onesignal_enabled', '0'), false);
+    }
+
+    public static function onesignalAppId(): ?string
+    {
+        $value = trim((string) self::get('onesignal_app_id', ''));
+        return $value !== '' ? $value : null;
+    }
+
+    public static function onesignalRestKey(): ?string
+    {
+        $value = trim((string) self::get('onesignal_rest_api_key', ''));
+        return $value !== '' ? $value : null;
+    }
+
+    public static function googleAnalyticsEnabled(): bool
+    {
+        return self::boolFrom(self::get('google_analytics_enabled', '0'), false);
+    }
+
+    public static function googleAnalyticsId(): ?string
+    {
+        $value = trim((string) self::get('google_analytics_id', ''));
+        return $value !== '' ? $value : null;
     }
 }

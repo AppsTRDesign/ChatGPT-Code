@@ -7,8 +7,12 @@ CREATE TABLE users (
     verification_token VARCHAR(120) DEFAULT NULL,
     verification_sent_at TIMESTAMP NULL,
     role ENUM('admin','client') DEFAULT 'client',
+    firebase_uid VARCHAR(120) DEFAULT NULL,
+    firebase_provider VARCHAR(60) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE UNIQUE INDEX idx_users_firebase_uid ON users (firebase_uid);
 
 CREATE TABLE packages (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -73,6 +77,17 @@ CREATE TABLE qr_codes (
     files_json TEXT NOT NULL,
     meta_json TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE onesignal_subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    player_id VARCHAR(190) NOT NULL,
+    platform VARCHAR(60) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_player (player_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

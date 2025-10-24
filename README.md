@@ -11,6 +11,9 @@ NoaSoft QR Menu; PHP 8 / MySQL üzerinde çalışan, paket bazlı lisanslama ve 
 - **Raporlama & tablolar**: Admin panelinde günlük/haftalık/aylık/yıllık API raporları, grafikler ve PDF/Excel dışa aktarma; müşteri panelinde kişisel API grafikleri. Tüm tablolar Bootstrap Table bileşeniyle arama, sayfalama ve kart görünümü sunar.
 - **Marka yönetimi**: Dropzone ile logo & favicon yükleme, site başlığı/meta/HTML header-footer düzenleme, tema ile uyumlu ve okunabilir e-posta şablonları, varsayılan durumda logo yerine site adı gösterimi.
 - **Bildirimler**: SweetAlert tabanlı geri bildirimler, AJAX işlemleri, e-posta doğrulama/şifre sıfırlama akışları ve yapılandırılabilir PHP mailer/PHPMailer katmanı.
+- **Sosyal giriş**: Firebase tabanlı Google, Facebook, Twitter, GitHub, Microsoft, Apple ve Yahoo butonlarıyla tek tıkla kayıt/giriş, mail doğrulamasıyla entegre.
+- **Push bildirimleri**: OneSignal App ID/REST anahtarı yönetimi, toplu veya seçili üyelere görselli mesaj gönderimi, kullanıcı bazlı cihaz kaydı ve anlık loglama.
+- **Analitik & entegrasyonlar**: Google Analytics ölçüm kimliği yönetimi, header/footer ek bileşenleri ve dropzone destekli logo/favicon kontrolü.
 
 ## Kurulum Adımları
 1. Bağımlılıkları yükleyin:

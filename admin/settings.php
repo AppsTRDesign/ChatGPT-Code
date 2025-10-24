@@ -48,6 +48,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'reply_to_email' => trim($_POST['reply_to_email'] ?? ''),
         ]);
         Helpers::flash('message', 'Mail ayarları güncellendi.');
+    } elseif ($section === 'firebase') {
+        $configRaw = trim($_POST['firebase_config'] ?? '');
+        if ($configRaw !== '') {
+            $decoded = json_decode($configRaw, true);
+            if (!is_array($decoded)) {
+                Helpers::flash('message', 'Firebase yapılandırması geçersiz JSON formatında.');
+                redirect('/admin/settings');
+            }
+            $configRaw = json_encode($decoded, JSON_UNESCAPED_UNICODE);
+        }
+
+        $providersInput = $_POST['firebase_providers'] ?? [];
+        if (!is_array($providersInput)) {
+            $providersInput = [];
+        }
+        $allowedProviders = ['google', 'facebook', 'twitter', 'github', 'microsoft', 'apple', 'yahoo'];
+        $providers = array_values(array_intersect($allowedProviders, array_map(static function ($value) {
+            return strtolower((string) $value);
+        }, $providersInput)));
+
+        Settings::setMany([
+            'firebase_enabled' => isset($_POST['firebase_enabled']) ? '1' : '0',
+            'firebase_config' => $configRaw,
+            'firebase_providers' => $providers,
+        ]);
+        Helpers::flash('message', 'Firebase ayarları güncellendi.');
+    } elseif ($section === 'onesignal') {
+        Settings::setMany([
+            'onesignal_enabled' => isset($_POST['onesignal_enabled']) ? '1' : '0',
+            'onesignal_app_id' => trim($_POST['onesignal_app_id'] ?? ''),
+            'onesignal_rest_api_key' => trim($_POST['onesignal_rest_api_key'] ?? ''),
+        ]);
+        Helpers::flash('message', 'OneSignal ayarları güncellendi.');
+    } elseif ($section === 'analytics') {
+        Settings::setMany([
+            'google_analytics_enabled' => isset($_POST['google_analytics_enabled']) ? '1' : '0',
+            'google_analytics_id' => trim($_POST['google_analytics_id'] ?? ''),
+        ]);
+        Helpers::flash('message', 'Google Analytics ayarları güncellendi.');
     }
 
     redirect('/admin/settings');
@@ -58,6 +97,23 @@ $paymentSettings = Payment::settings();
 $mailSettings = MailSettings::get();
 $logoUrl = Settings::logoUrl();
 $faviconUrl = Settings::faviconUrl();
+$firebaseConfig = $siteSettings['firebase_config'] ?? '';
+$firebaseProviders = Settings::firebaseProviders();
+$firebaseEnabled = Settings::firebaseEnabled();
+$oneSignalEnabled = Settings::onesignalEnabled();
+$oneSignalAppId = Settings::onesignalAppId();
+$oneSignalRest = Settings::onesignalRestKey();
+$gaEnabled = Settings::googleAnalyticsEnabled();
+$gaId = Settings::googleAnalyticsId();
+$providerLabels = [
+    'google' => 'Google',
+    'facebook' => 'Facebook',
+    'twitter' => 'Twitter',
+    'github' => 'GitHub',
+    'microsoft' => 'Microsoft',
+    'apple' => 'Apple',
+    'yahoo' => 'Yahoo',
+];
 ?>
 <h1 class="h3 mb-4">Site ve Ödeme Ayarları</h1>
 <div class="row g-4">
@@ -118,7 +174,8 @@ $faviconUrl = Settings::faviconUrl();
                               class="dropzone brand-dropzone"
                               data-dropzone-url="/admin/upload-branding"
                               data-dropzone-type="logo"
-                              data-dropzone-csrf="<?= Helpers::csrfToken() ?>"></form>
+                              data-dropzone-csrf="<?= Helpers::csrfToken() ?>"
+                              data-dropzone-refresh="1"></form>
                     </div>
                 </div>
                 <div class="col-sm-6">
@@ -140,7 +197,8 @@ $faviconUrl = Settings::faviconUrl();
                               class="dropzone brand-dropzone"
                               data-dropzone-url="/admin/upload-branding"
                               data-dropzone-type="favicon"
-                              data-dropzone-csrf="<?= Helpers::csrfToken() ?>"></form>
+                              data-dropzone-csrf="<?= Helpers::csrfToken() ?>"
+                              data-dropzone-refresh="1"></form>
                     </div>
                 </div>
             </div>
@@ -244,6 +302,80 @@ $faviconUrl = Settings::faviconUrl();
                 </div>
                 <button type="submit" class="btn btn-primary mt-3">Kaydet</button>
             </form>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card p-4 h-100">
+            <h2 class="h5 mb-3">Firebase Sosyal Giriş</h2>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                <input type="hidden" name="section" value="firebase">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="firebase_enabled" name="firebase_enabled" <?= $firebaseEnabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="firebase_enabled">Firebase ile sosyal medya girişi aktif</label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="firebase_config">Firebase Config JSON</label>
+                    <textarea class="form-control" name="firebase_config" id="firebase_config" rows="6" placeholder='{"apiKey":"..."}'><?= Helpers::e($firebaseConfig) ?></textarea>
+                    <small class="text-white-50">Firebase projenizin web uygulaması yapılandırmasını buraya yapıştırın.</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Aktif Sosyal Sağlayıcılar</label>
+                    <div class="row g-2">
+                        <?php foreach ($providerLabels as $key => $label): ?>
+                            <div class="col-sm-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="firebase_providers[]" id="provider_<?= $key ?>" value="<?= $key ?>" <?= in_array($key, $firebaseProviders, true) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="provider_<?= $key ?>"><?= $label ?></label>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card p-4 h-100">
+            <h2 class="h5 mb-3">OneSignal Push Bildirimleri</h2>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                <input type="hidden" name="section" value="onesignal">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="onesignal_enabled" name="onesignal_enabled" <?= $oneSignalEnabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="onesignal_enabled">OneSignal entegrasyonu aktif</label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">OneSignal App ID</label>
+                    <input type="text" class="form-control" name="onesignal_app_id" value="<?= Helpers::e($oneSignalAppId ?? '') ?>" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">REST API Key</label>
+                    <input type="text" class="form-control" name="onesignal_rest_api_key" value="<?= Helpers::e($oneSignalRest ?? '') ?>">
+                </div>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </form>
+            <p class="small text-white-50 mt-3 mb-0">Push bildirim gönderebilmek için App ID ve REST anahtarını girmeniz gerekir.</p>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card p-4 h-100">
+            <h2 class="h5 mb-3">Google Analytics</h2>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= Helpers::csrfToken() ?>">
+                <input type="hidden" name="section" value="analytics">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="google_analytics_enabled" name="google_analytics_enabled" <?= $gaEnabled ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="google_analytics_enabled">Google Analytics aktif</label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Measurement ID</label>
+                    <input type="text" class="form-control" name="google_analytics_id" value="<?= Helpers::e($gaId ?? '') ?>" placeholder="G-XXXXXXXXXX">
+                </div>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </form>
+            <p class="small text-white-50 mt-3 mb-0">Analytics kodu tüm sayfalara otomatik olarak eklenecektir.</p>
         </div>
     </div>
 </div>

@@ -8,6 +8,47 @@ use DateTimeImmutable;
 
 class Auth
 {
+    private static function startSession(array $user): void
+    {
+        $_SESSION['user'] = [
+            'id' => (int) $user['id'],
+            'username' => $user['username'],
+            'role' => $user['role'],
+            'email' => $user['email'] ?? null,
+            'email_verified' => (int) ($user['email_verified'] ?? 0),
+        ];
+    }
+
+    private static function generateUsername(string $seed): string
+    {
+        $base = strtolower(preg_replace('/[^a-z0-9]+/i', '', $seed));
+        if ($base === '') {
+            $base = 'user';
+        }
+
+        $base = substr($base, 0, 20);
+        if ($base === '') {
+            $base = 'user';
+        }
+
+        $db = Helpers::db();
+        $username = $base;
+        $counter = 0;
+
+        while (true) {
+            $stmt = $db->prepare('SELECT COUNT(*) FROM users WHERE username = :username');
+            $stmt->execute(['username' => $username]);
+            if ((int) $stmt->fetchColumn() === 0) {
+                return $username;
+            }
+
+            $counter++;
+            $suffix = (string) $counter;
+            $trimmed = substr($base, 0, max(1, 20 - strlen($suffix)));
+            $username = $trimmed . $suffix;
+        }
+    }
+
     public static function login(string $username, string $password): bool
     {
         $db = Helpers::db();
@@ -32,13 +73,7 @@ class Auth
             return false;
         }
 
-        $_SESSION['user'] = [
-            'id' => (int) $user['id'],
-            'username' => $user['username'],
-            'role' => $user['role'],
-            'email' => $user['email'] ?? null,
-            'email_verified' => (int) ($user['email_verified'] ?? 0),
-        ];
+        self::startSession($user);
 
         if ($user['role'] === 'client') {
             Subscription::ensureFreeTier((int) $user['id']);
@@ -197,6 +232,87 @@ class Auth
             'id' => $row['user_id'],
         ]);
         $db->prepare('DELETE FROM password_resets WHERE user_id = :user_id')->execute(['user_id' => $row['user_id']]);
+
+        return true;
+    }
+
+    public static function loginWithFirebase(array $payload, string $provider): bool
+    {
+        $uid = trim((string) ($payload['uid'] ?? ''));
+        $email = strtolower(trim((string) ($payload['email'] ?? '')));
+
+        if ($uid === '' && $email === '') {
+            return false;
+        }
+
+        $db = Helpers::db();
+        $user = null;
+
+        if ($uid !== '') {
+            $stmt = $db->prepare('SELECT * FROM users WHERE firebase_uid = :uid LIMIT 1');
+            $stmt->execute(['uid' => $uid]);
+            $user = $stmt->fetch();
+        }
+
+        if (!$user && $email !== '') {
+            $stmt = $db->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
+            $stmt->execute(['email' => $email]);
+            $user = $stmt->fetch();
+        }
+
+        $verified = !empty($payload['email_verified']);
+
+        if ($user) {
+            $db->prepare('UPDATE users SET firebase_uid = :uid, firebase_provider = :provider, email_verified = CASE WHEN email_verified = 1 THEN 1 ELSE :verified END WHERE id = :id')
+                ->execute([
+                    'uid' => $uid !== '' ? $uid : ($user['firebase_uid'] ?? null),
+                    'provider' => $provider,
+                    'verified' => $verified ? 1 : (int) ($user['email_verified'] ?? 0),
+                    'id' => $user['id'],
+                ]);
+
+            if ($verified) {
+                $user['email_verified'] = 1;
+            }
+
+            if ($uid !== '') {
+                $user['firebase_uid'] = $uid;
+            }
+
+            $user['firebase_provider'] = $provider;
+        } else {
+            $nameSeed = trim((string) ($payload['name'] ?? ''));
+            $baseName = $nameSeed !== '' ? $nameSeed : ($email !== '' ? (strstr($email, '@', true) ?: $email) : Helpers::randomString(8));
+            $username = self::generateUsername($baseName);
+            $randomPassword = password_hash(Helpers::randomString(32), PASSWORD_DEFAULT);
+
+            $stmt = $db->prepare('INSERT INTO users (username, email, password, role, email_verified, firebase_uid, firebase_provider, verification_token, verification_sent_at) VALUES (:username, :email, :password, :role, :verified, :firebase_uid, :firebase_provider, NULL, NULL)');
+            $stmt->execute([
+                'username' => $username,
+                'email' => $email !== '' ? $email : null,
+                'password' => $randomPassword,
+                'role' => 'client',
+                'verified' => $verified ? 1 : 0,
+                'firebase_uid' => $uid !== '' ? $uid : null,
+                'firebase_provider' => $provider,
+            ]);
+
+            $user = [
+                'id' => (int) $db->lastInsertId(),
+                'username' => $username,
+                'email' => $email !== '' ? $email : null,
+                'role' => 'client',
+                'email_verified' => $verified ? 1 : 0,
+            ];
+
+            Subscription::grantFreePackage($user['id']);
+        }
+
+        self::startSession($user);
+
+        if ($user['role'] === 'client') {
+            Subscription::ensureFreeTier((int) $user['id']);
+        }
 
         return true;
     }

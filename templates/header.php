@@ -9,6 +9,30 @@ $metaDescription = Settings::metaDescription();
 $metaKeywords = Settings::metaKeywords();
 $logoUrl = Settings::logoUrl();
 $faviconUrl = Settings::faviconUrl();
+$currentUser = Auth::user();
+$appConfig = [
+    'baseUrl' => rtrim(BASE_URL, '/'),
+    'firebase' => [
+        'enabled' => Settings::firebaseEnabled(),
+        'config' => Settings::firebaseConfig(),
+        'endpoint' => '/firebase-auth',
+    ],
+    'onesignal' => [
+        'enabled' => Settings::onesignalEnabled(),
+        'appId' => Settings::onesignalAppId(),
+        'registerEndpoint' => '/client/onesignal-register',
+    ],
+    'user' => $currentUser ? [
+        'id' => (int) $currentUser['id'],
+        'role' => $currentUser['role'],
+    ] : null,
+];
+if (empty($appConfig['firebase']['config'])) {
+    $appConfig['firebase']['config'] = null;
+}
+if (!$appConfig['onesignal']['appId']) {
+    $appConfig['onesignal']['appId'] = null;
+}
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -28,6 +52,16 @@ $faviconUrl = Settings::faviconUrl();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-table@1.22.1/dist/bootstrap-table.min.css" rel="stylesheet">
     <link href="<?= asset('assets/css/style.css') ?>" rel="stylesheet">
+    <script>window.APP_CONFIG = <?= json_encode($appConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
+    <?php if (Settings::googleAnalyticsEnabled() && ($gaId = Settings::googleAnalyticsId())): ?>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=<?= Helpers::e($gaId) ?>"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '<?= Helpers::e($gaId) ?>');
+        </script>
+    <?php endif; ?>
     <?= Settings::headerHtml() ?>
 </head>
 <body>
@@ -48,7 +82,7 @@ $faviconUrl = Settings::faviconUrl();
                 <li class="nav-item"><a class="nav-link" href="/">Anasayfa</a></li>
                 <li class="nav-item"><a class="nav-link" href="/client/dashboard">Panel</a></li>
                 <li class="nav-item"><a class="nav-link" href="/api-docs">API</a></li>
-                <?php if (Auth::user()): ?>
+                <?php if ($currentUser): ?>
                     <li class="nav-item"><a class="nav-link" href="/client/qr-builder">QR Oluştur</a></li>
                     <li class="nav-item"><a class="nav-link" href="/client/qr-history">QR Geçmişi</a></li>
                     <li class="nav-item"><a class="nav-link" href="/client/tokens">Tokenlar</a></li>

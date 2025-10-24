@@ -51,6 +51,240 @@ const formatDateOnly = (value) => {
     return date.toLocaleDateString('tr-TR');
 };
 
+const appConfig = window.APP_CONFIG || {};
+
+const loadScript = (src) => new Promise((resolve, reject) => {
+    const existing = Array.from(document.getElementsByTagName('script')).find((script) => script.src === src);
+    if (existing) {
+        if (existing.dataset.loaded === '1') {
+            resolve();
+            return;
+        }
+        existing.addEventListener('load', () => {
+            existing.dataset.loaded = '1';
+            resolve();
+        }, { once: true });
+        existing.addEventListener('error', () => reject(new Error(`Script yüklenemedi: ${src}`)), { once: true });
+        return;
+    }
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => {
+        script.dataset.loaded = '1';
+        resolve();
+    };
+    script.onerror = () => reject(new Error(`Script yüklenemedi: ${src}`));
+    document.head.appendChild(script);
+});
+
+const buildAbsoluteUrl = (path) => {
+    if (!path) {
+        return '';
+    }
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+    const base = appConfig.baseUrl || window.location.origin;
+    return `${base.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+};
+
+let firebaseAppPromise = null;
+
+const firebaseProviderFactories = {
+    google: () => new window.firebase.auth.GoogleAuthProvider(),
+    facebook: () => new window.firebase.auth.FacebookAuthProvider(),
+    twitter: () => new window.firebase.auth.TwitterAuthProvider(),
+    github: () => new window.firebase.auth.GithubAuthProvider(),
+    microsoft: () => new window.firebase.auth.OAuthProvider('microsoft.com'),
+    apple: () => new window.firebase.auth.OAuthProvider('apple.com'),
+    yahoo: () => new window.firebase.auth.OAuthProvider('yahoo.com'),
+};
+
+const ensureFirebaseAuth = async () => {
+    if (!appConfig.firebase || !appConfig.firebase.enabled || !appConfig.firebase.config) {
+        throw new Error('Firebase yapılandırması eksik.');
+    }
+
+    if (!firebaseAppPromise) {
+        firebaseAppPromise = (async () => {
+            await loadScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+            await loadScript('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js');
+            if (!window.firebase.apps.length) {
+                window.firebase.initializeApp(appConfig.firebase.config);
+            }
+            return window.firebase;
+        })();
+    }
+
+    return firebaseAppPromise;
+};
+
+const initFirebaseButtons = () => {
+    if (!appConfig.firebase || !appConfig.firebase.enabled) {
+        return;
+    }
+
+    document.querySelectorAll('[data-firebase-provider]').forEach((button) => {
+        if (button.dataset.firebaseBound) {
+            return;
+        }
+        button.dataset.firebaseBound = '1';
+        button.addEventListener('click', async (event) => {
+            event.preventDefault();
+            const providerKey = button.dataset.firebaseProvider;
+            try {
+                const firebase = await ensureFirebaseAuth();
+                const providerFactory = firebaseProviderFactories[providerKey];
+                if (!providerFactory) {
+                    throw new Error('Desteklenmeyen sağlayıcı.');
+                }
+                button.disabled = true;
+                const auth = firebase.auth();
+                const provider = providerFactory();
+                const result = await auth.signInWithPopup(provider);
+                const idToken = await result.user.getIdToken();
+                const response = await fetch(appConfig.firebase.endpoint || '/firebase-auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, provider: providerKey }),
+                });
+                const data = await response.json();
+                if (!response.ok || data.status !== 'ok') {
+                    throw new Error(data.message || 'Giriş başarısız.');
+                }
+                window.location.href = data.redirect || '/client/dashboard';
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Giriş başarısız',
+                    text: error.message || 'Sosyal giriş tamamlanamadı.',
+                    confirmButtonColor: '#0d6efd',
+                });
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+};
+
+const initOneSignalClient = () => {
+    const config = appConfig.onesignal || {};
+    if (!config.enabled || !config.appId || !appConfig.user) {
+        return;
+    }
+
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async (OneSignal) => {
+        await OneSignal.init({
+            appId: config.appId,
+            notifyButton: { enable: false },
+            allowLocalhostAsSecureOrigin: true,
+        });
+
+        const register = async () => {
+            try {
+                const id = await OneSignal.User.PushSubscription.id;
+                if (!id) {
+                    return;
+                }
+                await fetch(config.registerEndpoint || '/client/onesignal-register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        player_id: id,
+                        platform: OneSignal.User.PushSubscription.token?.type || 'web',
+                    }),
+                });
+            } catch (error) {
+                // silently ignore registration errors
+            }
+        };
+
+        OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
+            if (event.id) {
+                await register();
+            } else if (event.previousId) {
+                try {
+                    await fetch(config.registerEndpoint || '/client/onesignal-register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ player_id: '', previous: event.previousId }),
+                    });
+                } catch (error) {
+                    // ignore
+                }
+            }
+        });
+
+        if (await OneSignal.User.PushSubscription.optedIn()) {
+            await register();
+        }
+    });
+};
+
+const initPushForms = () => {
+    const form = document.querySelector('[data-push-form]');
+    if (!form) {
+        return;
+    }
+
+    const recipientsInput = form.querySelector('[data-push-recipients]');
+    const audienceRadios = form.querySelectorAll('input[name="audience"]');
+    const table = document.getElementById('pushRecipientsTable');
+    const preselectUser = parseInt(form.dataset.preselectUser || '', 10);
+    const tableCard = table ? table.closest('.card') : null;
+
+    const updateRecipients = () => {
+        if (!recipientsInput || !window.jQuery || !table) {
+            return;
+        }
+        try {
+            const selected = window.jQuery(table).bootstrapTable('getSelections').map((row) => row.id);
+            recipientsInput.value = selected.join(',');
+        } catch (error) {
+            recipientsInput.value = '';
+        }
+    };
+
+    const toggleAudience = () => {
+        if (!tableCard) {
+            return;
+        }
+        const selected = form.querySelector('input[name="audience"]:checked');
+        if (selected && selected.value === 'selected') {
+            tableCard.classList.remove('table-disabled');
+        } else {
+            tableCard.classList.add('table-disabled');
+        }
+    };
+
+    audienceRadios.forEach((radio) => {
+        radio.addEventListener('change', toggleAudience);
+    });
+    toggleAudience();
+
+    if (window.jQuery && table) {
+        const $table = window.jQuery(table);
+        $table.on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', updateRecipients);
+        $table.on('load-success.bs.table', () => {
+            updateRecipients();
+            if (!Number.isNaN(preselectUser) && preselectUser > 0) {
+                $table.bootstrapTable('checkBy', { field: 'id', values: [preselectUser] });
+            }
+        });
+    }
+
+    form.addEventListener('submit', () => {
+        updateRecipients();
+    });
+
+    updateRecipients();
+};
+
+initOneSignalClient();
+
 const refreshTable = (tableId) => {
     if (!tableId || !window.jQuery) {
         return;
@@ -117,11 +351,24 @@ window.appHandlers = {
     userActionsFormatter: (value, row) => {
         const table = document.getElementById('usersTable');
         const csrf = table ? table.dataset.csrf || '' : '';
-        let output = `<a href="/admin/user-edit?id=${encodeURIComponent(row.id)}" class="btn btn-sm btn-outline-primary">Düzenle</a>`;
-        if (!row.self) {
-            output += `<button type="button" class="btn btn-sm btn-outline-danger" data-ajax-action data-action-value="delete" data-url="/admin/user-delete" data-id="${row.id}" data-table="usersTable" data-csrf="${csrf}" data-confirm="Bu üyeyi silmek istediğinizden emin misiniz?">Sil</button>`;
+        const buttons = [];
+        const onesignalEnabled = document.body && document.body.dataset.onesignalEnabled === '1';
+
+        if (onesignalEnabled) {
+            if (row.has_player) {
+                buttons.push(`<a href="/admin/push?user=${encodeURIComponent(row.id)}" class="btn btn-sm btn-outline-info">Push Gönder</a>`);
+            } else {
+                buttons.push('<button type="button" class="btn btn-sm btn-outline-secondary" disabled>Push Yok</button>');
+            }
         }
-        return `<div class="d-flex flex-wrap gap-2 justify-content-end">${output}</div>`;
+
+        buttons.push(`<a href="/admin/user-edit?id=${encodeURIComponent(row.id)}" class="btn btn-sm btn-outline-primary">Düzenle</a>`);
+
+        if (!row.self) {
+            buttons.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-ajax-action data-action-value="delete" data-url="/admin/user-delete" data-id="${row.id}" data-table="usersTable" data-csrf="${csrf}" data-confirm="Bu üyeyi silmek istediğinizden emin misiniz?">Sil</button>`);
+        }
+
+        return `<div class="d-flex flex-wrap gap-2 justify-content-end">${buttons.join('')}</div>`;
     },
     purchaseResponseHandler: (response) => response,
     paymentFormatter: (value) => (value === 'iyzico' ? 'Kredi Kartı (İyzico)' : 'Banka Havalesi'),
@@ -846,6 +1093,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    initFirebaseButtons();
+    initPushForms();
+
     document.querySelectorAll('[data-confirm]').forEach((element) => {
         if (element.dataset.confirmInitialized) {
             return;
@@ -904,6 +1154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const accepted = type === 'favicon'
                 ? 'image/png,image/x-icon,image/svg+xml'
                 : 'image/png,image/jpeg,image/svg+xml';
+            const message = element.dataset.dropzoneMessage || 'Dosyayı sürükleyip bırakın veya tıklayın';
 
             const dz = new Dropzone(element, {
                 url,
@@ -911,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 maxFiles: 1,
                 acceptedFiles: accepted,
                 addRemoveLinks: true,
-                dictDefaultMessage: 'Dosyayı sürükleyip bırakın veya tıklayın',
+                dictDefaultMessage: message,
                 timeout: 180000,
             });
 
@@ -922,12 +1173,70 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            dz.on('success', () => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Görsel güncellendi',
-                    confirmButtonColor: '#0d6efd',
-                }).then(() => window.location.reload());
+            dz.on('success', (file, response) => {
+                let data = response;
+                if (typeof response === 'string') {
+                    try {
+                        data = JSON.parse(response);
+                    } catch (error) {
+                        data = null;
+                    }
+                }
+
+                if (!data || data.status !== 'success') {
+                    const errorMessage = data && data.message ? data.message : 'Dosya yüklenemedi.';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Yükleme başarısız',
+                        text: errorMessage,
+                        confirmButtonColor: '#0d6efd',
+                    });
+                    return;
+                }
+
+                const refresh = element.dataset.dropzoneRefresh === '1';
+                const inputSelector = element.dataset.dropzoneInput;
+                const previewSelector = element.dataset.dropzonePreview;
+                const storedValue = (data.relative || data.path || '').replace(/^\//, '');
+
+                if (inputSelector) {
+                    const target = document.querySelector(inputSelector);
+                    if (target) {
+                        target.value = storedValue;
+                    }
+                }
+
+                if (previewSelector) {
+                    const preview = document.querySelector(previewSelector);
+                    if (preview) {
+                        const urlValue = data.url || data.path || data.relative || '';
+                        const absolute = buildAbsoluteUrl(urlValue);
+                        if (absolute) {
+                            preview.innerHTML = `<img src="${escapeHtml(absolute)}" class="img-fluid rounded" alt="">`;
+                        } else {
+                            preview.innerHTML = '<span class="text-white-50 small">Görsel hazır.</span>';
+                        }
+                    }
+                }
+
+                const notify = () => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Görsel güncellendi',
+                        confirmButtonColor: '#0d6efd',
+                    });
+                };
+
+                if (refresh) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Görsel güncellendi',
+                        confirmButtonColor: '#0d6efd',
+                    }).then(() => window.location.reload());
+                } else {
+                    notify();
+                    dz.removeFile(file);
+                }
             });
 
             dz.on('error', (file, message) => {
