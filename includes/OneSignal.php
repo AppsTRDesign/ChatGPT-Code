@@ -7,7 +7,7 @@ use Throwable;
 
 class OneSignal
 {
-    private const API_BASE = 'https://api.onesignal.com';
+    private const API_BASE = 'https://onesignal.com/api/v1';
 
     public static function isEnabled(): bool
     {
@@ -44,8 +44,7 @@ class OneSignal
         self::requireEnabled();
 
         $method = strtoupper($method);
-        $appId = self::appId();
-        $url = rtrim(self::API_BASE, '/') . '/apps/' . rawurlencode($appId) . '/' . ltrim($path, '/');
+        $url = rtrim(self::API_BASE, '/') . '/' . ltrim($path, '/');
 
         $query = $options['query'] ?? [];
         if ($query) {
@@ -121,12 +120,15 @@ ON DUPLICATE KEY UPDATE
         $stmt = $db->prepare($query);
 
         do {
-            $response = self::apiRequest('GET', 'players', [
-                'query' => [
-                    'limit' => $pageSize,
-                    'offset' => $offset,
-                ],
-            ]);
+        $appId = self::appId();
+
+        $response = self::apiRequest('GET', 'players', [
+            'query' => [
+                'app_id' => $appId,
+                'limit' => $pageSize,
+                'offset' => $offset,
+            ],
+        ]);
             $players = $response['players'] ?? [];
             if (!$players) {
                 break;

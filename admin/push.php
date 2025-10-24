@@ -85,42 +85,7 @@ $pushConfig = [
                 <button type="submit" class="btn btn-primary w-100" id="pushSubmitButton">Bildirimi Gönder</button>
             </form>
         </div>
-    </div>
-    <div class="col-12 col-xl-7">
-        <div class="card p-4 mb-4">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                <h2 class="h5 mb-0">Kayıtlı Aboneler</h2>
-                <span class="badge bg-primary" id="pushTargetTotal">0 kayıt</span>
-            </div>
-            <div class="table-responsive">
-                <table
-                    id="pushTargetsTable"
-                    class="table table-dark table-striped align-middle"
-                    data-toggle="table"
-                    data-toolbar="#pushToolbar"
-                    data-search="true"
-                    data-pagination="true"
-                    data-side-pagination="server"
-                    data-url="<?= $pushConfig['targetsEndpoint'] ?>"
-                    data-id-field="player_id"
-                    data-click-to-select="true"
-                    data-response-handler="appHandlers.pushTargetResponse"
-                    data-query-params="appHandlers.pushTargetQuery"
-                >
-                    <thead>
-                        <tr>
-                            <th data-field="state" data-checkbox="true"></th>
-                            <th data-field="player_id" data-sortable="true">Player ID</th>
-                            <th data-field="external_id" data-sortable="true">Kullanıcı</th>
-                            <th data-field="country" data-sortable="true">Ülke</th>
-                            <th data-field="platform" data-sortable="true">Platform</th>
-                            <th data-field="last_active" data-sortable="true" data-formatter="appHandlers.dateTimeFormatter">Son Aktif</th>
-                        </tr>
-                    </thead>
-                </table>
-            </div>
-        </div>
-        <div class="card p-4">
+        <div class="card p-4 mt-4">
             <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center mb-3">
                 <h2 class="h5 mb-0">Gönderim Geçmişi</h2>
                 <span class="badge bg-secondary" id="pushCampaignTotal">0 kampanya</span>
@@ -154,6 +119,41 @@ $pushConfig = [
                             <th data-field="created_at" data-sortable="true" data-formatter="appHandlers.dateTimeFormatter">Oluşturulma</th>
                             <th data-field="status" data-formatter="appHandlers.pushStatusFormatter" data-sortable="true">Durum</th>
                             <th data-field="stats" data-formatter="appHandlers.pushStatsFormatter">İstatistik</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-xl-7">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <h2 class="h5 mb-0">Kayıtlı Aboneler</h2>
+                <span class="badge bg-primary" id="pushTargetTotal">0 kayıt</span>
+            </div>
+            <div class="table-responsive">
+                <table
+                    id="pushTargetsTable"
+                    class="table table-dark table-striped align-middle"
+                    data-toggle="table"
+                    data-toolbar="#pushToolbar"
+                    data-search="true"
+                    data-pagination="true"
+                    data-side-pagination="server"
+                    data-url="<?= $pushConfig['targetsEndpoint'] ?>"
+                    data-id-field="player_id"
+                    data-click-to-select="true"
+                    data-response-handler="appHandlers.pushTargetResponse"
+                    data-query-params="appHandlers.pushTargetQuery"
+                >
+                    <thead>
+                        <tr>
+                            <th data-field="state" data-checkbox="true"></th>
+                            <th data-field="player_id" data-sortable="true">Player ID</th>
+                            <th data-field="external_id" data-sortable="true">Kullanıcı</th>
+                            <th data-field="country" data-sortable="true">Ülke</th>
+                            <th data-field="platform" data-sortable="true">Platform</th>
+                            <th data-field="last_active" data-sortable="true" data-formatter="appHandlers.dateTimeFormatter">Son Aktif</th>
                         </tr>
                     </thead>
                 </table>
