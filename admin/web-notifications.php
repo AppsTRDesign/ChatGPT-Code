@@ -49,11 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <h1 class="h3 mb-4">Web Bildirimleri</h1>
-<div class="row g-4">
-    <div class="col-12">
-        <div class="card p-4">
+<div class="row g-4 align-items-stretch">
+    <div class="col-12 col-xl-5">
+        <div class="card p-4 h-100 d-flex flex-column">
             <h2 class="h5 mb-3">Yeni Bildirim Gönder</h2>
-            <form method="post" class="row g-3">
+            <form method="post" class="row g-3 flex-grow-1">
                 <input type="hidden" name="csrf_token" value="<?= Helpers::e($csrf) ?>">
                 <input type="hidden" name="image_path" id="notificationImage" value="">
                 <div class="col-12">
@@ -100,23 +100,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="dropzone notification-dropzone" data-dropzone-url="/admin/upload-notification.php" data-dropzone-type="notification" data-dropzone-message="Görseli sürükleyin veya tıklayın" data-dropzone-input="#notificationImage" data-dropzone-preview="#notificationPreview" data-dropzone-csrf="<?= Helpers::e($csrf) ?>"></div>
                     <div id="notificationPreview" class="mt-3 small text-white-50"></div>
                 </div>
-                <div class="col-12">
+                <div class="col-12 mt-auto">
                     <button type="submit" class="btn btn-primary w-100">Bildirimi Gönder</button>
                 </div>
             </form>
         </div>
     </div>
-</div>
-
-<div class="row g-4 mt-1">
-    <div class="col-12">
-        <div class="card p-4">
+    <div class="col-12 col-xl-7">
+        <div class="card p-4 h-100 d-flex flex-column">
             <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
                 <div>
                     <h2 class="h5 mb-1">Bildirim İstatistikleri</h2>
                     <p class="text-white-50 mb-0">Gösterim, tıklama ve kapatma eğilimlerini inceleyin.</p>
                 </div>
-                <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="chart-toolbar">
                     <select class="form-select form-select-sm w-auto" id="notificationRange">
                         <option value="daily">Son 24 Saat</option>
                         <option value="weekly" selected>Son 7 Gün</option>
@@ -126,11 +123,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <select class="form-select form-select-sm w-auto" id="notificationFilter">
                         <option value="">Tüm Bildirimler</option>
                     </select>
-                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-export="pdf">PDF</button>
-                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-export="excel">Excel</button>
+                    <button class="btn btn-outline-light btn-sm" type="button" data-notification-export="pdf">PDF</button>
+                    <button class="btn btn-outline-light btn-sm" type="button" data-notification-export="excel">Excel</button>
                 </div>
             </div>
-            <div class="chart-wrapper">
+            <div class="chart-wrapper flex-grow-1">
                 <canvas id="notificationChart" height="220"></canvas>
             </div>
             <ul class="list-unstyled mt-4 mb-0" id="notificationSummary">

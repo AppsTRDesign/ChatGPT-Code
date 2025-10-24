@@ -12,6 +12,9 @@ require __DIR__ . '/header.php';
 <h1 class="h3 mb-4">QR Kayıtları</h1>
 <div class="card p-4">
     <p class="text-white-50">Panel ve API üzerinden oluşturulan tüm QR kodları burada listelenir. Gerektiğinde indirme yapabilir veya kayıtları silebilirsiniz.</p>
+    <div id="adminQrToolbar" class="d-flex flex-wrap justify-content-end justify-content-sm-between align-items-center gap-2 mb-3">
+        <button type="button" class="btn btn-outline-light btn-sm" data-refresh-table="#adminQrHistoryTable">Yenile</button>
+    </div>
     <div class="table-responsive">
         <table
             id="adminQrHistoryTable"
@@ -21,7 +24,7 @@ require __DIR__ . '/header.php';
             data-pagination="true"
             data-page-size="10"
             data-search="true"
-            data-show-refresh="true"
+            data-toolbar="#adminQrToolbar"
             data-mobile-responsive="true"
             data-card-view="false"
             data-unique-id="id"

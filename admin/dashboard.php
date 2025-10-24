@@ -62,16 +62,14 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
                 <h2 class="h5 mb-0">Trafik ve Üyelik</h2>
                 <div class="chart-toolbar">
-                    <select class="form-select form-select-sm" id="trafficRange" aria-label="Trafik aralığı">
+                    <select class="form-select form-select-sm w-auto" id="trafficRange" aria-label="Trafik aralığı">
                         <option value="daily" selected>Günlük</option>
                         <option value="weekly">Haftalık</option>
                         <option value="monthly">Aylık</option>
                         <option value="yearly">Yıllık</option>
                     </select>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Trafik dışa aktar">
-                        <button type="button" class="btn btn-outline-light" data-chart="traffic" data-chart-export="excel">Excel</button>
-                        <button type="button" class="btn btn-outline-light" data-chart="traffic" data-chart-export="pdf">PDF</button>
-                    </div>
+                    <button type="button" class="btn btn-outline-light btn-sm" data-chart="traffic" data-chart-export="pdf">PDF</button>
+                    <button type="button" class="btn btn-outline-light btn-sm" data-chart="traffic" data-chart-export="excel">Excel</button>
                 </div>
             </div>
             <div class="chart-container" style="min-height:260px;">
@@ -92,16 +90,14 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
         <h2 class="h5 mb-0">Gelir Analizi</h2>
         <div class="chart-toolbar">
-            <select class="form-select form-select-sm" id="revenueRange" aria-label="Gelir aralığı">
+            <select class="form-select form-select-sm w-auto" id="revenueRange" aria-label="Gelir aralığı">
                 <option value="daily" selected>Günlük</option>
                 <option value="weekly">Haftalık</option>
                 <option value="monthly">Aylık</option>
                 <option value="yearly">Yıllık</option>
             </select>
-            <div class="btn-group btn-group-sm" role="group" aria-label="Gelir dışa aktar">
-                <button type="button" class="btn btn-outline-light" data-chart="revenue" data-chart-export="excel">Excel</button>
-                <button type="button" class="btn btn-outline-light" data-chart="revenue" data-chart-export="pdf">PDF</button>
-            </div>
+            <button type="button" class="btn btn-outline-light btn-sm" data-chart="revenue" data-chart-export="pdf">PDF</button>
+            <button type="button" class="btn btn-outline-light btn-sm" data-chart="revenue" data-chart-export="excel">Excel</button>
         </div>
     </div>
     <div class="chart-container" style="min-height:260px;">

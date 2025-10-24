@@ -144,6 +144,14 @@ a:hover {
     color: var(--text-light);
 }
 
+.btn-outline-light:hover,
+.btn-outline-light:focus {
+    color: #d5e6ff;
+    background-color: rgba(154, 192, 255, 0.12);
+    border-color: rgba(154, 192, 255, 0.45);
+    box-shadow: 0 0.25rem 1rem rgba(64, 152, 255, 0.2);
+}
+
 .btn-outline-warning {
     border-color: rgba(255, 193, 7, 0.6);
     color: #ffda6a;
@@ -593,7 +601,7 @@ code {
     min-width: 140px;
 }
 
-.chart-toolbar .btn-group {
+.chart-toolbar .btn {
     flex-shrink: 0;
 }
 

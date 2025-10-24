@@ -8,16 +8,14 @@ require __DIR__ . '/header.php';
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
                 <h2 class="h5 mb-0">Kullanım Grafiği</h2>
                 <div class="chart-toolbar">
-                    <select class="form-select form-select-sm" id="usageRange">
+                    <select class="form-select form-select-sm w-auto" id="usageRange">
                         <option value="daily">Günlük</option>
                         <option value="weekly">Haftalık</option>
                         <option value="monthly">Aylık</option>
                         <option value="yearly">Yıllık</option>
                     </select>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Kullanım dışa aktar">
-                        <button type="button" class="btn btn-outline-light" data-export="pdf">PDF</button>
-                        <button type="button" class="btn btn-outline-light" data-export="excel">Excel</button>
-                    </div>
+                    <button type="button" class="btn btn-outline-light btn-sm" data-export="pdf">PDF</button>
+                    <button type="button" class="btn btn-outline-light btn-sm" data-export="excel">Excel</button>
                 </div>
             </div>
             <div class="chart-container">
