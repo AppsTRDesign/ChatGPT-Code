@@ -26,8 +26,42 @@ class Geo
             if (!$candidate) {
                 continue;
             }
-            $path = realpath($candidate);
-            if ($path && is_file($path) && is_readable($path)) {
+
+            $resolved = self::resolveCandidate($candidate);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
+    private static function resolveCandidate(string $candidate): ?string
+    {
+        $candidate = trim($candidate);
+        if ($candidate === '') {
+            return null;
+        }
+
+        if (is_file($candidate) && is_readable($candidate)) {
+            return $candidate;
+        }
+
+        $real = realpath($candidate);
+        if ($real && is_file($real) && is_readable($real)) {
+            return $real;
+        }
+
+        if (is_dir($candidate)) {
+            $path = rtrim($candidate, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'GeoLite2-City.mmdb';
+            if (is_file($path) && is_readable($path)) {
+                return $path;
+            }
+        }
+
+        if ($real && is_dir($real)) {
+            $path = rtrim($real, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'GeoLite2-City.mmdb';
+            if (is_file($path) && is_readable($path)) {
                 return $path;
             }
         }

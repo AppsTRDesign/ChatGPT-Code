@@ -62,7 +62,6 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
                 <h2 class="h5 mb-0">Trafik ve Üyelik</h2>
                 <div class="chart-toolbar">
-                    <span class="badge bg-primary-subtle text-white" id="trafficRangeLabel">Son 14 Gün</span>
                     <select class="form-select form-select-sm" id="trafficRange" aria-label="Trafik aralığı">
                         <option value="daily" selected>Günlük</option>
                         <option value="weekly">Haftalık</option>
@@ -93,7 +92,6 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
         <h2 class="h5 mb-0">Gelir Analizi</h2>
         <div class="chart-toolbar">
-            <span class="badge bg-success-subtle text-white" id="revenueRangeLabel">Son 14 Gün</span>
             <select class="form-select form-select-sm" id="revenueRange" aria-label="Gelir aralığı">
                 <option value="daily" selected>Günlük</option>
                 <option value="weekly">Haftalık</option>
