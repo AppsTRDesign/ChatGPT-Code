@@ -11,6 +11,20 @@ $siteName = Settings::siteName();
 $logoUrl = Settings::logoUrl();
 $faviconUrl = Settings::faviconUrl();
 $oneSignalEnabled = Settings::onesignalEnabled();
+$oneSignalAppId = Settings::onesignalAppId();
+$appConfig = [
+    'baseUrl' => rtrim(BASE_URL, '/'),
+    'onesignal' => [
+        'enabled' => $oneSignalEnabled,
+        'appId' => $oneSignalAppId,
+        'registerEndpoint' => '/client/onesignal-register',
+        'workerPath' => '/OneSignalSDKWorker.js',
+    ],
+    'user' => [
+        'id' => (int) $user['id'],
+        'role' => $user['role'],
+    ],
+];
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -28,6 +42,7 @@ $oneSignalEnabled = Settings::onesignalEnabled();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-table@1.22.1/dist/bootstrap-table.min.css" rel="stylesheet">
     <link href="<?= asset('assets/css/style.css') ?>" rel="stylesheet">
+    <script>window.APP_CONFIG = <?= json_encode($appConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
 </head>
 <body data-onesignal-enabled="<?= $oneSignalEnabled ? '1' : '0' ?>">
 <div class="admin-shell d-flex">

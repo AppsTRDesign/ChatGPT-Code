@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
+use App\Helpers;
 use App\Notifications;
 use App\Settings;
 
@@ -12,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['status' => 'error', 'message' => 'Yalnızca POST isteklerine izin verilir.']);
     exit;
 }
+
+Helpers::requireAjax();
 
 $user = Auth::user();
 if (!$user) {
@@ -39,6 +42,12 @@ if ($playerId === '') {
     exit;
 }
 
-Notifications::registerPlayer((int) $user['id'], $playerId, $platform ?: null);
+$registered = Notifications::registerPlayer((int) $user['id'], $playerId, $platform ?: null);
 
-echo json_encode(['status' => 'ok']);
+if (!$registered) {
+    http_response_code(500);
+    echo json_encode(['status' => 'error', 'message' => 'Cihaz kaydedilemedi.']);
+    exit;
+}
+
+echo json_encode(['status' => 'ok', 'registered' => true]);

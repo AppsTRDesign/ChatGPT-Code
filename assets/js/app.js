@@ -221,6 +221,8 @@ const initOneSignalClient = () => {
                 },
             });
 
+            const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
             const ensureSubscribed = async () => {
                 try {
                     const permissionState = await OneSignal.Notifications.permission;
@@ -239,44 +241,109 @@ const initOneSignalClient = () => {
                 }
             };
 
-            const register = async () => {
+            const resolveSubscriptionId = async (hintId = null) => {
+                const attempts = 5;
+                for (let index = 0; index < attempts; index += 1) {
+                    if (hintId) {
+                        return hintId;
+                    }
+
+                    try {
+                        const id = await OneSignal.User.PushSubscription.id;
+                        if (id) {
+                            return id;
+                        }
+                    } catch (error) {
+                        // ignore and retry using getId fallback
+                    }
+
+                    if (typeof OneSignal.User.PushSubscription.getId === 'function') {
+                        try {
+                            const id = await OneSignal.User.PushSubscription.getId();
+                            if (id) {
+                                return id;
+                            }
+                        } catch (error) {
+                            // ignore and retry
+                        }
+                    }
+
+                    await wait(200 * (index + 1));
+                }
+
+                return null;
+            };
+
+            const resolveSubscriptionPlatform = async (hintPlatform = null) => {
+                if (hintPlatform) {
+                    return hintPlatform;
+                }
+
+                try {
+                    const token = await OneSignal.User.PushSubscription.token;
+                    if (token && typeof token.type === 'string' && token.type) {
+                        return token.type;
+                    }
+                } catch (error) {
+                    // ignore token resolution issues
+                }
+
+                if (typeof OneSignal.User.PushSubscription.getToken === 'function') {
+                    try {
+                        const token = await OneSignal.User.PushSubscription.getToken();
+                        if (token && typeof token.type === 'string' && token.type) {
+                            return token.type;
+                        }
+                    } catch (error) {
+                        // ignore token resolution issues
+                    }
+                }
+
+                return 'web';
+            };
+
+            const register = async (hintId = null, hintPlatform = null) => {
                 try {
                     const subscribed = await ensureSubscribed();
                     if (!subscribed) {
                         return;
                     }
 
-                    let id;
-                    try {
-                        id = await OneSignal.User.PushSubscription.id;
-                    } catch (error) {
-                        console.warn('OneSignal id unavailable', error);
-                        return;
-                    }
-
+                    const id = await resolveSubscriptionId(hintId);
                     if (!id) {
+                        console.warn('OneSignal id unavailable');
                         return;
                     }
 
-                    let platform = 'web';
-                    try {
-                        const token = await OneSignal.User.PushSubscription.token;
-                        if (token && typeof token.type === 'string' && token.type !== '') {
-                            platform = token.type;
-                        }
-                    } catch (error) {
-                        // ignore token resolution issues and keep default platform
-                    }
+                    const platform = await resolveSubscriptionPlatform(hintPlatform);
 
-                    await fetch(config.registerEndpoint || '/client/onesignal-register', {
+                    const response = await fetch(config.registerEndpoint || '/client/onesignal-register', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
                         credentials: 'same-origin',
                         body: JSON.stringify({
                             player_id: id,
                             platform,
                         }),
                     });
+
+                    const raw = await response.text();
+                    let data = null;
+                    try {
+                        data = raw ? JSON.parse(raw) : null;
+                    } catch (error) {
+                        data = null;
+                    }
+
+                    if (!response.ok || !data || data.status !== 'ok') {
+                        console.warn('OneSignal register error', {
+                            status: response.status,
+                            payload: data || raw,
+                        });
+                    }
                 } catch (error) {
                     console.warn('OneSignal register failed', error);
                 }
@@ -289,7 +356,10 @@ const initOneSignalClient = () => {
                 try {
                     await fetch(config.registerEndpoint || '/client/onesignal-register', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
                         credentials: 'same-origin',
                         body: JSON.stringify({ player_id: '', previous: previousId }),
                     });
@@ -299,8 +369,12 @@ const initOneSignalClient = () => {
             };
 
             OneSignal.User.PushSubscription.addEventListener('change', async (event) => {
-                if (event.id) {
-                    await register();
+                if (event && event.id) {
+                    let platformHint = null;
+                    if (event.subscription && event.subscription.token && event.subscription.token.type) {
+                        platformHint = event.subscription.token.type;
+                    }
+                    await register(event.id, platformHint);
                 } else if (event.previousId) {
                     await unregister(event.previousId);
                 }

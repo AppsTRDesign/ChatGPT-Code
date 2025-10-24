@@ -13,15 +13,20 @@ class Notifications
             return false;
         }
 
-        $db = Helpers::db();
-        $stmt = $db->prepare('INSERT INTO onesignal_subscriptions (user_id, player_id, platform, last_active) VALUES (:user_id, :player_id, :platform, NOW())
-            ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), platform = VALUES(platform), last_active = NOW()');
+        try {
+            $db = Helpers::db();
+            $stmt = $db->prepare('INSERT INTO onesignal_subscriptions (user_id, player_id, platform, last_active) VALUES (:user_id, :player_id, :platform, NOW())
+                ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), platform = VALUES(platform), last_active = NOW()');
 
-        return $stmt->execute([
-            'user_id' => $userId,
-            'player_id' => $playerId,
-            'platform' => $platform,
-        ]);
+            return $stmt->execute([
+                'user_id' => $userId,
+                'player_id' => $playerId,
+                'platform' => $platform,
+            ]);
+        } catch (\PDOException $exception) {
+            error_log('OneSignal registerPlayer failed: ' . $exception->getMessage());
+            return false;
+        }
     }
 
     public static function removePlayer(string $playerId): void
