@@ -171,7 +171,7 @@ const initFirebaseButtons = () => {
 
 const initOneSignalClient = () => {
     const config = appConfig.onesignal || {};
-    if (!config.enabled || !config.appId || !appConfig.user) {
+    if (!config.enabled || !config.appId) {
         return;
     }
 

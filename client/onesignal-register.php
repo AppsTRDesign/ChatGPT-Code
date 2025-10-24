@@ -35,6 +35,9 @@ if ($playerId === '') {
     $previous = trim((string) ($payload['previous'] ?? ''));
     if ($previous !== '') {
         Notifications::removePlayer($previous);
+        if (isset($_SESSION['onesignal_player_id']) && $_SESSION['onesignal_player_id'] === $previous) {
+            unset($_SESSION['onesignal_player_id']);
+        }
     }
     echo json_encode(['status' => 'ok']);
     exit;
@@ -52,5 +55,7 @@ if (!$registered) {
     echo json_encode(['status' => 'error', 'message' => 'Cihaz kaydedilemedi.']);
     exit;
 }
+
+$_SESSION['onesignal_player_id'] = $playerId;
 
 echo json_encode(['status' => 'ok', 'registered' => true]);

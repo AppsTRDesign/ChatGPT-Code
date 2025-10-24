@@ -18,13 +18,53 @@ if (!Settings::onesignalEnabled()) {
 try {
     $user = Auth::user();
     $userId = $user ? (int) $user['id'] : null;
+    $playerId = isset($_SESSION['onesignal_player_id']) && is_string($_SESSION['onesignal_player_id'])
+        ? trim($_SESSION['onesignal_player_id'])
+        : null;
+    if ($playerId === '') {
+        $playerId = null;
+    }
+
     $sessionKey = Activity::sessionKey();
 
     $db = Helpers::db();
 
-    $sql = "SELECT id, title, message, target_url, image_path, audience FROM web_push_campaigns
-            WHERE status = 'sent'
-              AND (audience = 'all' OR (:user_id IS NOT NULL AND target_ids IS NOT NULL AND FIND_IN_SET(:user_id, target_ids)))
+    $columns = [];
+    try {
+        $columnStmt = $db->query("SHOW COLUMNS FROM web_push_campaigns");
+        $columns = array_map(static fn(array $row) => $row['Field'] ?? null, $columnStmt->fetchAll());
+    } catch (\Throwable $schemaException) {
+        $columns = [];
+    }
+
+    $columns = array_filter(array_map(static fn($value) => is_string($value) ? strtolower($value) : null, $columns));
+    $hasAudience = in_array('audience', $columns, true);
+    $hasTargetIds = in_array('target_ids', $columns, true);
+
+    $whereParts = ["status = 'sent'"];
+    $params = [
+        'user_id' => $userId,
+        'session_key' => $sessionKey,
+    ];
+
+    if ($hasAudience) {
+        $targetClauses = ["audience = 'all'"];
+        if ($hasTargetIds) {
+            $targetClauses[] = "(:user_id IS NOT NULL AND (FIND_IN_SET(CONCAT('user:', :user_id), COALESCE(target_ids, '')) OR FIND_IN_SET(:user_id, COALESCE(target_ids, ''))))";
+            $targetClauses[] = "(:player_id IS NOT NULL AND (FIND_IN_SET(CONCAT('player:', :player_id), COALESCE(target_ids, '')) OR FIND_IN_SET(:player_id, COALESCE(target_ids, ''))))";
+            $params['player_id'] = $playerId;
+        } else {
+            $targetClauses[] = '(:user_id IS NOT NULL)';
+        }
+
+        $whereParts[] = '(' . implode(' OR ', $targetClauses) . ')';
+    }
+
+    $whereSql = 'WHERE ' . implode(' AND ', $whereParts);
+
+    $sql = "SELECT id, title, message, target_url, image_path" . ($hasAudience ? ', audience' : '') . "
+            FROM web_push_campaigns
+            $whereSql
               AND id NOT IN (
                   SELECT campaign_id FROM web_push_events
                   WHERE event_type = 'delivered' AND session_key = :session_key
@@ -33,10 +73,7 @@ try {
             LIMIT 10";
 
     $stmt = $db->prepare($sql);
-    $stmt->execute([
-        'user_id' => $userId,
-        'session_key' => $sessionKey,
-    ]);
+    $stmt->execute($params);
 
     $campaigns = [];
     $logoUrl = Settings::logoUrl();
