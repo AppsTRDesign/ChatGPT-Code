@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
 use App\Helpers;
+use App\QrHistory;
 use App\QrService;
 use App\Subscription;
 use App\UsageLogger;
@@ -101,23 +102,47 @@ try {
         'background_transparent' => $transparentBackground,
     ], $logoPath, $formats);
 
-    UsageLogger::log((int) $user['id'], 'client_qr', 'success', 'Panel üretimi');
+    $history = QrHistory::record(
+        (int) $user['id'],
+        'client',
+        $type,
+        $content,
+        [
+            'color' => $color,
+            'background' => $background,
+            'width' => $width,
+            'height' => $height,
+            'transparent_background' => $transparentBackground,
+            'logo' => $logo !== '' ? $logo : null,
+            'formats' => $formats,
+        ],
+        $assets,
+        [
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'source' => 'panel',
+        ]
+    );
+
+    UsageLogger::log((int) $user['id'], 'client_qr', 'success', 'Panel üretimi #' . $history['id']);
     $remainingAfter = Subscription::usageLeft((int) $user['id']);
 
     $downloads = [];
-    $preview = null;
-    foreach ($assets as $format => $binary) {
-        $mime = $format === 'jpg' ? 'image/jpeg' : ($format === 'svg' ? 'image/svg+xml' : 'image/png');
-        $encoded = base64_encode($binary);
-        $dataUri = 'data:' . $mime . ';base64,' . $encoded;
-        if ($preview === null) {
+    $preview = $history['preview_data'] ?? null;
+    foreach ($history['files'] as $file) {
+        $format = $file['format'];
+        $mime = $file['mime'] ?? ($format === 'jpg' ? 'image/jpeg' : ($format === 'svg' ? 'image/svg+xml' : 'image/png'));
+        $binary = $assets[$format] ?? null;
+        $dataUri = $binary !== null ? 'data:' . $mime . ';base64,' . base64_encode($binary) : null;
+        if ($preview === null && $dataUri !== null) {
             $preview = $dataUri;
         }
         $downloads[] = [
             'format' => $format,
             'mime' => $mime,
-            'data' => $dataUri,
             'label' => strtoupper($format),
+            'data' => $dataUri,
+            'url' => '/client/qr-download.php?id=' . $history['id'] . '&format=' . $format,
         ];
     }
 
@@ -126,6 +151,7 @@ try {
         'preview' => $preview,
         'downloads' => $downloads,
         'remaining' => $remainingAfter,
+        'history_id' => $history['id'],
     ]);
 } catch (Throwable $e) {
     UsageLogger::log((int) $user['id'], 'client_qr', 'error', $e->getMessage());

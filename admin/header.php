@@ -49,6 +49,7 @@ $logoUrl = Settings::logoUrl();
                 <a class="nav-link" href="/admin/payments">Ödeme Bildirimleri</a>
                 <a class="nav-link" href="/admin/settings">Ayarlar</a>
                 <a class="nav-link" href="/admin/usage">API Raporları</a>
+                <a class="nav-link" href="/admin/qr-history">QR Kayıtları</a>
                 <a class="nav-link" href="/logout">Çıkış</a>
             </nav>
         </div>

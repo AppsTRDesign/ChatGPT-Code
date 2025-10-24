@@ -79,6 +79,12 @@ const paymentStatusMap = {
 };
 
 window.appHandlers = {
+    dateTimeFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">-</span>';
+        }
+        return `<span class="small">${formatDateTime(value)}</span>`;
+    },
     packageResponseHandler: (response) => response,
     packagePriceFormatter: (value) => {
         const price = Number(value || 0);
@@ -275,6 +281,44 @@ window.appHandlers = {
             return '<span class="text-white-50">-</span>';
         }
         return `<span class="small">${formatDateTime(value)}</span>`;
+    },
+    clientQrHistoryResponseHandler: (response) => {
+        if (window.clientQrHistoryConfig && window.clientQrHistoryConfig.totalElementId) {
+            const el = document.getElementById(window.clientQrHistoryConfig.totalElementId);
+            if (el) {
+                el.textContent = typeof response.total === 'number' ? response.total : '-';
+            }
+        }
+        return response;
+    },
+    clientQrPreviewFormatter: (value) => {
+        if (!value) {
+            return '<span class="text-white-50">Önizleme yok</span>';
+        }
+        return `<img src="${value}" alt="QR" class="img-thumbnail bg-dark border-0" style="max-width:72px;max-height:72px;">`;
+    },
+    clientQrActionsFormatter: (value, row) => {
+        const table = document.getElementById('clientQrHistoryTable');
+        const csrf = table ? table.dataset.csrf || '' : '';
+        const downloadButtons = (row.downloads || []).map((file) => {
+            const label = escapeHtml(file.label || file.format || 'İndir');
+            const url = escapeHtml(file.url || '#');
+            return `<a href="${url}" class="btn btn-sm btn-outline-primary" download>${label}</a>`;
+        }).join('');
+        const deleteButton = `<button type="button" class="btn btn-sm btn-outline-danger" data-ajax-action data-url="/client/qr-delete" data-id="${row.id}" data-table="clientQrHistoryTable" data-csrf="${csrf}" data-confirm="Bu kaydı silmek istiyor musunuz?">Sil</button>`;
+        return `<div class="d-flex flex-wrap gap-2 justify-content-end">${downloadButtons}${deleteButton}</div>`;
+    },
+    adminQrHistoryResponseHandler: (response) => response,
+    adminQrActionsFormatter: (value, row) => {
+        const table = document.getElementById('adminQrHistoryTable');
+        const csrf = table ? table.dataset.csrf || '' : '';
+        const downloadButtons = (row.downloads || []).map((file) => {
+            const label = escapeHtml(file.label || file.format || 'İndir');
+            const url = escapeHtml(file.url || '#');
+            return `<a href="${url}" class="btn btn-sm btn-outline-primary" download>${label}</a>`;
+        }).join('');
+        const deleteButton = `<button type="button" class="btn btn-sm btn-outline-danger" data-ajax-action data-url="/admin/qr-delete" data-id="${row.id}" data-table="adminQrHistoryTable" data-csrf="${csrf}" data-confirm="QR kaydını silmek istediğinizden emin misiniz?">Sil</button>`;
+        return `<div class="d-flex flex-wrap gap-2 justify-content-end">${downloadButtons}${deleteButton}</div>`;
     },
 };
 

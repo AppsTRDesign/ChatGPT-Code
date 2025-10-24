@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config/config.php';
 
 use App\Auth;
 use App\Helpers;
+use App\PackageManager;
+use App\Subscription;
 
 Auth::requireRole('admin');
 $db = Helpers::db();
@@ -21,6 +23,9 @@ if (!$userRow) {
     Helpers::flash('message', 'Üye bulunamadı.');
     redirect('/admin/users');
 }
+
+$currentPackage = Subscription::activeForUser($id);
+$packages = PackageManager::allActive();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!Helpers::validateCsrf($_POST['csrf_token'] ?? '')) {
@@ -61,7 +66,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $update = $db->prepare($sql);
     $update->execute($params);
 
-    Helpers::flash('message', 'Üye bilgileri güncellendi.');
+    $messages = ['Üye bilgileri güncellendi.'];
+
+    if (isset($_POST['package_id'])) {
+        $packageId = (int) $_POST['package_id'];
+        if ($packageId === 0) {
+            Subscription::cancelActive($id);
+            $messages[] = 'Aktif paket iptal edildi.';
+        } elseif ($packageId > 0) {
+            if (!$currentPackage || (int) $currentPackage['package_id'] !== $packageId) {
+                if (Subscription::assignPackage($id, $packageId)) {
+                    $messages[] = 'Yeni paket atandı ve aktifleştirildi.';
+                } else {
+                    $messages[] = 'Seçilen paket atanamadı.';
+                }
+            }
+        }
+    }
+
+    Helpers::flash('message', implode(' ', $messages));
     redirect('/admin/users');
 }
 
@@ -91,6 +114,23 @@ require __DIR__ . '/header.php';
             <label class="form-label">Şifre (Opsiyonel)</label>
             <input type="password" class="form-control" name="password" placeholder="Yeni şifre">
             <small class="form-text">Şifre girmediğinizde mevcut şifre korunur.</small>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Paket Yönetimi</label>
+            <select name="package_id" class="form-select">
+                <option value="-1">Değişiklik yapma</option>
+                <option value="0">Aktif paketi iptal et</option>
+                <?php foreach ($packages as $package): ?>
+                    <option value="<?= (int) $package['id'] ?>" <?= $currentPackage && (int) $currentPackage['package_id'] === (int) $package['id'] ? 'selected' : '' ?>>
+                        <?= Helpers::e($package['name']) ?> (<?= Helpers::e($package['monthly_limit']) ?>/ay)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <?php if ($currentPackage): ?>
+                <small class="form-text text-white-50">Mevcut paket: <?= Helpers::e($currentPackage['name']) ?>, bitiş <?= Helpers::e(date('d.m.Y', strtotime((string) $currentPackage['expires_at']))) ?></small>
+            <?php else: ?>
+                <small class="form-text text-white-50">Aktif paket bulunmuyor.</small>
+            <?php endif; ?>
         </div>
         <div class="col-12 d-flex justify-content-between">
             <a href="/admin/users" class="btn btn-outline-light">İptal</a>

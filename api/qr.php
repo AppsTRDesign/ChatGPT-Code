@@ -4,6 +4,7 @@ require_once __DIR__ . '/../config/config.php';
 use App\Helpers;
 use App\TokenManager;
 use App\Subscription;
+use App\QrHistory;
 use App\QrService;
 use App\UsageLogger;
 
@@ -200,7 +201,34 @@ try {
         'background_transparent' => $backgroundTransparent,
     ], $logoPath, $formats);
 
-    UsageLogger::log($userId, 'api_qr', 'success', 'API isteği');
+    $history = QrHistory::record(
+        $userId,
+        'api',
+        $type,
+        $content,
+        [
+            'color' => $color,
+            'background' => $background,
+            'width' => $width,
+            'height' => $height,
+            'transparent_background' => $backgroundTransparent,
+            'aspect_ratio' => $aspectRatio,
+            'formats' => array_keys($assets),
+            'logo_url' => $data['logo_url'] ?? null,
+        ],
+        $assets,
+        [
+            'request_method' => $method,
+            'embed' => $embed,
+            'output' => $outputParam,
+            'token_id' => $tokenRow['id'] ?? null,
+            'token_label' => $tokenRow['label'] ?? null,
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+        ]
+    );
+
+    UsageLogger::log($userId, 'api_qr', 'success', 'API isteği #' . $history['id']);
     $remainingAfter = Subscription::usageLeft($userId);
 
     if ($wantsImage) {
@@ -210,6 +238,7 @@ try {
         header('Content-Type: ' . $mime);
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Access-Control-Allow-Origin: *');
+        header('X-QR-History-Id: ' . $history['id']);
         echo $binary;
     } else {
         $embedParams = [
@@ -248,6 +277,7 @@ try {
                 'format' => $format,
                 'mime' => $mime,
                 'data' => base64_encode($binary),
+                'history_url' => rtrim(BASE_URL, '/') . '/client/qr-download.php?id=' . $history['id'] . '&format=' . $format,
             ];
         }
 
@@ -257,6 +287,7 @@ try {
             'downloads' => $downloads,
             'embed_url' => $embedUrl,
             'remaining' => $remainingAfter,
+            'history_id' => $history['id'],
         ]);
     }
 } catch (Throwable $e) {

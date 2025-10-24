@@ -1,7 +1,9 @@
 /vendor/
 /uploads/logos/*
 /uploads/temp/*
+/uploads/qr/*
 !uploads/logos/.gitkeep
 !uploads/temp/.gitkeep
+!uploads/qr/.gitkeep
 /.idea/
 .DS_Store

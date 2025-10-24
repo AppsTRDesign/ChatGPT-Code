@@ -50,6 +50,7 @@ $faviconUrl = Settings::faviconUrl();
                 <li class="nav-item"><a class="nav-link" href="/api-docs">API</a></li>
                 <?php if (Auth::user()): ?>
                     <li class="nav-item"><a class="nav-link" href="/client/qr-builder">QR Oluştur</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/client/qr-history">QR Geçmişi</a></li>
                     <li class="nav-item"><a class="nav-link" href="/client/tokens">Tokenlar</a></li>
                     <li class="nav-item"><a class="nav-link" href="/client/purchase">Paketler</a></li>
                     <li class="nav-item"><a class="nav-link" href="/client/profile">Profil</a></li>

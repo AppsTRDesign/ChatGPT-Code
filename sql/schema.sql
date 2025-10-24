@@ -63,6 +63,19 @@ CREATE TABLE api_usage_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE qr_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    origin ENUM('client','api') DEFAULT 'client',
+    type VARCHAR(60) NOT NULL,
+    content TEXT NOT NULL,
+    options_json TEXT,
+    files_json TEXT NOT NULL,
+    meta_json TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE payment_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     iyzico_enabled TINYINT(1) DEFAULT 0,

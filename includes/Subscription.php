@@ -83,6 +83,50 @@ class Subscription
         ]);
     }
 
+    public static function cancelActive(int $userId): void
+    {
+        $stmt = Helpers::db()->prepare('UPDATE user_packages SET status = "cancelled", expires_at = NOW() WHERE user_id = :user_id AND status = "active"');
+        $stmt->execute(['user_id' => $userId]);
+    }
+
+    public static function assignPackage(int $userId, int $packageId): bool
+    {
+        $db = Helpers::db();
+        $stmt = $db->prepare('SELECT id, monthly_limit, COALESCE(duration_days, 30) AS duration_days FROM packages WHERE id = :id AND is_active = 1');
+        $stmt->execute(['id' => $packageId]);
+        $package = $stmt->fetch();
+
+        if (!$package) {
+            return false;
+        }
+
+        try {
+            $db->beginTransaction();
+            self::cancelActive($userId);
+
+            $duration = max(1, (int) $package['duration_days']);
+            $expiresAt = (new DateTimeImmutable())->modify('+' . $duration . ' days')->format('Y-m-d H:i:s');
+
+            $insert = $db->prepare('INSERT INTO user_packages (user_id, package_id, status, payment_method, note, created_at, activated_at, expires_at, limit_snapshot, duration_days)
+                VALUES (:user_id, :package_id, "active", "admin", "Admin ataması", NOW(), NOW(), :expires_at, :limit_snapshot, :duration_days)');
+            $insert->execute([
+                'user_id' => $userId,
+                'package_id' => $packageId,
+                'expires_at' => $expiresAt,
+                'limit_snapshot' => $package['monthly_limit'],
+                'duration_days' => $duration,
+            ]);
+
+            $db->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            return false;
+        }
+    }
+
     public static function statusLabel(string $status): string
     {
         return self::STATUS_LABELS[$status] ?? ucfirst($status);
