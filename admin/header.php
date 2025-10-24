@@ -20,12 +20,6 @@ $appConfig = [
     ],
     'csrf' => Helpers::csrfToken(),
 ];
-$onesignalConfig = Settings::onesignalConfig();
-if (!empty($onesignalConfig['enabled'])) {
-    $onesignalConfig['workerPath'] = '/OneSignalSDKWorker.js';
-    $onesignalConfig['updaterPath'] = '/OneSignalSDKUpdaterWorker.js';
-}
-$appConfig['onesignal'] = $onesignalConfig;
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -70,7 +64,6 @@ $appConfig['onesignal'] = $onesignalConfig;
                 <a class="nav-link" href="/admin/purchases">Satın Alımlar</a>
                 <a class="nav-link" href="/admin/payments">Ödeme Bildirimleri</a>
                 <a class="nav-link" href="/admin/settings">Ayarlar</a>
-                <a class="nav-link" href="/admin/push">Web Push</a>
                 <a class="nav-link" href="/admin/usage">API Raporları</a>
                 <a class="nav-link" href="/admin/qr-history">QR Kayıtları</a>
                 <a class="nav-link" href="/admin/online">Canlı Ziyaretçiler</a>
