@@ -2,6 +2,7 @@
 
 namespace App;
 
+use DateTimeImmutable;
 use PDO;
 
 class NotificationService
@@ -117,37 +118,12 @@ class NotificationService
 
     public static function metrics(string $range = 'weekly', ?int $notificationId = null): array
     {
-        $range = in_array($range, ['daily', 'weekly', 'monthly', 'yearly'], true) ? $range : 'weekly';
-        $now = new \DateTimeImmutable('now');
-        $start = $now->modify('-6 days');
-        $groupFormat = '%Y-%m-%d';
-        $labelFormat = 'd.m';
-        $steps = 7;
-        $increment = '+1 day';
-
-        switch ($range) {
-            case 'daily':
-                $steps = 24;
-                $start = $now->setTime((int) $now->format('H'), 0)->modify('-23 hours');
-                $groupFormat = '%Y-%m-%d %H:00:00';
-                $labelFormat = 'H:i';
-                $increment = '+1 hour';
-                break;
-            case 'monthly':
-                $steps = 30;
-                $start = $now->setTime(0, 0)->modify('-29 days');
-                $groupFormat = '%Y-%m-%d';
-                $labelFormat = 'd.m';
-                $increment = '+1 day';
-                break;
-            case 'yearly':
-                $steps = 12;
-                $start = $now->modify('first day of this month')->setTime(0, 0)->modify('-11 months');
-                $groupFormat = '%Y-%m-01';
-                $labelFormat = 'm.Y';
-                $increment = '+1 month';
-                break;
-        }
+        $config = self::resolveRangeConfig($range);
+        $start = $config['start'];
+        $groupFormat = $config['groupFormat'];
+        $labelFormat = $config['labelFormat'];
+        $steps = $config['steps'];
+        $increment = $config['increment'];
 
         $db = Helpers::db();
         $params = ['start' => $start->format('Y-m-d H:i:s')];
@@ -192,6 +168,170 @@ class NotificationService
         }
 
         return array_reverse($result);
+    }
+
+    public static function breakdownData(string $range = 'weekly', ?int $notificationId = null, array $options = []): array
+    {
+        $config = self::resolveRangeConfig($range);
+        $db = Helpers::db();
+
+        $search = trim((string) ($options['search'] ?? ''));
+        $sort = strtolower((string) ($options['sort'] ?? 'clicked'));
+        $order = strtoupper((string) ($options['order'] ?? 'DESC'));
+        $limit = isset($options['limit']) ? (int) $options['limit'] : 25;
+        if ($limit < 0) {
+            $limit = 0;
+        }
+        $offset = max(0, (int) ($options['offset'] ?? 0));
+
+        $sortMap = [
+            'country' => 'country',
+            'city' => 'city',
+            'language' => 'language',
+            'platform' => 'platform',
+            'delivered' => 'delivered',
+            'clicked' => 'clicked',
+            'dismissed' => 'dismissed',
+            'total' => 'total_events',
+        ];
+
+        if (!array_key_exists($sort, $sortMap)) {
+            $sort = 'clicked';
+        }
+        if (!in_array($order, ['ASC', 'DESC'], true)) {
+            $order = 'DESC';
+        }
+
+        $countryExpr = "COALESCE(NULLIF(country, ''), 'Bilinmiyor')";
+        $cityExpr = "COALESCE(NULLIF(city, ''), '-')";
+        $languageExpr = "COALESCE(NULLIF(language, ''), '-')";
+        $platformExpr = "COALESCE(NULLIF(platform, ''), 'Genel')";
+
+        $params = ['start' => $config['start']->format('Y-m-d H:i:s')];
+        $filter = '';
+        if ($notificationId) {
+            $filter = ' AND notification_id = :notification_id';
+            $params['notification_id'] = $notificationId;
+        }
+
+        $base = "FROM web_notification_events WHERE created_at >= :start$filter";
+
+        $aggregation = "SELECT
+                $countryExpr AS country,
+                $cityExpr AS city,
+                $languageExpr AS language,
+                $platformExpr AS platform,
+                SUM(action = 'delivered') AS delivered,
+                SUM(action = 'clicked') AS clicked,
+                SUM(action = 'dismissed') AS dismissed,
+                COUNT(*) AS total_events
+            $base
+            GROUP BY $countryExpr, $cityExpr, $languageExpr, $platformExpr";
+
+        if ($search !== '') {
+            $aggregation .= ' HAVING (country LIKE :search OR city LIKE :search OR language LIKE :search OR platform LIKE :search)';
+            $params['search'] = '%' . $search . '%';
+        }
+
+        $countSql = "SELECT COUNT(*) FROM ($aggregation) aggregated";
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute($params);
+        $total = (int) ($countStmt->fetchColumn() ?: 0);
+
+        $summarySql = "SELECT
+                SUM(delivered) AS delivered,
+                SUM(clicked) AS clicked,
+                SUM(dismissed) AS dismissed
+            FROM ($aggregation) aggregated";
+        $summaryStmt = $db->prepare($summarySql);
+        $summaryStmt->execute($params);
+        $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $summary = [
+            'delivered' => (int) ($summaryRow['delivered'] ?? 0),
+            'clicked' => (int) ($summaryRow['clicked'] ?? 0),
+            'dismissed' => (int) ($summaryRow['dismissed'] ?? 0),
+        ];
+
+        $sortColumn = $sortMap[$sort] ?? 'clicked';
+        $dataSql = $aggregation . " ORDER BY $sortColumn $order";
+        $applyLimit = $limit > 0;
+        if ($applyLimit) {
+            $dataSql .= ' LIMIT :limit OFFSET :offset';
+        }
+
+        $stmt = $db->prepare($dataSql);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue(':' . $key, $value);
+        }
+        if ($applyLimit) {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+
+        $rows = array_map(static function (array $row): array {
+            return [
+                'country' => $row['country'] !== null && $row['country'] !== '' ? $row['country'] : 'Bilinmiyor',
+                'city' => $row['city'] !== null && $row['city'] !== '' ? $row['city'] : '-',
+                'language' => $row['language'] !== null && $row['language'] !== '' ? $row['language'] : '-',
+                'platform' => $row['platform'] !== null && $row['platform'] !== '' ? $row['platform'] : 'Genel',
+                'delivered' => (int) $row['delivered'],
+                'clicked' => (int) $row['clicked'],
+                'dismissed' => (int) $row['dismissed'],
+                'total' => (int) $row['total_events'],
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+
+        return [
+            'total' => $total,
+            'rows' => $rows,
+            'summary' => $summary,
+        ];
+    }
+
+    private static function resolveRangeConfig(string $range): array
+    {
+        $allowed = ['daily', 'weekly', 'monthly', 'yearly'];
+        $range = in_array($range, $allowed, true) ? $range : 'weekly';
+        $now = new DateTimeImmutable('now');
+        $start = $now->modify('-6 days');
+        $groupFormat = '%Y-%m-%d';
+        $labelFormat = 'd.m';
+        $steps = 7;
+        $increment = '+1 day';
+
+        switch ($range) {
+            case 'daily':
+                $steps = 24;
+                $start = $now->setTime((int) $now->format('H'), 0)->modify('-23 hours');
+                $groupFormat = '%Y-%m-%d %H:00:00';
+                $labelFormat = 'H:i';
+                $increment = '+1 hour';
+                break;
+            case 'monthly':
+                $steps = 30;
+                $start = $now->setTime(0, 0)->modify('-29 days');
+                $groupFormat = '%Y-%m-%d';
+                $labelFormat = 'd.m';
+                $increment = '+1 day';
+                break;
+            case 'yearly':
+                $steps = 12;
+                $start = $now->modify('first day of this month')->setTime(0, 0)->modify('-11 months');
+                $groupFormat = '%Y-%m-01';
+                $labelFormat = 'm.Y';
+                $increment = '+1 month';
+                break;
+        }
+
+        return [
+            'range' => $range,
+            'start' => $start,
+            'groupFormat' => $groupFormat,
+            'labelFormat' => $labelFormat,
+            'steps' => $steps,
+            'increment' => $increment,
+        ];
     }
 
     private static function decodeList(?string $json): array

@@ -49,9 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <h1 class="h3 mb-4">Web Bildirimleri</h1>
-<div class="row g-4 align-items-stretch">
-    <div class="col-12 col-xl-5">
-        <div class="card p-4 h-100">
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card p-4">
             <h2 class="h5 mb-3">Yeni Bildirim Gönder</h2>
             <form method="post" class="row g-3">
                 <input type="hidden" name="csrf_token" value="<?= Helpers::e($csrf) ?>">
@@ -105,9 +105,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </form>
         </div>
-        <div class="card p-4 mt-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0">Gönderim Geçmişi</h2>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-12">
+        <div class="card p-4">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Bildirim İstatistikleri</h2>
+                    <p class="text-white-50 mb-0">Gösterim, tıklama ve kapatma eğilimlerini inceleyin.</p>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <select class="form-select form-select-sm w-auto" id="notificationRange">
+                        <option value="daily">Son 24 Saat</option>
+                        <option value="weekly" selected>Son 7 Gün</option>
+                        <option value="monthly">Son 30 Gün</option>
+                        <option value="yearly">Son 12 Ay</option>
+                    </select>
+                    <select class="form-select form-select-sm w-auto" id="notificationFilter">
+                        <option value="">Tüm Bildirimler</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-export="pdf">PDF</button>
+                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-export="excel">Excel</button>
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="notificationChart" height="220"></canvas>
+            </div>
+            <ul class="list-unstyled mt-4 mb-0" id="notificationSummary">
+                <li class="text-white-50">Veri yükleniyor...</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-12">
+        <div class="card p-4">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Gönderim Geçmişi</h2>
+                    <p class="text-white-50 mb-0">Planlanan tüm bildirimleri, hedeflerini ve performansını inceleyin.</p>
+                </div>
                 <button class="btn btn-sm btn-outline-light" type="button" data-refresh-table="#webNotificationsTable">Yenile</button>
             </div>
             <div class="table-responsive">
@@ -139,35 +179,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </thead>
                 </table>
             </div>
-        </div>
-    </div>
-    <div class="col-12 col-xl-7">
-        <div class="card p-4 h-100">
+            <hr class="border-secondary my-4">
             <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
                 <div>
-                    <h2 class="h5 mb-1">Bildirim İstatistikleri</h2>
-                    <p class="text-white-50 mb-0">Gösterim, tıklama ve kapatma eğilimlerini inceleyin.</p>
+                    <h3 class="h6 mb-1">Detaylı İstatistikler</h3>
+                    <p class="text-white-50 mb-0 small">Ülke, şehir, platform ve dil bazında performans dağılımı.</p>
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    <select class="form-select form-select-sm w-auto" id="notificationRange">
+                    <select class="form-select form-select-sm w-auto" id="notificationBreakdownRange">
                         <option value="daily">Son 24 Saat</option>
                         <option value="weekly" selected>Son 7 Gün</option>
                         <option value="monthly">Son 30 Gün</option>
                         <option value="yearly">Son 12 Ay</option>
                     </select>
-                    <select class="form-select form-select-sm w-auto" id="notificationFilter">
-                        <option value="">Tüm Bildirimler</option>
-                    </select>
-                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-export="pdf">PDF</button>
-                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-export="excel">Excel</button>
+                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-breakdown-export="pdf">PDF</button>
+                    <button class="btn btn-sm btn-outline-light" type="button" data-notification-breakdown-export="excel">Excel</button>
                 </div>
             </div>
-            <div class="chart-wrapper">
-                <canvas id="notificationChart" height="220"></canvas>
-            </div>
-            <ul class="list-unstyled mt-4 mb-0" id="notificationSummary">
+            <ul class="list-unstyled small text-white mb-3" id="notificationBreakdownSummary">
                 <li class="text-white-50">Veri yükleniyor...</li>
             </ul>
+            <div class="table-responsive">
+                <table
+                    id="notificationBreakdownTable"
+                    class="table table-dark table-hover align-middle"
+                    data-toggle="table"
+                    data-url="/admin/data/web-notification-breakdown.php"
+                    data-search="true"
+                    data-pagination="true"
+                    data-page-list="[10,25,50]"
+                    data-side-pagination="server"
+                    data-query-params="window.appHandlers.notificationBreakdownParams"
+                    data-response-handler="window.appHandlers.notificationBreakdownResponse"
+                    data-sort-name="clicked"
+                    data-sort-order="desc"
+                    data-mobile-responsive="true"
+                    data-card-view="false"
+                    data-locale="tr-TR"
+                >
+                    <thead>
+                        <tr>
+                            <th data-field="country" data-sortable="true">Ülke</th>
+                            <th data-field="city" data-sortable="true">Şehir</th>
+                            <th data-field="language" data-sortable="true">Dil</th>
+                            <th data-field="platform" data-sortable="true">Platform</th>
+                            <th data-field="delivered" data-align="right" data-sortable="true" data-formatter="window.appHandlers.numberFormatter">Gösterim</th>
+                            <th data-field="clicked" data-align="right" data-sortable="true" data-formatter="window.appHandlers.numberFormatter">Tıklama</th>
+                            <th data-field="dismissed" data-align="right" data-sortable="true" data-formatter="window.appHandlers.numberFormatter">Kapatma</th>
+                            <th data-field="total" data-align="right" data-sortable="true" data-formatter="window.appHandlers.numberFormatter">Toplam</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
         </div>
     </div>
 </div>

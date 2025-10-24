@@ -531,6 +531,28 @@ window.appHandlers = {
 
         return `<div class="d-flex flex-column"><span>${escapeHtml(languageLabel)}</span><span class="text-white-50 small">${escapeHtml(platformLabel)}</span></div>`;
     },
+    numberFormatter: (value) => {
+        const numeric = Number(value || 0);
+        return numeric ? numeric.toLocaleString('tr-TR') : '0';
+    },
+    notificationBreakdownParams: (params) => {
+        const rangeSelect = document.getElementById('notificationBreakdownRange');
+        const notificationFilter = document.getElementById('notificationFilter');
+        const range = rangeSelect ? rangeSelect.value : 'weekly';
+        const notificationId = notificationFilter && notificationFilter.value ? notificationFilter.value : '';
+        return {
+            ...params,
+            range,
+            notification_id: notificationId,
+            mode: 'table',
+        };
+    },
+    notificationBreakdownResponse: (response) => {
+        if (response && response.summary) {
+            updateNotificationBreakdownSummary(response.summary);
+        }
+        return response;
+    },
     onlineHandler: (response) => {
         const rows = (response.rows || []).map((row) => ({
             ...row,
@@ -562,9 +584,11 @@ let onlineMetrics = [];
 let notificationChart;
 let notificationMetrics = [];
 const notificationQueue = [];
-let notificationActive = false;
 const notificationSeen = new Set();
 const notificationEventCache = new Set();
+const MAX_ACTIVE_NOTIFICATIONS = 3;
+let notificationActiveCount = 0;
+let notificationHost;
 
 
 const updateUsageChart = (labels, data) => {
@@ -904,6 +928,174 @@ const updateNotificationSummary = (rows) => {
     `;
 };
 
+function updateNotificationBreakdownSummary(summary) {
+    const container = document.getElementById('notificationBreakdownSummary');
+    if (!container) {
+        return;
+    }
+
+    if (!summary) {
+        container.innerHTML = '<li class="text-white-50">Veri bulunamadı.</li>';
+        return;
+    }
+
+    const delivered = Number(summary.delivered || 0);
+    const clicked = Number(summary.clicked || 0);
+    const dismissed = Number(summary.dismissed || 0);
+    const total = delivered + clicked + dismissed;
+    const ctr = delivered ? ((clicked / delivered) * 100).toFixed(1) : '0.0';
+    const dismissRate = delivered ? ((dismissed / delivered) * 100).toFixed(1) : '0.0';
+
+    container.innerHTML = `
+        <li class="mb-1"><strong>Gösterim:</strong> ${delivered.toLocaleString('tr-TR')}</li>
+        <li class="mb-1"><strong>Tıklama:</strong> ${clicked.toLocaleString('tr-TR')} <span class="text-white-50">(%${ctr})</span></li>
+        <li class="mb-1"><strong>Kapatma:</strong> ${dismissed.toLocaleString('tr-TR')} <span class="text-white-50">(%${dismissRate})</span></li>
+        <li class="mb-0"><strong>Toplam Etkileşim:</strong> ${total.toLocaleString('tr-TR')}</li>
+    `;
+}
+
+const refreshNotificationBreakdownTable = () => {
+    if (!window.jQuery) {
+        return;
+    }
+    try {
+        window.jQuery('#notificationBreakdownTable').bootstrapTable('refresh', { silent: true });
+    } catch (error) {
+        console.warn('Bildirim dağılımı yenilenemedi', error);
+    }
+};
+
+const exportNotificationBreakdown = async (format) => {
+    const rangeSelect = document.getElementById('notificationBreakdownRange');
+    const notificationFilter = document.getElementById('notificationFilter');
+    const params = new URLSearchParams({
+        mode: 'export',
+        range: rangeSelect ? rangeSelect.value : 'weekly',
+        sort: 'clicked',
+        order: 'DESC',
+    });
+
+    if (notificationFilter && notificationFilter.value) {
+        params.set('notification_id', notificationFilter.value);
+    }
+
+    try {
+        const response = await fetch(`/admin/data/web-notification-breakdown.php?${params.toString()}`, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'include',
+        });
+        const data = await response.json();
+        const rows = Array.isArray(data.rows) ? data.rows : [];
+
+        if (!rows.length) {
+            Swal.fire({ icon: 'warning', title: 'İndirilecek veri bulunamadı.', confirmButtonColor: '#0d6efd' });
+            return;
+        }
+
+        const normalized = rows.map((row) => {
+            const delivered = Number(row.delivered || 0);
+            const clicked = Number(row.clicked || 0);
+            const dismissed = Number(row.dismissed || 0);
+            const total = Number(row.total || delivered + clicked + dismissed);
+            return {
+                country: row.country || 'Bilinmiyor',
+                city: row.city || '-',
+                language: row.language ? String(row.language).toLocaleUpperCase('tr-TR') : '-',
+                platform: row.platform || 'Genel',
+                delivered,
+                clicked,
+                dismissed,
+                total,
+            };
+        });
+
+        if (format === 'pdf' && window.jspdf && window.jspdf.jsPDF) {
+            const doc = new window.jspdf.jsPDF({ orientation: 'landscape' });
+            registerTurkishFont(doc);
+            doc.setFont('DejaVuSans', 'bold');
+            doc.setFontSize(16);
+            doc.text('Web Bildirim Dağılımı', 14, 18);
+            doc.setFont('DejaVuSans', 'normal');
+            doc.autoTable({
+                head: [['Ülke', 'Şehir', 'Dil', 'Platform', 'Gösterim', 'Tıklama', 'Kapatma', 'Toplam']],
+                body: normalized.map((row) => [
+                    row.country,
+                    row.city,
+                    row.language,
+                    row.platform,
+                    row.delivered.toLocaleString('tr-TR'),
+                    row.clicked.toLocaleString('tr-TR'),
+                    row.dismissed.toLocaleString('tr-TR'),
+                    row.total.toLocaleString('tr-TR'),
+                ]),
+                startY: 26,
+                styles: {
+                    font: 'DejaVuSans',
+                    fontStyle: 'normal',
+                    fillColor: [13, 17, 35],
+                    textColor: [241, 246, 249],
+                },
+                headStyles: {
+                    font: 'DejaVuSans',
+                    fontStyle: 'bold',
+                    fillColor: [56, 189, 248],
+                    textColor: 20,
+                },
+                alternateRowStyles: { fillColor: [24, 33, 58] },
+            });
+            doc.save('web-bildirim-dagilim.pdf');
+            return;
+        }
+
+        if (format === 'excel' && window.XLSX) {
+            const rowsForExcel = normalized.map((row) => [
+                row.country,
+                row.city,
+                row.language,
+                row.platform,
+                row.delivered,
+                row.clicked,
+                row.dismissed,
+                row.total,
+            ]);
+            const worksheet = window.XLSX.utils.aoa_to_sheet([
+                ['Ülke', 'Şehir', 'Dil', 'Platform', 'Gösterim', 'Tıklama', 'Kapatma', 'Toplam'],
+                ...rowsForExcel,
+            ]);
+            const workbook = window.XLSX.utils.book_new();
+            window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Dağılım');
+            window.XLSX.writeFile(workbook, 'web-bildirim-dagilim.xlsx');
+            return;
+        }
+
+        Swal.fire({ icon: 'warning', title: 'Dışa aktarma desteklenmiyor.', confirmButtonColor: '#0d6efd' });
+    } catch (error) {
+        console.error('Bildirim dağılımı dışa aktarılamadı', error);
+        Swal.fire({ icon: 'error', title: 'Dışa aktarma başarısız.', confirmButtonColor: '#0d6efd' });
+    }
+};
+
+const localizeTableRefreshButtons = () => {
+    document.querySelectorAll('.bootstrap-table button[name="refresh"]').forEach((button) => {
+        if (!button) {
+            return;
+        }
+        if (!button.dataset.localized) {
+            button.dataset.localized = '1';
+            button.innerHTML = '<span class="refresh-icon" aria-hidden="true">⟳</span><span>Yenile</span>';
+        }
+        button.classList.remove('btn-secondary');
+        button.classList.add('btn-outline-light', 'd-inline-flex', 'align-items-center', 'gap-2');
+    });
+};
+
+if (window.jQuery) {
+    window.jQuery(document).on('post-body.bs.table post-header.bs.table load-success.bs.table', localizeTableRefreshButtons);
+}
+
 const loadNotificationMetrics = async (range, notificationId) => {
     const params = new URLSearchParams({ range });
     if (notificationId) {
@@ -984,18 +1176,41 @@ const detectClientPlatform = () => {
     return /android|iphone|ipad|ipod|mobile/.test(ua) ? 'mobile' : 'desktop';
 };
 
+const getNotificationHost = () => {
+    if (notificationHost && document.body.contains(notificationHost)) {
+        return notificationHost;
+    }
+    notificationHost = document.createElement('div');
+    notificationHost.className = 'inline-notification-host';
+    document.body.appendChild(notificationHost);
+    return notificationHost;
+};
+
 const removeNotificationElement = (element) => {
+    const finalize = () => {
+        if (notificationActiveCount > 0) {
+            notificationActiveCount -= 1;
+        }
+        if (notificationHost && !notificationHost.childElementCount) {
+            notificationHost.remove();
+            notificationHost = null;
+        }
+        if (notificationQueue.length) {
+            renderNotificationQueue();
+        }
+    };
+
     if (!element) {
-        notificationActive = false;
+        finalize();
         return;
     }
+
     element.classList.add('closing');
     setTimeout(() => {
-        element.remove();
-        notificationActive = false;
-        if (notificationQueue.length) {
-            displayNextNotification();
+        if (element.parentElement) {
+            element.parentElement.removeChild(element);
         }
+        finalize();
     }, 220);
 };
 
@@ -1061,6 +1276,23 @@ const buildNotificationElement = (notification) => {
         const img = document.createElement('img');
         img.src = notification.image;
         img.alt = notification.title;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.addEventListener('load', () => {
+            const width = img.naturalWidth || 0;
+            const height = img.naturalHeight || 0;
+            imageWrap.classList.remove('portrait', 'landscape', 'square');
+            if (width && height) {
+                const ratio = width / height;
+                if (ratio > 1.2) {
+                    imageWrap.classList.add('landscape');
+                } else if (ratio < 0.8) {
+                    imageWrap.classList.add('portrait');
+                } else {
+                    imageWrap.classList.add('square');
+                }
+            }
+        });
         imageWrap.appendChild(img);
         container.appendChild(imageWrap);
     }
@@ -1102,26 +1334,22 @@ const buildNotificationElement = (notification) => {
     return container;
 };
 
-const displayNextNotification = () => {
-    if (notificationActive || !notificationQueue.length) {
+function renderNotificationQueue() {
+    if (!notificationQueue.length) {
         return;
     }
-    const notification = notificationQueue.shift();
-    notificationActive = true;
-    const element = buildNotificationElement(notification);
-    document.body.appendChild(element);
-    setTimeout(() => {
-        element.classList.add('visible');
-    }, 10);
 
-    const duration = notification.url ? 12000 : 9000;
-    setTimeout(() => {
-        if (document.body.contains(element)) {
-            recordNotificationEvent(notification, 'dismissed');
-            removeNotificationElement(element);
-        }
-    }, duration);
-};
+    const host = getNotificationHost();
+    while (notificationQueue.length && notificationActiveCount < MAX_ACTIVE_NOTIFICATIONS) {
+        const notification = notificationQueue.shift();
+        const element = buildNotificationElement(notification);
+        notificationActiveCount += 1;
+        host.appendChild(element);
+        requestAnimationFrame(() => {
+            element.classList.add('visible');
+        });
+    }
+}
 
 const enqueueNotifications = (items) => {
     items.forEach((item) => {
@@ -1134,10 +1362,7 @@ const enqueueNotifications = (items) => {
         notificationSeen.add(item.id);
         notificationQueue.push(item);
     });
-
-    if (!notificationActive) {
-        displayNextNotification();
-    }
+    renderNotificationQueue();
 };
 
 const pollNotifications = async () => {
@@ -1743,6 +1968,8 @@ const submitAjaxAction = async (button) => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    localizeTableRefreshButtons();
+
     const flash = document.querySelector('[data-flash-message]');
     if (flash) {
         const { type, message } = flash.dataset;
@@ -1995,14 +2222,35 @@ document.addEventListener('DOMContentLoaded', () => {
         load();
         notificationRange.addEventListener('change', load);
         if (notificationFilter) {
-            notificationFilter.addEventListener('change', load);
+            notificationFilter.addEventListener('change', () => {
+                load();
+                refreshNotificationBreakdownTable();
+            });
         }
+    }
+
+    const notificationBreakdownRange = document.getElementById('notificationBreakdownRange');
+    if (notificationBreakdownRange) {
+        notificationBreakdownRange.addEventListener('change', () => {
+            refreshNotificationBreakdownTable();
+        });
+    }
+
+    if (document.getElementById('notificationBreakdownTable')) {
+        refreshNotificationBreakdownTable();
     }
 
     document.querySelectorAll('[data-notification-export]').forEach((button) => {
         button.addEventListener('click', (event) => {
             event.preventDefault();
             exportNotificationMetrics(button.dataset.notificationExport);
+        });
+    });
+
+    document.querySelectorAll('[data-notification-breakdown-export]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            exportNotificationBreakdown(button.dataset.notificationBreakdownExport);
         });
     });
 
