@@ -20,7 +20,7 @@ class Geo
         if ($configured) {
             $candidates[] = $configured;
         }
-        $candidates[] = __DIR__ . '/../storage/geo/GeoLite2-City.mmdb';
+        $candidates[] = __DIR__ . '/geo/GeoLite2-City.mmdb';
 
         foreach ($candidates as $candidate) {
             if (!$candidate) {

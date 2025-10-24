@@ -549,6 +549,10 @@ let usageChart;
 let usageMetrics = [];
 let dashboardTrafficChart;
 let dashboardRevenueChart;
+const dashboardState = {
+    trafficPeriod: 'daily',
+    revenuePeriod: 'daily',
+};
 let clientUsageChart;
 let clientUsageMetrics = [];
 
@@ -1400,11 +1404,15 @@ const loadClientUsageMetrics = async () => {
     }
 };
 
-const renderDashboardTraffic = (labels, usage, registrations) => {
+const renderDashboardTraffic = (series) => {
     const canvas = document.getElementById('dashboardTrafficChart');
     if (!canvas || !window.Chart) {
         return;
     }
+
+    const labels = Array.isArray(series?.labels) ? series.labels : [];
+    const usage = Array.isArray(series?.usage) ? series.usage : [];
+    const registrations = Array.isArray(series?.registrations) ? series.registrations : [];
 
     const data = {
         labels,
@@ -1465,11 +1473,14 @@ const renderDashboardTraffic = (labels, usage, registrations) => {
     }
 };
 
-const renderDashboardRevenue = (labels, totals) => {
+const renderDashboardRevenue = (series) => {
     const canvas = document.getElementById('dashboardRevenueChart');
     if (!canvas || !window.Chart) {
         return;
     }
+
+    const labels = Array.isArray(series?.labels) ? series.labels : [];
+    const totals = Array.isArray(series?.totals) ? series.totals : [];
 
     const data = {
         labels,
@@ -1546,28 +1557,121 @@ const updateDashboardSummary = (summary) => {
     container.innerHTML = rows.join('') || '<li class="text-white-50">Özet verisi bulunamadı.</li>';
 };
 
-const loadDashboardMetrics = async () => {
-    if (!window.dashboardConfig || !window.dashboardConfig.endpoint) {
-        return;
+const getDashboardEndpoint = () => {
+    if (window.dashboardConfig && window.dashboardConfig.endpoint) {
+        return window.dashboardConfig.endpoint;
+    }
+    return '/admin/data/dashboard-metrics';
+};
+
+const setDashboardRangeLabel = (chart, label) => {
+    const elementId = chart === 'traffic' ? 'trafficRangeLabel' : 'revenueRangeLabel';
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = label || '';
+    }
+};
+
+const fetchDashboardData = async (chart, period, format = 'json') => {
+    const endpoint = getDashboardEndpoint();
+    if (!endpoint) {
+        throw new Error('Gösterge paneli uç noktası tanımlı değil');
     }
 
+    const params = new URLSearchParams();
+    if (chart) {
+        params.set('chart', chart);
+    }
+    if (period) {
+        params.set('period', period);
+    }
+    if (format && format !== 'json') {
+        params.set('format', format);
+    }
+
+    const headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        Accept: format === 'json' ? 'application/json' : 'application/octet-stream',
+    };
+
+    const response = await fetch(`${endpoint}?${params.toString()}`, { headers });
+    if (!response.ok) {
+        throw new Error(`Status ${response.status}`);
+    }
+
+    if (format === 'json') {
+        return response.json();
+    }
+
+    return response;
+};
+
+const loadDashboardSummary = async () => {
     try {
-        const response = await fetch(window.dashboardConfig.endpoint, { headers: { Accept: 'application/json' } });
-        const json = await response.json();
-        if (json.usage && json.registrations) {
-            const labels = json.usage.map((row) => row.label);
-            const usageData = json.usage.map((row) => Number(row.total || 0));
-            const registrationData = json.registrations.map((row) => Number(row.total || 0));
-            renderDashboardTraffic(labels, usageData, registrationData);
-        }
-        if (json.revenue) {
-            const labels = json.revenue.map((row) => row.label);
-            const totals = json.revenue.map((row) => Number(row.total || 0));
-            renderDashboardRevenue(labels, totals);
-        }
-        updateDashboardSummary(json.summary || null);
+        const json = await fetchDashboardData('summary', null, 'json');
+        updateDashboardSummary(json.summary || json);
     } catch (error) {
-        console.error('Gösterge paneli verileri yüklenemedi', error);
+        console.error('Özet verileri yüklenemedi', error);
+    }
+};
+
+const loadDashboardChart = async (chart) => {
+    const period = chart === 'traffic' ? dashboardState.trafficPeriod : dashboardState.revenuePeriod;
+    try {
+        const data = await fetchDashboardData(chart, period, 'json');
+        if (chart === 'traffic') {
+            renderDashboardTraffic(data);
+        } else {
+            renderDashboardRevenue(data);
+        }
+        if (data?.rangeLabel) {
+            setDashboardRangeLabel(chart, data.rangeLabel);
+        }
+    } catch (error) {
+        console.error(`Grafik verileri yüklenemedi (${chart})`, error);
+    }
+};
+
+const parseFilename = (response, fallback) => {
+    const header = response.headers.get('X-Filename');
+    if (header) {
+        return header;
+    }
+    const disposition = response.headers.get('Content-Disposition');
+    if (disposition) {
+        const match = /filename\*?=(?:UTF-8'')?"?([^";]+)/i.exec(disposition);
+        if (match && match[1]) {
+            try {
+                return decodeURIComponent(match[1]);
+            } catch (error) {
+                return match[1];
+            }
+        }
+    }
+    return fallback;
+};
+
+const exportDashboardChart = async (chart, format) => {
+    const period = chart === 'traffic' ? dashboardState.trafficPeriod : dashboardState.revenuePeriod;
+    try {
+        const response = await fetchDashboardData(chart, period, format);
+        const blob = await response.blob();
+        const filename = parseFilename(response, `${chart}-${period}.${format === 'excel' ? 'csv' : 'pdf'}`);
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error(`Grafik dışa aktarma işlemi başarısız (${chart}, ${format})`, error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Dışa aktarma başarısız',
+            text: 'Dosya indirilemedi. Lütfen daha sonra tekrar deneyin.',
+        });
     }
 };
 
@@ -1902,6 +2006,52 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    loadDashboardMetrics();
+    document.querySelectorAll('[data-chart-export]').forEach((button) => {
+        button.addEventListener('click', async (event) => {
+            event.preventDefault();
+            const chart = button.dataset.chart;
+            const format = button.dataset.chartExport;
+            if (!chart || !format) {
+                return;
+            }
+            button.disabled = true;
+            try {
+                await exportDashboardChart(chart, format);
+            } finally {
+                button.disabled = false;
+            }
+        });
+    });
+
+    const trafficRange = document.getElementById('trafficRange');
+    if (trafficRange) {
+        dashboardState.trafficPeriod = trafficRange.value || dashboardState.trafficPeriod;
+        trafficRange.addEventListener('change', () => {
+            dashboardState.trafficPeriod = trafficRange.value || 'daily';
+            loadDashboardChart('traffic');
+        });
+    }
+
+    const revenueRange = document.getElementById('revenueRange');
+    if (revenueRange) {
+        dashboardState.revenuePeriod = revenueRange.value || dashboardState.revenuePeriod;
+        revenueRange.addEventListener('change', () => {
+            dashboardState.revenuePeriod = revenueRange.value || 'daily';
+            loadDashboardChart('revenue');
+        });
+    }
+
+    if (document.getElementById('dashboardSummary')) {
+        loadDashboardSummary();
+    }
+
+    if (document.getElementById('dashboardTrafficChart')) {
+        loadDashboardChart('traffic');
+    }
+
+    if (document.getElementById('dashboardRevenueChart')) {
+        loadDashboardChart('revenue');
+    }
+
     loadClientUsageMetrics();
 });

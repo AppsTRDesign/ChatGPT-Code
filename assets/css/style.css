@@ -569,6 +569,21 @@ code {
     height: clamp(240px, 45vh, 420px);
 }
 
+.chart-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.chart-toolbar .form-select {
+    min-width: 140px;
+}
+
+.chart-toolbar .btn-group {
+    flex-shrink: 0;
+}
+
 .chart-container canvas {
     position: absolute;
     inset: 0;

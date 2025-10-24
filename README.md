@@ -72,7 +72,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - `admin/data/online.php` ve `admin/data/online-metrics.php` aktif kullanıcı tablolarının ve zaman serilerinin JSON veri kaynaklarını sağlar.
 
 ### Raporlama & Analitik
-- `admin/dashboard.php` gelir/usage grafikleri, bekleyen & onaylı satın alım metrikleri içerir.
+- `admin/dashboard.php` gelir ve trafik grafikleri için günlük/haftalık/aylık/yıllık seçimleri, PDF/Excel dışa aktarma butonları ve bekleyen/onaylı satın alma özetlerini içerir.
 - `admin/usage.php` ve `client/dashboard.php` Chart.js grafikleri, bootstrap-table tabloları ve PDF/Excel ihracını destekler (`assets/js/app.js`).
 - `admin/data/usage-metrics.php`, `client/data/usage-metrics.php` JSON veri kaynakları sunar.
 
@@ -114,7 +114,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
 - Composer
 - cURL, GD, OpenSSL, PDO, mbstring eklentileri
 - Plesk AlmaLinux 8 üzerinde root dizine kurulum (public alt klasörü olmadan)
-- (Opsiyonel) MaxMind GeoLite2 City `.mmdb` veritabanı — GeoIP özellikleri için `storage/geo/GeoLite2-City.mmdb` konumuna kopyalayın veya `settings` tablosunda `geo_database_path` anahtarını belirleyin.
+- (Opsiyonel) MaxMind GeoLite2 City `.mmdb` veritabanı — GeoIP özellikleri için `includes/geo/GeoLite2-City.mmdb` konumuna kopyalayın veya `settings` tablosunda `geo_database_path` anahtarını belirleyin.
 
 ## Kurulum
 1. Projeyi sunucunuzun kök dizinine kopyalayın.
@@ -140,7 +140,7 @@ Platform; üyelik, paket satın alma ve API üzerinden QR üretimi süreçlerini
   - Google Analytics ölçüm kimliği
   - API dokümantasyonu ve çoklu dil JSON dosyalarının yönetimi
 - **Admin > Web Bildirimleri** ekranından; dil ve platform bazlı yerel bildirimler oluşturabilir, Dropzone ile görsel ekleyebilir, gönderim/tıklama/kapatma istatistiklerini Chart.js grafiği üzerinden izleyebilir ve PDF/Excel çıktısı alabilirsiniz.
-- GeoIP kullanmak için GeoLite2 City dosyasını `storage/geo/GeoLite2-City.mmdb` konumuna yerleştirin veya `settings` tablosuna `geo_database_path` anahtarı ekleyerek özel yol tanımlayın.
+- GeoIP kullanmak için GeoLite2 City dosyasını `includes/geo/GeoLite2-City.mmdb` konumuna yerleştirin veya `settings` tablosuna `geo_database_path` anahtarı ekleyerek özel yol tanımlayın.
 
 ## API Kılavuzu
 - **Temel uç nokta**: `https://qrmenu.noasoft.org/api/v1/qr`

@@ -37,8 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $role = $_POST['role'] ?? 'client';
     $password = trim($_POST['password'] ?? '');
-    $isApproved = isset($_POST['is_approved']) ? 1 : 0;
+    $isApproved = isset($_POST['is_approved']) ? 1 : (int) ($userRow['is_approved'] ?? 1);
     $loginBlocked = isset($_POST['login_blocked']) ? 1 : 0;
+    $emailVerified = isset($_POST['email_verified']) ? 1 : 0;
 
     if ($username === '' || $email === '') {
         Helpers::flash('message', 'Kullanıcı adı ve e-posta alanları boş bırakılamaz.');
@@ -55,10 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'role' => $role,
         'is_approved' => $isApproved,
         'login_blocked' => $loginBlocked,
+        'email_verified' => $emailVerified,
         'id' => $id,
     ];
 
-    $sql = 'UPDATE users SET username = :username, email = :email, role = :role, is_approved = :is_approved, login_blocked = :login_blocked';
+    $sql = 'UPDATE users SET username = :username, email = :email, role = :role, is_approved = :is_approved, login_blocked = :login_blocked, email_verified = :email_verified';
 
     if ($password !== '') {
         $sql .= ', password = :password';
@@ -72,12 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $messages = ['Üye bilgileri güncellendi.'];
 
-    if ($isApproved !== (int) ($userRow['is_approved'] ?? 1)) {
-        $messages[] = $isApproved ? 'Üye onaylandı.' : 'Üye onayı kaldırıldı.';
-    }
-
     if ($loginBlocked !== (int) ($userRow['login_blocked'] ?? 0)) {
         $messages[] = $loginBlocked ? 'Kullanıcının giriş izni kapatıldı.' : 'Kullanıcının giriş izni açıldı.';
+    }
+
+    if ($emailVerified !== (int) ($userRow['email_verified'] ?? 0)) {
+        $messages[] = $emailVerified ? 'E-posta adresi doğrulandı.' : 'E-posta doğrulaması kaldırıldı.';
     }
 
     if (isset($_POST['package_id'])) {
@@ -128,11 +130,12 @@ require __DIR__ . '/header.php';
             <small class="form-text">Şifre girmediğinizde mevcut şifre korunur.</small>
         </div>
         <div class="col-md-4">
-            <label class="form-label">Üyelik Onayı</label>
+            <label class="form-label">Mail Onayı</label>
             <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" role="switch" id="userApproved" name="is_approved" value="1" <?= (int) ($userRow['is_approved'] ?? 1) === 1 ? 'checked' : '' ?>>
-                <label class="form-check-label" for="userApproved">Üye onaylı</label>
+                <input class="form-check-input" type="checkbox" role="switch" id="userEmailVerified" name="email_verified" value="1" <?= (int) ($userRow['email_verified'] ?? 0) === 1 ? 'checked' : '' ?>>
+                <label class="form-check-label" for="userEmailVerified">E-posta doğrulandı</label>
             </div>
+            <small class="form-text text-white-50">Doğrulama e-postası olmadan manuel olarak onaylayabilirsiniz.</small>
         </div>
         <div class="col-md-4">
             <label class="form-label">Giriş İzni</label>
@@ -143,9 +146,9 @@ require __DIR__ . '/header.php';
             <small class="form-text text-white-50">Aktif olduğunda kullanıcı giriş yapamaz.</small>
         </div>
         <div class="col-md-4">
-            <label class="form-label">E-posta Doğrulama</label>
+            <label class="form-label">Üyelik Durumu</label>
             <div class="form-control bg-transparent border border-secondary text-white-50">
-                <?= (int) ($userRow['email_verified'] ?? 0) === 1 ? 'Doğrulandı' : 'Bekliyor' ?>
+                <?= (int) ($userRow['is_approved'] ?? 1) === 1 ? 'Onaylı' : 'Onay bekliyor' ?>
             </div>
         </div>
         <div class="col-md-6">

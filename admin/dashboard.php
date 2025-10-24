@@ -59,9 +59,21 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
 <div class="row g-4 mt-1">
     <div class="col-lg-8">
         <div class="card p-4 h-100">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
                 <h2 class="h5 mb-0">Trafik ve Üyelik</h2>
-                <span class="badge bg-primary-subtle text-white">Son 14 Gün</span>
+                <div class="chart-toolbar">
+                    <span class="badge bg-primary-subtle text-white" id="trafficRangeLabel">Son 14 Gün</span>
+                    <select class="form-select form-select-sm" id="trafficRange" aria-label="Trafik aralığı">
+                        <option value="daily" selected>Günlük</option>
+                        <option value="weekly">Haftalık</option>
+                        <option value="monthly">Aylık</option>
+                        <option value="yearly">Yıllık</option>
+                    </select>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Trafik dışa aktar">
+                        <button type="button" class="btn btn-outline-light" data-chart="traffic" data-chart-export="excel">Excel</button>
+                        <button type="button" class="btn btn-outline-light" data-chart="traffic" data-chart-export="pdf">PDF</button>
+                    </div>
+                </div>
             </div>
             <div class="chart-container" style="min-height:260px;">
                 <canvas id="dashboardTrafficChart"></canvas>
@@ -78,9 +90,21 @@ $failedPurchases = $db->query('SELECT COUNT(*) FROM user_packages WHERE status =
     </div>
 </div>
 <div class="card p-4 mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
         <h2 class="h5 mb-0">Gelir Analizi</h2>
-        <span class="badge bg-success-subtle text-white">Onaylı Ödemeler</span>
+        <div class="chart-toolbar">
+            <span class="badge bg-success-subtle text-white" id="revenueRangeLabel">Son 14 Gün</span>
+            <select class="form-select form-select-sm" id="revenueRange" aria-label="Gelir aralığı">
+                <option value="daily" selected>Günlük</option>
+                <option value="weekly">Haftalık</option>
+                <option value="monthly">Aylık</option>
+                <option value="yearly">Yıllık</option>
+            </select>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Gelir dışa aktar">
+                <button type="button" class="btn btn-outline-light" data-chart="revenue" data-chart-export="excel">Excel</button>
+                <button type="button" class="btn btn-outline-light" data-chart="revenue" data-chart-export="pdf">PDF</button>
+            </div>
+        </div>
     </div>
     <div class="chart-container" style="min-height:260px;">
         <canvas id="dashboardRevenueChart"></canvas>

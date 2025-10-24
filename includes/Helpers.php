@@ -125,4 +125,67 @@ class Helpers
         $columns = self::tableColumns($table);
         return in_array($column, $columns, true);
     }
+
+    public static function sanitizeFilename(string $filename): string
+    {
+        $clean = preg_replace('/[^A-Za-z0-9_.-]+/', '_', $filename);
+        $clean = trim((string) $clean, '_');
+        return $clean !== '' ? $clean : 'export';
+    }
+
+    private static function normalizeRowValues(array $row): array
+    {
+        return array_map(static function ($value): string {
+            if (is_int($value) || is_float($value)) {
+                return (string) $value;
+            }
+            if ($value instanceof \DateTimeInterface) {
+                return $value->format('Y-m-d H:i:s');
+            }
+            if (is_bool($value)) {
+                return $value ? '1' : '0';
+            }
+            return (string) $value;
+        }, $row);
+    }
+
+    public static function streamCsv(string $filename, array $headers, array $rows): void
+    {
+        $safeName = self::sanitizeFilename($filename);
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $safeName . '"');
+        header('X-Filename: ' . $safeName);
+
+        $output = fopen('php://output', 'wb');
+        if ($output === false) {
+            echo 'sep=;' . "\n";
+            echo implode(';', self::normalizeRowValues($headers)) . "\n";
+            foreach ($rows as $row) {
+                echo implode(';', self::normalizeRowValues($row)) . "\n";
+            }
+            exit;
+        }
+
+        fprintf($output, "\xEF\xBB\xBF");
+        fputcsv($output, self::normalizeRowValues($headers), ';');
+        foreach ($rows as $row) {
+            fputcsv($output, self::normalizeRowValues($row), ';');
+        }
+        fclose($output);
+        exit;
+    }
+
+    public static function streamPdf(string $filename, string $title, array $headers, array $rows): void
+    {
+        $safeName = self::sanitizeFilename($filename);
+        $content = PdfExporter::fromTable($title, $headers, $rows);
+
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $safeName . '"');
+        header('Content-Length: ' . strlen($content));
+        header('X-Filename: ' . $safeName);
+
+        echo $content;
+        exit;
+    }
 }
