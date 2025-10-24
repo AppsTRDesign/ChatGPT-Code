@@ -62,7 +62,6 @@ $appConfig = [
                     <span class="fw-semibold h5 mb-0"><?= Helpers::e($siteName) ?></span>
                 <?php endif; ?>
                 <div>
-                    <div class="fw-semibold">Admin Paneli</div>
                     <div class="small text-white-50"><?= Helpers::e($user['username']) ?></div>
                 </div>
             </div>

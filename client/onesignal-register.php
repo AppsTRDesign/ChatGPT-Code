@@ -17,11 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 Helpers::requireAjax();
 
 $user = Auth::user();
-if (!$user) {
-    http_response_code(401);
-    echo json_encode(['status' => 'error', 'message' => 'Oturum bulunamadı.']);
-    exit;
-}
+$userId = $user ? (int) $user['id'] : null;
 
 if (!Settings::onesignalEnabled()) {
     http_response_code(403);
@@ -49,7 +45,7 @@ $meta = [
     'country' => $country !== '' ? $country : null,
 ];
 
-$registered = Notifications::registerPlayer((int) $user['id'], $playerId, $platform !== '' ? $platform : null, $meta);
+$registered = Notifications::registerPlayer($userId, $playerId, $platform !== '' ? $platform : null, $meta);
 
 if (!$registered) {
     http_response_code(500);
