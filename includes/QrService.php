@@ -293,18 +293,50 @@ class QrService
             $background = null;
         }
 
-        $qrOptions = new QROptions([
-            'version' => $options['version'] ?? 5,
+        $version = null;
+        if (array_key_exists('version', $options) && $options['version'] !== null && $options['version'] !== '') {
+            $version = max(1, min(40, (int) $options['version']));
+        }
+
+        $eccOption = $options['ecc_level'] ?? $options['eccLevel'] ?? null;
+        $eccMap = [
+            'l' => QRCode::ECC_L,
+            'm' => QRCode::ECC_M,
+            'q' => QRCode::ECC_Q,
+            'h' => QRCode::ECC_H,
+        ];
+        if ($eccOption === null) {
+            $eccLevel = QRCode::ECC_H;
+        } else {
+            $eccKey = strtolower((string) $eccOption);
+            $eccLevel = $eccMap[$eccKey] ?? QRCode::ECC_H;
+        }
+
+        $qrConfig = [
+            'version' => $version ?? 0,
             'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => QRCode::ECC_H,
+            'eccLevel' => $eccLevel,
             'scale' => $scale,
             'imageBase64' => false,
             'imageTransparent' => false,
             'imageTransparentTransparent' => false,
-        ]);
+        ];
 
+        $qrOptions = new QROptions($qrConfig);
         $qr = new QRCode($qrOptions);
-        $imageData = $qr->render($data);
+
+        try {
+            $imageData = $qr->render($data);
+        } catch (Exception $e) {
+            if ($version !== null && stripos($e->getMessage(), 'code length overflow') !== false) {
+                $qrConfig['version'] = 0;
+                $qrOptions = new QROptions($qrConfig);
+                $qr = new QRCode($qrOptions);
+                $imageData = $qr->render($data);
+            } else {
+                throw $e;
+            }
+        }
         $qrImage = imagecreatefromstring($imageData);
         if (!$qrImage) {
             throw new RuntimeException('QR kodu oluşturulamadı.');
