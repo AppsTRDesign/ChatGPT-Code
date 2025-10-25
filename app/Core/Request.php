@@ -18,12 +18,26 @@ class Request
 
     public function input(string $key, $default = null)
     {
-        return $_POST[$key] ?? $_GET[$key] ?? $default;
+        if (array_key_exists($key, $_POST)) {
+            return $_POST[$key];
+        }
+
+        if (array_key_exists($key, $_GET)) {
+            return $_GET[$key];
+        }
+
+        $json = $this->json();
+        if (array_key_exists($key, $json)) {
+            return $json[$key];
+        }
+
+        return $default;
     }
 
     public function all(): array
     {
-        return array_merge($_GET, $_POST);
+        $json = $this->json();
+        return array_merge($_GET, $_POST, $json);
     }
 
     public function json(): array

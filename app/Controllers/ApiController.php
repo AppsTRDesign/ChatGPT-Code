@@ -12,8 +12,8 @@ class ApiController extends Controller
         $payload = $this->request->json();
         $response = NotificationService::dispatch($payload);
 
-        header('Content-Type: application/json');
-        return json_encode($response);
+        $status = $response['status'] === 'queued' ? 200 : 400;
+        return $this->jsonResponse($response, $status);
     }
 
     public function registerToken(): string
@@ -21,7 +21,25 @@ class ApiController extends Controller
         $payload = $this->request->json();
         $response = NotificationService::registerToken($payload);
 
-        header('Content-Type: application/json');
-        return json_encode($response);
+        $status = $response['status'] === 'success' ? 200 : 400;
+        return $this->jsonResponse($response, $status);
+    }
+
+    public function inbox(): string
+    {
+        $payload = $this->request->json();
+        $response = NotificationService::pullInbox($payload);
+
+        $status = $response['status'] === 'success' ? 200 : 400;
+        return $this->jsonResponse($response, $status);
+    }
+
+    public function receipt(): string
+    {
+        $payload = $this->request->json();
+        $response = NotificationService::registerReceipt($payload);
+
+        $status = $response['status'] === 'success' ? 200 : 400;
+        return $this->jsonResponse($response, $status);
     }
 }
