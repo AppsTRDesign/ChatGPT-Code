@@ -312,31 +312,13 @@ class QrService
             $eccLevel = $eccMap[$eccKey] ?? QRCode::ECC_H;
         }
 
-        $qrConfig = [
-            'version' => $version ?? 0,
-            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => $eccLevel,
+        $imageData = self::renderQrCode($data, [
             'scale' => $scale,
+            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
             'imageBase64' => false,
             'imageTransparent' => false,
             'imageTransparentTransparent' => false,
-        ];
-
-        $qrOptions = new QROptions($qrConfig);
-        $qr = new QRCode($qrOptions);
-
-        try {
-            $imageData = $qr->render($data);
-        } catch (Exception $e) {
-            if ($version !== null && stripos($e->getMessage(), 'code length overflow') !== false) {
-                $qrConfig['version'] = 0;
-                $qrOptions = new QROptions($qrConfig);
-                $qr = new QRCode($qrOptions);
-                $imageData = $qr->render($data);
-            } else {
-                throw $e;
-            }
-        }
+        ], $version, $eccLevel, $eccOption !== null);
         $qrImage = imagecreatefromstring($imageData);
         if (!$qrImage) {
             throw new RuntimeException('QR kodu oluşturulamadı.');
@@ -386,6 +368,68 @@ class QrService
         imagedestroy($qrImage);
 
         return $results;
+    }
+
+    private static function renderQrCode(string $data, array $baseConfig, ?int $preferredVersion, int $preferredEcc, bool $eccForced): string
+    {
+        $baseConfig = array_merge([
+            'version' => 0,
+            'eccLevel' => $preferredEcc,
+        ], $baseConfig);
+
+        $eccFallbacks = [
+            QRCode::ECC_L => [QRCode::ECC_L],
+            QRCode::ECC_M => [QRCode::ECC_M, QRCode::ECC_L],
+            QRCode::ECC_Q => [QRCode::ECC_Q, QRCode::ECC_M, QRCode::ECC_L],
+            QRCode::ECC_H => [QRCode::ECC_H, QRCode::ECC_Q, QRCode::ECC_M, QRCode::ECC_L],
+        ];
+
+        $versionsToTry = [];
+        if ($preferredVersion !== null) {
+            $versionsToTry[] = $preferredVersion;
+        }
+        $versionsToTry[] = 0; // automatic sizing
+
+        $start = $preferredVersion ?? 1;
+        for ($v = max(1, $start); $v <= 40; $v++) {
+            if (!in_array($v, $versionsToTry, true)) {
+                $versionsToTry[] = $v;
+            }
+        }
+
+        $eccLevels = $eccFallbacks[$preferredEcc] ?? [$preferredEcc];
+        if ($eccForced) {
+            $eccLevels = [$preferredEcc];
+        }
+
+        $lastOverflow = null;
+
+        foreach ($eccLevels as $eccLevel) {
+            foreach ($versionsToTry as $version) {
+                $config = $baseConfig;
+                $config['eccLevel'] = $eccLevel;
+                $config['version'] = $version;
+
+                try {
+                    $qr = new QRCode(new QROptions($config));
+                    return $qr->render($data);
+                } catch (Exception $e) {
+                    $message = $e->getMessage();
+                    if (stripos($message, 'code length overflow') !== false) {
+                        $lastOverflow = $e;
+                        continue;
+                    }
+
+                    throw $e;
+                }
+            }
+        }
+
+        if ($lastOverflow !== null) {
+            throw new RuntimeException('İçerik izin verilen maksimum boyutu aşıyor.', 0, $lastOverflow);
+        }
+
+        throw new RuntimeException('QR kodu oluşturulamadı.');
     }
 
     private static function recolor($image, string $foregroundHex, ?string $backgroundHex, bool $transparent)
