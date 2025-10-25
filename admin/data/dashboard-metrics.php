@@ -105,10 +105,26 @@ function dashboard_group_expression(array $config, string $column): string
     return vsprintf($expression, array_fill(0, $placeholderCount, $column));
 }
 
-function dashboard_fetch_series(PDO $db, array $config, string $table, string $dateColumn, string $aggregate, array $conditions = [], array $params = [], ?string $join = null): array
+function dashboard_fetch_series(
+    PDO $db,
+    array $config,
+    array $buckets,
+    string $table,
+    string $dateColumn,
+    string $aggregate,
+    array $conditions = [],
+    array $params = [],
+    ?string $join = null,
+    ?callable $fallbackValue = null,
+    array $fallbackColumns = []
+): array
 {
+    if (empty($buckets)) {
+        return [];
+    }
+
     $groupExpr = dashboard_group_expression($config, $dateColumn);
-    $where = [$dateColumn . ' >= :start'];
+    $where = [$dateColumn . ' >= :start', $dateColumn . ' <= :end'];
     foreach ($conditions as $condition) {
         $trimmed = trim($condition);
         if ($trimmed !== '') {
@@ -116,25 +132,120 @@ function dashboard_fetch_series(PDO $db, array $config, string $table, string $d
         }
     }
     $sql = sprintf(
-        'SELECT %s AS bucket, %s AS total FROM %s %s WHERE %s GROUP BY bucket ORDER BY bucket',
+        'SELECT %s AS bucket, %s AS total FROM %s%s WHERE %s GROUP BY bucket ORDER BY bucket',
         $groupExpr,
         $aggregate,
         $table,
-        $join ? $join : '',
+        $join ? ' ' . trim($join) : '',
         implode(' AND ', $where)
     );
 
+    $firstBucket = reset($buckets);
+    $lastBucket = end($buckets);
+    $params['start'] = $firstBucket['start']->format('Y-m-d 00:00:00');
+    $params['end'] = $lastBucket['end']->format('Y-m-d 23:59:59');
+
+    try {
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $rows = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            if (!isset($row['bucket'])) {
+                continue;
+            }
+            $rows[(string) $row['bucket']] = (float) $row['total'];
+        }
+        return $rows;
+    } catch (\PDOException $exception) {
+        return dashboard_fetch_series_fallback(
+            $db,
+            $config,
+            $buckets,
+            $table,
+            $dateColumn,
+            $conditions,
+            $params,
+            $join,
+            $fallbackValue,
+            $fallbackColumns
+        );
+    }
+}
+
+function dashboard_fetch_series_fallback(
+    PDO $db,
+    array $config,
+    array $buckets,
+    string $table,
+    string $dateColumn,
+    array $conditions,
+    array $params,
+    ?string $join,
+    ?callable $valueResolver,
+    array $additionalColumns
+): array {
+    $columns = [$dateColumn . ' AS event_date'];
+    foreach ($additionalColumns as $column) {
+        $trimmed = trim($column);
+        if ($trimmed !== '') {
+            $columns[] = $trimmed;
+        }
+    }
+
+    $where = [$dateColumn . ' >= :start', $dateColumn . ' <= :end'];
+    foreach ($conditions as $condition) {
+        $trimmed = trim($condition);
+        if ($trimmed !== '') {
+            $where[] = '(' . $trimmed . ')';
+        }
+    }
+
+    $sql = sprintf(
+        'SELECT %s FROM %s%s WHERE %s ORDER BY %s',
+        implode(', ', $columns),
+        $table,
+        $join ? ' ' . trim($join) : '',
+        implode(' AND ', $where),
+        $dateColumn
+    );
+
     $stmt = $db->prepare($sql);
-    $params['start'] = $config['start']->format('Y-m-d 00:00:00');
     $stmt->execute($params);
-    $rows = [];
-    foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-        if (!isset($row['bucket'])) {
+
+    $valueResolver = $valueResolver ?? static fn (): float => 1.0;
+
+    $bucketRanges = [];
+    foreach ($buckets as $bucket) {
+        $bucketRanges[] = [
+            'key' => $bucket['key'],
+            'start' => $bucket['start']->setTime(0, 0, 0),
+            'end' => $bucket['end']->setTime(23, 59, 59),
+        ];
+    }
+
+    $results = [];
+    while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+        if (empty($row['event_date'])) {
             continue;
         }
-        $rows[(string) $row['bucket']] = (float) $row['total'];
+        try {
+            $date = new \DateTimeImmutable((string) $row['event_date']);
+        } catch (\Exception $e) {
+            continue;
+        }
+
+        $value = (float) $valueResolver($row);
+
+        foreach ($bucketRanges as $bucket) {
+            if ($date < $bucket['start'] || $date > $bucket['end']) {
+                continue;
+            }
+            $results[$bucket['key']] = ($results[$bucket['key']] ?? 0) + $value;
+            break;
+        }
     }
-    return $rows;
+
+    return $results;
 }
 
 function dashboard_traffic(PDO $db, string $period): array
@@ -145,21 +256,27 @@ function dashboard_traffic(PDO $db, string $period): array
     $usageMap = dashboard_fetch_series(
         $db,
         $config,
+        $buckets,
         'api_usage_logs',
         'created_at',
         'COUNT(*)',
         ['status = :status'],
-        ['status' => 'success']
+        ['status' => 'success'],
+        null,
+        static fn (): float => 1.0
     );
 
     $registrationMap = dashboard_fetch_series(
         $db,
         $config,
+        $buckets,
         'users',
         'created_at',
         'COUNT(*)',
         ['role = :role'],
-        ['role' => 'client']
+        ['role' => 'client'],
+        null,
+        static fn (): float => 1.0
     );
 
     $labels = [];
@@ -201,12 +318,15 @@ function dashboard_revenue(PDO $db, string $period): array
     $revenueMap = dashboard_fetch_series(
         $db,
         $config,
+        $buckets,
         'user_packages up',
         'up.activated_at',
         'SUM(p.price)',
         ['up.status = "active"', 'up.activated_at IS NOT NULL'],
         [],
-        'JOIN packages p ON p.id = up.package_id'
+        'JOIN packages p ON p.id = up.package_id',
+        static fn (array $row): float => (float) ($row['price'] ?? 0),
+        ['p.price AS price']
     );
 
     $labels = [];
