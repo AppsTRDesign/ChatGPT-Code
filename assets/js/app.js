@@ -22,16 +22,26 @@ window.WebPush = (function () {
     }
 
     function initDataTables() {
+        if (typeof $ === 'undefined' || !$.fn.DataTable) {
+            return;
+        }
         document.querySelectorAll('table.datatable').forEach((table) => {
-            if ($(table).hasClass('dataTable')) {
+            if (!table.tHead || !table.tHead.rows.length) {
                 return;
             }
-            $(table).DataTable({
-                responsive: true,
-                language: {
-                    url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json'
-                }
-            });
+            if ($.fn.DataTable.isDataTable(table)) {
+                return;
+            }
+            try {
+                $(table).DataTable({
+                    responsive: true,
+                    language: {
+                        url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json'
+                    }
+                });
+            } catch (error) {
+                console.error('DataTable init error', error);
+            }
         });
     }
 
@@ -41,10 +51,18 @@ window.WebPush = (function () {
         }
         Dropzone.autoDiscover = false;
         document.querySelectorAll('[data-dropzone] .dropzone').forEach((element) => {
+            if (element.dropzone || (typeof Dropzone.forElement === 'function' && Dropzone.forElement(element))) {
+                return;
+            }
             const form = element.closest('form');
+            const url = element.dataset.dropzoneUrl || form?.getAttribute('action') || '';
+            if (!url || url === '#') {
+                console.warn('Dropzone skipped for element without a valid URL.', element);
+                return;
+            }
             const dz = new Dropzone(element, {
-                url: form?.getAttribute('action') || '#',
-                maxFiles: 1,
+                url,
+                maxFiles: Number(element.dataset.dropzoneMaxFiles || 1),
                 clickable: true,
                 addRemoveLinks: true,
                 dictDefaultMessage: element.dataset.dropzoneMessage || 'Dosya yüklemek için bırakın',
@@ -62,7 +80,13 @@ window.WebPush = (function () {
             if (!config) {
                 return;
             }
-            const parsed = JSON.parse(config);
+            let parsed;
+            try {
+                parsed = JSON.parse(config);
+            } catch (error) {
+                console.error('Chart config parse error', error);
+                return;
+            }
             if (charts.has(canvas.id)) {
                 charts.get(canvas.id).destroy();
             }
@@ -78,14 +102,33 @@ window.WebPush = (function () {
                 if (!target) {
                     return;
                 }
-                fetch(button.dataset.url, {
+                const url = button.dataset.url;
+                if (!url) {
+                    console.warn('Refresh button missing data-url attribute.', button);
+                    return;
+                }
+                fetch(url, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })
-                    .then((response) => response.json())
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        const contentType = response.headers.get('content-type') || '';
+                        if (!contentType.includes('application/json')) {
+                            return response.text().then((text) => {
+                                throw new Error('Beklenmeyen yanıt formatı');
+                            });
+                        }
+                        return response.json();
+                    })
                     .then((payload) => {
                         target.dispatchEvent(new CustomEvent('refresh', { detail: payload }));
                     })
-                    .catch((error) => console.error('Refresh error', error));
+                    .catch((error) => {
+                        console.error('Refresh error', error);
+                        Swal.fire('Hata', 'Veriler yenilenirken sorun oluştu.', 'error');
+                    });
             });
         });
     }

@@ -66,8 +66,12 @@ class AuthController extends Controller
             } else {
                 User::create($data);
                 $mailer = new Mailer();
-                $mailer->send($data['email'], 'NoaSoft WebPush Aktivasyon', 'Hesabınızı aktifleştirmek için giriş yapın.');
-                $this->session->flash('success', 'Kayıt başarıyla oluşturuldu. Lütfen mail onayı tamamlayın.');
+                $sent = $mailer->send($data['email'], 'NoaSoft WebPush Aktivasyon', 'Hesabınızı aktifleştirmek için giriş yapın.');
+                if ($sent) {
+                    $this->session->flash('success', 'Kayıt başarıyla oluşturuldu. Lütfen mail onayı tamamlayın.');
+                } else {
+                    $this->session->flash('warning', 'Kayıt oluşturuldu ancak aktivasyon maili gönderilemedi. Lütfen yöneticiyle iletişime geçin.');
+                }
                 return $this->redirect('/login');
             }
         }

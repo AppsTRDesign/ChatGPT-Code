@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use PHPMailer\PHPMailer\Exception as MailerException;
 use PHPMailer\PHPMailer\PHPMailer;
 
 class Mailer
@@ -31,12 +32,18 @@ class Mailer
 
     public function send(string $to, string $subject, string $body): bool
     {
-        $this->mailer->clearAddresses();
-        $this->mailer->addAddress($to);
-        $this->mailer->Subject = $subject;
-        $this->mailer->Body = $body;
-        $this->mailer->isHTML(true);
+        try {
+            $this->mailer->clearAddresses();
+            $this->mailer->addAddress($to);
+            $this->mailer->Subject = $subject;
+            $this->mailer->Body = $body;
+            $this->mailer->isHTML(true);
 
-        return $this->mailer->send();
+            return $this->mailer->send();
+        } catch (MailerException $exception) {
+            error_log('Mailer send error: ' . $exception->getMessage());
+        }
+
+        return false;
     }
 }

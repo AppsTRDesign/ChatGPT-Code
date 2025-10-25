@@ -32,8 +32,7 @@ main {
     color: var(--theme-accent);
 }
 
-.navbar.bg-glass,
-.admin-shell .sidebar {
+.navbar.bg-glass {
     background: linear-gradient(135deg, rgba(5,102,141,0.9), rgba(11,167,196,0.95));
     backdrop-filter: blur(10px);
 }
@@ -83,21 +82,36 @@ main {
 }
 
 .sidebar {
-    background: #fff;
+    background: linear-gradient(135deg, rgba(2,48,71,0.95), rgba(11,167,196,0.95));
     border-radius: var(--radius-lg);
-    box-shadow: 0 20px 40px rgba(2,48,71,0.08);
+    box-shadow: 0 20px 40px rgba(2,48,71,0.18);
+    color: rgba(233, 246, 250, 0.92);
 }
 
 .sidebar .nav-link {
-    color: rgba(2,48,71,0.65);
+    color: rgba(233, 246, 250, 0.85);
     border-radius: var(--radius-sm);
     padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.sidebar .nav-link i {
+    font-size: 1.1rem;
+    opacity: 0.85;
 }
 
 .sidebar .nav-link.active,
 .sidebar .nav-link:hover {
-    background: rgba(11,167,196,0.12);
-    color: var(--theme-secondary);
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.sidebar small,
+.sidebar h5 {
+    color: #fff;
 }
 
 .dropzone {
@@ -173,12 +187,38 @@ main {
     display: none;
 }
 
+.mobile-admin-toggle {
+    background: linear-gradient(135deg, rgba(2,48,71,0.95), rgba(11,167,196,0.95));
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(2,48,71,0.16);
+}
+
+.mobile-admin-toggle small {
+    color: rgba(255, 255, 255, 0.75);
+}
+
 @media (max-width: 991px) {
     .admin-shell {
         flex-direction: column;
     }
 
-    .admin-shell .sidebar {
-        margin-bottom: 1.5rem;
+    .admin-shell .sidebar.offcanvas {
+        width: min(320px, 85vw);
+        border-radius: 0 1.25rem 1.25rem 0;
     }
+
+    .admin-shell .sidebar .offcanvas-body {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .admin-shell .sidebar .nav-link {
+        padding: 0.85rem 1rem;
+    }
+}
+
+.admin-shell .sidebar .badge {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #fff;
 }
