@@ -1,0 +1,192 @@
+:root {
+    --primary-color: #0a4d68;
+    --accent-color: #00b8a9;
+    --gradient: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+}
+
+body.bg-gradient {
+    min-height: 100vh;
+    background: radial-gradient(circle at top left, rgba(10, 77, 104, 0.85), rgba(0, 184, 169, 0.65)), #0a192f;
+    color: #f0f4f8;
+}
+
+.navbar .navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.navbar .navbar-toggler-icon {
+    filter: invert(1);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: #06384d;
+    border-color: #06384d;
+}
+
+.btn-accent {
+    background-color: var(--accent-color);
+    border: none;
+    color: #fff;
+}
+
+.btn-accent:hover {
+    background-color: #00968b;
+}
+
+.card.gradient-card {
+    background: var(--gradient);
+    color: #fff;
+}
+
+.feature-card {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    color: #e0f7fa;
+    border: 1px dashed rgba(0, 184, 169, 0.4);
+}
+
+.table thead {
+    background: rgba(10, 77, 104, 0.2);
+    color: #0a192f;
+}
+
+.table tbody tr {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.table tbody tr td {
+    vertical-align: middle;
+}
+
+.form-control:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 184, 169, 0.25);
+}
+
+.dropzone {
+    border: 2px dashed rgba(0, 184, 169, 0.6);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+footer {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 768px) {
+    .display-6 {
+        font-size: 2rem;
+    }
+
+    .hero-section .display-5 {
+        font-size: 2.5rem;
+    }
+}
+
+.notification-template {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(6px);
+}
+
+.notification-body {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.notification-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    font-size: 1.75rem;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+.notification-media img,
+.notification-media video {
+    max-width: 96px;
+    border-radius: 16px;
+}
+
+.notification-content {
+    flex: 1;
+    min-width: 200px;
+}
+
+.notification-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.notification-message {
+    margin-bottom: 0.75rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.notification-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.notification-progress .progress {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.notification-progress .progress-bar {
+    background: var(--accent-color);
+    border-radius: 999px;
+    font-size: 0.65rem;
+}
+
+.notification-features {
+    padding-left: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.notification-features li {
+    margin-bottom: 0.35rem;
+}
+
+.notification-timer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+}
+
+.bg-accent {
+    background-color: var(--accent-color) !important;
+}
+
+@media (max-width: 576px) {
+    .notification-body {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .notification-actions {
+        width: 100%;
+    }
+
+    .notification-actions .btn {
+        flex: 1;
+    }
+}

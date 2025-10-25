@@ -1,0 +1,6 @@
+/vendor/
+/storage/geoip/*.mmdb
+/storage/logs/*.log
+/.idea/
+/.vscode/
+/node_modules/
