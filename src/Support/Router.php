@@ -18,17 +18,26 @@ class Router
         $this->session = $session;
     }
 
-    public function get(string $path, callable $handler): void
+    /**
+     * @param callable|array $handler
+     */
+    public function get(string $path, callable|array $handler): void
     {
         $this->addRoute('GET', $path, $handler);
     }
 
-    public function post(string $path, callable $handler): void
+    /**
+     * @param callable|array $handler
+     */
+    public function post(string $path, callable|array $handler): void
     {
         $this->addRoute('POST', $path, $handler);
     }
 
-    public function match(array $methods, string $path, callable $handler): void
+    /**
+     * @param callable|array $handler
+     */
+    public function match(array $methods, string $path, callable|array $handler): void
     {
         foreach ($methods as $method) {
             $this->addRoute(strtoupper($method), $path, $handler);
@@ -75,7 +84,10 @@ class Router
         echo View::render('errors/404', ['title' => 'Sayfa bulunamadı', 'layout' => 'public']);
     }
 
-    private function addRoute(string $method, string $path, callable $handler): void
+    /**
+     * @param callable|array $handler
+     */
+    private function addRoute(string $method, string $path, callable|array $handler): void
     {
         $path = $this->basePath . $path;
         if (!str_starts_with($path, '/')) {
