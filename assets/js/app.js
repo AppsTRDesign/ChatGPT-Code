@@ -1,9 +1,13 @@
-if (typeof Dropzone !== 'undefined') {
-    Dropzone.autoDiscover = false;
-}
-
 window.WebPush = (function () {
     const charts = new Map();
+
+    function disableDropzoneAutoDiscover() {
+        if (typeof Dropzone !== 'undefined') {
+            Dropzone.autoDiscover = false;
+        }
+    }
+
+    disableDropzoneAutoDiscover();
 
     function initFlash() {
         document.querySelectorAll('.flash-container').forEach((holder) => {
@@ -36,11 +40,14 @@ window.WebPush = (function () {
             if ($.fn.DataTable.isDataTable(table)) {
                 return;
             }
+            const emptyMessage = table.dataset.empty || 'Gösterilecek kayıt bulunamadı.';
             try {
                 $(table).DataTable({
                     responsive: true,
                     language: {
-                        url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json'
+                        url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json',
+                        emptyTable: emptyMessage,
+                        zeroRecords: emptyMessage,
                     }
                 });
             } catch (error) {
@@ -54,14 +61,9 @@ window.WebPush = (function () {
             return;
         }
         document.querySelectorAll('[data-dropzone] .dropzone').forEach((element) => {
-            let existing = element.dropzone || null;
-            if (!existing && typeof Dropzone.forElement === 'function') {
-                try {
-                    existing = Dropzone.forElement(element);
-                } catch (error) {
-                    existing = null;
-                }
-            }
+            const existing = (Array.isArray(Dropzone?.instances)
+                ? Dropzone.instances.find((instance) => instance.element === element)
+                : null) || element.dropzone || null;
             if (existing) {
                 return;
             }
@@ -176,14 +178,29 @@ window.WebPush = (function () {
                     .then((payload) => {
                         if (payload.token) {
                             Swal.fire('Başarılı', 'Yeni token oluşturuldu', 'success');
-                            const table = document.querySelector('#tokenTable');
-                            if (table) {
-                                const row = document.createElement('tr');
-                                row.innerHTML = `
-                                    <td class="text-break"><code>${payload.token.token}</code></td>
-                                    <td><span class="badge-soft">Aktif</span></td>
-                                    <td>${payload.token.created_at}</td>`;
-                                table.prepend(row);
+                            const tableBody = document.querySelector('#tokenTable');
+                            if (tableBody) {
+                                const emptyState = tableBody.closest('.card-body')?.querySelector('[data-empty-state]');
+                                if (emptyState) {
+                                    emptyState.remove();
+                                }
+
+                                const hostTable = tableBody.closest('table');
+                                if (typeof $ !== 'undefined' && $.fn.DataTable && hostTable && $.fn.DataTable.isDataTable(hostTable)) {
+                                    const instance = $(hostTable).DataTable();
+                                    instance.row.add([
+                                        `<span class="text-break"><code>${payload.token.token}</code></span>`,
+                                        '<span class="badge-soft">Aktif</span>',
+                                        payload.token.created_at,
+                                    ]).draw(false);
+                                } else {
+                                    const row = document.createElement('tr');
+                                    row.innerHTML = `
+                                        <td class="text-break"><code>${payload.token.token}</code></td>
+                                        <td><span class="badge-soft">Aktif</span></td>
+                                        <td>${payload.token.created_at}</td>`;
+                                    tableBody.prepend(row);
+                                }
                             }
                         }
                     })
@@ -193,6 +210,7 @@ window.WebPush = (function () {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        disableDropzoneAutoDiscover();
         initFlash();
         initDataTables();
         initDropzone();

@@ -8,7 +8,7 @@
             <button class="btn btn-theme btn-sm"><i class="bi bi-plus"></i> Site Ekle</button>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover datatable align-middle">
+            <table class="table table-hover datatable align-middle" data-empty="Henüz site eklemediniz.">
                 <thead>
                     <tr>
                         <th>Ad</th>
@@ -26,13 +26,11 @@
                             <td><?= htmlspecialchars($site['created_at']) ?></td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if (empty($sites)): ?>
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">Henüz site eklemediniz.</td>
-                        </tr>
-                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
+        <?php if (empty($sites)): ?>
+            <div class="text-center text-muted py-4" data-empty-state>Henüz site eklemediniz.</div>
+        <?php endif; ?>
     </div>
 </section>

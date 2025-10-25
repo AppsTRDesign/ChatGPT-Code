@@ -14,6 +14,8 @@
                 <li class="nav-item"><a class="nav-link" href="<?= base_url('app/notifications') ?>">Bildirimler</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= base_url('app/tokens') ?>">Token</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= base_url('app/sites') ?>">Siteler</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= base_url('app/api-guide') ?>">API Kılavuz</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= base_url('app/support') ?>">Destek</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= base_url('logout') ?>">Çıkış</a></li>
             </ul>
         </div>

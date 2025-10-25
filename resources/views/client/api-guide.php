@@ -40,8 +40,10 @@
                     <span class="badge-soft">Aktif</span>
                 </li>
             <?php endforeach; ?>
-            <?php if (empty($tokens)): ?>
+            <?php if (empty($tokens) && !empty($user)): ?>
                 <li class="list-group-item">Henüz token oluşturmadınız.</li>
+            <?php elseif (empty($tokens) && empty($user)): ?>
+                <li class="list-group-item">Token oluşturmak için hesabınıza giriş yapın.</li>
             <?php endif; ?>
         </ul>
         <h6>Ölçümleme</h6>

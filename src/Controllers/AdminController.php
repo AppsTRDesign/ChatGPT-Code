@@ -10,6 +10,7 @@ use App\Models\Purchase;
 use App\Models\Token;
 use App\Models\User;
 use App\Support\Session;
+use App\Support\Uploader;
 
 class AdminController extends Controller
 {
@@ -120,5 +121,13 @@ class AdminController extends Controller
             'layout' => 'admin',
             'usage' => $usage,
         ]);
+    }
+
+    public function upload(): string
+    {
+        [$status, $payload] = Uploader::handle('admin');
+        http_response_code($status);
+        header('Content-Type: application/json');
+        return json_encode($payload, JSON_UNESCAPED_UNICODE);
     }
 }

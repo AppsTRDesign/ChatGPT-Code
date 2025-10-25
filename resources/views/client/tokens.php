@@ -8,7 +8,7 @@
             <button class="btn btn-theme btn-sm" data-generate-token data-url="<?= base_url('api/tokens') ?>"><i class="bi bi-plus-circle"></i> Token Oluştur</button>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle datatable" data-empty="Henüz token oluşturmadınız.">
                 <thead>
                     <tr>
                         <th>Token</th>
@@ -24,13 +24,11 @@
                             <td><?= htmlspecialchars($token['created_at']) ?></td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if (empty($tokens)): ?>
-                        <tr>
-                            <td colspan="3" class="text-center text-muted">Henüz token oluşturmadınız.</td>
-                        </tr>
-                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
+        <?php if (empty($tokens)): ?>
+            <div class="text-center text-muted py-4" data-empty-state>Henüz token oluşturmadınız.</div>
+        <?php endif; ?>
     </div>
 </section>

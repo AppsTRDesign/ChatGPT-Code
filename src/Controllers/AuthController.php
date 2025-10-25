@@ -106,6 +106,23 @@ class AuthController extends Controller
         ]);
     }
 
+    public function publicApiGuide(): string
+    {
+        return $this->view('client/api-guide', [
+            'title' => 'API Kullanım Kılavuzu',
+            'layout' => 'public',
+            'tokens' => [],
+        ]);
+    }
+
+    public function publicSupport(): string
+    {
+        return $this->view('client/support', [
+            'title' => 'İletişim',
+            'layout' => 'public',
+        ]);
+    }
+
     public function logout(): string
     {
         $this->session->logout();

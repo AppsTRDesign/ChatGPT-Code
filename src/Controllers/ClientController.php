@@ -10,6 +10,7 @@ use App\Models\Site;
 use App\Models\Token;
 use App\Services\IyzicoGateway;
 use App\Support\Session;
+use App\Support\Uploader;
 
 class ClientController extends Controller
 {
@@ -176,5 +177,13 @@ class ClientController extends Controller
             'title' => 'İletişim',
             'layout' => 'client',
         ]);
+    }
+
+    public function upload(): string
+    {
+        [$status, $payload] = Uploader::handle('client');
+        http_response_code($status);
+        header('Content-Type: application/json');
+        return json_encode($payload, JSON_UNESCAPED_UNICODE);
     }
 }

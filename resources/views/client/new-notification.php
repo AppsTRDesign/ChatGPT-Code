@@ -3,7 +3,7 @@
         <div class="card p-4 shadow-sm">
             <h5 class="mb-1">Yeni Bildirim Oluştur</h5>
             <p class="text-muted mb-4">Onesignal tarzı gelişmiş hedefleme ile anlık bildirim gönderin.</p>
-            <form method="post" class="row g-3" data-dropzone data-dropzone-message="Görseli sürükleyip bırakın">
+            <form method="post" class="row g-3" data-dropzone data-dropzone-message="Görseli sürükleyip bırakın" data-dropzone-url="<?= base_url('app/uploads') ?>">
                 <div class="col-12">
                     <label class="form-label">Başlık</label>
                     <input type="text" name="title" class="form-control" required />
@@ -116,7 +116,7 @@
                 </div>
                 <span class="badge-soft"><i class="bi bi-phone"></i> Canlı Önizleme</span>
             </div>
-            <div class="border rounded-4 p-3 bg-white" id="templatePreview">Bir şablon seçerek önizleyebilirsiniz.</div>
+            <div class="border rounded-4 p-3 bg-white template-preview" id="templatePreview">Bir şablon seçerek önizleyebilirsiniz.</div>
         </div>
     </div>
 </div>

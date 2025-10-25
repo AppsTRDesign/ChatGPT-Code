@@ -53,10 +53,12 @@ class Notification extends Model
     {
         $templates = [];
         for ($i = 1; $i <= 10; $i++) {
+            $html = file_get_contents(__DIR__ . "/../../resources/templates/template{$i}.html") ?: '';
+            $html = str_replace('${i}', (string) $i, $html);
             $templates[] = [
                 'id' => $i,
                 'name' => "Şablon {$i}",
-                'html' => file_get_contents(__DIR__ . "/../../resources/templates/template{$i}.html") ?: '',
+                'html' => $html,
             ];
         }
         return $templates;

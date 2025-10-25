@@ -121,6 +121,15 @@ main {
     padding: 2rem;
 }
 
+.template-preview {
+    min-height: 240px;
+    border-style: dashed;
+    border-width: 2px;
+    border-color: rgba(2,48,71,0.15);
+    background: linear-gradient(180deg, rgba(244,249,251,0.55), rgba(255,255,255,0.95));
+    overflow: hidden;
+}
+
 .form-control,
 .form-select {
     border-radius: var(--radius-md);

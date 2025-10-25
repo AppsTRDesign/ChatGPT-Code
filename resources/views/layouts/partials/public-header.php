@@ -12,8 +12,8 @@
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link" href="<?= base_url('login') ?>">Giriş</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= base_url('register') ?>">Üye Ol</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?= base_url('app/api-guide') ?>">API</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?= base_url('app/support') ?>">İletişim</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= base_url('api-guide') ?>">API</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= base_url('contact') ?>">İletişim</a></li>
             </ul>
         </div>
     </div>

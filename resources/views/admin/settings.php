@@ -1,4 +1,4 @@
-<section class="row g-4" data-dropzone>
+<section class="row g-4" data-dropzone data-dropzone-url="<?= base_url('admin/uploads') ?>">
     <div class="col-lg-6">
         <div class="card p-4 shadow-sm">
             <h5 class="mb-1">Genel Ayarlar</h5>

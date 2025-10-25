@@ -36,6 +36,8 @@ class App
         $this->router->match(['GET', 'POST'], '/register', [AuthController::class, 'register']);
         $this->router->match(['GET', 'POST'], '/forgot-password', [AuthController::class, 'forgotPassword']);
         $this->router->match(['GET', 'POST'], '/resend-activation', [AuthController::class, 'resendActivation']);
+        $this->router->get('/api-guide', [AuthController::class, 'publicApiGuide']);
+        $this->router->get('/contact', [AuthController::class, 'publicSupport']);
 
         $this->router->group('/admin', function (Router $router) {
             $router->get('/dashboard', [AdminController::class, 'dashboard']);
@@ -45,6 +47,7 @@ class App
             $router->get('/purchases', [AdminController::class, 'purchases']);
             $router->get('/notifications', [AdminController::class, 'notifications']);
             $router->get('/api-usage', [AdminController::class, 'apiUsage']);
+            $router->post('/uploads', [AdminController::class, 'upload']);
         }, true);
 
         $this->router->group('/app', function (Router $router) {
@@ -58,6 +61,7 @@ class App
             $router->get('/api-usage', [ClientController::class, 'apiUsage']);
             $router->get('/api-guide', [ClientController::class, 'apiGuide']);
             $router->get('/support', [ClientController::class, 'support']);
+            $router->post('/uploads', [ClientController::class, 'upload']);
         }, true);
 
         $this->router->group('/api', function (Router $router) {
