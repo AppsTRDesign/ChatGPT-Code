@@ -2065,6 +2065,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 timeout: 180000,
             });
 
+            dz.on('maxfilesexceeded', (file) => {
+                dz.removeAllFiles();
+                dz.addFile(file);
+            });
+
             dz.on('sending', (file, xhr, formData) => {
                 formData.append('type', type);
                 if (csrf) {
@@ -2095,26 +2100,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const refresh = element.dataset.dropzoneRefresh === '1';
                 const inputSelector = element.dataset.dropzoneInput;
-                const previewSelector = element.dataset.dropzonePreview;
                 const storedValue = (data.relative || data.path || '').replace(/^\//, '');
 
                 if (inputSelector) {
                     const target = document.querySelector(inputSelector);
                     if (target) {
                         target.value = storedValue;
-                    }
-                }
-
-                if (previewSelector) {
-                    const preview = document.querySelector(previewSelector);
-                    if (preview) {
-                        const urlValue = data.url || data.path || data.relative || '';
-                        const absolute = buildAbsoluteUrl(urlValue);
-                        if (absolute) {
-                            preview.innerHTML = `<img src="${escapeHtml(absolute)}" class="img-fluid rounded" alt="">`;
-                        } else {
-                            preview.innerHTML = '<span class="text-white-50 small">Görsel hazır.</span>';
-                        }
                     }
                 }
 
@@ -2126,6 +2117,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 };
 
+                const keepPreview = type === 'notification';
+
                 if (refresh) {
                     Swal.fire({
                         icon: 'success',
@@ -2134,7 +2127,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     }).then(() => window.location.reload());
                 } else {
                     notify();
-                    dz.removeFile(file);
+                    if (!keepPreview) {
+                        dz.removeFile(file);
+                    } else if (file.previewElement) {
+                        file.previewElement.classList.add('dz-success');
+                    }
+                }
+            });
+
+            dz.on('removedfile', () => {
+                if (type === 'notification') {
+                    const inputSelector = element.dataset.dropzoneInput;
+                    if (inputSelector) {
+                        const target = document.querySelector(inputSelector);
+                        if (target) {
+                            target.value = '';
+                        }
+                    }
                 }
             });
 

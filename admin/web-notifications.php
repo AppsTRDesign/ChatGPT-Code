@@ -97,8 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="col-12">
                     <label class="form-label">Görsel (Opsiyonel)</label>
-                    <div class="dropzone notification-dropzone" data-dropzone-url="/admin/upload-notification.php" data-dropzone-type="notification" data-dropzone-message="Görseli sürükleyin veya tıklayın" data-dropzone-input="#notificationImage" data-dropzone-preview="#notificationPreview" data-dropzone-csrf="<?= Helpers::e($csrf) ?>"></div>
-                    <div id="notificationPreview" class="mt-3 small text-white-50"></div>
+                    <div class="dropzone notification-dropzone" data-dropzone-url="/admin/upload-notification.php" data-dropzone-type="notification" data-dropzone-message="Görseli sürükleyin veya tıklayın" data-dropzone-input="#notificationImage" data-dropzone-csrf="<?= Helpers::e($csrf) ?>"></div>
                 </div>
                 <div class="col-12 mt-auto">
                     <button type="submit" class="btn btn-primary w-100">Bildirimi Gönder</button>

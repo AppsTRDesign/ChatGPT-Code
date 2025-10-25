@@ -752,12 +752,60 @@ code {
     border-radius: 16px !important;
     background: rgba(15, 23, 42, 0.5) !important;
     color: #cbd5f5 !important;
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
 }
 
 .notification-dropzone .dz-message {
     font-weight: 500;
     font-size: 0.95rem;
     color: inherit;
+}
+
+.notification-dropzone.dz-started .dz-message {
+    display: none;
+}
+
+.notification-dropzone .dz-preview {
+    margin: 0;
+    max-width: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.notification-dropzone .dz-preview .dz-image {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 1rem;
+    overflow: hidden;
+    max-height: 260px;
+}
+
+.notification-dropzone .dz-preview .dz-image img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    max-height: 260px;
+}
+
+.notification-dropzone .dz-preview .dz-details {
+    display: none;
+}
+
+.notification-dropzone .dz-preview .dz-remove {
+    color: #fca5a5;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.notification-dropzone .dz-preview .dz-remove:hover {
+    color: #f87171;
 }
 
 @media (max-width: 576px) {
