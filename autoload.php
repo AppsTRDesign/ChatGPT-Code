@@ -5,8 +5,9 @@ declare(strict_types=1);
 $composerAutoload = __DIR__ . '/vendor/autoload.php';
 if (file_exists($composerAutoload)) {
     require $composerAutoload;
-    return;
 }
+
+require __DIR__ . '/src/Support/helpers.php';
 
 spl_autoload_register(function (string $class): void {
     if (!str_starts_with($class, 'App\\')) {

@@ -8,6 +8,7 @@ use App\Controllers\AdminController;
 use App\Controllers\AuthController;
 use App\Controllers\ClientController;
 use App\Controllers\ApiController;
+use App\Support\Config;
 
 class App
 {
@@ -16,6 +17,7 @@ class App
 
     public function __construct()
     {
+        date_default_timezone_set(Config::get('app.timezone', 'UTC'));
         $this->session = new Session();
         $this->router = new Router($this->session);
         $this->registerRoutes();

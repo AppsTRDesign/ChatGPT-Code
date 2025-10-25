@@ -1,12 +1,11 @@
-<?php ob_start(); ?>
 <section class="py-5 text-center">
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <h1 class="display-5 fw-bold text-primary">Web Bildirimlerinizi Yönetmenin En Akıllı Yolu</h1>
             <p class="lead mt-3">NoaSoft WebPush ile kullanıcılarınıza hızlı, hedefli ve ölçülebilir bildirimler gönderin. Plesk ve Alma Linux uyumlu altyapımız sayesinde kolay kurulumla işe başlayın.</p>
             <div class="d-flex justify-content-center gap-3 mt-4">
-                <a class="btn btn-primary btn-lg" href="/register">Hemen Başla</a>
-                <a class="btn btn-outline-primary btn-lg" href="/login">Giriş Yap</a>
+                <a class="btn btn-theme btn-lg" href="<?= base_url('register') ?>">Hemen Başla</a>
+                <a class="btn btn-outline-secondary btn-lg" href="<?= base_url('login') ?>">Giriş Yap</a>
             </div>
         </div>
     </div>
@@ -37,4 +36,3 @@
         </div>
     </div>
 </section>
-<?php $content = ob_get_clean(); include __DIR__ . '/../layouts/base.php'; ?>

@@ -3,7 +3,10 @@
     "description": "Web push notification platform",
     "type": "project",
     "require": {
-        "php": ">=8.0"
+        "php": ">=8.0",
+        "matomo/device-detector": "^6.0",
+        "iyzico/iyzipay-php": "^2.0",
+        "phpmailer/phpmailer": "^6.8"
     },
     "autoload": {
         "psr-4": {

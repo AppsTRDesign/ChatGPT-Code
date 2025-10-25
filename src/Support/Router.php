@@ -72,7 +72,7 @@ class Router
         }
 
         http_response_code(404);
-        echo View::render('errors/404', ['title' => 'Sayfa bulunamadı']);
+        echo View::render('errors/404', ['title' => 'Sayfa bulunamadı', 'layout' => 'public']);
     }
 
     private function addRoute(string $method, string $path, callable $handler): void

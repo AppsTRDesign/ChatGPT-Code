@@ -8,7 +8,7 @@ Plesk ve AlmaLinux 8 üzerinde PHP 8 ile çalışacak şekilde tasarlanan AJAX t
 2. PHP 8, MySQL 8 ve Composer kurulu olmalıdır.
 3. `composer dump-autoload` komutu ile sınıf yükleyicisini oluşturun.
 4. MySQL veritabanınızı oluşturun ve `database/schema.sql` dosyasını uygulayın.
-5. Sunucu yapılandırmasında `public/` dizinini web kökü olarak tanımlayın.
+5. Sunucu yapılandırmasında depo kök dizinini (`webpush.noasoft.org`) web kökü olarak tanımlayın.
 6. `config/database.php` dosyasında veritabanı bilgilerini düzenleyin.
 
 ## Özellikler

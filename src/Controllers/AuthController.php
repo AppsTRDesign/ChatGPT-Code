@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Models\User;
+use App\Services\Mailer;
 use App\Support\View;
 
 class AuthController extends Controller
@@ -18,7 +19,10 @@ class AuthController extends Controller
                 : $this->redirect('/app/dashboard');
         }
 
-        return $this->view('auth/landing', ['title' => 'NoaSoft WebPush Platformu']);
+        return $this->view('auth/landing', [
+            'title' => 'NoaSoft WebPush Platformu',
+            'layout' => 'public',
+        ]);
     }
 
     public function login(): string
@@ -40,7 +44,10 @@ class AuthController extends Controller
             }
         }
 
-        return $this->view('auth/login', ['title' => 'Giriş Yap']);
+        return $this->view('auth/login', [
+            'title' => 'Giriş Yap',
+            'layout' => 'public',
+        ]);
     }
 
     public function register(): string
@@ -58,12 +65,17 @@ class AuthController extends Controller
                 $this->session->flash('warning', 'Bu email ile kayıtlı bir hesap bulunuyor.');
             } else {
                 User::create($data);
+                $mailer = new Mailer();
+                $mailer->send($data['email'], 'NoaSoft WebPush Aktivasyon', 'Hesabınızı aktifleştirmek için giriş yapın.');
                 $this->session->flash('success', 'Kayıt başarıyla oluşturuldu. Lütfen mail onayı tamamlayın.');
                 return $this->redirect('/login');
             }
         }
 
-        return $this->view('auth/register', ['title' => 'Üye Ol']);
+        return $this->view('auth/register', [
+            'title' => 'Üye Ol',
+            'layout' => 'public',
+        ]);
     }
 
     public function forgotPassword(): string
@@ -72,7 +84,10 @@ class AuthController extends Controller
             $this->session->flash('info', 'Şifre sıfırlama yönergeleri mail adresinize gönderildi.');
         }
 
-        return $this->view('auth/forgot-password', ['title' => 'Şifremi Unuttum']);
+        return $this->view('auth/forgot-password', [
+            'title' => 'Şifremi Unuttum',
+            'layout' => 'public',
+        ]);
     }
 
     public function resendActivation(): string
@@ -81,7 +96,10 @@ class AuthController extends Controller
             $this->session->flash('success', 'Aktivasyon maili tekrar gönderildi.');
         }
 
-        return $this->view('auth/resend-activation', ['title' => 'Aktivasyon Mailini Yeniden Gönder']);
+        return $this->view('auth/resend-activation', [
+            'title' => 'Aktivasyon Mailini Yeniden Gönder',
+            'layout' => 'public',
+        ]);
     }
 
     public function logout(): string

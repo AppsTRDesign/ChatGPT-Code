@@ -1,12 +1,14 @@
-<?php ob_start(); ?>
-<div class="card">
+<section class="card">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">Üye Listesi</h5>
-            <button class="btn btn-sm btn-outline-primary" data-refresh="#memberTable" data-url="/admin/members">Yenile</button>
+            <div>
+                <h5 class="mb-1">Üye Listesi</h5>
+                <small class="text-muted">Üyelerin paketlerini, durumlarını ve rollerini yönetin.</small>
+            </div>
+            <button class="btn btn-theme btn-sm" data-refresh="#memberTable" data-url="<?= base_url('admin/members') ?>"><i class="bi bi-arrow-repeat"></i> Yenile</button>
         </div>
         <div class="table-responsive">
-            <table class="table table-striped datatable" id="memberTable">
+            <table class="table table-hover datatable align-middle" id="memberTable">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -18,19 +20,18 @@
                     </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($members as $member): ?>
-                    <tr>
-                        <td><?= $member['id'] ?></td>
-                        <td><?= htmlspecialchars($member['name']) ?></td>
-                        <td><?= htmlspecialchars($member['email']) ?></td>
-                        <td><?= htmlspecialchars($member['role']) ?></td>
-                        <td><?= $member['is_active'] ? 'Aktif' : 'Pasif' ?></td>
-                        <td><?= $member['created_at'] ?></td>
-                    </tr>
-                <?php endforeach; ?>
+                    <?php foreach ($members as $member): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($member['id']) ?></td>
+                            <td><?= htmlspecialchars($member['name']) ?></td>
+                            <td><?= htmlspecialchars($member['email']) ?></td>
+                            <td><span class="badge-soft text-uppercase"><?= htmlspecialchars($member['role']) ?></span></td>
+                            <td><?= $member['is_active'] ? 'Aktif' : 'Pasif' ?></td>
+                            <td><?= htmlspecialchars($member['created_at']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
     </div>
-</div>
-<?php $content = ob_get_clean(); include __DIR__ . '/../layouts/base.php'; ?>
+</section>
