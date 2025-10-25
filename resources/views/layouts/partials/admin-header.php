@@ -14,7 +14,7 @@
     </div>
     <div class="row g-4">
         <div class="col-lg-3">
-            <aside id="adminSidebar" class="sidebar offcanvas-lg offcanvas-start h-100" tabindex="-1" aria-labelledby="adminSidebarLabel" data-bs-scroll="true">
+            <aside id="adminSidebar" class="sidebar offcanvas offcanvas-lg offcanvas-start h-100" tabindex="-1" aria-labelledby="adminSidebarLabel" data-bs-scroll="true">
                 <div class="offcanvas-header d-lg-none">
                     <h5 class="offcanvas-title" id="adminSidebarLabel">Admin Panel</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Kapat"></button>

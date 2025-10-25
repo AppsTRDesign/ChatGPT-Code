@@ -1,3 +1,7 @@
+if (typeof Dropzone !== 'undefined') {
+    Dropzone.autoDiscover = false;
+}
+
 window.WebPush = (function () {
     const charts = new Map();
 
@@ -49,13 +53,25 @@ window.WebPush = (function () {
         if (typeof Dropzone === 'undefined') {
             return;
         }
-        Dropzone.autoDiscover = false;
         document.querySelectorAll('[data-dropzone] .dropzone').forEach((element) => {
-            if (element.dropzone || (typeof Dropzone.forElement === 'function' && Dropzone.forElement(element))) {
+            let existing = element.dropzone || null;
+            if (!existing && typeof Dropzone.forElement === 'function') {
+                try {
+                    existing = Dropzone.forElement(element);
+                } catch (error) {
+                    existing = null;
+                }
+            }
+            if (existing) {
                 return;
             }
+            const container = element.closest('[data-dropzone]');
             const form = element.closest('form');
-            const url = element.dataset.dropzoneUrl || form?.getAttribute('action') || '';
+            const url =
+                element.dataset.dropzoneUrl ||
+                container?.dataset.dropzoneUrl ||
+                form?.getAttribute('action') ||
+                '';
             if (!url || url === '#') {
                 console.warn('Dropzone skipped for element without a valid URL.', element);
                 return;
