@@ -1,0 +1,60 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../config.php';
+
+header('Content-Type: application/json; charset=utf-8');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+    exit;
+}
+
+require_auth();
+
+$csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+if (!verify_csrf($csrf)) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Geçersiz güvenlik belirteci.']);
+    exit;
+}
+
+if (empty($_FILES['file'])) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => 'Dosya bulunamadı.']);
+    exit;
+}
+
+$file = $_FILES['file'];
+try {
+    [$mimeType, $size] = validate_uploaded_file($file);
+    $user = current_user();
+    if (!can_upload($pdo, (int) $user['id'], $size)) {
+        throw new RuntimeException('Depo alanı limitini aştınız.');
+    }
+    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $storedName = bin2hex(random_bytes(16)) . ($extension ? '.' . strtolower($extension) : '');
+    $destination = __DIR__ . '/../uploads/' . $storedName;
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        throw new RuntimeException('Dosya kaydedilemedi.');
+    }
+    $fileId = store_file($pdo, [
+        'filename' => $file['name'],
+        'stored_name' => $storedName,
+        'size' => $size,
+        'type' => $mimeType,
+        'uploader_ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
+        'user_id' => $user['id'],
+    ]);
+    $slug = slugify(pathinfo($file['name'], PATHINFO_FILENAME));
+    $fileUrl = BASE_URL . '/file/' . $fileId . '-' . $slug . ($extension ? '.' . strtolower($extension) : '');
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'Dosya başarıyla yüklendi.',
+        'fileUrl' => $fileUrl,
+        'fileId' => $fileId,
+    ]);
+} catch (Throwable $e) {
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+}

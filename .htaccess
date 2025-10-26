@@ -1,0 +1,15 @@
+Options -Indexes
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+RewriteRule ^file/([0-9]+)-?([A-Za-z0-9\-\._]*)$ file.php?id=$1 [L,QSA]
+RewriteRule ^admin/?$ admin/index.php [L,QSA]
+RewriteRule ^admin/(.*)$ admin/$1 [L,QSA]
+RewriteRule ^client/?$ client/index.php [L,QSA]
+RewriteRule ^client/(.*)$ client/$1 [L,QSA]
+RewriteRule ^api/(.*)$ api/$1 [L,QSA]
+RewriteRule ^(login|register|forgot-password|logout)$ $1.php [L,QSA]
+RewriteRule ^contact$ contact.php [L,QSA]
+RewriteRule ^$ index.php [L,QSA]
+RewriteRule ^(.+)$ index.php?page=$1 [L,QSA]
