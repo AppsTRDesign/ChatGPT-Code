@@ -62,6 +62,10 @@ try {
                 'share_expiry_minutes' => (int) ($payload['share_expiry_minutes'] ?? 1440),
                 'public_sharing_enabled' => !empty($payload['public_sharing_enabled']) ? 1 : 0,
                 'folder_passwords_enabled' => !empty($payload['folder_passwords_enabled']) ? 1 : 0,
+                'share_download_delay' => max(0, (int) ($payload['share_download_delay'] ?? 0)),
+                'ad_dashboard_html' => $payload['ad_dashboard_html'] ?? '',
+                'ad_share_top_html' => $payload['ad_share_top_html'] ?? '',
+                'ad_share_bottom_html' => $payload['ad_share_bottom_html'] ?? '',
             ];
             $settings = fetch_settings($pdo);
             if (!$settings) {
@@ -74,7 +78,7 @@ try {
             $logoName = $settings['logo'] ?? null;
             $faviconName = $settings['favicon'] ?? null;
             if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-                [$mime] = validate_uploaded_file($_FILES['logo'], $pdo);
+                [$mime] = validate_uploaded_file($_FILES['logo'], $pdo, ['image/jpeg', 'image/png', 'image/svg+xml', 'image/gif']);
                 if (!str_starts_with($mime, 'image/')) {
                     throw new RuntimeException('Logo yalnızca görsel olmalıdır.');
                 }
@@ -83,7 +87,7 @@ try {
                 move_uploaded_file($_FILES['logo']['tmp_name'], __DIR__ . '/../uploads/' . $logoName);
             }
             if (!empty($_FILES['favicon']) && $_FILES['favicon']['error'] === UPLOAD_ERR_OK) {
-                [$mime] = validate_uploaded_file($_FILES['favicon'], $pdo);
+                [$mime] = validate_uploaded_file($_FILES['favicon'], $pdo, ['image/png', 'image/x-icon', 'image/svg+xml', 'image/gif']);
                 if (!str_starts_with($mime, 'image/')) {
                     throw new RuntimeException('Favicon yalnızca görsel olmalıdır.');
                 }
@@ -97,7 +101,7 @@ try {
             }
             $allowedMimeJson = json_encode(array_values(array_unique($allowedMimeList)));
 
-            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_mime_types = :allowed_mime_types, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled LIMIT 1');
+            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_mime_types = :allowed_mime_types, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled, share_download_delay = :share_download_delay, ad_dashboard_html = :ad_dashboard_html, ad_share_top_html = :ad_share_top_html, ad_share_bottom_html = :ad_share_bottom_html LIMIT 1');
             $stmt->execute([
                 ':meta_title' => $fields['meta_title'],
                 ':meta_description' => $fields['meta_description'],
@@ -116,28 +120,58 @@ try {
                 ':share_expiry_minutes' => $fields['share_expiry_minutes'] ?: 1440,
                 ':public_sharing_enabled' => $fields['public_sharing_enabled'],
                 ':folder_passwords_enabled' => $fields['folder_passwords_enabled'],
+                ':share_download_delay' => $fields['share_download_delay'],
+                ':ad_dashboard_html' => $fields['ad_dashboard_html'],
+                ':ad_share_top_html' => $fields['ad_share_top_html'],
+                ':ad_share_bottom_html' => $fields['ad_share_bottom_html'],
             ]);
             echo json_encode(['status' => 'success', 'message' => 'Ayarlar güncellendi.']);
             break;
 
         case 'save-package':
             $packageId = isset($payload['id']) ? (int) $payload['id'] : null;
+            $rawFeatures = $payload['features'] ?? '[]';
+            if (is_string($rawFeatures)) {
+                $decodedFeatures = json_decode($rawFeatures, true);
+                if (!is_array($decodedFeatures)) {
+                    $decodedFeatures = array_filter(array_map('trim', explode(',', $rawFeatures)));
+                }
+            } else {
+                $decodedFeatures = is_array($rawFeatures) ? $rawFeatures : [];
+            }
+            $featuresJson = json_encode(array_values(array_filter($decodedFeatures, static fn($item) => $item !== '')));
+
+            $rawMime = $payload['allowed_mime_types'] ?? '';
+            if (is_string($rawMime) && $rawMime !== '') {
+                $decodedMime = json_decode($rawMime, true);
+                if (is_array($decodedMime)) {
+                    $allowedMimeJson = json_encode(array_values(array_filter(array_map('trim', $decodedMime))));
+                } else {
+                    $allowedMimeJson = json_encode(array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $rawMime) ?: []))));
+                }
+            } elseif (is_array($rawMime)) {
+                $allowedMimeJson = json_encode(array_values(array_filter(array_map('trim', $rawMime))));
+            } else {
+                $allowedMimeJson = null;
+            }
+
             $data = [
                 ':name' => trim($payload['name'] ?? ''),
                 ':storage' => (int) ($payload['storage_limit'] ?? 0),
                 ':uploads' => (int) ($payload['max_concurrent_uploads'] ?? 1),
-                ':features' => json_encode($payload['features'] ?? []),
+                ':features' => $featuresJson,
                 ':price' => (float) ($payload['price'] ?? 0),
                 ':active' => !empty($payload['is_active']) ? 1 : 0,
+                ':allowed_mime_types' => $allowedMimeJson,
             ];
             if (strlen($data[':name']) < 3) {
                 throw new RuntimeException('Paket adı en az 3 karakter olmalı.');
             }
             if ($packageId) {
-                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, price = :price, is_active = :active WHERE id = :id');
+                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_mime_types = :allowed_mime_types, price = :price, is_active = :active WHERE id = :id');
                 $stmt->execute($data + [':id' => $packageId]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, price, is_active) VALUES (:name, :storage, :uploads, :features, :price, :active)');
+                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_mime_types, :price, :active)');
                 $stmt->execute($data);
                 $packageId = (int) $pdo->lastInsertId();
             }

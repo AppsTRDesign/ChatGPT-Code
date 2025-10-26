@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config.php';
 require_login_redirect();
 global $pageScripts;
-$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/file-manager.js?v=1.1.0"></script>';
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/file-manager.js?v=1.2.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
@@ -24,15 +24,37 @@ include __DIR__ . '/nav.php';
                 <button type="button" class="btn btn-outline-light" data-fm-action="upload"><i class="bi bi-cloud-arrow-up me-1"></i>Dosya Yükle</button>
                 <button type="button" class="btn btn-outline-light" data-fm-action="rename"><i class="bi bi-pencil-square me-1"></i>Ad Değiştir</button>
                 <button type="button" class="btn btn-outline-light" data-fm-action="move"><i class="bi bi-arrows-move me-1"></i>Taşı</button>
+                <button type="button" class="btn btn-outline-light" data-fm-action="select-all"><i class="bi bi-check2-all me-1"></i>Tümünü Seç</button>
                 <button type="button" class="btn btn-outline-light" data-fm-action="zip"><i class="bi bi-file-zip me-1"></i>Zip Oluştur</button>
                 <button type="button" class="btn btn-outline-danger ms-lg-auto" data-fm-action="delete"><i class="bi bi-trash me-1"></i>Sil</button>
             </div>
         </div>
 
         <div class="card card-glass p-3 mb-4">
-            <nav class="breadcrumb breadcrumb-dark mb-3" aria-label="breadcrumbs" data-fm-breadcrumbs></nav>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                <nav class="breadcrumb breadcrumb-dark mb-0" aria-label="breadcrumbs" data-fm-breadcrumbs></nav>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <label class="text-white-50 small mb-0" for="fm-sort">Sırala</label>
+                    <select id="fm-sort" class="form-select form-select-sm fm-sort" data-fm-sort>
+                        <option value="name|asc">Ada göre (A-Z)</option>
+                        <option value="name|desc">Ada göre (Z-A)</option>
+                        <option value="date|desc">Yükleme Tarihi (Yeni)</option>
+                        <option value="date|asc">Yükleme Tarihi (Eski)</option>
+                        <option value="size|desc">Boyuta göre (Büyük)</option>
+                        <option value="size|asc">Boyuta göre (Küçük)</option>
+                    </select>
+                </div>
+            </div>
             <div class="fm-grid" data-fm-grid>
                 <div class="text-white-50 small">İçerik yükleniyor…</div>
+            </div>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-4" data-fm-pagination>
+                <div class="text-white-50 small" data-fm-summary></div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-light btn-sm" data-fm-page="prev"><i class="bi bi-chevron-left"></i></button>
+                    <span class="text-white fw-semibold" data-fm-page-label>1 / 1</span>
+                    <button type="button" class="btn btn-outline-light btn-sm" data-fm-page="next"><i class="bi bi-chevron-right"></i></button>
+                </div>
             </div>
         </div>
 
@@ -75,7 +97,6 @@ include __DIR__ . '/nav.php';
         <li data-action="move">Taşı</li>
         <li data-action="share">Paylaş</li>
         <li data-action="protect">Şifrele</li>
-        <li data-action="visibility">Görünürlüğü Değiştir</li>
         <li data-action="zip">Zip Oluştur</li>
         <li data-action="delete" class="text-danger">Sil</li>
     </ul>

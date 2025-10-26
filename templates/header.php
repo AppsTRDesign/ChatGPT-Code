@@ -17,7 +17,7 @@ $faviconPath = !empty($settings['favicon']) ? BASE_URL . '/uploads/' . ltrim($se
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
-    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=1.1.0">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=1.2.0">
     <?php if (!empty($settings['analytics_enabled']) && !empty($settings['analytics_code'])): ?>
         <?= $settings['analytics_code'] ?>
     <?php endif; ?>

@@ -27,8 +27,10 @@ if (empty($_FILES['file'])) {
 
 $file = $_FILES['file'];
 try {
-    [$mimeType, $size] = validate_uploaded_file($file, $pdo);
     $user = current_user();
+    $package = package_for_user($pdo, (int) $user['id']);
+    $allowedTypes = allowed_mime_types($pdo, $package['id'] ?? null);
+    [$mimeType, $size] = validate_uploaded_file($file, $pdo, $allowedTypes);
     $folderId = isset($_POST['folder_id']) ? (int) $_POST['folder_id'] : null;
     if ($folderId) {
         $folder = fetch_folder($pdo, $folderId);

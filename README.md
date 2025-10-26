@@ -4,12 +4,13 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 
 ## Özellikler
 - **Modern Arayüz:** Bootstrap 5 tabanlı responsive tasarım, özel renk paleti, Dropzone teması ve SweetAlert bildirimleri.
-- **Gelişmiş Dosya Yöneticisi:** Klasör oluşturma, ad değiştirme, taşıma, zip arşivi üretme, şifre koruma ve sağ tık menüsü üzerinden paylaşım/görünürlük aksiyonları.
+- **Gelişmiş Dosya Yöneticisi:** Çoklu seçim, CTRL+A ile tümünü seçme, Delete kısayolu, klasör oluşturma, ad değiştirme, taşıma, aynı klasördeki dosyalardan zip üretme ve sağ tık menüsünden paylaş/şifrele aksiyonları.
+- **Dosya Tipi İkonları & Sıralama:** MIME tipine göre otomatik ikon ataması, ada/boyuta/tarihe göre sıralama, sayfalama ve modern grid görünümü.
 - **Drag & Drop Yükleme:** Paket limitlerine göre otomatik ayarlanan paralel yükleme, MIME kontrolü ve klasör bazlı sürükle-bırak deneyimi.
-- **Paylaşım ve Güvenli İndirme:** Herkese açık paylaşım bağlantıları, süre bazlı indirme yetkisi, gizli indirme linkleri (`/s/{token}` ve `/d/{token}`) ile dosya yolu gizleme.
-- **Paket ve Limit Yönetimi:** Admin panelinden izin verilen MIME türlerini, maksimum eş zamanlı yüklemeleri, paylaşım süresini ve klasör şifreleme/publik paylaşım ayarlarını belirleyin.
+- **Paylaşım ve Güvenli İndirme:** Herkese açık paylaşım bağlantıları, admin tanımlı geri sayım ile indirme butonunu aktifleştirme, gizli indirme linkleri (`/s/{token}` ve `/d/{token}`) ve paylaşım sayfasında reklam alanları.
+- **Paket ve Limit Yönetimi:** Admin panelinden izin verilen MIME türlerini paket bazında tanımlayın, maksimum eş zamanlı yüklemeleri, paylaşım süresini ve klasör şifreleme/publik paylaşım ayarlarını belirleyin.
 - **SEO Dostu Rotalar:** `.htaccess` ile `/file/{id}-{slug}` formatında temiz URL yönlendirmeleri.
-- **Admin Paneli:** Dosya ve kullanıcı yönetimi, paket tanımlama, izin verilen MIME listesi, paylaşım süresi, klasör şifreleme ve genel meta/HTML/mail/analytics ayarları.
+- **Admin Paneli:** Dosya ve kullanıcı yönetimi, paket tanımlama, paket bazlı MIME listesi, paylaşım süresi ve indirme gecikmesi, klasör şifreleme, reklam alanları ve genel meta/HTML/mail/analytics ayarları.
 - **Client Paneli:** Dosya yönetimi, paket satın alma, kullanım istatistikleri, profil düzenleme ve ajax tabanlı bildirimler.
 - **Güvenlik:** CSRF koruması, MIME tipi doğrulaması, 50 MB varsayılan sınır, `uploads/.htaccess` ile doğrudan erişim kısıtlama.
 - **Veritabanı Otomasyonu:** PDO ile bağlantı, ilk kurulumda tablo ve örnek verilerin (admin hesabı, paketler, varsayılan ayarlar) oluşturulması.

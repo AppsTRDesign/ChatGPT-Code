@@ -47,11 +47,16 @@ CREATE TABLE IF NOT EXISTS packages (
     storage_limit BIGINT NOT NULL,
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
+    allowed_mime_types TEXT DEFAULT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 SQL);
+
+    if (!schemaColumnExists($pdo, 'packages', 'allowed_mime_types')) {
+        $pdo->exec('ALTER TABLE packages ADD COLUMN allowed_mime_types TEXT DEFAULT NULL AFTER features');
+    }
 
     $pdo->exec(<<<SQL
 CREATE TABLE IF NOT EXISTS users (
@@ -353,7 +358,7 @@ function folder_is_descendant(PDO $pdo, int $folderId, int $potentialDescendant)
     return false;
 }
 
-function list_folder_contents(PDO $pdo, array $user, ?int $folderId, bool $isAdmin): array
+function list_folder_contents(PDO $pdo, array $user, ?int $folderId, bool $isAdmin, array $options = []): array
 {
     $currentFolder = null;
     if ($folderId) {
@@ -366,16 +371,45 @@ function list_folder_contents(PDO $pdo, array $user, ?int $folderId, bool $isAdm
         }
     }
 
+    $page = max(1, (int) ($options['page'] ?? 1));
+    $perPage = max(1, min(96, (int) ($options['per_page'] ?? ($isAdmin ? 100 : 24))));
+    $sortKey = strtolower((string) ($options['sort'] ?? 'name'));
+    $direction = strtoupper((string) ($options['direction'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+
+    $sortMap = [
+        'name' => 'filename',
+        'size' => 'size',
+        'date' => 'uploaded_at',
+    ];
+    $column = $sortMap[$sortKey] ?? 'filename';
+
     if ($isAdmin) {
         $folderStmt = $pdo->prepare('SELECT f.*, (SELECT COUNT(*) FROM files fi WHERE fi.folder_id = f.id) AS file_count FROM folders f WHERE (:folderId IS NULL AND f.parent_id IS NULL) OR f.parent_id = :folderId ORDER BY f.name');
         $folderStmt->execute([':folderId' => $folderId]);
-        $fileStmt = $pdo->prepare('SELECT f.*, u.name AS owner_name FROM files f LEFT JOIN users u ON u.id = f.user_id WHERE (:folderId IS NULL AND f.folder_id IS NULL) OR f.folder_id = :folderId ORDER BY f.filename');
-        $fileStmt->execute([':folderId' => $folderId]);
+
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM files WHERE (:folderId IS NULL AND folder_id IS NULL) OR folder_id = :folderId');
+        $countStmt->execute([':folderId' => $folderId]);
+
+        $fileStmt = $pdo->prepare("SELECT f.*, u.name AS owner_name FROM files f LEFT JOIN users u ON u.id = f.user_id WHERE ((:folderId IS NULL AND f.folder_id IS NULL) OR f.folder_id = :folderId) ORDER BY {$column} {$direction} LIMIT :limit OFFSET :offset");
+        $fileStmt->bindValue(':folderId', $folderId, $folderId === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+        $fileStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $fileStmt->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT);
+        $fileStmt->execute();
+        $totalFiles = (int) $countStmt->fetchColumn();
     } else {
         $folderStmt = $pdo->prepare('SELECT f.*, (SELECT COUNT(*) FROM files fi WHERE fi.folder_id = f.id) AS file_count FROM folders f WHERE f.user_id = :uid AND ((:folderId IS NULL AND f.parent_id IS NULL) OR f.parent_id = :folderId) ORDER BY f.name');
         $folderStmt->execute([':uid' => $user['id'], ':folderId' => $folderId]);
-        $fileStmt = $pdo->prepare('SELECT * FROM files WHERE user_id = :uid AND ((:folderId IS NULL AND folder_id IS NULL) OR folder_id = :folderId) ORDER BY filename');
-        $fileStmt->execute([':uid' => $user['id'], ':folderId' => $folderId]);
+
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM files WHERE user_id = :uid AND ((:folderId IS NULL AND folder_id IS NULL) OR folder_id = :folderId)');
+        $countStmt->execute([':uid' => $user['id'], ':folderId' => $folderId]);
+
+        $fileStmt = $pdo->prepare("SELECT * FROM files WHERE user_id = :uid AND ((:folderId IS NULL AND folder_id IS NULL) OR folder_id = :folderId) ORDER BY {$column} {$direction} LIMIT :limit OFFSET :offset");
+        $fileStmt->bindValue(':uid', $user['id'], PDO::PARAM_INT);
+        $fileStmt->bindValue(':folderId', $folderId, $folderId === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+        $fileStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $fileStmt->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT);
+        $fileStmt->execute();
+        $totalFiles = (int) $countStmt->fetchColumn();
     }
 
     return [
@@ -383,6 +417,14 @@ function list_folder_contents(PDO $pdo, array $user, ?int $folderId, bool $isAdm
         'folders' => $folderStmt->fetchAll() ?: [],
         'files' => $fileStmt->fetchAll() ?: [],
         'breadcrumbs' => folder_breadcrumbs($pdo, $folderId, $user, $isAdmin),
+        'pagination' => [
+            'page' => $page,
+            'per_page' => $perPage,
+            'total' => $totalFiles,
+            'total_pages' => (int) max(1, (int) ceil(max(1, $totalFiles) / $perPage)),
+            'sort' => $sortKey,
+            'direction' => strtolower($direction),
+        ],
     ];
 }
 
@@ -547,6 +589,76 @@ function create_folder_archive(PDO $pdo, int $folderId, array $user, bool $isAdm
     ];
 }
 
+function create_files_archive(PDO $pdo, array $fileIds, array $user, bool $isAdmin): array
+{
+    $fileIds = array_values(array_unique(array_map('intval', $fileIds)));
+    $fileIds = array_filter($fileIds, static fn (int $id): bool => $id > 0);
+    if (empty($fileIds)) {
+        throw new RuntimeException('Seçilen dosya bulunamadı.');
+    }
+
+    $placeholders = implode(',', array_fill(0, count($fileIds), '?'));
+    $stmt = $pdo->prepare("SELECT * FROM files WHERE id IN ($placeholders)");
+    $stmt->execute($fileIds);
+    $files = $stmt->fetchAll();
+    if (!$files) {
+        throw new RuntimeException('Dosyalar bulunamadı.');
+    }
+
+    $baseFolder = $files[0]['folder_id'] !== null ? (int) $files[0]['folder_id'] : null;
+    $ownerId = (int) $files[0]['user_id'];
+
+    foreach ($files as $file) {
+        if (!$isAdmin && (int) $file['user_id'] !== (int) $user['id']) {
+            throw new RuntimeException('Size ait olmayan dosyalar seçtiniz.');
+        }
+        if ($file['folder_id'] !== $files[0]['folder_id']) {
+            throw new RuntimeException('Zip işlemi için aynı klasördeki dosyaları seçmelisiniz.');
+        }
+        if ((int) $file['user_id'] !== $ownerId) {
+            throw new RuntimeException('Farklı kullanıcılara ait dosyalar birleştirilemez.');
+        }
+    }
+
+    if (!class_exists('ZipArchive')) {
+        throw new RuntimeException('ZipArchive desteği mevcut değil.');
+    }
+
+    $archiveStored = bin2hex(random_bytes(12)) . '.zip';
+    $archivePath = __DIR__ . '/uploads/' . $archiveStored;
+    $zip = new ZipArchive();
+    if ($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        throw new RuntimeException('Arşiv oluşturulamadı.');
+    }
+    foreach ($files as $file) {
+        $source = __DIR__ . '/uploads/' . $file['stored_name'];
+        if (is_file($source)) {
+            $zip->addFile($source, $file['filename']);
+        }
+    }
+    $zip->close();
+
+    $archiveFilename = 'Arsiv-' . date('Ymd-His') . '.zip';
+    $newFileId = store_file($pdo, [
+        'filename' => $archiveFilename,
+        'stored_name' => $archiveStored,
+        'size' => filesize($archivePath),
+        'type' => 'application/zip',
+        'uploader_ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
+        'user_id' => $isAdmin ? $ownerId : $user['id'],
+        'folder_id' => $baseFolder,
+    ]);
+
+    $slug = slugify(pathinfo($archiveFilename, PATHINFO_FILENAME));
+    $downloadUrl = BASE_URL . '/file/' . $newFileId . '-' . $slug . '.zip';
+
+    return [
+        'file_id' => $newFileId,
+        'filename' => $archiveFilename,
+        'download_url' => $downloadUrl,
+    ];
+}
+
 function format_bytes(int $bytes): string
 {
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -558,25 +670,28 @@ function ensureDefaultPackages(PDO $pdo): void
 {
     $count = (int) $pdo->query('SELECT COUNT(*) FROM packages')->fetchColumn();
     if ($count === 0) {
-        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, price) VALUES
-            (:name1, :storage1, :upload1, :features1, :price1),
-            (:name2, :storage2, :upload2, :features2, :price2),
-            (:name3, :storage3, :upload3, :features3, :price3)');
+        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, price) VALUES
+            (:name1, :storage1, :upload1, :features1, :mime1, :price1),
+            (:name2, :storage2, :upload2, :features2, :mime2, :price2),
+            (:name3, :storage3, :upload3, :features3, :mime3, :price3)');
         $stmt->execute([
             ':name1' => 'Başlangıç',
             ':storage1' => 524288000,
             ':upload1' => 2,
             ':features1' => json_encode(['Temel depolama', 'Sınırlı destek']),
+            ':mime1' => null,
             ':price1' => 0.00,
             ':name2' => 'Profesyonel',
             ':storage2' => 2147483648,
             ':upload2' => 5,
             ':features2' => json_encode(['Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar']),
+            ':mime2' => null,
             ':price2' => 14.99,
             ':name3' => 'Kurumsal',
             ':storage3' => 5368709120,
             ':upload3' => 10,
             ':features3' => json_encode(['Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA']),
+            ':mime3' => null,
             ':price3' => 49.99,
         ]);
     }
@@ -602,7 +717,11 @@ function ensureDefaultSettings(PDO $pdo): void
         allowed_mime_types TEXT DEFAULT NULL,
         share_expiry_minutes INT DEFAULT 1440,
         public_sharing_enabled TINYINT(1) DEFAULT 1,
-        folder_passwords_enabled TINYINT(1) DEFAULT 1
+        folder_passwords_enabled TINYINT(1) DEFAULT 1,
+        share_download_delay INT DEFAULT 0,
+        ad_dashboard_html TEXT DEFAULT NULL,
+        ad_share_top_html TEXT DEFAULT NULL,
+        ad_share_bottom_html TEXT DEFAULT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
     if (!schemaColumnExists($pdo, 'settings', 'allowed_mime_types')) {
@@ -617,6 +736,18 @@ function ensureDefaultSettings(PDO $pdo): void
     if (!schemaColumnExists($pdo, 'settings', 'folder_passwords_enabled')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN folder_passwords_enabled TINYINT(1) DEFAULT 1 AFTER public_sharing_enabled');
     }
+    if (!schemaColumnExists($pdo, 'settings', 'share_download_delay')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN share_download_delay INT DEFAULT 0 AFTER folder_passwords_enabled');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'ad_dashboard_html')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN ad_dashboard_html TEXT DEFAULT NULL AFTER share_download_delay');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'ad_share_top_html')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN ad_share_top_html TEXT DEFAULT NULL AFTER ad_dashboard_html');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'ad_share_bottom_html')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN ad_share_bottom_html TEXT DEFAULT NULL AFTER ad_share_top_html');
+    }
 
     $count = (int) $pdo->query('SELECT COUNT(*) FROM settings')->fetchColumn();
     if ($count === 0) {
@@ -626,8 +757,8 @@ function ensureDefaultSettings(PDO $pdo): void
             'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         ]);
-        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled)
-            VALUES (:title, :description, :header, :footer, :enabled, :mime, :expiry, :public_share, :folder_password)');
+        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay)
+            VALUES (:title, :description, :header, :footer, :enabled, :mime, :expiry, :public_share, :folder_password, :delay)');
         $stmt->execute([
             ':title' => 'NoaSoft Dosya Deposu',
             ':description' => 'Güvenli ve hızlı dosya yükleme platformu.',
@@ -638,6 +769,7 @@ function ensureDefaultSettings(PDO $pdo): void
             ':expiry' => 1440,
             ':public_share' => 1,
             ':folder_password' => 1,
+            ':delay' => 0,
         ]);
     }
 }
@@ -687,35 +819,52 @@ function redirect_if_authenticated(): void
     }
 }
 
-function allowed_mime_types(PDO $pdo): array
+function allowed_mime_types(PDO $pdo, ?int $packageId = null): array
 {
-    static $cache = null;
-    if ($cache !== null) {
-        return $cache;
+    static $cache = [];
+    $key = $packageId ? 'pkg_' . $packageId : 'settings';
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
     }
-    $settings = fetch_settings($pdo);
-    $raw = $settings['allowed_mime_types'] ?? '';
+
     $list = [];
-    if (is_string($raw) && $raw !== '') {
-        $decoded = json_decode($raw, true);
-        if (is_array($decoded)) {
-            $list = $decoded;
-        } else {
-            $parts = preg_split('/[,\n]/', $raw) ?: [];
-            foreach ($parts as $part) {
-                $list[] = trim($part);
+    if ($packageId) {
+        $stmt = $pdo->prepare('SELECT allowed_mime_types FROM packages WHERE id = :id');
+        $stmt->execute([':id' => $packageId]);
+        $rawPackage = $stmt->fetchColumn();
+        if ($rawPackage) {
+            $decoded = json_decode((string) $rawPackage, true);
+            if (is_array($decoded)) {
+                $list = $decoded;
+            } else {
+                $list = preg_split('/[,\n]/', (string) $rawPackage) ?: [];
             }
         }
     }
+
+    if (empty($list)) {
+        $settings = fetch_settings($pdo);
+        $raw = $settings['allowed_mime_types'] ?? '';
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $list = $decoded;
+            } else {
+                $list = preg_split('/[,\n]/', $raw) ?: [];
+            }
+        }
+    }
+
     $list = array_filter(array_map('trim', $list));
     if (empty($list)) {
         $list = DEFAULT_ALLOWED_MIME_TYPES;
     }
-    $cache = array_values(array_unique($list));
-    return $cache;
+
+    $cache[$key] = array_values(array_unique($list));
+    return $cache[$key];
 }
 
-function validate_uploaded_file(array $file, ?PDO $pdo = null): array
+function validate_uploaded_file(array $file, ?PDO $pdo = null, ?array $allowedOverride = null): array
 {
     $maxSize = 50 * 1024 * 1024;
     if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -726,7 +875,7 @@ function validate_uploaded_file(array $file, ?PDO $pdo = null): array
     }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mimeType = $finfo->file($file['tmp_name']);
-    $allowedTypes = $pdo ? allowed_mime_types($pdo) : DEFAULT_ALLOWED_MIME_TYPES;
+    $allowedTypes = $allowedOverride ?? ($pdo ? allowed_mime_types($pdo) : DEFAULT_ALLOWED_MIME_TYPES);
     if (!in_array($mimeType, $allowedTypes, true)) {
         throw new RuntimeException('Desteklenmeyen dosya türü.');
     }

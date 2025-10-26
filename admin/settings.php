@@ -94,6 +94,24 @@ application/pdf"><?= sanitize($allowedMimeText) ?></textarea>
                         <input class="form-check-input" type="checkbox" role="switch" id="folderPasswordsEnabled" <?= !empty($settings['folder_passwords_enabled']) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="folderPasswordsEnabled">Klasör şifreleme aktif</label>
                     </div>
+                    <div class="mt-3">
+                        <label class="form-label">Paylaşım İndirme Gecikmesi (saniye)</label>
+                        <input type="number" min="0" name="share_download_delay" class="form-control" value="<?= sanitize($settings['share_download_delay'] ?? 0) ?>">
+                        <small class="text-white-50">Paylaşım sayfasındaki indirme butonu bu süre dolana kadar pasif kalır.</small>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Panel Reklam Alanı (HTML)</label>
+                    <textarea name="ad_dashboard_html" class="form-control" rows="3"><?= sanitize($settings['ad_dashboard_html'] ?? '') ?></textarea>
+                    <small class="text-white-50">Admin ve kullanıcı panellerinde kullanılabilecek özel HTML blokları.</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Paylaşım Sayfası Üst Reklamı</label>
+                    <textarea name="ad_share_top_html" class="form-control" rows="3"><?= sanitize($settings['ad_share_top_html'] ?? '') ?></textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Paylaşım Sayfası Alt Reklamı</label>
+                    <textarea name="ad_share_bottom_html" class="form-control" rows="3"><?= sanitize($settings['ad_share_bottom_html'] ?? '') ?></textarea>
                 </div>
             </div>
             <button type="button" class="btn btn-gradient mt-4" onclick="saveSettings()">Kaydet</button>
@@ -140,6 +158,7 @@ async function saveSettings() {
     formData.append('analytics_enabled', document.getElementById('analyticsEnabled').checked ? 1 : 0);
     formData.append('public_sharing_enabled', document.getElementById('publicSharingEnabled').checked ? 1 : 0);
     formData.append('folder_passwords_enabled', document.getElementById('folderPasswordsEnabled').checked ? 1 : 0);
+    formData.append('share_download_delay', form.share_download_delay.value || 0);
     const logoFile = logoDropzone.getAcceptedFiles()[0];
     if (logoFile) {
         formData.append('logo', logoFile, logoFile.name);

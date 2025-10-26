@@ -39,10 +39,19 @@ try {
             if ($folderId !== null && $folderId <= 0) {
                 $folderId = null;
             }
-            $data = list_folder_contents($pdo, $user, $folderId, $isAdmin);
+            $page = isset($payload['page']) ? (int) $payload['page'] : 1;
+            $perPage = isset($payload['per_page']) ? (int) $payload['per_page'] : null;
+            $sort = $payload['sort'] ?? 'name';
+            $direction = $payload['direction'] ?? 'asc';
             $package = package_for_user($pdo, (int) $user['id']);
+            $data = list_folder_contents($pdo, $user, $folderId, $isAdmin, [
+                'page' => $page,
+                'per_page' => $perPage,
+                'sort' => $sort,
+                'direction' => $direction,
+            ]);
             $usage = user_storage_usage($pdo, (int) $user['id']);
-            $allowedMimes = allowed_mime_types($pdo);
+            $allowedMimes = allowed_mime_types($pdo, $package['id'] ?? null);
             $shareMinutes = share_expiry_minutes($pdo);
             $folders = array_map(static function (array $folder) use ($pdo): array {
                 return [
@@ -91,6 +100,8 @@ try {
                     'storage_total' => $package ? (int) $package['storage_limit'] : null,
                     'max_concurrent_uploads' => $package ? (int) $package['max_concurrent_uploads'] : 3,
                     'allowed_mime_types' => $allowedMimes,
+                    'total_files' => (int) $usage['total_files'],
+                    'package_name' => $package['name'] ?? null,
                 ],
                 'settings' => [
                     'public_sharing' => public_sharing_allowed($pdo),
@@ -98,6 +109,7 @@ try {
                     'share_expiry_minutes' => $shareMinutes,
                 ],
                 'all_folders' => list_user_folders($pdo, $user, $isAdmin),
+                'pagination' => $data['pagination'],
             ]);
             break;
 
@@ -205,6 +217,49 @@ try {
             echo json_encode(['status' => 'success', 'message' => 'Klasör silindi.']);
             break;
 
+        case 'bulk-delete':
+            $fileIds = array_filter(array_map('intval', (array) ($payload['file_ids'] ?? [])));
+            $folderIds = array_filter(array_map('intval', (array) ($payload['folder_ids'] ?? [])));
+            if (empty($fileIds) && empty($folderIds)) {
+                throw new RuntimeException('Silinecek öğe seçilmedi.');
+            }
+            $deletedFiles = 0;
+            $deletedFolders = 0;
+            foreach ($folderIds as $folderId) {
+                $folder = fetch_folder($pdo, $folderId);
+                if (!$folder) {
+                    continue;
+                }
+                if (!$isAdmin && (int) $folder['user_id'] !== (int) $user['id']) {
+                    continue;
+                }
+                delete_folder_recursive($pdo, $folderId);
+                $deletedFolders++;
+            }
+            foreach ($fileIds as $fileId) {
+                $file = fetch_file($pdo, $fileId);
+                if (!$file) {
+                    continue;
+                }
+                if (!$isAdmin && (int) $file['user_id'] !== (int) $user['id']) {
+                    continue;
+                }
+                delete_file_record($pdo, $file);
+                $deletedFiles++;
+            }
+            if ($deletedFiles === 0 && $deletedFolders === 0) {
+                throw new RuntimeException('Silinecek öğe bulunamadı.');
+            }
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'Seçilen öğeler silindi.',
+                'summary' => [
+                    'files' => $deletedFiles,
+                    'folders' => $deletedFolders,
+                ],
+            ]);
+            break;
+
         case 'set-folder-password':
             if (!folder_passwords_allowed($pdo)) {
                 throw new RuntimeException('Klasör şifreleme devre dışı.');
@@ -220,11 +275,15 @@ try {
             }
             $isProtected = $password !== '' ? 1 : 0;
             $passwordHash = $password !== '' ? password_hash($password, PASSWORD_DEFAULT) : null;
-            $pdo->prepare('UPDATE folders SET is_protected = :protected, password_hash = :password, updated_at = NOW() WHERE id = :id')->execute([
-                ':protected' => $isProtected,
-                ':password' => $passwordHash,
-                ':id' => $folderId,
-            ]);
+            $stmt = $pdo->prepare('UPDATE folders SET is_protected = :protected, password_hash = :password, updated_at = NOW() WHERE id = :id');
+            $stmt->bindValue(':protected', $isProtected, PDO::PARAM_INT);
+            if ($passwordHash === null) {
+                $stmt->bindValue(':password', null, PDO::PARAM_NULL);
+            } else {
+                $stmt->bindValue(':password', $passwordHash, PDO::PARAM_STR);
+            }
+            $stmt->bindValue(':id', $folderId, PDO::PARAM_INT);
+            $stmt->execute();
             echo json_encode(['status' => 'success', 'message' => 'Klasör güvenliği güncellendi.']);
             break;
 
@@ -356,6 +415,15 @@ try {
                 ':id' => $fileId,
             ]);
             echo json_encode(['status' => 'success', 'message' => 'Dosya görünürlüğü güncellendi.']);
+            break;
+
+        case 'zip-files':
+            $fileIds = array_filter(array_map('intval', (array) ($payload['file_ids'] ?? [])));
+            if (empty($fileIds)) {
+                throw new RuntimeException('Zip oluşturmak için dosya seçin.');
+            }
+            $archive = create_files_archive($pdo, $fileIds, $user, $isAdmin);
+            echo json_encode(['status' => 'success', 'message' => 'Zip dosyası oluşturuldu.', 'archive' => $archive]);
             break;
 
         case 'zip-folder':

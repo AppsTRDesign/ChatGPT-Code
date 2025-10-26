@@ -18,6 +18,7 @@ include __DIR__ . '/nav.php';
                         <th>Ad</th>
                         <th>Depolama</th>
                         <th>Maks. Yükleme</th>
+                        <th>İzinli Türler</th>
                         <th>Fiyat</th>
                         <th>Durum</th>
                         <th></th>
@@ -25,10 +26,23 @@ include __DIR__ . '/nav.php';
                 </thead>
                 <tbody>
                     <?php foreach ($packages as $package): ?>
+                        <?php
+                        $mimeList = [];
+                        if (!empty($package['allowed_mime_types'])) {
+                            $decodedMime = json_decode($package['allowed_mime_types'], true);
+                            if (is_array($decodedMime)) {
+                                $mimeList = $decodedMime;
+                            } else {
+                                $mimeList = array_map('trim', explode(',', (string) $package['allowed_mime_types']));
+                            }
+                        }
+                        $mimePreview = $mimeList ? implode(', ', array_slice($mimeList, 0, 3)) . (count($mimeList) > 3 ? '…' : '') : 'Genel ayarlar';
+                        ?>
                         <tr id="package-<?= (int) $package['id'] ?>">
                             <td><?= sanitize($package['name']) ?></td>
                             <td><?= format_bytes((int) $package['storage_limit']) ?></td>
                             <td><?= (int) $package['max_concurrent_uploads'] ?></td>
+                            <td><?= sanitize($mimePreview) ?></td>
                             <td><?= number_format((float) $package['price'], 2) ?> ₺</td>
                             <td>
                                 <span class="badge <?= $package['is_active'] ? 'bg-success' : 'bg-secondary' ?>"><?= $package['is_active'] ? 'Aktif' : 'Pasif' ?></span>
@@ -75,6 +89,12 @@ include __DIR__ . '/nav.php';
                         <label class="form-label" for="packageFeatures">Özellikler (virgülle ayırın)</label>
                         <input type="text" class="form-control" id="packageFeatures" name="features">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="packageMime">İzinli MIME Türleri</label>
+                        <textarea class="form-control" id="packageMime" name="allowed_mime_types" rows="3" placeholder="image/jpeg
+application/pdf"></textarea>
+                        <small class="text-white-50">Virgül veya satır sonu ile ayırın. Boş bırakılırsa genel ayarlar kullanılır.</small>
+                    </div>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" role="switch" id="packageActive">
                         <label class="form-check-label" for="packageActive">Aktif</label>
@@ -97,6 +117,7 @@ packageModal?.addEventListener('show.bs.modal', event => {
         document.getElementById('packageForm').reset();
         document.getElementById('packageId').value = '';
         document.getElementById('packageActive').checked = true;
+        document.getElementById('packageMime').value = '';
         return;
     }
     const data = JSON.parse(button.getAttribute('data-package'));
@@ -107,16 +128,39 @@ packageModal?.addEventListener('show.bs.modal', event => {
     document.getElementById('packagePrice').value = data.price;
     document.getElementById('packageFeatures').value = (JSON.parse(data.features || '[]') || []).join(', ');
     document.getElementById('packageActive').checked = data.is_active == 1;
+    let mimeText = '';
+    if (data.allowed_mime_types) {
+        try {
+            const parsed = JSON.parse(data.allowed_mime_types);
+            if (Array.isArray(parsed)) {
+                mimeText = parsed.join('\n');
+            } else {
+                mimeText = String(data.allowed_mime_types);
+            }
+        } catch (error) {
+            mimeText = String(data.allowed_mime_types);
+        }
+    }
+    document.getElementById('packageMime').value = mimeText;
 });
 
 async function savePackage() {
     const form = document.getElementById('packageForm');
     const formData = new FormData(form);
     const features = formData.get('features');
-    formData.set('features', features ? features.split(',').map(item => item.trim()).filter(Boolean) : []);
+    const featureList = features ? features.split(',').map(item => item.trim()).filter(Boolean) : [];
+    formData.set('features', JSON.stringify(featureList));
     formData.append('action', 'save-package');
     formData.append('csrf_token', appConfig.csrfToken);
     formData.append('is_active', document.getElementById('packageActive').checked ? 1 : 0);
+    const mimeText = formData.get('allowed_mime_types');
+    if (mimeText) {
+        const mimeList = String(mimeText)
+            .split(/[,\n]+/)
+            .map(item => item.trim())
+            .filter(Boolean);
+        formData.set('allowed_mime_types', JSON.stringify(mimeList));
+    }
     try {
         const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
             method: 'POST',

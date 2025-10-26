@@ -19,15 +19,16 @@ CREATE TABLE packages (
     storage_limit BIGINT NOT NULL,
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
+    allowed_mime_types TEXT DEFAULT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, price) VALUES
-    ('Başlangıç', 524288000, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), 0.00),
-    ('Profesyonel', 2147483648, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), 14.99),
-    ('Kurumsal', 5368709120, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), 49.99);
+INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, price) VALUES
+    ('Başlangıç', 524288000, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), NULL, 0.00),
+    ('Profesyonel', 2147483648, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), NULL, 14.99),
+    ('Kurumsal', 5368709120, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), NULL, 49.99);
 
 CREATE TABLE settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -47,10 +48,14 @@ CREATE TABLE settings (
     allowed_mime_types TEXT DEFAULT NULL,
     share_expiry_minutes INT DEFAULT 1440,
     public_sharing_enabled TINYINT(1) DEFAULT 1,
-    folder_passwords_enabled TINYINT(1) DEFAULT 1
+    folder_passwords_enabled TINYINT(1) DEFAULT 1,
+    share_download_delay INT DEFAULT 0,
+    ad_dashboard_html TEXT DEFAULT NULL,
+    ad_share_top_html TEXT DEFAULT NULL,
+    ad_share_bottom_html TEXT DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled)
+INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay, ad_dashboard_html, ad_share_top_html, ad_share_bottom_html)
 VALUES (
     'NoaSoft Dosya Deposu',
     'Güvenli ve hızlı dosya yükleme platformu.',
@@ -60,7 +65,11 @@ VALUES (
     JSON_ARRAY('image/jpeg','image/png','image/gif','application/pdf','text/plain','application/zip','application/x-rar-compressed','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
     1440,
     1,
-    1
+    1,
+    0,
+    NULL,
+    NULL,
+    NULL
 );
 
 CREATE TABLE users (

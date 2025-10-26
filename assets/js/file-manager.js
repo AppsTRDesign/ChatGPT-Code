@@ -2,7 +2,18 @@
     'use strict';
 
     const config = window.APP_CONFIG || {};
-    const csrfToken = config.csrfToken;
+    const csrfToken = config.csrfToken || '';
+
+    const FILE_ICON_MAP = [
+        { match: (type) => type.startsWith('image/'), icon: 'bi-file-earmark-image' },
+        { match: (type) => type.startsWith('video/'), icon: 'bi-file-earmark-play' },
+        { match: (type) => type.startsWith('audio/'), icon: 'bi-file-earmark-music' },
+        { match: (type) => type === 'application/pdf', icon: 'bi-file-earmark-pdf' },
+        { match: (type) => type.includes('zip') || type.includes('compressed'), icon: 'bi-file-earmark-zip' },
+        { match: (type) => type.includes('word') || type.includes('msword'), icon: 'bi-file-earmark-word' },
+        { match: (type) => type.includes('sheet') || type.includes('excel'), icon: 'bi-file-earmark-spreadsheet' },
+        { match: (type) => type.startsWith('text/'), icon: 'bi-file-earmark-text' },
+    ];
 
     function showToast(type, message) {
         Swal.fire({
@@ -22,15 +33,27 @@
         return `${(bytes / Math.pow(1024, index)).toFixed(2)} ${units[index]}`;
     }
 
-    function humanDate(dateString) {
-        if (!dateString) {
+    function humanDate(value) {
+        if (!value) {
             return '';
         }
-        const date = new Date(dateString.replace(' ', 'T'));
+        const date = new Date(value.replace(' ', 'T'));
         if (Number.isNaN(date.getTime())) {
-            return dateString;
+            return value;
         }
         return date.toLocaleString('tr-TR');
+    }
+
+    function iconForFile(type) {
+        if (!type || typeof type !== 'string') {
+            return 'bi-file-earmark';
+        }
+        const match = FILE_ICON_MAP.find(rule => rule.match(type));
+        return match ? match.icon : 'bi-file-earmark';
+    }
+
+    function isFormElement(element) {
+        return element && (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.isContentEditable);
     }
 
     async function fmRequest(action, payload = {}) {
@@ -54,54 +77,158 @@
         const allowedEl = app.querySelector('[data-fm-allowed]');
         const contextMenu = document.querySelector('[data-fm-context]');
         const uploadZone = document.querySelector('#clientUploadZone');
-        const toolbarButtons = app.querySelectorAll('[data-fm-action]');
+        const toolbarButtons = Array.from(app.querySelectorAll('[data-fm-action]'));
         const folderTemplate = document.querySelector('#fm-folder-template');
         const fileTemplate = document.querySelector('#fm-file-template');
+        const paginationWrap = app.querySelector('[data-fm-pagination]');
+        const summaryEl = paginationWrap ? paginationWrap.querySelector('[data-fm-summary]') : null;
+        const pageLabel = paginationWrap ? paginationWrap.querySelector('[data-fm-page-label]') : null;
+        const pageButtons = paginationWrap ? Array.from(paginationWrap.querySelectorAll('[data-fm-page]')) : [];
+        const sortSelect = app.querySelector('[data-fm-sort]');
 
         const state = {
             folderId: null,
-            selection: null,
-            selectionType: null,
             folders: [],
             files: [],
             breadcrumbs: [],
             limits: {},
             settings: {},
             allFolders: [],
+            selection: {
+                files: new Set(),
+                folders: new Set(),
+            },
+            pagination: {
+                page: 1,
+                totalPages: 1,
+                total: 0,
+                perPage: 24,
+            },
+            sort: {
+                key: 'name',
+                direction: 'asc',
+            },
+            focused: null,
         };
+
+        function getSelectionCount() {
+            return state.selection.files.size + state.selection.folders.size;
+        }
 
         function clearSelection() {
             grid.querySelectorAll('.fm-item.is-active').forEach(el => el.classList.remove('is-active'));
-            state.selection = null;
-            state.selectionType = null;
+            state.selection.files.clear();
+            state.selection.folders.clear();
+            state.focused = null;
         }
 
-        function selectItem(element) {
-            clearSelection();
+        function addSelection(element) {
             if (!element) {
                 return;
             }
+            const type = element.dataset.type;
+            const id = Number(element.dataset.id);
+            if (Number.isNaN(id)) {
+                return;
+            }
+            if (type === 'folder') {
+                state.selection.folders.add(id);
+            } else {
+                state.selection.files.add(id);
+            }
             element.classList.add('is-active');
-            state.selection = element.dataset.id;
-            state.selectionType = element.dataset.type;
+            state.focused = { type, id };
+        }
+
+        function removeSelection(element) {
+            if (!element) {
+                return;
+            }
+            const type = element.dataset.type;
+            const id = Number(element.dataset.id);
+            if (Number.isNaN(id)) {
+                return;
+            }
+            if (type === 'folder') {
+                state.selection.folders.delete(id);
+            } else {
+                state.selection.files.delete(id);
+            }
+            element.classList.remove('is-active');
+            if (state.focused && state.focused.id === id && state.focused.type === type) {
+                state.focused = null;
+            }
+        }
+
+        function selectSingle(element) {
+            clearSelection();
+            addSelection(element);
+        }
+
+        function toggleSelection(element, allowToggle) {
+            if (!element) {
+                return;
+            }
+            if (!allowToggle) {
+                selectSingle(element);
+                return;
+            }
+            if (element.classList.contains('is-active')) {
+                removeSelection(element);
+            } else {
+                addSelection(element);
+            }
+        }
+
+        function getSingleSelection() {
+            if (getSelectionCount() !== 1) {
+                return null;
+            }
+            if (state.selection.files.size === 1) {
+                const id = Array.from(state.selection.files)[0];
+                return { type: 'file', id };
+            }
+            if (state.selection.folders.size === 1) {
+                const id = Array.from(state.selection.folders)[0];
+                return { type: 'folder', id };
+            }
+            return null;
+        }
+
+        function firstSelectedElement() {
+            const selected = grid.querySelector('.fm-item.is-active');
+            return selected || null;
         }
 
         function updateToolbar() {
+            const selectedFiles = state.selection.files.size;
+            const selectedFolders = state.selection.folders.size;
+            const totalSelected = selectedFiles + selectedFolders;
             toolbarButtons.forEach(button => {
                 const action = button.getAttribute('data-fm-action');
-                const requiresSelection = ['rename', 'move', 'delete', 'zip'].includes(action);
-                if (action === 'zip' && state.selectionType === 'file') {
-                    button.disabled = true;
-                } else if (requiresSelection) {
-                    button.disabled = !state.selection;
-                } else {
-                    button.disabled = false;
+                switch (action) {
+                    case 'rename':
+                    case 'move':
+                        button.disabled = totalSelected !== 1;
+                        break;
+                    case 'zip':
+                        button.disabled = selectedFiles === 0 || selectedFolders > 0;
+                        break;
+                    case 'delete':
+                        button.disabled = totalSelected === 0;
+                        break;
+                    case 'select-all':
+                        button.disabled = state.files.length === 0 && state.folders.length === 0;
+                        break;
+                    default:
+                        button.disabled = false;
+                        break;
                 }
             });
         }
 
         function hideContextMenu() {
-            if (contextMenu) {
+            if (contextMenu && !contextMenu.hidden) {
                 contextMenu.hidden = true;
             }
         }
@@ -111,37 +238,58 @@
                 return;
             }
             event.preventDefault();
-            selectItem(element);
-            updateToolbar();
-
+            const multiKey = event.ctrlKey || event.metaKey;
+            if (!element.classList.contains('is-active')) {
+                toggleSelection(element, multiKey);
+                updateToolbar();
+            }
+            const selectedCount = getSelectionCount();
+            const selectedFiles = state.selection.files.size;
+            const selectedFolders = state.selection.folders.size;
             const type = element.dataset.type;
-            const shareToken = element.dataset.shareToken || '';
-            const isProtected = element.dataset.isProtected === '1';
-            const isPublic = element.dataset.isPublic === '1';
+            contextMenu.dataset.targetId = element.dataset.id;
+            contextMenu.dataset.targetType = type;
+            contextMenu.dataset.shareToken = element.dataset.shareToken || '';
+            contextMenu.dataset.isProtected = element.dataset.isProtected || '0';
+
             contextMenu.querySelectorAll('[data-action]').forEach(item => {
                 const action = item.getAttribute('data-action');
-                const folderOnly = ['protect', 'zip'];
-                const fileOnly = ['share', 'visibility'];
-                if (folderOnly.includes(action) && type !== 'folder') {
-                    item.style.display = 'none';
-                } else if (fileOnly.includes(action) && type !== 'file') {
-                    item.style.display = 'none';
-                } else if (action === 'share' || action === 'visibility') {
-                    item.style.display = state.settings.public_sharing ? '' : 'none';
-                } else if (action === 'protect') {
-                    item.style.display = state.settings.folder_passwords ? '' : 'none';
-                } else {
-                    item.style.display = '';
+                item.style.display = '';
+
+                if (selectedCount > 1) {
+                    if (action === 'delete') {
+                        item.style.display = '';
+                    } else if (action === 'zip' && selectedFiles > 0 && selectedFolders === 0) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                    return;
                 }
 
-                if (action === 'share') {
-                    item.textContent = shareToken ? 'Paylaşımı Kapat' : 'Paylaş';
+                if (type === 'folder') {
+                    if (action === 'share') {
+                        item.style.display = 'none';
+                        return;
+                    }
+                    if (action === 'protect') {
+                        item.textContent = element.dataset.isProtected === '1' ? 'Şifreyi Kaldır' : 'Şifrele';
+                        item.style.display = state.settings.folder_passwords ? '' : 'none';
+                        return;
+                    }
+                } else if (type === 'file') {
+                    if (action === 'protect') {
+                        item.style.display = 'none';
+                        return;
+                    }
+                    if (action === 'share') {
+                        item.style.display = state.settings.public_sharing ? '' : 'none';
+                        item.textContent = (element.dataset.shareToken ? 'Paylaşımı Kapat' : 'Paylaş');
+                        return;
+                    }
                 }
-                if (action === 'visibility') {
-                    item.textContent = isPublic ? 'Gizle' : 'Herkese Aç';
-                }
-                if (action === 'protect') {
-                    item.textContent = isProtected ? 'Şifreyi Kaldır' : 'Şifrele';
+                if (action === 'zip') {
+                    item.style.display = type === 'file' ? '' : 'none';
                 }
             });
 
@@ -164,7 +312,7 @@
                     link.textContent = crumb.name;
                     link.addEventListener('click', (event) => {
                         event.preventDefault();
-                        loadFolder(crumb.id || null);
+                        loadFolder({ folderId: crumb.id || null, resetPage: true });
                     });
                     span.appendChild(link);
                 }
@@ -185,21 +333,18 @@
             if (typeof data.isProtected !== 'undefined') {
                 el.dataset.isProtected = data.isProtected ? '1' : '0';
             }
-            if (typeof data.isPublic !== 'undefined') {
-                el.dataset.isPublic = data.isPublic ? '1' : '0';
-            }
             el.querySelector('.fm-name').textContent = data.name;
             el.querySelector('.fm-meta').textContent = metaText;
+            const iconEl = el.querySelector('.fm-icon');
             if (data.type === 'folder') {
+                iconEl.innerHTML = '<i class="bi bi-folder2"></i>';
                 if (data.isProtected) {
                     el.classList.add('is-protected');
                 }
-                if (data.isPublic) {
-                    el.classList.add('is-public');
-                }
-            } else if (data.type === 'file') {
-                if (data.isPublic) {
-                    el.classList.add('is-public');
+            } else {
+                iconEl.innerHTML = `<i class="bi ${iconForFile(data.mime || '')}"></i>`;
+                if (data.isShared) {
+                    el.classList.add('is-shared');
                 }
             }
             return el;
@@ -222,7 +367,6 @@
                     name: folder.name,
                     type: 'folder',
                     isProtected: folder.is_protected,
-                    isPublic: folder.is_public,
                 }, meta);
                 grid.appendChild(element);
             });
@@ -233,106 +377,151 @@
                     id: file.id,
                     name: file.filename,
                     type: 'file',
-                    isPublic: !!file.is_public || !!file.share_token,
+                    mime: file.type,
+                    isShared: Boolean(file.share_token),
                     shareToken: file.share_token || '',
                 }, meta);
                 grid.appendChild(element);
             });
         }
 
+        function updatePagination() {
+            if (!paginationWrap) {
+                return;
+            }
+            const { page, totalPages, total } = state.pagination;
+            if (pageLabel) {
+                pageLabel.textContent = `${page} / ${totalPages}`;
+            }
+            if (summaryEl) {
+                const totalFiles = state.limits.total_files ?? total;
+                summaryEl.textContent = `${totalFiles} dosya • Sayfa ${page}/${totalPages}`;
+            }
+            pageButtons.forEach(button => {
+                const direction = button.getAttribute('data-fm-page');
+                if (direction === 'prev') {
+                    button.disabled = page <= 1;
+                } else if (direction === 'next') {
+                    button.disabled = page >= totalPages;
+                }
+            });
+        }
+
         function updateStats() {
             if (usageStat) {
-                usageStat.textContent = formatBytes(state.limits.storage_used);
+                const used = state.limits.storage_used ?? 0;
+                const total = state.limits.storage_total ?? null;
+                usageStat.textContent = total ? `${formatBytes(used)} / ${formatBytes(total)}` : formatBytes(used);
             }
             if (allowedEl) {
-                allowedEl.textContent = Array.isArray(state.limits.allowed_mime_types)
-                    ? state.limits.allowed_mime_types.join(', ')
-                    : '—';
+                const allowedList = Array.isArray(state.limits.allowed_mime_types) ? state.limits.allowed_mime_types : [];
+                allowedEl.textContent = allowedList.length ? allowedList.join(', ') : '—';
             }
             if (uploadZone) {
+                const allowedList = Array.isArray(state.limits.allowed_mime_types) ? state.limits.allowed_mime_types : [];
+                uploadZone.dataset.accepted = allowedList.join(',');
                 uploadZone.dispatchEvent(new CustomEvent('set-folder', {
                     detail: {
                         folderId: state.folderId,
                         parallelUploads: state.limits.max_concurrent_uploads,
-                        acceptedFiles: Array.isArray(state.limits.allowed_mime_types) ? state.limits.allowed_mime_types : undefined,
+                        acceptedFiles: allowedList,
                     }
                 }));
             }
         }
 
-        function bindGridEvents() {
-            grid.querySelectorAll('.fm-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    selectItem(item);
-                    updateToolbar();
-                });
-                item.addEventListener('dblclick', () => {
-                    if (item.dataset.type === 'folder') {
-                        loadFolder(Number(item.dataset.id));
-                    } else {
-                        openFile(item.dataset.id, item.dataset.name);
-                    }
-                });
-                item.addEventListener('contextmenu', (event) => {
-                    showContextMenu(event, item);
-                });
-            });
-        }
-
         function openFile(id, name) {
-            const safeName = name.replace(/[^a-zA-Z0-9\-_\.]/g, '-');
+            const safeName = name.replace(/[^a-zA-Z0-9\-_.]/g, '-');
             window.open(`${config.baseUrl}/file/${id}-${safeName}`, '_blank');
         }
 
-        async function loadFolder(folderId = null) {
+        async function loadFolder(options = {}) {
             hideContextMenu();
+            const requestOptions = { ...options };
+            let targetFolderId = state.folderId;
+            if (Object.prototype.hasOwnProperty.call(requestOptions, 'folderId')) {
+                targetFolderId = requestOptions.folderId;
+            }
+            if (requestOptions.resetPage) {
+                state.pagination.page = 1;
+            }
+            if (Object.prototype.hasOwnProperty.call(requestOptions, 'page')) {
+                state.pagination.page = Math.max(1, parseInt(requestOptions.page, 10) || 1);
+            }
+
             clearSelection();
             updateToolbar();
-            const response = await fmRequest('list', { folder_id: folderId });
+
+            const response = await fmRequest('list', {
+                folder_id: targetFolderId,
+                page: state.pagination.page,
+                per_page: state.pagination.perPage,
+                sort: state.sort.key,
+                direction: state.sort.direction,
+            });
+
             if (response.status !== 'success') {
                 showToast('error', response.message || 'Klasörler yüklenemedi.');
                 return;
             }
+
             state.folderId = response.folder?.id ?? null;
             state.folders = response.folders || [];
             state.files = response.files || [];
             state.breadcrumbs = response.breadcrumbs || [];
             state.limits = response.limits || {};
-            const settings = response.settings || {};
             state.settings = {
-                public_sharing: !!settings.public_sharing,
-                folder_passwords: !!settings.folder_passwords,
-                share_expiry_minutes: settings.share_expiry_minutes || 0,
+                public_sharing: Boolean(response.settings?.public_sharing),
+                folder_passwords: Boolean(response.settings?.folder_passwords),
+                share_expiry_minutes: response.settings?.share_expiry_minutes || 0,
             };
             state.allFolders = response.all_folders || [];
+            state.pagination = {
+                page: response.pagination?.page ?? state.pagination.page,
+                totalPages: response.pagination?.total_pages ?? 1,
+                total: response.pagination?.total ?? state.files.length,
+                perPage: response.pagination?.per_page ?? state.pagination.perPage,
+            };
+            state.sort = {
+                key: response.pagination?.sort ?? state.sort.key,
+                direction: response.pagination?.direction ?? state.sort.direction,
+            };
 
             renderBreadcrumbs(state.breadcrumbs);
             renderGrid();
-            bindGridEvents();
+            updateToolbar();
             updateStats();
+            updatePagination();
+
+            if (sortSelect) {
+                const optionValue = `${state.sort.key}|${state.sort.direction}`;
+                if (sortSelect.value !== optionValue) {
+                    sortSelect.value = optionValue;
+                }
+            }
         }
 
         async function createFolder() {
             const allowPasswords = !!state.settings.folder_passwords;
-            const html = `<input type="text" id="fm-folder-name" class="swal2-input" placeholder="Klasör adı">
-                ${allowPasswords ? '<input type="password" id="fm-folder-pass" class="swal2-input" placeholder="Şifre (isteğe bağlı)">' : ''}`;
+            const html = `<input type="text" id="fm-folder-name" class="swal2-input" placeholder="Klasör adı">${allowPasswords ? '<input type="password" id="fm-folder-pass" class="swal2-input" placeholder="Şifre (isteğe bağlı)">' : ''}`;
             const { value: formValues } = await Swal.fire({
                 title: 'Yeni klasör',
                 html,
                 focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Oluştur',
+                cancelButtonText: 'Vazgeç',
                 preConfirm: () => {
-                    const name = /** @type {HTMLInputElement} */(document.getElementById('fm-folder-name')).value.trim();
+                    const nameEl = document.getElementById('fm-folder-name');
                     const passEl = document.getElementById('fm-folder-pass');
+                    const name = nameEl ? nameEl.value.trim() : '';
                     const password = passEl ? passEl.value : '';
                     if (!name) {
-                        Swal.showValidationMessage('Lütfen bir isim girin.');
+                        Swal.showValidationMessage('Lütfen klasör adı girin.');
                         return null;
                     }
                     return { name, password };
-                },
-                confirmButtonText: 'Oluştur',
-                cancelButtonText: 'Vazgeç',
-                showCancelButton: true,
+                }
             });
             if (!formValues) {
                 return;
@@ -344,19 +533,21 @@
             });
             if (result.status === 'success') {
                 showToast('success', result.message);
-                await loadFolder(state.folderId);
+                await loadFolder({ folderId: state.folderId, resetPage: false });
             } else {
                 showToast('error', result.message || 'Klasör oluşturulamadı.');
             }
         }
 
         async function renameSelected() {
-            if (!state.selection) {
+            const selection = getSingleSelection();
+            if (!selection) {
                 return;
             }
-            const currentName = state.selectionType === 'folder'
-                ? state.folders.find(f => String(f.id) === state.selection)?.name
-                : state.files.find(f => String(f.id) === state.selection)?.filename;
+            const source = selection.type === 'folder'
+                ? state.folders.find(f => f.id === selection.id)
+                : state.files.find(f => f.id === selection.id);
+            const currentName = selection.type === 'folder' ? source?.name : source?.filename;
             const { value } = await Swal.fire({
                 title: 'Adı düzenle',
                 input: 'text',
@@ -368,21 +559,64 @@
             if (!value) {
                 return;
             }
-            const action = state.selectionType === 'folder' ? 'rename-folder' : 'rename-file';
-            const payload = state.selectionType === 'folder'
-                ? { folder_id: Number(state.selection), name: value }
-                : { file_id: Number(state.selection), filename: value };
+            const action = selection.type === 'folder' ? 'rename-folder' : 'rename-file';
+            const payload = selection.type === 'folder'
+                ? { folder_id: selection.id, name: value }
+                : { file_id: selection.id, filename: value };
             const result = await fmRequest(action, payload);
             if (result.status === 'success') {
                 showToast('success', result.message);
-                await loadFolder(state.folderId);
+                await loadFolder({ folderId: state.folderId, resetPage: false });
             } else {
                 showToast('error', result.message || 'Güncelleme başarısız.');
             }
         }
 
+        async function moveSelected() {
+            const selection = getSingleSelection();
+            if (!selection) {
+                return;
+            }
+            const options = state.allFolders
+                .filter(folder => String(folder.id) !== String(selection.id))
+                .map(folder => `<option value="${folder.id}">${folder.path}</option>`)
+                .join('');
+            const html = `<select id="fm-move-target" class="form-select">`
+                + `<option value="">Ana Depo</option>${options}`
+                + '</select>';
+            const { value } = await Swal.fire({
+                title: 'Hedef klasör',
+                html,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Taşı',
+                cancelButtonText: 'İptal',
+                preConfirm: () => {
+                    const select = document.getElementById('fm-move-target');
+                    return select && select.value !== '' ? Number(select.value) : null;
+                }
+            });
+            if (value === undefined) {
+                return;
+            }
+            const action = selection.type === 'folder' ? 'move-folder' : 'move-file';
+            const payloadKey = selection.type === 'folder' ? 'folder_id' : 'file_id';
+            const result = await fmRequest(action, {
+                [payloadKey]: selection.id,
+                target_id: value,
+            });
+            if (result.status === 'success') {
+                showToast('success', result.message);
+                await loadFolder({ folderId: state.folderId, resetPage: false });
+            } else {
+                showToast('error', result.message || 'Taşıma başarısız.');
+            }
+        }
+
         async function deleteSelected() {
-            if (!state.selection) {
+            const selectedFiles = Array.from(state.selection.files);
+            const selectedFolders = Array.from(state.selection.folders);
+            if (!selectedFiles.length && !selectedFolders.length) {
                 return;
             }
             const confirm = await Swal.fire({
@@ -396,110 +630,85 @@
             if (!confirm.isConfirmed) {
                 return;
             }
-            const action = state.selectionType === 'folder' ? 'delete-folder' : 'delete-file';
-            const key = state.selectionType === 'folder' ? 'folder_id' : 'file_id';
-            const result = await fmRequest(action, { [key]: Number(state.selection) });
+            const result = await fmRequest('bulk-delete', {
+                file_ids: selectedFiles,
+                folder_ids: selectedFolders,
+            });
             if (result.status === 'success') {
                 showToast('success', result.message);
-                await loadFolder(state.folderId);
+                await loadFolder({ folderId: state.folderId, resetPage: false });
             } else {
                 showToast('error', result.message || 'Silme işlemi başarısız.');
             }
         }
 
-        async function moveSelected() {
-            if (!state.selection) {
+        async function shareSelected(element) {
+            const selection = getSingleSelection();
+            if (!selection || selection.type !== 'file') {
                 return;
             }
-            const options = state.allFolders
-                .filter(folder => String(folder.id) !== state.selection)
-                .map(folder => `<option value="${folder.id}">${folder.path}</option>`)
-                .join('');
-            const html = `<select id="fm-move-target" class="swal2-select">
-                <option value="">Ana Depo</option>${options}
-            </select>`;
-            const { value } = await Swal.fire({
-                title: 'Hedef klasör',
-                html,
-                focusConfirm: false,
-                preConfirm: () => {
-                    const select = /** @type {HTMLSelectElement} */(document.getElementById('fm-move-target'));
-                    return select.value === '' ? null : Number(select.value);
-                },
-                showCancelButton: true,
-                confirmButtonText: 'Taşı',
-                cancelButtonText: 'İptal',
-            });
-            if (value === undefined) {
+            const currentFile = state.files.find(file => file.id === selection.id);
+            if (!currentFile) {
+                showToast('error', 'Dosya bulunamadı.');
                 return;
             }
-            const action = state.selectionType === 'folder' ? 'move-folder' : 'move-file';
-            const payloadKey = state.selectionType === 'folder' ? 'folder_id' : 'file_id';
-            const result = await fmRequest(action, {
-                [payloadKey]: Number(state.selection),
-                target_id: value || null,
-            });
-            if (result.status === 'success') {
-                showToast('success', result.message);
-                await loadFolder(state.folderId);
-            } else {
-                showToast('error', result.message || 'Taşıma başarısız.');
-            }
-        }
-
-        async function shareSelected() {
-            if (state.selectionType !== 'file') {
+            if (currentFile.share_token) {
+                const result = await fmRequest('revoke-share', { file_id: selection.id });
+                if (result.status === 'success') {
+                    showToast('success', result.message);
+                    await loadFolder({ folderId: state.folderId, resetPage: false });
+                } else {
+                    showToast('error', result.message || 'Paylaşım kapatılamadı.');
+                }
                 return;
             }
-            if (!state.settings.public_sharing) {
-                showToast('error', 'Paylaşım özelliği devre dışı.');
-                return;
-            }
-            const result = await fmRequest('share-file', { file_id: Number(state.selection) });
+            const result = await fmRequest('share-file', { file_id: selection.id });
             if (result.status === 'success' && result.share) {
+                const shareUrl = result.share.url;
                 await Swal.fire({
                     icon: 'success',
                     title: 'Paylaşım bağlantısı',
-                    html: `<div class="text-start"><p class="mb-1">Bağlantıyı kopyalayın:</p>
-                        <code class="d-block p-2 bg-dark rounded">${result.share.url}</code>
-                        <p class="small text-white-50 mb-0">Süre: ${state.settings.share_expiry_minutes || 60} dk</p></div>`,
-                    confirmButtonText: 'Tamam'
+                    html: `<div class="text-start">
+                            <p class="mb-2">Bağlantıyı kopyalayın:</p>
+                            <input type="text" id="fm-share-link" class="form-control bg-dark border-0 text-white" readonly value="${shareUrl}">
+                            <button type="button" class="btn btn-gradient mt-3" id="fm-copy-share">Kopyala</button>
+                            <p class="small text-white-50 mt-3 mb-0">Bağlantı ${state.settings.share_expiry_minutes || 60} dakika boyunca aktiftir.</p>
+                        </div>`,
+                    didOpen: () => {
+                        const copyBtn = document.getElementById('fm-copy-share');
+                        const input = document.getElementById('fm-share-link');
+                        copyBtn?.addEventListener('click', async () => {
+                            try {
+                                await navigator.clipboard.writeText(input?.value || shareUrl);
+                                copyBtn.textContent = 'Kopyalandı';
+                            } catch (error) {
+                                copyBtn.textContent = 'Kopyalanamadı';
+                            }
+                        });
+                    }
                 });
+                await loadFolder({ folderId: state.folderId, resetPage: false });
             } else {
                 showToast('error', result.message || 'Paylaşım oluşturulamadı.');
             }
         }
 
-        async function toggleVisibility() {
-            if (state.selectionType !== 'file') {
-                return;
-            }
-            const file = state.files.find(f => String(f.id) === state.selection);
-            const nextValue = file?.is_public ? 0 : 1;
-            const result = await fmRequest('toggle-file-visibility', {
-                file_id: Number(state.selection),
-                is_public: nextValue,
-            });
-            if (result.status === 'success') {
-                showToast('success', result.message);
-                await loadFolder(state.folderId);
-            } else {
-                showToast('error', result.message || 'Güncelleme başarısız.');
-            }
-        }
-
         async function protectFolder() {
-            if (state.selectionType !== 'folder') {
+            const selection = getSingleSelection();
+            if (!selection || selection.type !== 'folder') {
                 return;
             }
             if (!state.settings.folder_passwords) {
                 showToast('error', 'Klasör şifreleme devre dışı.');
                 return;
             }
+            const currentFolder = state.folders.find(folder => folder.id === selection.id);
             const { value } = await Swal.fire({
                 title: 'Klasör Şifresi',
                 input: 'password',
                 inputLabel: 'Şifre belirleyin (boş bırakmak kaldırır)',
+                inputPlaceholder: 'Boş bırakırsanız şifre kaldırılır',
+                inputValue: currentFolder?.is_protected ? '' : '',
                 showCancelButton: true,
                 confirmButtonText: 'Kaydet',
                 cancelButtonText: 'İptal'
@@ -508,31 +717,53 @@
                 return;
             }
             const result = await fmRequest('set-folder-password', {
-                folder_id: Number(state.selection),
+                folder_id: selection.id,
                 password: value || '',
             });
             if (result.status === 'success') {
                 showToast('success', result.message);
-                await loadFolder(state.folderId);
+                await loadFolder({ folderId: state.folderId, resetPage: false });
             } else {
                 showToast('error', result.message || 'Şifre güncellenemedi.');
             }
         }
 
-        async function zipFolder() {
-            if (state.selectionType !== 'folder') {
+        async function zipSelected() {
+            const selectedFiles = Array.from(state.selection.files);
+            if (!selectedFiles.length || state.selection.folders.size > 0) {
+                showToast('error', 'Zip için sadece dosya seçin.');
                 return;
             }
-            const result = await fmRequest('zip-folder', { folder_id: Number(state.selection) });
+            const result = await fmRequest('zip-files', { file_ids: selectedFiles });
             if (result.status === 'success' && result.archive) {
                 await Swal.fire({
                     icon: 'success',
-                    title: 'Arşiv hazır',
-                    html: `<a class="btn btn-gradient" href="${result.archive.download_url}">Zip&#39;i indir</a>`,
-                    confirmButtonText: 'Tamam'
+                    title: 'Zip hazır',
+                    html: `<a class="btn btn-gradient" href="${result.archive.download_url}" target="_blank">Zip dosyasını aç</a>`
                 });
+                await loadFolder({ folderId: state.folderId, resetPage: false });
             } else {
-                showToast('error', result.message || 'Arşiv oluşturulamadı.');
+                showToast('error', result.message || 'Zip oluşturulamadı.');
+            }
+        }
+
+        function selectAllItems() {
+            clearSelection();
+            grid.querySelectorAll('.fm-item').forEach(item => addSelection(item));
+            updateToolbar();
+        }
+
+        function handleKeyShortcuts(event) {
+            if (isFormElement(document.activeElement)) {
+                return;
+            }
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+                event.preventDefault();
+                selectAllItems();
+            }
+            if ((event.key === 'Delete' || event.key === 'Backspace') && getSelectionCount() > 0) {
+                event.preventDefault();
+                deleteSelected();
             }
         }
 
@@ -545,9 +776,7 @@
                         await createFolder();
                         break;
                     case 'upload':
-                        if (uploadZone) {
-                            uploadZone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
+                        uploadZone?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         break;
                     case 'rename':
                         await renameSelected();
@@ -556,16 +785,51 @@
                         await moveSelected();
                         break;
                     case 'zip':
-                        await zipFolder();
+                        await zipSelected();
                         break;
                     case 'delete':
                         await deleteSelected();
+                        break;
+                    case 'select-all':
+                        selectAllItems();
                         break;
                     default:
                         break;
                 }
             });
         });
+
+        if (grid) {
+            grid.addEventListener('click', (event) => {
+                const item = event.target.closest('.fm-item');
+                if (!item || !grid.contains(item)) {
+                    return;
+                }
+                const multiKey = event.ctrlKey || event.metaKey;
+                toggleSelection(item, multiKey);
+                updateToolbar();
+            });
+
+            grid.addEventListener('dblclick', (event) => {
+                const item = event.target.closest('.fm-item');
+                if (!item || !grid.contains(item)) {
+                    return;
+                }
+                if (item.dataset.type === 'folder') {
+                    loadFolder({ folderId: Number(item.dataset.id), resetPage: true });
+                } else {
+                    openFile(item.dataset.id, item.dataset.name || 'dosya');
+                }
+            });
+
+            grid.addEventListener('contextmenu', (event) => {
+                const item = event.target.closest('.fm-item');
+                if (!item || !grid.contains(item)) {
+                    return;
+                }
+                showContextMenu(event, item);
+            });
+        }
 
         if (contextMenu) {
             contextMenu.addEventListener('click', async (event) => {
@@ -574,16 +838,17 @@
                     return;
                 }
                 const action = target.getAttribute('data-action');
-                const selectedEl = grid.querySelector('.fm-item.is-active');
-                const selectedName = selectedEl ? selectedEl.dataset.name : '';
-                const currentShareToken = selectedEl ? selectedEl.dataset.shareToken : '';
+                const selected = getSingleSelection();
                 hideContextMenu();
                 switch (action) {
                     case 'open':
-                        if (state.selectionType === 'folder') {
-                            loadFolder(Number(state.selection));
-                        } else if (state.selectionType === 'file') {
-                            openFile(state.selection, selectedName);
+                        if (selected?.type === 'folder') {
+                            loadFolder({ folderId: selected.id, resetPage: true });
+                        } else if (selected?.type === 'file') {
+                            const file = state.files.find(f => f.id === selected.id);
+                            if (file) {
+                                openFile(file.id, file.filename);
+                            }
                         }
                         break;
                     case 'rename':
@@ -593,26 +858,13 @@
                         await moveSelected();
                         break;
                     case 'share':
-                        if (currentShareToken) {
-                            const result = await fmRequest('revoke-share', { file_id: Number(state.selection) });
-                            if (result.status === 'success') {
-                                showToast('success', result.message);
-                                await loadFolder(state.folderId);
-                            } else {
-                                showToast('error', result.message || 'Paylaşım kapatılamadı.');
-                            }
-                        } else {
-                            await shareSelected();
-                        }
+                        await shareSelected(firstSelectedElement());
                         break;
                     case 'protect':
                         await protectFolder();
                         break;
-                    case 'visibility':
-                        await toggleVisibility();
-                        break;
                     case 'zip':
-                        await zipFolder();
+                        await zipSelected();
                         break;
                     case 'delete':
                         await deleteSelected();
@@ -623,13 +875,48 @@
             });
         }
 
-        document.addEventListener('click', hideContextMenu);
+        if (paginationWrap) {
+            pageButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const direction = button.getAttribute('data-fm-page');
+                    let nextPage = state.pagination.page;
+                    if (direction === 'prev') {
+                        nextPage = Math.max(1, state.pagination.page - 1);
+                    } else if (direction === 'next') {
+                        nextPage = Math.min(state.pagination.totalPages, state.pagination.page + 1);
+                    }
+                    if (nextPage !== state.pagination.page) {
+                        loadFolder({ folderId: state.folderId, page: nextPage });
+                    }
+                });
+            });
+        }
+
+        if (sortSelect) {
+            sortSelect.addEventListener('change', () => {
+                const [key, dir] = sortSelect.value.split('|');
+                state.sort.key = key || 'name';
+                state.sort.direction = dir || 'asc';
+                loadFolder({ folderId: state.folderId, resetPage: true });
+            });
+        }
+
+        document.addEventListener('click', (event) => {
+            if (!contextMenu) {
+                return;
+            }
+            if (!contextMenu.hidden && !contextMenu.contains(event.target)) {
+                hideContextMenu();
+            }
+        });
         document.addEventListener('scroll', hideContextMenu);
+        document.addEventListener('keydown', handleKeyShortcuts);
 
         document.addEventListener('upload:completed', () => {
-            loadFolder(state.folderId);
+            loadFolder({ folderId: state.folderId, resetPage: false });
         });
 
-        loadFolder(app.dataset.initialFolder ? Number(app.dataset.initialFolder) : null);
+        const initialFolder = app.dataset.initialFolder ? Number(app.dataset.initialFolder) : null;
+        loadFolder({ folderId: initialFolder, resetPage: true }).catch(error => console.error(error));
     });
 })();

@@ -150,6 +150,7 @@ a.link-light:hover {
     background: rgba(18, 22, 41, 0.85);
     cursor: pointer;
     transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
 }
 
 .fm-item:hover {
@@ -163,7 +164,7 @@ a.link-light:hover {
     box-shadow: 0 0 0 2px rgba(255, 127, 80, 0.35);
 }
 
-.fm-item.is-public .fm-name::after {
+.fm-item.is-shared .fm-name::after {
     content: ' • Paylaşıldı';
     color: rgba(255, 255, 255, 0.5);
     font-size: 0.75rem;
@@ -187,14 +188,8 @@ a.link-light:hover {
     position: relative;
 }
 
-.fm-icon-folder::before {
-    content: '\f734';
-    font-family: 'bootstrap-icons';
-}
-
-.fm-icon-file::before {
-    content: '\f38b';
-    font-family: 'bootstrap-icons';
+.fm-icon i {
+    font-size: 1.5rem;
 }
 
 .fm-info {
@@ -241,6 +236,57 @@ a.link-light:hover {
 
 .fm-toolbar .btn {
     border-radius: 14px;
+}
+
+.fm-sort {
+    background: rgba(15, 17, 34, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    min-width: 190px;
+}
+
+.fm-sort:focus {
+    border-color: rgba(255, 127, 80, 0.6);
+    box-shadow: 0 0 0 0.2rem rgba(255, 127, 80, 0.12);
+    outline: none;
+}
+
+.form-control,
+.form-select {
+    background-color: rgba(15, 17, 34, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: rgba(18, 22, 41, 0.95);
+    color: #fff;
+    border-color: rgba(105, 65, 198, 0.6);
+    box-shadow: 0 0 0 0.2rem rgba(105, 65, 198, 0.15);
+}
+
+.form-control::placeholder,
+.form-select::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.table-dark-glass {
+    background: rgba(15, 17, 34, 0.72);
+    color: #f5f5ff;
+}
+
+.table-dark-glass thead th {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.table-dark-glass tbody tr {
+    border-color: rgba(255, 255, 255, 0.04);
+}
+
+.table-dark-glass tbody tr:hover {
+    background: rgba(105, 65, 198, 0.18);
 }
 
 .breadcrumb-dark .breadcrumb-item + .breadcrumb-item::before {
