@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS payments (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     client_id INT UNSIGNED NOT NULL,
     iyzico_payment_id VARCHAR(100) NOT NULL,
-    status ENUM('initiated', 'paid', 'failed', 'refunded') DEFAULT 'initiated',
+    status ENUM('initiated', 'paid', 'failed', 'refunded', 'partial') DEFAULT 'initiated',
     amount DECIMAL(10,2) NOT NULL,
     currency CHAR(3) DEFAULT 'TRY',
     raw_response JSON NULL,

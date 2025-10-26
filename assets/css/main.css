@@ -186,7 +186,67 @@ footer {
         width: 100%;
     }
 
-    .notification-actions .btn {
-        flex: 1;
-    }
+.notification-actions .btn {
+    flex: 1;
+}
+}
+
+.stat-pill {
+    background: rgba(10, 77, 104, 0.05);
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    height: 100%;
+}
+
+.stat-pill .label {
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.stat-pill .value {
+    font-size: 1.25rem;
+}
+
+.html-editor {
+    position: relative;
+}
+
+.html-editor__toolbar {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.html-editor__toolbar .btn {
+    border-radius: 0.75rem;
+    background-color: #f0f5f9;
+    color: #0a4d68;
+    border: 1px solid transparent;
+}
+
+.html-editor__toolbar .btn:hover {
+    background-color: #e1edf4;
+}
+
+.html-editor__content {
+    min-height: 220px;
+    background: #ffffff;
+    overflow: auto;
+}
+
+.html-editor__content:focus {
+    box-shadow: 0 0 0 0.2rem rgba(10, 77, 104, 0.1);
+}
+
+.template-preview {
+    min-height: 220px;
+    background: #f8fbfd;
+    overflow: auto;
+}
+
+.template-preview p {
+    margin-bottom: 0.5rem;
 }

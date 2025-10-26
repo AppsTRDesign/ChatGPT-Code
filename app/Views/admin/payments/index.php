@@ -15,14 +15,16 @@
 <section>
     <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <table class="table table-striped align-middle" id="admin-payments-table" data-source="/admin/payments/data" data-columns='["client_id","iyzico_payment_id","status","amount","currency","created_at"]'>
+            <table class="table table-striped align-middle" id="admin-payments-table" data-source="/admin/payments/data" data-columns='["client_id","iyzico_payment_id","method","status","amount","currency","note","created_at"]'>
                 <thead>
                     <tr>
                         <th>Müşteri ID</th>
                         <th>Ödeme ID</th>
+                        <th>Yöntem</th>
                         <th>Durum</th>
                         <th>Tutar</th>
                         <th>Para Birimi</th>
+                        <th>Not</th>
                         <th>Tarih</th>
                     </tr>
                 </thead>

@@ -30,11 +30,22 @@ class Router
         $this->post('/admin/clients/update', [AdminController::class, 'updateClient']);
         $this->post('/admin/clients/delete', [AdminController::class, 'deleteClient']);
 
+        $this->get('/admin/purchases', [AdminController::class, 'purchases']);
+        $this->get('/admin/purchases/data', [AdminController::class, 'purchasesData']);
+        $this->post('/admin/purchases/store', [AdminController::class, 'storeClientPackage']);
+        $this->post('/admin/purchases/update-status', [AdminController::class, 'updateClientPackageStatus']);
+
         $this->get('/admin/api-keys', [AdminController::class, 'apiKeys']);
         $this->get('/admin/api-keys/data', [AdminController::class, 'apiKeysData']);
         $this->post('/admin/api-keys/store', [AdminController::class, 'storeApiKey']);
         $this->post('/admin/api-keys/update', [AdminController::class, 'updateApiKey']);
         $this->post('/admin/api-keys/revoke', [AdminController::class, 'revokeApiKey']);
+
+        $this->get('/admin/packages', [AdminController::class, 'packages']);
+        $this->get('/admin/packages/data', [AdminController::class, 'packagesData']);
+        $this->post('/admin/packages/store', [AdminController::class, 'storePackage']);
+        $this->post('/admin/packages/update', [AdminController::class, 'updatePackage']);
+        $this->post('/admin/packages/delete', [AdminController::class, 'deletePackage']);
 
         $this->get('/admin/templates', [AdminController::class, 'templates']);
         $this->get('/admin/templates/data', [AdminController::class, 'templatesData']);
@@ -51,8 +62,17 @@ class Router
         $this->get('/admin/reports', [AdminController::class, 'reports']);
         $this->get('/admin/reports/daily', [AdminController::class, 'reportDaily']);
         $this->get('/admin/reports/platforms', [AdminController::class, 'reportPlatforms']);
+        $this->get('/admin/reports/api/usage', [AdminController::class, 'reportApiUsage']);
+        $this->get('/admin/reports/api/summary', [AdminController::class, 'reportApiSummary']);
+        $this->get('/admin/reports/revenue', [AdminController::class, 'reportRevenue']);
+        $this->get('/admin/reports/traffic', [AdminController::class, 'reportTraffic']);
+        $this->get('/admin/reports/memberships', [AdminController::class, 'reportMembership']);
+        $this->get('/admin/reports/export/traffic', [AdminController::class, 'exportTrafficReport']);
+        $this->get('/admin/reports/export/memberships', [AdminController::class, 'exportMembershipReport']);
+        $this->get('/admin/reports/export/revenue', [AdminController::class, 'exportRevenueReport']);
         $this->get('/admin/settings', [AdminController::class, 'settings']);
         $this->post('/admin/settings/save', [AdminController::class, 'saveSettings']);
+        $this->post('/admin/settings/upload-brand', [AdminController::class, 'uploadBrandAsset']);
 
         $this->get('/client', [ClientController::class, 'dashboard']);
         $this->get('/client/notifications', [ClientController::class, 'notifications']);

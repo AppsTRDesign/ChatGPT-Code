@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ApiKey;
+use App\Models\ApiUsageLog;
 use App\Models\Notification;
 use App\Models\NotificationLog;
 use App\Models\Setting;
@@ -27,6 +28,7 @@ class NotificationService
         $message = trim($payload['message'] ?? '');
 
         if ($title === '' || $message === '') {
+            ApiUsageLog::record($clientId, (int) $apiKey['id'], 'notifications.dispatch', 'error', ['reason' => 'missing_fields']);
             return [
                 'status' => 'error',
                 'message' => 'Başlık ve mesaj zorunludur'
@@ -37,6 +39,7 @@ class NotificationService
         $subscriptions = Subscription::activeForClient($clientId, $tokens);
 
         if (!$subscriptions) {
+            ApiUsageLog::record($clientId, (int) $apiKey['id'], 'notifications.dispatch', 'error', ['reason' => 'no_subscribers']);
             return [
                 'status' => 'error',
                 'message' => 'Aktif abone bulunamadı'
@@ -58,6 +61,11 @@ class NotificationService
         Notification::updateStatus($notificationId, 'sending');
 
         static::notifyClientByEmail($clientId, $title, count($subscriptionIds));
+
+        ApiUsageLog::record($clientId, (int) $apiKey['id'], 'notifications.dispatch', 'success', [
+            'notification_id' => $notificationId,
+            'recipients' => count($subscriptionIds)
+        ]);
 
         return [
             'status' => 'queued',
@@ -82,6 +90,7 @@ class NotificationService
         $endpoint = $payload['endpoint'] ?? null;
 
         if (!$token || !$endpoint) {
+            ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'tokens.register', 'error', ['reason' => 'missing_token']);
             return [
                 'status' => 'error',
                 'message' => 'Token ve endpoint zorunludur'
@@ -108,6 +117,8 @@ class NotificationService
 
         ApiKey::touchLastUsed((int) $apiKey['id']);
 
+        ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'tokens.register', 'success');
+
         return [
             'status' => 'success',
             'subscription' => $subscription
@@ -128,6 +139,7 @@ class NotificationService
 
         $token = $payload['token'] ?? '';
         if ($token === '') {
+            ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'notifications.inbox', 'error', ['reason' => 'missing_token']);
             return [
                 'status' => 'error',
                 'message' => 'Token zorunludur'
@@ -138,6 +150,7 @@ class NotificationService
         $logs = NotificationLog::pendingForToken($clientId, $token);
 
         if (!$logs) {
+            ApiUsageLog::record($clientId, (int) $apiKey['id'], 'notifications.inbox', 'success', ['count' => 0]);
             return [
                 'status' => 'success',
                 'notifications' => []
@@ -156,6 +169,8 @@ class NotificationService
                 'expires_at' => $log['expires_at']
             ];
         }, $logs);
+
+        ApiUsageLog::record($clientId, (int) $apiKey['id'], 'notifications.inbox', 'success', ['count' => count($notifications)]);
 
         return [
             'status' => 'success',
@@ -180,6 +195,7 @@ class NotificationService
         $event = $payload['event'] ?? '';
 
         if (!$notificationId || $token === '' || $event === '') {
+            ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'notifications.receipt', 'error', ['reason' => 'missing_payload']);
             return [
                 'status' => 'error',
                 'message' => 'Eksik bildirim verisi'
@@ -188,6 +204,7 @@ class NotificationService
 
         $subscription = Subscription::findByToken($token);
         if (!$subscription) {
+            ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'notifications.receipt', 'error', ['reason' => 'subscription_not_found']);
             return [
                 'status' => 'error',
                 'message' => 'Abonelik bulunamadı'
@@ -195,6 +212,11 @@ class NotificationService
         }
 
         NotificationLog::registerEvent($notificationId, (int) $subscription['id'], $event);
+
+        ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'notifications.receipt', 'success', [
+            'event' => $event,
+            'notification_id' => $notificationId
+        ]);
 
         return [
             'status' => 'success'

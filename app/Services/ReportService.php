@@ -23,6 +23,91 @@ class ReportService
         return $stmt->fetchAll() ?: [];
     }
 
+    public static function trafficSeries(string $range = 'daily'): array
+    {
+        $config = self::rangeConfig($range);
+        $sql = sprintf(
+            'SELECT %1$s AS bucket,
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN status = "sent" THEN 1 ELSE 0 END) AS sent,
+                    SUM(CASE WHEN status = "failed" THEN 1 ELSE 0 END) AS failed
+             FROM notifications
+             WHERE created_at >= DATE_SUB(NOW(), INTERVAL %2$s)
+             GROUP BY %3$s
+             ORDER BY bucket ASC',
+            $config['expression'],
+            $config['interval'],
+            $config['group']
+        );
+
+        $stmt = Database::pdo()->query($sql);
+        $rows = $stmt->fetchAll() ?: [];
+
+        return array_map(static function (array $row) use ($range) {
+            $row['bucket'] = self::formatBucket($row['bucket'], $range);
+            return $row;
+        }, $rows);
+    }
+
+    public static function membershipSeries(string $range = 'daily'): array
+    {
+        $config = self::rangeConfig($range, 'created_at');
+        $clientSql = sprintf(
+            'SELECT %1$s AS bucket, COUNT(*) AS total
+             FROM clients
+             WHERE created_at >= DATE_SUB(NOW(), INTERVAL %2$s)
+             GROUP BY %3$s',
+            $config['expression'],
+            $config['interval'],
+            $config['group']
+        );
+
+        $packageConfig = self::rangeConfig($range, 'approved_at');
+        $packageSql = sprintf(
+            'SELECT %1$s AS bucket, COUNT(*) AS total
+             FROM client_packages
+             WHERE status = "active" AND approved_at IS NOT NULL AND approved_at >= DATE_SUB(NOW(), INTERVAL %2$s)
+             GROUP BY %3$s',
+            $packageConfig['expression'],
+            $packageConfig['interval'],
+            $packageConfig['group']
+        );
+
+        $clientRows = Database::pdo()->query($clientSql)->fetchAll() ?: [];
+        $packageRows = Database::pdo()->query($packageSql)->fetchAll() ?: [];
+
+        $buckets = [];
+        foreach ($clientRows as $row) {
+            $buckets[$row['bucket']] = true;
+        }
+        foreach ($packageRows as $row) {
+            $buckets[$row['bucket']] = true;
+        }
+
+        ksort($buckets);
+
+        $clientMap = [];
+        foreach ($clientRows as $row) {
+            $clientMap[$row['bucket']] = (int) $row['total'];
+        }
+
+        $packageMap = [];
+        foreach ($packageRows as $row) {
+            $packageMap[$row['bucket']] = (int) $row['total'];
+        }
+
+        $series = [];
+        foreach (array_keys($buckets) as $bucket) {
+            $series[] = [
+                'bucket' => self::formatBucket($bucket, $range),
+                'new_members' => $clientMap[$bucket] ?? 0,
+                'activated_packages' => $packageMap[$bucket] ?? 0
+            ];
+        }
+
+        return $series;
+    }
+
     public static function clientEngagement(int $clientId, int $days = 14): array
     {
         $sql = 'SELECT DATE(n.created_at) AS day,
@@ -59,5 +144,39 @@ class ReportService
         $stmt->execute(['client_id' => $clientId]);
 
         return $stmt->fetchAll() ?: [];
+    }
+
+    protected static function rangeConfig(string $range, string $column = 'created_at'): array
+    {
+        return match ($range) {
+            'weekly' => [
+                'expression' => sprintf('DATE_FORMAT(%s, "%%x-W%%v")', $column),
+                'interval' => '24 WEEK',
+                'group' => sprintf('DATE_FORMAT(%s, "%%x-W%%v")', $column)
+            ],
+            'monthly' => [
+                'expression' => sprintf('DATE_FORMAT(%s, "%%Y-%%m")', $column),
+                'interval' => '18 MONTH',
+                'group' => sprintf('DATE_FORMAT(%s, "%%Y-%%m")', $column)
+            ],
+            'yearly' => [
+                'expression' => sprintf('DATE_FORMAT(%s, "%%Y")', $column),
+                'interval' => '5 YEAR',
+                'group' => sprintf('DATE_FORMAT(%s, "%%Y")', $column)
+            ],
+            default => [
+                'expression' => sprintf('DATE_FORMAT(%s, "%%Y-%%m-%%d")', $column),
+                'interval' => '30 DAY',
+                'group' => sprintf('DATE_FORMAT(%s, "%%Y-%%m-%%d")', $column)
+            ],
+        };
+    }
+
+    protected static function formatBucket(string $bucket, string $range): string
+    {
+        return match ($range) {
+            'weekly' => $bucket,
+            default => $bucket,
+        };
     }
 }

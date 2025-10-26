@@ -5,7 +5,15 @@ namespace App\Models;
 class User extends Model
 {
     protected static string $table = 'users';
-    protected static array $fillable = ['username', 'password', 'role'];
+    protected static array $fillable = [
+        'username',
+        'email',
+        'password',
+        'role',
+        'email_verified_at',
+        'login_banned_until',
+        'is_blocked'
+    ];
 
     public static function findByUsername(string $username): ?array
     {

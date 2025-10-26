@@ -26,7 +26,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">İçerik (HTML)</label>
-                        <textarea name="content" class="form-control" rows="8" required></textarea>
+                        <textarea name="content" class="form-control" rows="8" data-html-editor="true" required></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Durum</label>
@@ -49,7 +49,7 @@
                 <p class="text-muted small">Şablon satırlarını seçerek içeriği kopyalayabilir veya güncelleme için düzenleme formunu kullanabilirsiniz.</p>
                 <div class="mb-3">
                     <label class="form-label">Şablon İçeriği Önizleme</label>
-                    <textarea id="template-preview" class="form-control" rows="10" readonly></textarea>
+                    <div id="template-preview" class="template-preview border rounded p-3 text-muted">Bir şablon seçin veya yeni içerik oluşturun.</div>
                 </div>
                 <form id="template-update-form" data-ajax="true" data-endpoint="/admin/templates/update" data-refresh="#admin-templates-table" data-json="true">
                     <input type="hidden" name="id">
@@ -67,7 +67,7 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label">İçerik</label>
-                            <textarea name="content" class="form-control" rows="6" required></textarea>
+                            <textarea name="content" class="form-control" rows="6" data-html-editor="true" required></textarea>
                         </div>
                         <div class="col-12">
                             <button type="submit" class="btn btn-success w-100">Şablonu Güncelle</button>
@@ -128,13 +128,17 @@
                 try {
                     const record = JSON.parse(row.getAttribute('data-row'));
                     if (preview) {
-                        preview.value = record.content || '';
+                        const hasContent = !!record.content;
+                        preview.innerHTML = hasContent ? record.content : 'Bir şablon seçin veya yeni içerik oluşturun.';
+                        preview.classList.toggle('text-muted', !hasContent);
                     }
                     if (updateForm) {
                         updateForm.querySelector('[name="id"]').value = record.id;
                         updateForm.querySelector('[name="name"]').value = record.name;
                         updateForm.querySelector('[name="status"]').value = record.status;
-                        updateForm.querySelector('[name="content"]').value = record.content;
+                        const contentField = updateForm.querySelector('[name="content"]');
+                        contentField.value = record.content;
+                        contentField.dispatchEvent(new CustomEvent('html-editor:update', { detail: record.content }));
                     }
                 } catch (error) {
                     console.error('Şablon satırı parse edilemedi', error);

@@ -12,6 +12,8 @@
                 $links = [
                     '/admin' => 'Dashboard',
                     '/admin/clients' => 'Müşteriler',
+                    '/admin/packages' => 'Paketler',
+                    '/admin/purchases' => 'Satın Alımlar',
                     '/admin/api-keys' => 'API',
                     '/admin/notifications' => 'Bildirimler',
                     '/admin/templates' => 'Şablonlar',
