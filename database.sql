@@ -46,7 +46,7 @@ CREATE TABLE settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled)
-VALUES ('NoaSoft Dosya Deposu', 'Güvenli ve hızlı dosya yükleme platformu.', "<div class='topbar'>Hoş geldiniz!</div>", CONCAT('© ', YEAR(CURDATE()), ' NoaSoft'), 0);
+VALUES ('NoaSoft Dosya Deposu', 'Güvenli ve hızlı dosya yükleme platformu.', '', CONCAT('© ', YEAR(CURDATE()), ' NoaSoft'), 0);
 
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,

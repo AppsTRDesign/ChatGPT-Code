@@ -108,13 +108,26 @@ function is_admin(): bool
 
 function require_auth(bool $admin = false): void
 {
+    $ajax = is_ajax_request();
+
     if (!current_user()) {
-        http_response_code(401);
-        exit(json_encode(['status' => 'error', 'message' => 'Authentication required.']));
+        $message = 'Bu işlemi gerçekleştirmek için giriş yapmalısınız. Lütfen giriş yapın veya üye olun.';
+        if ($ajax) {
+            echo json_encode(['status' => 'error', 'message' => $message]);
+        } else {
+            header('Location: ' . BASE_URL . '/login');
+        }
+        exit;
     }
+
     if ($admin && !is_admin()) {
-        http_response_code(403);
-        exit(json_encode(['status' => 'error', 'message' => 'Admin privileges required.']));
+        if ($ajax) {
+            http_response_code(403);
+            echo json_encode(['status' => 'error', 'message' => 'Yalnızca yöneticiler bu işlemi gerçekleştirebilir.']);
+        } else {
+            header('Location: ' . BASE_URL . '/client');
+        }
+        exit;
     }
 }
 
@@ -215,11 +228,26 @@ function ensureDefaultSettings(PDO $pdo): void
         $stmt->execute([
             ':title' => 'NoaSoft Dosya Deposu',
             ':description' => 'Güvenli ve hızlı dosya yükleme platformu.',
-            ':header' => "<div class='topbar'>Hoş geldiniz!</div>",
+            ':header' => '',
             ':footer' => '<p>© ' . date('Y') . ' NoaSoft</p>',
             ':enabled' => 0,
         ]);
     }
+}
+
+function is_ajax_request(): bool
+{
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower((string) $_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+        return true;
+    }
+
+    $script = $_SERVER['SCRIPT_NAME'] ?? '';
+    if (str_contains($script, '/api/')) {
+        return true;
+    }
+
+    $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+    return stripos($accept, 'application/json') !== false;
 }
 
 
@@ -227,6 +255,12 @@ function fetch_settings(PDO $pdo): array
 {
     $stmt = $pdo->query('SELECT * FROM settings LIMIT 1');
     $settings = $stmt->fetch();
+    if ($settings) {
+        $settings['header_html'] = str_replace([
+            "<div class='topbar'>Hoş geldiniz!</div>",
+            '<div class=\"topbar\">Hoş geldiniz!</div>'
+        ], '', $settings['header_html'] ?? '');
+    }
     return $settings ?: [];
 }
 

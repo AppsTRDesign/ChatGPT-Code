@@ -21,14 +21,18 @@
             }
             const formData = new FormData(form);
             formData.append('csrf_token', csrfToken);
+            const endpoint = form.getAttribute('action');
             try {
-                const response = await fetch(form.action, {
+                if (!endpoint) {
+                    throw new Error('Form eylem adresi tanımlı değil.');
+                }
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     body: formData,
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 const data = await response.json();
-                if (data.status === 'success') {
+                if (response.ok && data.status === 'success') {
                     showAlert('success', data.message || 'İşlem tamamlandı.');
                     if (data.redirect) {
                         setTimeout(() => window.location.href = data.redirect, 1200);
@@ -82,8 +86,22 @@
                         showAlert('error', response.message || 'Dosya yüklenirken hata oluştu.');
                     }
                 });
-                this.on('error', function (_file, errorMessage) {
-                    const message = typeof errorMessage === 'string' ? errorMessage : (errorMessage.message || 'Yükleme başarısız.');
+                this.on('error', function (_file, errorMessage, xhr) {
+                    let message = 'Yükleme başarısız.';
+                    if (xhr && xhr.responseText) {
+                        try {
+                            const parsed = JSON.parse(xhr.responseText);
+                            if (parsed && parsed.message) {
+                                message = parsed.message;
+                            }
+                        } catch (parseError) {
+                            console.warn(parseError);
+                        }
+                    } else if (typeof errorMessage === 'string') {
+                        message = errorMessage;
+                    } else if (errorMessage && errorMessage.message) {
+                        message = errorMessage.message;
+                    }
                     showAlert('error', message);
                 });
             }
