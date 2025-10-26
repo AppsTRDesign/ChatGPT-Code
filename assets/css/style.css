@@ -1,0 +1,18 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#drop-zone {
+    border-style: dashed;
+    background-color: #fff;
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+#drop-zone.bg-light {
+    border-color: #0d6efd !important;
+    background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
