@@ -212,7 +212,7 @@ function dashboard_fetch_series_fallback(
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
 
-    $valueResolver = $valueResolver ?? static fn (): float => 1.0;
+    $valueResolver = $valueResolver ?? static fn (array $row): float => 1.0;
 
     $bucketRanges = [];
     foreach ($buckets as $bucket) {
@@ -263,7 +263,7 @@ function dashboard_traffic(PDO $db, string $period): array
         ['status = :status'],
         ['status' => 'success'],
         null,
-        static fn (): float => 1.0
+        static fn (array $row): float => 1.0
     );
 
     $registrationMap = dashboard_fetch_series(
@@ -276,7 +276,7 @@ function dashboard_traffic(PDO $db, string $period): array
         ['role = :role'],
         ['role' => 'client'],
         null,
-        static fn (): float => 1.0
+        static fn (array $row): float => 1.0
     );
 
     $labels = [];
