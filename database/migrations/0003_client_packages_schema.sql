@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS packages (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    slug VARCHAR(150) NOT NULL UNIQUE,
+    monthly_limit INT NULL,
+    duration_days INT NULL,
+    site_limit INT NULL,
+    price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    currency CHAR(3) NOT NULL DEFAULT 'TRY',
+    description TEXT NULL,
+    features JSON NULL,
+    allowed_features JSON NULL,
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS client_packages (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    client_id INT UNSIGNED NOT NULL,
+    package_id INT UNSIGNED NOT NULL,
+    status ENUM('pending', 'active', 'cancelled', 'rejected', 'partial') DEFAULT 'pending',
+    payment_id BIGINT UNSIGNED NULL,
+    payment_method ENUM('iyzico', 'bank_transfer') DEFAULT 'iyzico',
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    currency CHAR(3) NOT NULL DEFAULT 'TRY',
+    note TEXT NULL,
+    error_log TEXT NULL,
+    auto_approved TINYINT(1) DEFAULT 0,
+    requested_at TIMESTAMP NULL,
+    approved_at TIMESTAMP NULL,
+    activated_at TIMESTAMP NULL,
+    expires_at TIMESTAMP NULL,
+    cancelled_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE,
+    FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+    FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
