@@ -28,8 +28,8 @@ try {
 
 require_once __DIR__ . '/functions.php';
 
-ensureDefaultPackages($pdo);
 ensureDatabaseSchema($pdo);
+ensureDefaultPackages($pdo);
 ensureDefaultSettings($pdo);
 ensure_admin_exists($pdo);
 
