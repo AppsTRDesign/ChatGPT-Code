@@ -1,0 +1,20 @@
+/* Editor styles aligning block editor with front-end aesthetics */
+:root {
+  --editor-bg: #0f172a;
+  --editor-surface: rgba(15, 23, 42, 0.85);
+  --editor-text: #e2e8f0;
+  --editor-accent: #38bdf8;
+}
+
+body {
+  background: var(--editor-bg);
+  color: var(--editor-text);
+}
+
+.wp-block {
+  max-width: 800px;
+}
+
+a {
+  color: var(--editor-accent);
+}

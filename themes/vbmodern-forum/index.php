@@ -1,0 +1,73 @@
+<?php
+/**
+ * Main template file
+ *
+ * @package VBModern_Forum
+ */
+
+global $wp_query;
+
+get_header();
+?>
+<div class="content">
+  <header class="section__header">
+    <div>
+      <h1 class="section__title"><?php echo is_home() && ! is_front_page() ? single_post_title( '', false ) : esc_html__( 'Forum Threads', 'vbmodern-forum' ); ?></h1>
+      <p class="section__subtitle"><?php esc_html_e( 'Browse the latest discussions across the community.', 'vbmodern-forum' ); ?></p>
+    </div>
+    <div class="thread-toolbar">
+      <div class="thread-toolbar__filters">
+        <button class="filter-chip filter-chip--active" type="button"><?php esc_html_e( 'Latest', 'vbmodern-forum' ); ?></button>
+        <button class="filter-chip" type="button"><?php esc_html_e( 'Top', 'vbmodern-forum' ); ?></button>
+        <button class="filter-chip" type="button"><?php esc_html_e( 'Unanswered', 'vbmodern-forum' ); ?></button>
+      </div>
+      <a class="button button--primary" href="<?php echo esc_url( wp_login_url() ); ?>"><?php esc_html_e( 'Start New Thread', 'vbmodern-forum' ); ?></a>
+    </div>
+  </header>
+
+  <div class="thread-list">
+    <?php
+    if ( have_posts() ) :
+        while ( have_posts() ) :
+            the_post();
+            $badge = vbmodern_forum_get_activity_badge( get_the_ID() );
+            ?>
+            <article id="post-<?php the_ID(); ?>" <?php post_class( 'thread-card' ); ?>>
+              <div class="thread-card__icon" aria-hidden="true">#</div>
+              <div>
+                <h2 class="thread-card__title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></h2>
+                <div class="thread-card__meta">
+                  <?php vbmodern_forum_posted_by(); ?>
+                  <?php vbmodern_forum_posted_on(); ?>
+                </div>
+              </div>
+              <div class="thread-card__status">
+                <span class="badge <?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['label'] ); ?></span>
+                <strong><?php echo esc_html( get_comments_number() ); ?></strong>
+                <small><?php esc_html_e( 'Replies', 'vbmodern-forum' ); ?></small>
+              </div>
+            </article>
+            <?php
+        endwhile;
+    else :
+        get_template_part( 'template-parts/content', 'none' );
+    endif;
+    ?>
+  </div>
+
+  <?php if ( $wp_query->max_num_pages > 1 ) : ?>
+    <nav class="pagination" aria-label="<?php esc_attr_e( 'Pagination', 'vbmodern-forum' ); ?>">
+      <?php
+      echo paginate_links(
+          [
+              'prev_text' => '&lsaquo;',
+              'next_text' => '&rsaquo;',
+              'before_page_number' => '<span class="visually-hidden">' . esc_html__( 'Page', 'vbmodern-forum' ) . ' </span>',
+          ]
+      );
+      ?>
+    </nav>
+  <?php endif; ?>
+</div>
+<?php
+get_footer();
