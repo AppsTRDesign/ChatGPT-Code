@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ApiKey;
 use App\Models\ApiUsageLog;
+use App\Models\ClientSite;
 use App\Models\Notification;
 use App\Models\NotificationLog;
 use App\Models\Setting;
@@ -36,7 +37,32 @@ class NotificationService
         }
 
         $tokens = isset($payload['tokens']) && is_array($payload['tokens']) ? $payload['tokens'] : [];
-        $subscriptions = Subscription::activeForClient($clientId, $tokens);
+
+        $siteId = null;
+        if (!empty($payload['site_id'])) {
+            $site = ClientSite::find((int) $payload['site_id']);
+            if ($site && (int) $site['client_id'] === $clientId) {
+                $siteId = (int) $site['id'];
+            }
+        } elseif (!empty($payload['site_identifier'])) {
+            $site = ClientSite::findByIdentifier((string) $payload['site_identifier']);
+            if ($site && (int) $site['client_id'] === $clientId) {
+                $siteId = (int) $site['id'];
+            }
+        }
+
+        $filters = array_filter([
+            'site_id' => $siteId,
+            'language' => $payload['language'] ?? null,
+            'country' => $payload['country'] ?? null,
+            'city' => $payload['city'] ?? null,
+            'platform' => $payload['platform'] ?? null,
+            'browser' => $payload['browser'] ?? null,
+            'device_type' => $payload['device_type'] ?? null,
+            'device_model' => $payload['device_model'] ?? null,
+        ], static fn ($value) => $value !== null && $value !== '' && $value !== []);
+
+        $subscriptions = Subscription::activeForClient($clientId, $tokens, $filters);
 
         if (!$subscriptions) {
             ApiUsageLog::record($clientId, (int) $apiKey['id'], 'notifications.dispatch', 'error', ['reason' => 'no_subscribers']);
@@ -46,14 +72,51 @@ class NotificationService
             ];
         }
 
+        $durationType = $payload['duration_type'] ?? 'permanent';
+        $ttlSeconds = null;
+        $expiresAt = $payload['expires_at'] ?? null;
+
+        if ($durationType === 'timed') {
+            $value = (int) ($payload['duration_value'] ?? 0);
+            $unit = $payload['duration_unit'] ?? 'minutes';
+
+            if ($value > 0) {
+                $multiplier = match ($unit) {
+                    'hours' => 3600,
+                    'days' => 86400,
+                    default => 60,
+                };
+
+                $ttlSeconds = $value * $multiplier;
+                $expiresAt = date('Y-m-d H:i:s', time() + $ttlSeconds);
+            }
+        } elseif ($expiresAt) {
+            $ttlSeconds = max(0, strtotime((string) $expiresAt) - time());
+        }
+
+        $buttonText = trim((string) ($payload['button_text'] ?? ''));
+        $buttonUrl = $payload['button_url'] ?? null;
+        if ($buttonText === '' || !$buttonUrl) {
+            $buttonText = null;
+            $buttonUrl = null;
+        }
+
         $notificationId = Notification::createForClient($clientId, [
             'template_id' => $payload['template_id'] ?? null,
             'title' => $title,
             'message' => $message,
             'target_url' => $payload['target_url'] ?? null,
+            'language' => $payload['language'] ?? null,
+            'site_id' => $siteId,
+            'filters' => $filters,
+            'button_text' => $buttonText,
+            'button_url' => $buttonUrl ?? ($payload['target_url'] ?? null),
+            'image_path' => $payload['image_path'] ?? null,
+            'icon_path' => $payload['icon_path'] ?? null,
+            'ttl_seconds' => $ttlSeconds,
             'status' => 'queued',
             'schedule_at' => $payload['schedule_at'] ?? null,
-            'expires_at' => $payload['expires_at'] ?? null,
+            'expires_at' => $expiresAt,
         ]);
 
         $subscriptionIds = array_column($subscriptions, 'id');
@@ -64,7 +127,10 @@ class NotificationService
 
         ApiUsageLog::record($clientId, (int) $apiKey['id'], 'notifications.dispatch', 'success', [
             'notification_id' => $notificationId,
-            'recipients' => count($subscriptionIds)
+            'recipients' => count($subscriptionIds),
+            'filters' => $filters,
+            'site_id' => $siteId,
+            'template_id' => $payload['template_id'] ?? null
         ]);
 
         return [
@@ -100,12 +166,32 @@ class NotificationService
         $geo = isset($payload['ip_address']) ? GeoLocationService::locate($payload['ip_address']) : [];
         $device = isset($payload['user_agent']) ? DeviceService::parse($payload['user_agent']) : [];
 
+        $siteId = null;
+        if (!empty($payload['site_id'])) {
+            $site = ClientSite::find((int) $payload['site_id']);
+            if ($site && (int) $site['client_id'] === (int) $apiKey['client_id']) {
+                $siteId = (int) $site['id'];
+            }
+        } elseif (!empty($payload['site_identifier'])) {
+            $site = ClientSite::findByIdentifier((string) $payload['site_identifier']);
+            if ($site && (int) $site['client_id'] === (int) $apiKey['client_id']) {
+                $siteId = (int) $site['id'];
+            }
+        } elseif (!empty($payload['site_domain'])) {
+            $site = ClientSite::findForClientByDomain((int) $apiKey['client_id'], (string) $payload['site_domain']);
+            if ($site) {
+                $siteId = (int) $site['id'];
+            }
+        }
+
         $subscription = Subscription::upsert((int) $apiKey['client_id'], [
             'token' => $token,
             'endpoint' => $endpoint,
             'public_key' => $payload['public_key'] ?? null,
             'auth_token' => $payload['auth_token'] ?? null,
             'status' => 'active',
+            'site_id' => $siteId,
+            'language' => $payload['language'] ?? ($payload['locale'] ?? null),
             'city' => $payload['city'] ?? ($geo['city'] ?? null),
             'country' => $payload['country'] ?? ($geo['country'] ?? null),
             'platform' => $payload['platform'] ?? ($device['os']['name'] ?? null),
@@ -113,11 +199,15 @@ class NotificationService
             'device_model' => $payload['device_model'] ?? ($device['model'] ?? null),
             'device_type' => $payload['device_type'] ?? ($device['device'] ?? null),
             'ip_address' => $payload['ip_address'] ?? null,
+            'last_seen_at' => $payload['last_seen_at'] ?? date('Y-m-d H:i:s'),
         ]);
 
         ApiKey::touchLastUsed((int) $apiKey['id']);
 
-        ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'tokens.register', 'success');
+        ApiUsageLog::record((int) $apiKey['client_id'], (int) $apiKey['id'], 'tokens.register', 'success', [
+            'site_id' => $siteId,
+            'language' => $subscription['language'] ?? null
+        ]);
 
         return [
             'status' => 'success',
@@ -161,12 +251,31 @@ class NotificationService
         NotificationLog::markAsSent($logIds);
 
         $notifications = array_map(function (array $log) {
+            $filters = [];
+            if (!empty($log['filters']) && is_string($log['filters'])) {
+                $decoded = json_decode($log['filters'], true);
+                if (is_array($decoded)) {
+                    $filters = $decoded;
+                }
+            }
+
             return [
                 'id' => (int) $log['notification_id'],
                 'title' => $log['title'],
                 'message' => $log['message'],
                 'target_url' => $log['target_url'],
-                'expires_at' => $log['expires_at']
+                'expires_at' => $log['expires_at'],
+                'language' => $log['language'] ?? null,
+                'filters' => $filters,
+                'button' => [
+                    'text' => $log['button_text'] ?? null,
+                    'url' => $log['button_url'] ?? $log['target_url']
+                ],
+                'media' => [
+                    'image' => $log['image_path'] ?? null,
+                    'icon' => $log['icon_path'] ?? null
+                ],
+                'ttl_seconds' => isset($log['ttl_seconds']) ? (int) $log['ttl_seconds'] : null
             ];
         }, $logs);
 

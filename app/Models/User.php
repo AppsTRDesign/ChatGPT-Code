@@ -10,6 +10,8 @@ class User extends Model
         'email',
         'password',
         'role',
+        'provider',
+        'firebase_uid',
         'email_verified_at',
         'login_banned_until',
         'is_blocked'

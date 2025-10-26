@@ -13,16 +13,20 @@
                     '/client' => 'Panel',
                     '/client/notifications' => 'Bildirimler',
                     '/client/templates' => 'Şablonlar',
+                    '/client/sites' => 'Siteler',
                     '/client/api-keys' => 'API',
-                    '/client/subscriptions' => 'Abonelikler',
                     '/client/reports' => 'Raporlar',
-                    '/client/billing' => 'Faturalandırma'
+                    '/client/billing' => 'Faturalandırma',
+                    '/client/profile' => 'Profil'
                 ];
                 foreach ($clientLinks as $url => $label):
                     $active = str_starts_with($currentPath, $url) ? 'active fw-semibold' : '';
                 ?>
                     <li class="nav-item"><a class="nav-link text-white <?= $active ?>" href="<?= $url ?>"><?= $label ?></a></li>
                 <?php endforeach; ?>
+                <li class="nav-item"><a class="nav-link text-white" href="/api-guide">API Rehberi</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/api-docs">API Dokümanları</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="/contact">İletişim</a></li>
                 <li class="nav-item ms-lg-3"><button class="btn btn-outline-light" data-action="logout">Çıkış</button></li>
             </ul>
         </div>

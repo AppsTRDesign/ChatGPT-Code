@@ -12,6 +12,9 @@
     initializeCharts();
     initializeDropzones();
     initializeHtmlEditors();
+    initializeClientDashboard();
+    initializeApiUsageWidgets();
+    initializeNotificationInsights();
     initializeReportFilters();
 
     function initializeLogout() {
@@ -254,8 +257,13 @@
             const keys = columns.length ? columns : Object.keys(row);
             keys.forEach((key) => {
                 const td = document.createElement('td');
-                const value = row[key];
-                td.innerHTML = formatValue(value);
+                if (key === '__actions') {
+                    td.setAttribute('data-actions', 'true');
+                    td.innerHTML = '';
+                } else {
+                    const value = row[key];
+                    td.innerHTML = formatValue(value);
+                }
                 tr.appendChild(td);
             });
 
@@ -381,40 +389,6 @@
                     maintainAspectRatio: false
                 }
             });
-        }
-
-        const clientChartCanvas = document.getElementById('client-performance-chart');
-        if (clientChartCanvas && (force || !clientChartCanvas.dataset.initialized)) {
-            fetch(clientChartCanvas.dataset.source || '/client/reports/engagement')
-                .then((response) => response.json())
-                .then((series) => {
-                    const labels = series.map((item) => item.day);
-                    const clicks = series.map((item) => Number(item.clicks || 0));
-                    const opens = series.map((item) => Number(item.opens || 0));
-
-                    registerChart(clientChartCanvas, {
-                        type: 'bar',
-                        data: {
-                            labels,
-                            datasets: [
-                                {
-                                    label: 'Tıklamalar',
-                                    data: clicks,
-                                    backgroundColor: '#0a4d68'
-                                },
-                                {
-                                    label: 'Açılma',
-                                    data: opens,
-                                    backgroundColor: '#00b8a9'
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false
-                        }
-                    });
-                });
         }
 
         const revenueChartCanvas = document.getElementById('admin-revenue-chart');
@@ -642,8 +616,14 @@
 
             const previewSelector = element.getAttribute('data-preview');
             const type = element.getAttribute('data-type') || 'file';
+            const url = element.getAttribute('action') || element.getAttribute('data-upload');
+
+            if (!url) {
+                return;
+            }
 
             const dz = new Dropzone(element, {
+                url,
                 paramName: 'file',
                 maxFiles: 1,
                 acceptedFiles: 'image/*',
@@ -654,14 +634,27 @@
                     });
 
                     this.on('success', (file, response) => {
+                        const inputSelector = element.getAttribute('data-input');
+
                         if (previewSelector && response?.path) {
                             const preview = document.querySelector(previewSelector);
                             if (preview) {
                                 if (preview.tagName === 'IMG') {
                                     preview.src = response.path;
+                                } else if (preview.tagName === 'INPUT') {
+                                    preview.value = response.path;
+                                    preview.dispatchEvent(new Event('change'));
                                 } else {
                                     preview.textContent = response.path;
                                 }
+                            }
+                        }
+
+                        if (inputSelector && response?.path) {
+                            const input = document.querySelector(inputSelector);
+                            if (input) {
+                                input.value = response.path;
+                                input.dispatchEvent(new Event('change'));
                             }
                         }
 
@@ -779,6 +772,344 @@
 
             textarea.dataset.editorInitialized = 'true';
         });
+    }
+
+    function initializeClientDashboard() {
+        const chartEl = document.getElementById('client-performance-chart');
+        if (!chartEl) {
+            return;
+        }
+
+        const rangeSelect = document.getElementById('client-metrics-range');
+        const breakdownContainer = document.getElementById('client-performance-breakdown');
+        const source = chartEl.dataset.source;
+        let chartInstance;
+
+        const renderBreakdown = (breakdown) => {
+            if (!breakdownContainer) {
+                return;
+            }
+
+            const sections = [
+                { key: 'countries', title: 'Ülkeler' },
+                { key: 'platforms', title: 'Platformlar' },
+                { key: 'device_types', title: 'Cihaz Tipleri' }
+            ];
+
+            breakdownContainer.innerHTML = '';
+
+            sections.forEach((section) => {
+                const items = (breakdown[section.key] || []).slice(0, 3);
+                if (!items.length) {
+                    return;
+                }
+
+                const column = document.createElement('div');
+                column.className = 'col-12 col-md-4';
+                column.innerHTML = `
+                    <div class="border rounded p-3 h-100">
+                        <h3 class="h6 mb-3">${section.title}</h3>
+                        <ul class="list-unstyled mb-0">
+                            ${items
+                                .map((item) => `
+                                    <li class="d-flex justify-content-between small mb-2">
+                                        <span>${escapeHtml(item.label ?? '-')}</span>
+                                        <span class="text-muted">${Number(item.deliveries || 0)} / ${Number(item.clicks || 0)} klik</span>
+                                    </li>
+                                `)
+                                .join('')}
+                        </ul>
+                    </div>
+                `;
+                breakdownContainer.appendChild(column);
+            });
+        };
+
+        const loadMetrics = () => {
+            const params = new URLSearchParams();
+            if (rangeSelect) {
+                params.set('range', rangeSelect.value || 'daily');
+            }
+
+            fetch(`${source}?${params.toString()}`)
+                .then((response) => response.json())
+                .then((payload) => {
+                    if (payload.status !== 'success') {
+                        return;
+                    }
+
+                    const labels = payload.series.map((item) => item.bucket);
+                    const deliveries = payload.series.map((item) => Number(item.deliveries || 0));
+                    const opens = payload.series.map((item) => Number(item.opens || 0));
+                    const clicks = payload.series.map((item) => Number(item.clicks || 0));
+                    const closes = payload.series.map((item) => Number(item.closes || 0));
+
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(chartEl, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: 'Gönderim', data: deliveries, borderColor: '#0a4d68', backgroundColor: 'rgba(10,77,104,0.2)', tension: 0.3, fill: true },
+                                { label: 'Açılma', data: opens, borderColor: '#00b8a9', backgroundColor: 'rgba(0,184,169,0.2)', tension: 0.3, fill: true },
+                                { label: 'Tıklama', data: clicks, borderColor: '#1b9aaa', backgroundColor: 'rgba(27,154,170,0.2)', tension: 0.3, fill: true },
+                                { label: 'Kapatma', data: closes, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.2)', tension: 0.3, fill: true }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false }
+                        }
+                    });
+
+                    renderBreakdown(payload.breakdown || {});
+                });
+        };
+
+        rangeSelect?.addEventListener('change', loadMetrics);
+        const refreshButton = document.querySelector('[data-action="refresh"][data-target="#client-performance-chart"]');
+        refreshButton?.addEventListener('click', loadMetrics);
+
+        loadMetrics();
+    }
+
+    function initializeApiUsageWidgets() {
+        const chartEl = document.getElementById('client-api-chart');
+        if (!chartEl) {
+            return;
+        }
+
+        const rangeSelect = document.getElementById('client-api-range');
+        const summaryBody = document.getElementById('client-api-summary');
+        const source = chartEl.dataset.source;
+        let chartInstance;
+
+        const loadSummary = () => {
+            fetch('/client/api/reports/summary')
+                .then((response) => response.json())
+                .then((payload) => {
+                    if (!summaryBody || payload.status !== 'success') {
+                        return;
+                    }
+
+                    summaryBody.innerHTML = '';
+                    const items = payload.items || [];
+                    if (!items.length) {
+                        summaryBody.innerHTML = '<tr><td colspan="3" class="text-muted text-center">Veri bulunamadı.</td></tr>';
+                        return;
+                    }
+
+                    items.forEach((item) => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${escapeHtml(item.endpoint)}</td>
+                            <td>${Number(item.total || 0)}</td>
+                            <td>${Number(item.errors || 0)}</td>
+                        `;
+                        summaryBody.appendChild(tr);
+                    });
+                });
+        };
+
+        const loadChart = () => {
+            const params = new URLSearchParams();
+            if (rangeSelect) {
+                params.set('range', rangeSelect.value || 'daily');
+            }
+
+            fetch(`${source}?${params.toString()}`)
+                .then((response) => response.json())
+                .then((payload) => {
+                    if (payload.status !== 'success') {
+                        return;
+                    }
+
+                    const labels = payload.series.map((item) => item.bucket);
+                    const totals = payload.series.map((item) => Number(item.total || 0));
+                    const errors = payload.series.map((item) => Number(item.errors || 0));
+
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(chartEl, {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: 'Toplam Çağrı', data: totals, backgroundColor: '#0a4d68' },
+                                { label: 'Hata', data: errors, backgroundColor: '#e74c3c' }
+                            ]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
+                });
+        };
+
+        rangeSelect?.addEventListener('change', () => {
+            loadChart();
+            loadSummary();
+        });
+
+        const refreshButton = document.querySelector('[data-action="refresh"][data-target="#client-api-chart"]');
+        refreshButton?.addEventListener('click', () => {
+            loadChart();
+            loadSummary();
+        });
+
+        loadChart();
+        loadSummary();
+    }
+
+    function initializeNotificationInsights() {
+        const chartEl = document.getElementById('notification-insight-chart');
+        const rangeSelect = document.getElementById('notification-insight-range');
+        const breakdownTable = document.querySelector('#notification-insight-breakdown tbody') || document.getElementById('notification-insight-breakdown');
+        const table = document.getElementById('client-notifications-table');
+
+        if (!chartEl || !table) {
+            return;
+        }
+
+        const source = chartEl.dataset.source;
+        let chartInstance;
+        let currentId = null;
+
+        const renderBreakdown = (breakdown) => {
+            if (!breakdownTable) {
+                return;
+            }
+
+            const rows = [];
+            const sections = [
+                { key: 'countries', label: 'Ülke' },
+                { key: 'cities', label: 'Şehir' },
+                { key: 'platforms', label: 'Platform' },
+                { key: 'browsers', label: 'Tarayıcı' },
+                { key: 'device_types', label: 'Cihaz Tipi' }
+            ];
+
+            sections.forEach((section) => {
+                (breakdown[section.key] || []).slice(0, 3).forEach((item) => {
+                    rows.push({
+                        feature: section.label,
+                        value: item.label ?? '-',
+                        deliveries: Number(item.deliveries || 0),
+                        opens: Number(item.opens || 0),
+                        clicks: Number(item.clicks || 0)
+                    });
+                });
+            });
+
+            breakdownTable.innerHTML = rows.length
+                ? rows
+                      .map((row) => `
+                            <tr>
+                                <td>${escapeHtml(row.feature)}</td>
+                                <td>${escapeHtml(row.value)}</td>
+                                <td>${row.deliveries}</td>
+                                <td>${row.opens}</td>
+                                <td>${row.clicks}</td>
+                            </tr>`)
+                      .join('')
+                : '<tr><td colspan="5" class="text-muted text-center">Veri bulunamadı.</td></tr>';
+        };
+
+        const loadMetrics = () => {
+            if (!currentId) {
+                return;
+            }
+
+            const params = new URLSearchParams({ notification_id: currentId });
+            if (rangeSelect) {
+                params.set('range', rangeSelect.value || 'daily');
+            }
+
+            fetch(`${source}?${params.toString()}`)
+                .then((response) => response.json())
+                .then((payload) => {
+                    if (payload.status !== 'success') {
+                        return;
+                    }
+
+                    const labels = payload.series.map((item) => item.bucket);
+                    const deliveries = payload.series.map((item) => Number(item.deliveries || 0));
+                    const opens = payload.series.map((item) => Number(item.opens || 0));
+                    const clicks = payload.series.map((item) => Number(item.clicks || 0));
+                    const closes = payload.series.map((item) => Number(item.closes || 0));
+
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                    }
+
+                    chartInstance = new Chart(chartEl, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                { label: 'Gönderim', data: deliveries, borderColor: '#0a4d68', fill: false, tension: 0.3 },
+                                { label: 'Açılma', data: opens, borderColor: '#00b8a9', fill: false, tension: 0.3 },
+                                { label: 'Tıklama', data: clicks, borderColor: '#1b9aaa', fill: false, tension: 0.3 },
+                                { label: 'Kapatma', data: closes, borderColor: '#e74c3c', fill: false, tension: 0.3 }
+                            ]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false } }
+                    });
+
+                    renderBreakdown(payload.breakdown || {});
+                });
+        };
+
+        table.addEventListener('datatable.load', (event) => {
+            const rows = event.detail || [];
+
+            if (!rows.length) {
+                currentId = null;
+                if (chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+                if (breakdownTable) {
+                    breakdownTable.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Veri bulunamadı.</td></tr>';
+                }
+                return;
+            }
+
+            const existing = rows.find((row) => {
+                const id = row.id || row.notification_id || row.ID;
+                return id !== undefined && id !== null && String(id) === String(currentId);
+            });
+
+            if (!existing) {
+                const first = rows[0];
+                const identifier = first.id || first.notification_id || first.ID;
+                currentId = identifier !== undefined && identifier !== null ? String(identifier) : null;
+            }
+
+            loadMetrics();
+        });
+
+        table.addEventListener('click', (event) => {
+            const tr = event.target.closest('tr[data-row]');
+            if (!tr) {
+                return;
+            }
+
+            try {
+                const record = JSON.parse(tr.getAttribute('data-row'));
+                const identifier = record.id || record.notification_id || record.ID;
+                currentId = identifier !== undefined && identifier !== null ? String(identifier) : null;
+                loadMetrics();
+            } catch (error) {
+                console.error('Bildirim kaydı okunamadı', error);
+            }
+        });
+
+        rangeSelect?.addEventListener('change', loadMetrics);
     }
 
     function initializeReportFilters() {

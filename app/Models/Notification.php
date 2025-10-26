@@ -11,11 +11,30 @@ class Notification extends Model
         'title',
         'message',
         'target_url',
+        'language',
+        'site_id',
+        'filters',
+        'button_text',
+        'button_url',
+        'image_path',
+        'icon_path',
+        'ttl_seconds',
         'status',
         'schedule_at',
         'sent_at',
         'expires_at'
     ];
+
+    protected static function transformRecord(array $record): array
+    {
+        $record = parent::transformRecord($record);
+        if (isset($record['filters']) && is_string($record['filters'])) {
+            $decoded = json_decode($record['filters'], true);
+            $record['filters'] = is_array($decoded) ? $decoded : [];
+        }
+
+        return $record;
+    }
 
     public static function count(): int
     {
@@ -39,6 +58,14 @@ class Notification extends Model
             'title' => $data['title'] ?? '',
             'message' => $data['message'] ?? '',
             'target_url' => $data['target_url'] ?? null,
+            'language' => $data['language'] ?? null,
+            'site_id' => $data['site_id'] ?? null,
+            'filters' => isset($data['filters']) ? json_encode($data['filters']) : null,
+            'button_text' => $data['button_text'] ?? null,
+            'button_url' => $data['button_url'] ?? null,
+            'image_path' => $data['image_path'] ?? null,
+            'icon_path' => $data['icon_path'] ?? null,
+            'ttl_seconds' => $data['ttl_seconds'] ?? null,
             'status' => $data['status'] ?? 'queued',
             'schedule_at' => $data['schedule_at'] ?? null,
             'sent_at' => $data['sent_at'] ?? null,

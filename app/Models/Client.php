@@ -11,8 +11,11 @@ class Client extends Model
         'email',
         'domain',
         'phone',
+        'default_language',
         'status',
         'mail_verified_at',
+        'logo_path',
+        'favicon_path',
         'notes'
     ];
 

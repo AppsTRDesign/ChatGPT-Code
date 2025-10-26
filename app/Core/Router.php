@@ -6,6 +6,7 @@ use App\Controllers\AdminController;
 use App\Controllers\AuthController;
 use App\Controllers\ClientController;
 use App\Controllers\ApiController;
+use App\Controllers\PublicController;
 
 class Router
 {
@@ -22,6 +23,13 @@ class Router
         $this->match('GET', '/login', [AuthController::class, 'showLogin']);
         $this->match('POST', '/login', [AuthController::class, 'login']);
         $this->match('POST', '/logout', [AuthController::class, 'logout']);
+        $this->match('GET', '/register', [AuthController::class, 'showRegister']);
+        $this->match('GET', '/forgot-password', [AuthController::class, 'showForgot']);
+        $this->match('GET', '/resend-activation', [AuthController::class, 'showResendActivation']);
+        $this->get('/contact', [PublicController::class, 'contact']);
+        $this->post('/contact', [PublicController::class, 'submitContact']);
+        $this->get('/api-guide', [PublicController::class, 'apiGuide']);
+        $this->get('/api-docs', [PublicController::class, 'apiDocs']);
 
         $this->get('/admin', [AdminController::class, 'dashboard']);
         $this->get('/admin/clients', [AdminController::class, 'clients']);
@@ -77,9 +85,12 @@ class Router
         $this->get('/client', [ClientController::class, 'dashboard']);
         $this->get('/client/notifications', [ClientController::class, 'notifications']);
         $this->get('/client/notifications/data', [ClientController::class, 'notificationsData']);
+        $this->get('/client/notifications/metrics', [ClientController::class, 'notificationMetrics']);
+        $this->get('/client/notifications/history', [ClientController::class, 'notificationHistory']);
         $this->post('/client/notifications/store', [ClientController::class, 'storeNotification']);
         $this->post('/client/notifications/update', [ClientController::class, 'updateNotification']);
         $this->post('/client/notifications/delete', [ClientController::class, 'deleteNotification']);
+        $this->post('/client/notifications/upload', [ClientController::class, 'uploadNotificationAsset']);
 
         $this->get('/client/templates', [ClientController::class, 'templates']);
         $this->get('/client/templates/data', [ClientController::class, 'templatesData']);
@@ -92,15 +103,30 @@ class Router
         $this->post('/client/api-keys/store', [ClientController::class, 'storeApiKey']);
         $this->post('/client/api-keys/update', [ClientController::class, 'updateApiKey']);
 
+        $this->get('/client/sites', [ClientController::class, 'sites']);
+        $this->get('/client/sites/data', [ClientController::class, 'sitesData']);
+        $this->post('/client/sites/store', [ClientController::class, 'storeSite']);
+        $this->post('/client/sites/update', [ClientController::class, 'updateSite']);
+        $this->post('/client/sites/delete', [ClientController::class, 'deleteSite']);
+
         $this->get('/client/subscriptions', [ClientController::class, 'subscriptions']);
         $this->get('/client/subscriptions/data', [ClientController::class, 'subscriptionsData']);
+        $this->post('/client/subscriptions/update-status', [ClientController::class, 'updateSubscriptionStatus']);
 
         $this->get('/client/reports', [ClientController::class, 'reports']);
         $this->get('/client/reports/engagement', [ClientController::class, 'reportEngagement']);
         $this->get('/client/reports/templates', [ClientController::class, 'reportTemplates']);
+        $this->get('/client/api/reports/series', [ClientController::class, 'apiUsageSeries']);
+        $this->get('/client/api/reports/summary', [ClientController::class, 'apiUsageSummary']);
 
         $this->get('/client/billing', [ClientController::class, 'billing']);
         $this->post('/client/billing/checkout', [ClientController::class, 'createCheckout']);
+        $this->post('/client/billing/notify-transfer', [ClientController::class, 'notifyBankTransfer']);
+
+        $this->get('/client/profile', [ClientController::class, 'profile']);
+        $this->post('/client/profile/update', [ClientController::class, 'updateProfile']);
+
+        $this->post('/client/support', [ClientController::class, 'submitSupport']);
 
         $this->group('/api', function () {
             $this->match('POST', '/notifications', [ApiController::class, 'dispatchNotification']);

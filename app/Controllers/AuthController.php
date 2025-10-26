@@ -5,25 +5,46 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Request;
 use App\Models\User;
+use App\Models\Setting;
 
 class AuthController extends Controller
 {
     public function showLogin(): string
     {
-        if (isset($_SESSION['user_id'], $_SESSION['role'])) {
-            if ($_SESSION['role'] === 'admin') {
-                header('Location: /admin');
-                exit;
-            }
+        $this->redirectAuthenticated();
 
-            if ($_SESSION['role'] === 'client') {
-                header('Location: /client');
-                exit;
-            }
-        }
+        $firebase = Setting::getGroup('firebase');
 
         return $this->view('client/auth/login', [
-            'title' => 'Giriş Yap'
+            'title' => 'Giriş Yap',
+            'firebase' => $firebase
+        ]);
+    }
+
+    public function showRegister(): string
+    {
+        $this->redirectAuthenticated();
+
+        return $this->view('client/auth/register', [
+            'title' => 'Kayıt Ol'
+        ]);
+    }
+
+    public function showForgot(): string
+    {
+        $this->redirectAuthenticated();
+
+        return $this->view('client/auth/forgot-password', [
+            'title' => 'Şifre Yenile'
+        ]);
+    }
+
+    public function showResendActivation(): string
+    {
+        $this->redirectAuthenticated();
+
+        return $this->view('client/auth/resend-activation', [
+            'title' => 'Aktivasyon Tekrarı'
         ]);
     }
 
@@ -84,5 +105,13 @@ class AuthController extends Controller
             'status' => 'success',
             'redirect' => '/login'
         ]);
+    }
+
+    protected function redirectAuthenticated(): void
+    {
+        if (isset($_SESSION['user_id'], $_SESSION['role'])) {
+            header('Location: ' . ($_SESSION['role'] === 'admin' ? '/admin' : '/client'));
+            exit;
+        }
     }
 }

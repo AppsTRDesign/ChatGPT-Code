@@ -15,10 +15,31 @@
                         <input type="password" class="form-control form-control-lg" id="password" name="password" required>
                         <div class="invalid-feedback">Şifre zorunludur.</div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100 btn-lg">Giriş Yap</button>
+                    <button type="submit" class="btn btn-primary w-100 btn-lg mb-3">Giriş Yap</button>
+                    <div class="d-flex justify-content-between small">
+                        <a href="/register" class="link-light">Kayıt Ol</a>
+                        <a href="/forgot-password" class="link-light">Şifremi Unuttum</a>
+                        <a href="/resend-activation" class="link-light">Aktivasyon Tekrarı</a>
+                    </div>
                 </form>
+                <?php if (!empty($firebase['active'])): ?>
+                    <div class="text-center mt-4">
+                        <button class="btn btn-outline-light w-100" data-action="firebase-login">Google ile Giriş Yap</button>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 <?php include __DIR__ . '/../layout/footer.php'; ?>
+<?php if (!empty($firebase['active'])): ?>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const button = document.querySelector('[data-action="firebase-login"]');
+        if (!button) { return; }
+        button.addEventListener('click', () => {
+            Swal.fire({ icon: 'info', title: 'Firebase', text: 'Firebase sosyal giriş entegrasyonu etkin. Lütfen yönetim panelinden yapılandırın.' });
+        });
+    });
+</script>
+<?php endif; ?>

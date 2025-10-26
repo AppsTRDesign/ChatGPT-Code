@@ -37,7 +37,8 @@ class NotificationLog extends Model
 
     public static function pendingForToken(int $clientId, string $token): array
     {
-        $sql = 'SELECT nl.*, n.title, n.message, n.target_url, n.expires_at, n.id AS notification_id
+        $sql = 'SELECT nl.*, n.title, n.message, n.target_url, n.expires_at, n.id AS notification_id,
+                n.button_text, n.button_url, n.image_path, n.icon_path, n.language, n.filters, n.site_id, n.ttl_seconds
                 FROM notification_logs nl
                 INNER JOIN subscriptions s ON s.id = nl.subscription_id
                 INNER JOIN notifications n ON n.id = nl.notification_id
