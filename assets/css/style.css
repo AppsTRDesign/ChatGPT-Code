@@ -36,6 +36,26 @@ body {
     box-shadow: 0 20px 60px -25px rgba(0, 0, 0, 0.8);
 }
 
+.hero-card p {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.icon-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 1.25rem;
+}
+
+.text-accent {
+    color: var(--accent) !important;
+}
+
 .dropzone {
     border: 2px dashed transparent;
     border-image: repeating-linear-gradient(135deg, var(--primary), var(--primary) 10px, transparent 10px, transparent 20px) 1;
@@ -55,6 +75,52 @@ body {
 .dropzone .dz-message {
     font-size: 1.1rem;
     color: #f2f4ff;
+}
+
+.timeline {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    bottom: 0.5rem;
+    left: 0.5rem;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.timeline li {
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.timeline-bullet {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    position: absolute;
+    left: 0;
+    top: 0.4rem;
+}
+
+.mini-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mini-card p {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .card-glass {
@@ -308,6 +374,46 @@ a.link-light:hover {
 
 .fm-dropzone .dz-message {
     font-size: 1rem;
+}
+
+.fm-upload-list {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.fm-upload-item {
+    background: rgba(18, 18, 28, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    backdrop-filter: blur(16px);
+}
+
+.fm-upload-item .progress {
+    background-color: rgba(255, 255, 255, 0.12);
+    height: 0.5rem;
+    border-radius: 999px;
+}
+
+.fm-upload-item .progress-bar {
+    background: linear-gradient(90deg, #7f56d9, #9e77ed);
+}
+
+.fm-upload-item .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.fm-upload-item .btn-outline-light:hover,
+.fm-upload-item .btn-outline-light:focus {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.extra-small {
+    font-size: 0.75rem;
 }
 
 @media (max-width: 768px) {

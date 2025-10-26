@@ -284,7 +284,7 @@
                     }
                     if (action === 'share') {
                         item.style.display = state.settings.public_sharing ? '' : 'none';
-                        item.textContent = (element.dataset.shareToken ? 'Paylaşımı Kapat' : 'Paylaş');
+                        item.textContent = 'Paylaş';
                         return;
                     }
                 }
@@ -502,8 +502,7 @@
         }
 
         async function createFolder() {
-            const allowPasswords = !!state.settings.folder_passwords;
-            const html = `<input type="text" id="fm-folder-name" class="swal2-input" placeholder="Klasör adı">${allowPasswords ? '<input type="password" id="fm-folder-pass" class="swal2-input" placeholder="Şifre (isteğe bağlı)">' : ''}`;
+            const html = '<input type="text" id="fm-folder-name" class="swal2-input" placeholder="Klasör adı">';
             const { value: formValues } = await Swal.fire({
                 title: 'Yeni klasör',
                 html,
@@ -513,14 +512,12 @@
                 cancelButtonText: 'Vazgeç',
                 preConfirm: () => {
                     const nameEl = document.getElementById('fm-folder-name');
-                    const passEl = document.getElementById('fm-folder-pass');
                     const name = nameEl ? nameEl.value.trim() : '';
-                    const password = passEl ? passEl.value : '';
                     if (!name) {
                         Swal.showValidationMessage('Lütfen klasör adı girin.');
                         return null;
                     }
-                    return { name, password };
+                    return { name };
                 }
             });
             if (!formValues) {
@@ -529,7 +526,6 @@
             const result = await fmRequest('create-folder', {
                 name: formValues.name,
                 parent_id: state.folderId,
-                password: formValues.password,
             });
             if (result.status === 'success') {
                 showToast('success', result.message);
@@ -652,45 +648,41 @@
                 showToast('error', 'Dosya bulunamadı.');
                 return;
             }
+            let shareUrl = '';
             if (currentFile.share_token) {
-                const result = await fmRequest('revoke-share', { file_id: selection.id });
-                if (result.status === 'success') {
-                    showToast('success', result.message);
+                shareUrl = `${config.baseUrl}/s/${currentFile.share_token}`;
+            } else {
+                const result = await fmRequest('share-file', { file_id: selection.id });
+                if (result.status === 'success' && result.share) {
+                    shareUrl = result.share.url;
                     await loadFolder({ folderId: state.folderId, resetPage: false });
                 } else {
-                    showToast('error', result.message || 'Paylaşım kapatılamadı.');
+                    showToast('error', result.message || 'Paylaşım oluşturulamadı.');
+                    return;
                 }
-                return;
             }
-            const result = await fmRequest('share-file', { file_id: selection.id });
-            if (result.status === 'success' && result.share) {
-                const shareUrl = result.share.url;
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Paylaşım bağlantısı',
-                    html: `<div class="text-start">
-                            <p class="mb-2">Bağlantıyı kopyalayın:</p>
-                            <input type="text" id="fm-share-link" class="form-control bg-dark border-0 text-white" readonly value="${shareUrl}">
-                            <button type="button" class="btn btn-gradient mt-3" id="fm-copy-share">Kopyala</button>
-                            <p class="small text-white-50 mt-3 mb-0">Bağlantı ${state.settings.share_expiry_minutes || 60} dakika boyunca aktiftir.</p>
-                        </div>`,
-                    didOpen: () => {
-                        const copyBtn = document.getElementById('fm-copy-share');
-                        const input = document.getElementById('fm-share-link');
-                        copyBtn?.addEventListener('click', async () => {
-                            try {
-                                await navigator.clipboard.writeText(input?.value || shareUrl);
-                                copyBtn.textContent = 'Kopyalandı';
-                            } catch (error) {
-                                copyBtn.textContent = 'Kopyalanamadı';
-                            }
-                        });
-                    }
-                });
-                await loadFolder({ folderId: state.folderId, resetPage: false });
-            } else {
-                showToast('error', result.message || 'Paylaşım oluşturulamadı.');
-            }
+            await Swal.fire({
+                icon: 'success',
+                title: 'Paylaşım bağlantısı',
+                html: `<div class="text-start">
+                        <p class="mb-2">Bağlantıyı kopyalayın:</p>
+                        <input type="text" id="fm-share-link" class="form-control bg-dark border-0 text-white" readonly value="${shareUrl}">
+                        <button type="button" class="btn btn-gradient mt-3" id="fm-copy-share">Kopyala</button>
+                        <p class="small text-white-50 mt-3 mb-0">Bağlantı ${state.settings.share_expiry_minutes || 60} dakika boyunca aktiftir.</p>
+                    </div>`,
+                didOpen: () => {
+                    const copyBtn = document.getElementById('fm-copy-share');
+                    const input = document.getElementById('fm-share-link');
+                    copyBtn?.addEventListener('click', async () => {
+                        try {
+                            await navigator.clipboard.writeText(input?.value || shareUrl);
+                            copyBtn.textContent = 'Kopyalandı';
+                        } catch (error) {
+                            copyBtn.textContent = 'Kopyalanamadı';
+                        }
+                    });
+                }
+            });
         }
 
         async function protectFolder() {

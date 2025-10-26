@@ -40,7 +40,6 @@ try {
             $name = trim($_POST['name'] ?? '');
             $email = strtolower(trim($_POST['email'] ?? ''));
             $password = $_POST['password'] ?? '';
-            $packageId = isset($_POST['package_id']) ? (int) $_POST['package_id'] : null;
 
             if (strlen($name) < 3) {
                 throw new RuntimeException('Ad soyad en az 3 karakter olmalı.');
@@ -55,13 +54,12 @@ try {
                 throw new RuntimeException('Bu e-posta zaten kayıtlı.');
             }
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare('INSERT INTO users (name, email, password_hash, role, package_id) VALUES (:name, :email, :password, :role, :package)');
+            $stmt = $pdo->prepare('INSERT INTO users (name, email, password_hash, role) VALUES (:name, :email, :password, :role)');
             $stmt->execute([
                 ':name' => $name,
                 ':email' => $email,
                 ':password' => $hash,
                 ':role' => 'client',
-                ':package' => $packageId ?: null,
             ]);
             $userId = (int) $pdo->lastInsertId();
             $user = find_user_by_email($pdo, $email);

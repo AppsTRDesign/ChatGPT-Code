@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
 redirect_if_authenticated();
-$packages = $pdo->query('SELECT id, name FROM packages WHERE is_active = 1 ORDER BY price ASC')->fetchAll();
 include __DIR__ . '/templates/header.php';
 ?>
 <section class="py-5">
@@ -23,15 +22,6 @@ include __DIR__ . '/templates/header.php';
                         <div class="mb-3">
                             <label for="registerPassword" class="form-label">Şifre</label>
                             <input type="password" class="form-control" id="registerPassword" name="password" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="registerPackage" class="form-label">Paket Seçimi</label>
-                            <select class="form-select" id="registerPackage" name="package_id">
-                                <option value="">Paket seçin (isteğe bağlı)</option>
-                                <?php foreach ($packages as $package): ?>
-                                    <option value="<?= (int) $package['id'] ?>" <?= isset($_GET['package']) && (int) $_GET['package'] === (int) $package['id'] ? 'selected' : '' ?>><?= sanitize($package['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
                         </div>
                         <button type="submit" class="btn btn-gradient w-100">Kaydı Tamamla</button>
                     </form>

@@ -59,13 +59,24 @@ include __DIR__ . '/nav.php';
         </div>
 
         <div class="card card-glass p-3">
-            <h2 class="h6 mb-3">Sürükle &amp; Bırak Yükleme</h2>
-            <form action="<?= BASE_URL ?>/api/upload.php" class="dropzone fm-dropzone" id="clientUploadZone" data-dropzone data-parallel-uploads="1">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                <h2 class="h6 mb-0">Sürükle &amp; Bırak Yükleme</h2>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-light btn-sm" data-upload-start>
+                        <i class="bi bi-cloud-upload me-1"></i>Yüklemeye Başla
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-upload-clear>
+                        <i class="bi bi-x-lg me-1"></i>Listeyi Temizle
+                    </button>
+                </div>
+            </div>
+            <form action="<?= BASE_URL ?>/api/upload.php" class="dropzone fm-dropzone" id="clientUploadZone" data-dropzone data-parallel-uploads="1" data-preview-template="#fm-upload-item-template" data-previews-container="[data-upload-list]">
                 <div class="dz-message">
                     Dosyalarınızı buraya sürükleyip bırakın veya tıklayarak seçin.
                     <span class="d-block text-white-50 small">Desteklenen türler: <span data-fm-allowed></span></span>
                 </div>
             </form>
+            <div class="fm-upload-list" data-upload-list></div>
         </div>
     </div>
 </div>
@@ -101,5 +112,23 @@ include __DIR__ . '/nav.php';
         <li data-action="delete" class="text-danger">Sil</li>
     </ul>
 </div>
+
+<template id="fm-upload-item-template">
+    <div class="fm-upload-item">
+        <div class="d-flex align-items-start justify-content-between">
+            <div>
+                <div class="fw-semibold text-white small mb-1" data-upload-name></div>
+                <div class="text-white-50 extra-small" data-upload-meta></div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-light" data-upload-remove title="Kaldır">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="progress mt-3" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar" data-upload-progress style="width: 0%"></div>
+        </div>
+        <div class="text-white-50 extra-small mt-2" data-upload-status></div>
+    </div>
+</template>
 
 <?php include __DIR__ . '/../templates/footer.php'; ?>
