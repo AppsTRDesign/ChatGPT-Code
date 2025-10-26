@@ -48,7 +48,9 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 INSERT INTO users (email, password, name)
 VALUES (
     'admin@noasoft.org',
-    '$2y$10$S2i0OHt9dZYkTfLZNVVRKe6gMPkTFogyXv3gZH/BqhGlywbn4T/1W',
+    '$2y$12$57hsr1aza3cNup2i/kcjbOuB7JljuAVGVlBWlFGv5F3lumiUxPn0e',
     'Sistem Yöneticisi'
 )
-ON DUPLICATE KEY UPDATE email = VALUES(email);
+ON DUPLICATE KEY UPDATE
+    password = VALUES(password),
+    name = VALUES(name);
