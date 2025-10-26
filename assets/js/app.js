@@ -5,7 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
             registerDemo.disabled = true;
             registerDemo.textContent = 'Abonelik oluşturuluyor...';
             try {
-                const response = await fetch('./client/register', {
+                const baseUrl = (window.APP_BASE_URL || window.location.origin || '').replace(/\/+$/, '');
+                const response = await fetch(`${baseUrl}/client/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
