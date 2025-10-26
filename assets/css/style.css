@@ -135,6 +135,135 @@ a.link-light:hover {
     color: #fff;
 }
 
+.file-manager .fm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.fm-item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(18, 22, 41, 0.85);
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fm-item:hover {
+    transform: translateY(-4px);
+    border-color: rgba(105, 65, 198, 0.6);
+    box-shadow: 0 18px 30px -20px rgba(105, 65, 198, 0.7);
+}
+
+.fm-item.is-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(255, 127, 80, 0.35);
+}
+
+.fm-item.is-public .fm-name::after {
+    content: ' • Paylaşıldı';
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+    margin-left: 0.35rem;
+}
+
+.fm-item.is-protected .fm-icon {
+    background: linear-gradient(135deg, rgba(255, 180, 50, 0.4), rgba(255, 140, 0, 0.2));
+}
+
+.fm-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(105, 65, 198, 0.28), rgba(105, 65, 198, 0.12));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: #d7ccff;
+    position: relative;
+}
+
+.fm-icon-folder::before {
+    content: '\f734';
+    font-family: 'bootstrap-icons';
+}
+
+.fm-icon-file::before {
+    content: '\f38b';
+    font-family: 'bootstrap-icons';
+}
+
+.fm-info {
+    min-width: 0;
+}
+
+.fm-name {
+    font-weight: 600;
+    color: #f5f5ff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fm-meta {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fm-context {
+    position: fixed;
+    z-index: 2000;
+    background: rgba(10, 12, 24, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.8);
+    min-width: 180px;
+    padding: 0.25rem 0;
+}
+
+.fm-context ul li {
+    padding: 0.5rem 1rem;
+    color: #f0f0ff;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.fm-context ul li:hover {
+    background: rgba(105, 65, 198, 0.22);
+}
+
+.fm-toolbar .btn {
+    border-radius: 14px;
+}
+
+.breadcrumb-dark .breadcrumb-item + .breadcrumb-item::before {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.breadcrumb-dark .breadcrumb-item a {
+    color: #d7ccff;
+    text-decoration: none;
+}
+
+.breadcrumb-dark .breadcrumb-item a:hover {
+    color: var(--accent);
+}
+
+.fm-dropzone {
+    min-height: 180px;
+}
+
+.fm-dropzone .dz-message {
+    font-size: 1rem;
+}
+
 @media (max-width: 768px) {
     .hero-section {
         padding: 4rem 0;

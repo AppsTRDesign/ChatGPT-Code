@@ -27,8 +27,15 @@ if (empty($_FILES['file'])) {
 
 $file = $_FILES['file'];
 try {
-    [$mimeType, $size] = validate_uploaded_file($file);
+    [$mimeType, $size] = validate_uploaded_file($file, $pdo);
     $user = current_user();
+    $folderId = isset($_POST['folder_id']) ? (int) $_POST['folder_id'] : null;
+    if ($folderId) {
+        $folder = fetch_folder($pdo, $folderId);
+        if (!$folder || (!is_admin() && (int) $folder['user_id'] !== (int) $user['id'])) {
+            throw new RuntimeException('Klasör erişim yetkiniz yok.');
+        }
+    }
     if (!can_upload($pdo, (int) $user['id'], $size)) {
         throw new RuntimeException('Depo alanı limitini aştınız.');
     }
@@ -45,6 +52,7 @@ try {
         'type' => $mimeType,
         'uploader_ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
         'user_id' => $user['id'],
+        'folder_id' => $folderId,
     ]);
     $slug = slugify(pathinfo($file['name'], PATHINFO_FILENAME));
     $fileUrl = BASE_URL . '/file/' . $fileId . '-' . $slug . ($extension ? '.' . strtolower($extension) : '');
@@ -53,6 +61,7 @@ try {
         'message' => 'Dosya başarıyla yüklendi.',
         'fileUrl' => $fileUrl,
         'fileId' => $fileId,
+        'folder_id' => $folderId,
     ]);
 } catch (Throwable $e) {
     http_response_code(400);

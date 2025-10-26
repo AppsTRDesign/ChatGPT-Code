@@ -19,25 +19,18 @@ include __DIR__ . '/templates/header.php';
                         <li>✔ Ajax tabanlı hızlı etkileşim</li>
                     </ul>
                     <div class="d-flex gap-3">
-                        <a href="#yukle" class="btn btn-gradient btn-lg">Hemen Yükle</a>
+                        <a href="<?= current_user() ? BASE_URL . (is_admin() ? '/admin' : '/client') : BASE_URL . '/login' ?>" class="btn btn-gradient btn-lg">Paneli Aç</a>
                         <a href="<?= BASE_URL ?>/register" class="btn btn-outline-light btn-lg">Ücretsiz Üye Ol</a>
                     </div>
                 </div>
             </div>
             <div class="col-lg-6">
-                <div class="card hero-card p-4" id="yukle">
-                    <?php if (!current_user()): ?>
-                        <div class="alert alert-warning bg-transparent border border-warning text-white">
-                            Dosya yüklemek için lütfen giriş yapın.
-                        </div>
-                    <?php endif; ?>
-                    <form action="<?= BASE_URL ?>/api/upload.php" class="dropzone" id="uploadZone" data-require-auth="1">
-                        <div class="dz-message">
-                            Dosyalarınızı sürükleyip bırakın veya tıklayın.<br>
-                            <small class="text-white-50">Maksimum dosya boyutu: 50MB</small>
-                        </div>
-                    </form>
-                    <p class="mt-3 text-white-50 small">Desteklenen türler: JPG, PNG, GIF, PDF, ZIP, DOCX, XLSX ve daha fazlası.</p>
+                <div class="card hero-card p-4 d-flex align-items-center justify-content-center text-center">
+                    <div>
+                        <h2 class="h4 text-white mb-3">Modern Dosya Yönetimi</h2>
+                        <p class="text-white-50">Klasör tabanlı yönetim, sürükle &amp; bırak yükleme, paylaşım bağlantıları ve zaman ayarlı indirme güvenliği tek panelde.</p>
+                        <p class="text-white-50 mb-0">Tüm işlemleriniz AJAX destekli hızlı arayüzle tek tık uzakta.</p>
+                    </div>
                 </div>
             </div>
         </div>

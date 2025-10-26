@@ -2,6 +2,15 @@
 require_once __DIR__ . '/../config.php';
 require_auth(true);
 $settings = fetch_settings($pdo);
+$allowedMimeText = '';
+if (!empty($settings['allowed_mime_types'])) {
+    $decoded = json_decode($settings['allowed_mime_types'], true);
+    if (is_array($decoded)) {
+        $allowedMimeText = implode("\n", $decoded);
+    } else {
+        $allowedMimeText = (string) $settings['allowed_mime_types'];
+    }
+}
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
@@ -68,12 +77,31 @@ include __DIR__ . '/nav.php';
                         <label class="form-check-label" for="analyticsEnabled">Analytics aktif</label>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">İzin Verilen MIME Türleri</label>
+                    <textarea name="allowed_mime_types" class="form-control" rows="4" placeholder="image/jpeg
+application/pdf"><?= sanitize($allowedMimeText) ?></textarea>
+                    <small class="text-white-50">Virgül veya satır sonu ile ayırın.</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Paylaşım Süresi (dakika)</label>
+                    <input type="number" name="share_expiry_minutes" class="form-control" value="<?= sanitize($settings['share_expiry_minutes'] ?? 1440) ?>">
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="publicSharingEnabled" <?= !empty($settings['public_sharing_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="publicSharingEnabled">Paylaşım bağlantıları aktif</label>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="folderPasswordsEnabled" <?= !empty($settings['folder_passwords_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="folderPasswordsEnabled">Klasör şifreleme aktif</label>
+                    </div>
+                </div>
             </div>
             <button type="button" class="btn btn-gradient mt-4" onclick="saveSettings()">Kaydet</button>
         </form>
     </div>
 </div>
 <script>
+const appConfig = window.APP_CONFIG || {};
 const logoDropzone = new Dropzone('#logoDropzone', {
     url: '#',
     autoProcessQueue: false,
@@ -108,8 +136,10 @@ async function saveSettings() {
     const form = document.getElementById('settingsForm');
     const formData = new FormData(form);
     formData.append('action', 'update-settings');
-    formData.append('csrf_token', window.APP_CONFIG.csrfToken);
+    formData.append('csrf_token', appConfig.csrfToken);
     formData.append('analytics_enabled', document.getElementById('analyticsEnabled').checked ? 1 : 0);
+    formData.append('public_sharing_enabled', document.getElementById('publicSharingEnabled').checked ? 1 : 0);
+    formData.append('folder_passwords_enabled', document.getElementById('folderPasswordsEnabled').checked ? 1 : 0);
     const logoFile = logoDropzone.getAcceptedFiles()[0];
     if (logoFile) {
         formData.append('logo', logoFile, logoFile.name);

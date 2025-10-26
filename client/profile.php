@@ -27,10 +27,11 @@ include __DIR__ . '/nav.php';
 </div>
 <script>
 async function updateProfile() {
+    const appConfig = window.APP_CONFIG || {};
     const form = document.getElementById('profileForm');
     const formData = new FormData(form);
     formData.append('action', 'profile-update');
-    formData.append('csrf_token', window.APP_CONFIG.csrfToken);
+    formData.append('csrf_token', appConfig.csrfToken);
     try {
         const response = await fetch('<?= BASE_URL ?>/api/client.php', {
             method: 'POST',

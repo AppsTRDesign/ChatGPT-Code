@@ -28,10 +28,11 @@ include __DIR__ . '/nav.php';
 </div>
 <script>
 (async () => {
+    const appConfig = window.APP_CONFIG || {};
     const response = await fetch('<?= BASE_URL ?>/api/client.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify({ action: 'dashboard', csrf_token: window.APP_CONFIG.csrfToken })
+        body: JSON.stringify({ action: 'dashboard', csrf_token: appConfig.csrfToken })
     });
     const data = await response.json();
     if (data.status !== 'success') return;

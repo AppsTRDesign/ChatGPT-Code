@@ -58,6 +58,10 @@ try {
                 'mail_encryption' => trim($payload['mail_encryption'] ?? ''),
                 'analytics_code' => $payload['analytics_code'] ?? '',
                 'analytics_enabled' => !empty($payload['analytics_enabled']) ? 1 : 0,
+                'allowed_mime_types' => trim($payload['allowed_mime_types'] ?? ''),
+                'share_expiry_minutes' => (int) ($payload['share_expiry_minutes'] ?? 1440),
+                'public_sharing_enabled' => !empty($payload['public_sharing_enabled']) ? 1 : 0,
+                'folder_passwords_enabled' => !empty($payload['folder_passwords_enabled']) ? 1 : 0,
             ];
             $settings = fetch_settings($pdo);
             if (!$settings) {
@@ -70,7 +74,7 @@ try {
             $logoName = $settings['logo'] ?? null;
             $faviconName = $settings['favicon'] ?? null;
             if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-                [$mime] = validate_uploaded_file($_FILES['logo']);
+                [$mime] = validate_uploaded_file($_FILES['logo'], $pdo);
                 if (!str_starts_with($mime, 'image/')) {
                     throw new RuntimeException('Logo yalnızca görsel olmalıdır.');
                 }
@@ -79,7 +83,7 @@ try {
                 move_uploaded_file($_FILES['logo']['tmp_name'], __DIR__ . '/../uploads/' . $logoName);
             }
             if (!empty($_FILES['favicon']) && $_FILES['favicon']['error'] === UPLOAD_ERR_OK) {
-                [$mime] = validate_uploaded_file($_FILES['favicon']);
+                [$mime] = validate_uploaded_file($_FILES['favicon'], $pdo);
                 if (!str_starts_with($mime, 'image/')) {
                     throw new RuntimeException('Favicon yalnızca görsel olmalıdır.');
                 }
@@ -87,7 +91,13 @@ try {
                 $faviconName = 'favicon_' . bin2hex(random_bytes(8)) . '.' . strtolower($ext);
                 move_uploaded_file($_FILES['favicon']['tmp_name'], __DIR__ . '/../uploads/' . $faviconName);
             }
-            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled LIMIT 1');
+            $allowedMimeList = [];
+            if ($fields['allowed_mime_types'] !== '') {
+                $allowedMimeList = array_filter(array_map('trim', preg_split('/[,\n]+/', $fields['allowed_mime_types']) ?: []));
+            }
+            $allowedMimeJson = json_encode(array_values(array_unique($allowedMimeList)));
+
+            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_mime_types = :allowed_mime_types, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled LIMIT 1');
             $stmt->execute([
                 ':meta_title' => $fields['meta_title'],
                 ':meta_description' => $fields['meta_description'],
@@ -102,6 +112,10 @@ try {
                 ':mail_encryption' => $fields['mail_encryption'],
                 ':analytics_code' => $fields['analytics_code'],
                 ':analytics_enabled' => $fields['analytics_enabled'],
+                ':allowed_mime_types' => $allowedMimeJson,
+                ':share_expiry_minutes' => $fields['share_expiry_minutes'] ?: 1440,
+                ':public_sharing_enabled' => $fields['public_sharing_enabled'],
+                ':folder_passwords_enabled' => $fields['folder_passwords_enabled'],
             ]);
             echo json_encode(['status' => 'success', 'message' => 'Ayarlar güncellendi.']);
             break;

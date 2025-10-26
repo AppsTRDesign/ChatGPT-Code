@@ -93,6 +93,7 @@ include __DIR__ . '/nav.php';
     </div>
 </div>
 <script>
+const appConfig = window.APP_CONFIG || {};
 const userModal = document.getElementById('userModal');
 userModal?.addEventListener('show.bs.modal', event => {
     const button = event.relatedTarget;
@@ -109,7 +110,7 @@ async function saveUser() {
     const form = document.getElementById('userForm');
     const formData = new FormData(form);
     formData.append('action', 'update-user');
-    formData.append('csrf_token', window.APP_CONFIG.csrfToken);
+    formData.append('csrf_token', appConfig.csrfToken);
     const verified = document.getElementById('userVerified').checked;
     try {
         const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
@@ -124,7 +125,7 @@ async function saveUser() {
         await fetch('<?= BASE_URL ?>/api/admin.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'verify-user', id: formData.get('id'), verified, csrf_token: window.APP_CONFIG.csrfToken })
+            body: JSON.stringify({ action: 'verify-user', id: formData.get('id'), verified, csrf_token: appConfig.csrfToken })
         });
         Swal.fire({ icon: 'success', title: 'Kaydedildi', text: data.message });
         setTimeout(() => window.location.reload(), 800);
@@ -147,7 +148,7 @@ async function deleteUser(id) {
         const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'delete-user', id, csrf_token: window.APP_CONFIG.csrfToken })
+            body: JSON.stringify({ action: 'delete-user', id, csrf_token: appConfig.csrfToken })
         });
         const data = await response.json();
         if (data.status !== 'success') {

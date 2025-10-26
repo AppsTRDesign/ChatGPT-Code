@@ -7,7 +7,15 @@ if (!$file) {
     echo 'Dosya bulunamadı.';
     exit;
 }
-$downloadUrl = BASE_URL . '/uploads/' . $file['stored_name'];
+$user = current_user();
+$isOwner = $user && (int) $file['user_id'] === (int) $user['id'];
+if (!$isOwner && !is_admin() && !(int) $file['is_public']) {
+    http_response_code(403);
+    exit('Bu dosyayı görüntüleme yetkiniz yok.');
+}
+
+$downloadUrl = BASE_URL . '/download.php?id=' . (int) $file['id'];
+$previewUrl = $downloadUrl . '&preview=1';
 $slug = slugify(pathinfo($file['filename'], PATHINFO_FILENAME));
 include __DIR__ . '/templates/header.php';
 ?>
@@ -25,18 +33,18 @@ include __DIR__ . '/templates/header.php';
                             <?php endif; ?>
                         </div>
                         <div class="d-flex gap-2">
-                            <a class="btn btn-gradient" href="<?= $downloadUrl ?>" download>İndir</a>
-                        </div>
+                        <a class="btn btn-gradient" href="<?= $downloadUrl ?>">İndir</a>
                     </div>
-                    <hr class="text-white-25">
-                    <?php if (str_starts_with($file['type'], 'image/')): ?>
-                        <img src="<?= $downloadUrl ?>" alt="<?= sanitize($file['filename']) ?>" class="img-fluid rounded" loading="lazy">
-                    <?php elseif ($file['type'] === 'application/pdf'): ?>
-                        <iframe src="<?= $downloadUrl ?>" class="w-100" style="min-height:480px; border-radius:12px; background:#fff;"></iframe>
-                    <?php else: ?>
+                </div>
+                <hr class="text-white-25">
+                <?php if (str_starts_with($file['type'], 'image/')): ?>
+                        <img src="<?= $previewUrl ?>" alt="<?= sanitize($file['filename']) ?>" class="img-fluid rounded" loading="lazy">
+                <?php elseif ($file['type'] === 'application/pdf'): ?>
+                        <iframe src="<?= $previewUrl ?>" class="w-100" style="min-height:480px; border-radius:12px; background:#fff;"></iframe>
+                <?php else: ?>
                         <p class="text-white-50">Bu dosya türü için önizleme desteklenmiyor. Aşağıdaki bağlantıyı kullanarak indirebilirsiniz.</p>
-                    <?php endif; ?>
-                    <div class="mt-3">
+                <?php endif; ?>
+                <div class="mt-3">
                         <p class="text-white-50 small">Kalıcı bağlantı:</p>
                         <code class="text-white-50 d-block"><?= BASE_URL ?>/file/<?= (int) $file['id'] ?>-<?= $slug ?></code>
                     </div>

@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS transactions;
 DROP TABLE IF EXISTS contacts;
 DROP TABLE IF EXISTS password_resets;
 DROP TABLE IF EXISTS files;
+DROP TABLE IF EXISTS folders;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS settings;
 DROP TABLE IF EXISTS packages;
@@ -42,11 +43,25 @@ CREATE TABLE settings (
     mail_password VARCHAR(255) DEFAULT NULL,
     mail_encryption VARCHAR(10) DEFAULT NULL,
     analytics_code TEXT DEFAULT NULL,
-    analytics_enabled TINYINT(1) DEFAULT 0
+    analytics_enabled TINYINT(1) DEFAULT 0,
+    allowed_mime_types TEXT DEFAULT NULL,
+    share_expiry_minutes INT DEFAULT 1440,
+    public_sharing_enabled TINYINT(1) DEFAULT 1,
+    folder_passwords_enabled TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled)
-VALUES ('NoaSoft Dosya Deposu', 'Güvenli ve hızlı dosya yükleme platformu.', '', CONCAT('© ', YEAR(CURDATE()), ' NoaSoft'), 0);
+INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled)
+VALUES (
+    'NoaSoft Dosya Deposu',
+    'Güvenli ve hızlı dosya yükleme platformu.',
+    '',
+    CONCAT('© ', YEAR(CURDATE()), ' NoaSoft'),
+    0,
+    JSON_ARRAY('image/jpeg','image/png','image/gif','application/pdf','text/plain','application/zip','application/x-rar-compressed','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+    1440,
+    1,
+    1
+);
 
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -65,6 +80,22 @@ CREATE TABLE users (
 INSERT INTO users (name, email, password_hash, role, email_verified)
 VALUES ('Sistem Yöneticisi', 'admin@fileupload.noasoft.org', '$2y$12$wcnefRGKeNssAK6zh42BlOR8W0KaehWhMQ/DzP4NEeah8x5stJjmu', 'admin', 1);
 
+CREATE TABLE folders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    parent_id INT DEFAULT NULL,
+    name VARCHAR(120) NOT NULL,
+    is_public TINYINT(1) NOT NULL DEFAULT 0,
+    is_protected TINYINT(1) NOT NULL DEFAULT 0,
+    password_hash VARCHAR(255) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_folders_user (user_id),
+    INDEX idx_folders_parent (parent_id),
+    CONSTRAINT fk_seed_folders_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_seed_folders_parent FOREIGN KEY (parent_id) REFERENCES folders(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE files (
     id INT AUTO_INCREMENT PRIMARY KEY,
     filename VARCHAR(255) NOT NULL,
@@ -74,8 +105,16 @@ CREATE TABLE files (
     uploader_ip VARCHAR(45) NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     user_id INT DEFAULT NULL,
+    folder_id INT DEFAULT NULL,
+    is_public TINYINT(1) NOT NULL DEFAULT 0,
+    share_token VARCHAR(64) DEFAULT NULL,
+    share_created_at DATETIME DEFAULT NULL,
+    share_expires_at DATETIME DEFAULT NULL,
     INDEX (user_id),
-    CONSTRAINT fk_files_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    INDEX (folder_id),
+    UNIQUE KEY uniq_share_token (share_token),
+    CONSTRAINT fk_files_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_files_folders FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE password_resets (

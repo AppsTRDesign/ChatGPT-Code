@@ -89,6 +89,7 @@ include __DIR__ . '/nav.php';
     </div>
 </div>
 <script>
+const appConfig = window.APP_CONFIG || {};
 const packageModal = document.getElementById('packageModal');
 packageModal?.addEventListener('show.bs.modal', event => {
     const button = event.relatedTarget;
@@ -114,7 +115,7 @@ async function savePackage() {
     const features = formData.get('features');
     formData.set('features', features ? features.split(',').map(item => item.trim()).filter(Boolean) : []);
     formData.append('action', 'save-package');
-    formData.append('csrf_token', window.APP_CONFIG.csrfToken);
+    formData.append('csrf_token', appConfig.csrfToken);
     formData.append('is_active', document.getElementById('packageActive').checked ? 1 : 0);
     try {
         const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
@@ -147,7 +148,7 @@ async function deletePackage(id) {
         const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'delete-package', id, csrf_token: window.APP_CONFIG.csrfToken })
+            body: JSON.stringify({ action: 'delete-package', id, csrf_token: appConfig.csrfToken })
         });
         const data = await response.json();
         if (data.status !== 'success') {

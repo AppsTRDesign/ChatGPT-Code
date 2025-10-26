@@ -14,13 +14,20 @@ $faviconPath = !empty($settings['favicon']) ? BASE_URL . '/uploads/' . ltrim($se
     <title><?= sanitize($title) ?></title>
     <link rel="icon" href="<?= sanitize($faviconPath) ?>" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dropzone@5.9.3/dist/min/dropzone.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
-    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=1.0.0">
+    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css?v=1.1.0">
     <?php if (!empty($settings['analytics_enabled']) && !empty($settings['analytics_code'])): ?>
         <?= $settings['analytics_code'] ?>
     <?php endif; ?>
     <?= $settings['header_html'] ?? '' ?>
+    <script>
+        window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
+            baseUrl: '<?= BASE_URL ?>',
+            csrfToken: '<?= csrf_token() ?>'
+        });
+    </script>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">

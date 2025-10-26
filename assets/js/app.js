@@ -1,7 +1,9 @@
 (function () {
     'use strict';
 
-    const { baseUrl, csrfToken } = window.APP_CONFIG || {};
+    const appConfig = window.APP_CONFIG || {};
+    const baseUrl = appConfig.baseUrl || '';
+    const csrfToken = appConfig.csrfToken || '';
 
     function showAlert(type, message) {
         Swal.fire({
@@ -54,57 +56,74 @@
         Dropzone.autoDiscover = false;
     }
 
-    const uploadZone = document.querySelector('#uploadZone');
-    if (uploadZone && typeof Dropzone !== 'undefined') {
-        const maxFilesizeMB = 50;
-        new Dropzone('#uploadZone', {
-            url: `${baseUrl}/api/upload.php`,
-            paramName: 'file',
-            maxFilesize: maxFilesizeMB,
-            parallelUploads: 1,
-            addRemoveLinks: false,
-            timeout: 0,
-            acceptedFiles: null,
-            headers: { 'X-CSRF-TOKEN': csrfToken },
-            init: function () {
-                this.on('sending', function (file, xhr, formData) {
-                    formData.append('csrf_token', csrfToken);
-                });
-                this.on('success', function (file, response) {
-                    if (response.status === 'success') {
-                        showAlert('success', response.message || 'Dosya yüklendi.');
-                        if (response.fileUrl) {
-                            const link = document.createElement('a');
-                            link.href = response.fileUrl;
-                            link.target = '_blank';
-                            link.textContent = 'Dosyayı görüntüle';
-                            link.className = 'd-block mt-2 text-decoration-none link-light';
-                            file.previewElement.appendChild(link);
+    if (typeof Dropzone !== 'undefined') {
+        document.querySelectorAll('[data-dropzone]').forEach(form => {
+            const uploadUrl = form.getAttribute('action') || form.dataset.uploadUrl || `${baseUrl}/api/upload.php`;
+            const maxFilesizeMB = parseFloat(form.dataset.maxFilesize || '50');
+            const parallelUploads = parseInt(form.dataset.parallelUploads || '1', 10) || 1;
+            const accepted = form.dataset.accepted || null;
+            const dz = new Dropzone(form, {
+                url: uploadUrl,
+                paramName: 'file',
+                maxFilesize: maxFilesizeMB,
+                parallelUploads,
+                addRemoveLinks: false,
+                timeout: 0,
+                acceptedFiles: accepted,
+                headers: { 'X-CSRF-TOKEN': csrfToken },
+                init: function () {
+                    this.on('sending', function (_file, _xhr, formData) {
+                        formData.append('csrf_token', csrfToken);
+                        if (form.dataset.folderId) {
+                            formData.append('folder_id', form.dataset.folderId);
                         }
-                        document.dispatchEvent(new CustomEvent('upload:completed', { detail: response }));
-                    } else {
-                        showAlert('error', response.message || 'Dosya yüklenirken hata oluştu.');
-                    }
-                });
-                this.on('error', function (_file, errorMessage, xhr) {
-                    let message = 'Yükleme başarısız.';
-                    if (xhr && xhr.responseText) {
-                        try {
-                            const parsed = JSON.parse(xhr.responseText);
-                            if (parsed && parsed.message) {
-                                message = parsed.message;
+                    });
+                    this.on('success', function (file, response) {
+                        if (response.status === 'success') {
+                            showAlert('success', response.message || 'Dosya yüklendi.');
+                            document.dispatchEvent(new CustomEvent('upload:completed', { detail: response }));
+                        } else {
+                            showAlert('error', response.message || 'Dosya yüklenirken hata oluştu.');
+                        }
+                    });
+                    this.on('error', function (_file, errorMessage, xhr) {
+                        let message = 'Yükleme başarısız.';
+                        if (xhr) {
+                            if (xhr.status === 401) {
+                                message = 'Dosya yüklemek için giriş yapmanız gerekiyor.';
+                            } else if (xhr.responseText) {
+                                try {
+                                    const parsed = JSON.parse(xhr.responseText);
+                                    if (parsed && parsed.message) {
+                                        message = parsed.message;
+                                    }
+                                } catch (parseError) {
+                                    console.warn(parseError);
+                                }
                             }
-                        } catch (parseError) {
-                            console.warn(parseError);
                         }
-                    } else if (typeof errorMessage === 'string') {
-                        message = errorMessage;
-                    } else if (errorMessage && errorMessage.message) {
-                        message = errorMessage.message;
-                    }
-                    showAlert('error', message);
-                });
-            }
+                        if (typeof errorMessage === 'string') {
+                            message = errorMessage;
+                        } else if (errorMessage && errorMessage.message) {
+                            message = errorMessage.message;
+                        }
+                        showAlert('error', message);
+                    });
+                }
+            });
+
+            form.dropzone = dz;
+
+            form.addEventListener('set-folder', event => {
+                const folderId = event.detail?.folderId ?? '';
+                form.dataset.folderId = folderId;
+                if (event.detail?.parallelUploads && form.dropzone) {
+                    form.dropzone.options.parallelUploads = event.detail.parallelUploads;
+                }
+                if (event.detail?.acceptedFiles && form.dropzone) {
+                    form.dropzone.options.acceptedFiles = event.detail.acceptedFiles.join(',');
+                }
+            });
         });
     }
 

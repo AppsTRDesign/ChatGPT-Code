@@ -28,10 +28,11 @@ include __DIR__ . '/nav.php';
 </div>
 <script>
 (async () => {
+    const appConfig = window.APP_CONFIG || {};
     try {
         const formData = new FormData();
         formData.append('action', 'stats');
-        formData.append('csrf_token', window.APP_CONFIG.csrfToken);
+        formData.append('csrf_token', appConfig.csrfToken);
         const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
             method: 'POST',
             body: formData,

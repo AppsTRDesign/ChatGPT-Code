@@ -4,6 +4,8 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 RewriteRule ^file/([0-9]+)-?([A-Za-z0-9\-\._]*)$ file.php?id=$1 [L,QSA]
+RewriteRule ^s/([A-Za-z0-9]+)$ share.php?token=$1 [L,QSA]
+RewriteRule ^d/([A-Za-z0-9]+)$ download.php?token=$1 [L,QSA]
 RewriteRule ^admin/?$ admin/index.php [L,QSA]
 RewriteRule ^admin/(.*)$ admin/$1 [L,QSA]
 RewriteRule ^client/?$ client/index.php [L,QSA]

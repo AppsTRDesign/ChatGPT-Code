@@ -25,6 +25,7 @@ include __DIR__ . '/nav.php';
     </div>
 </div>
 <script>
+const appConfig = window.APP_CONFIG || {};
 const escapeHtml = (value = '') => String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -35,7 +36,7 @@ const escapeHtml = (value = '') => String(value)
 async function loadAdminFiles() {
     const formData = new FormData();
     formData.append('action', 'list');
-    formData.append('csrf_token', window.APP_CONFIG.csrfToken);
+    formData.append('csrf_token', appConfig.csrfToken);
     const response = await fetch('<?= BASE_URL ?>/api/files.php', {
         method: 'POST',
         body: formData,
@@ -51,12 +52,12 @@ async function loadAdminFiles() {
         const tr = document.createElement('tr');
         tr.id = `file-${file.id}`;
         const safeName = escapeHtml(file.filename);
-        const fileLink = `${window.APP_CONFIG.baseUrl}/file/${file.id}-${safeName.split('.')[0]}`;
+        const fileLink = `${appConfig.baseUrl || '<?= BASE_URL ?>'}/file/${file.id}-${safeName.split('.')[0]}`;
         tr.innerHTML = `
             <td>${file.id}</td>
             <td>
                 <div class="fw-semibold">${safeName}</div>
-                <a class="link-light small" href="${window.APP_CONFIG.baseUrl}/uploads/${file.stored_name}" target="_blank">Görüntüle</a>
+                <a class="link-light small" href="${appConfig.baseUrl || '<?= BASE_URL ?>'}/uploads/${file.stored_name}" target="_blank">Görüntüle</a>
             </td>
             <td>${(Number(file.size) / 1024 / 1024).toFixed(2)} MB</td>
             <td>${file.owner_name || '-'}</td>
@@ -88,7 +89,7 @@ async function deleteFile(button) {
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify({ action: 'delete', file_id: fileId, csrf_token: window.APP_CONFIG.csrfToken })
+        body: JSON.stringify({ action: 'delete', file_id: fileId, csrf_token: appConfig.csrfToken })
     });
     const data = await response.json();
     if (data.status === 'success') {
@@ -115,7 +116,7 @@ async function promptRename(fileId, currentName) {
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify({ action: 'rename', file_id: fileId, filename: newName, csrf_token: window.APP_CONFIG.csrfToken })
+        body: JSON.stringify({ action: 'rename', file_id: fileId, filename: newName, csrf_token: appConfig.csrfToken })
     });
     const data = await response.json();
     if (data.status === 'success') {

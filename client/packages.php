@@ -27,6 +27,7 @@ include __DIR__ . '/nav.php';
 </div>
 <script>
 async function purchasePackage(id) {
+    const appConfig = window.APP_CONFIG || {};
     const confirm = await Swal.fire({
         icon: 'question',
         title: 'Paketi onaylıyor musunuz?',
@@ -39,7 +40,7 @@ async function purchasePackage(id) {
         const response = await fetch('<?= BASE_URL ?>/api/client.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'purchase-package', package_id: id, csrf_token: window.APP_CONFIG.csrfToken })
+            body: JSON.stringify({ action: 'purchase-package', package_id: id, csrf_token: appConfig.csrfToken })
         });
         const data = await response.json();
         if (data.status !== 'success') {
