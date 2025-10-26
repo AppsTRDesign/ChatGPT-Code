@@ -21,7 +21,11 @@ get_header();
         <button class="filter-chip" type="button"><?php esc_html_e( 'Top', 'vbmodern-forum' ); ?></button>
         <button class="filter-chip" type="button"><?php esc_html_e( 'Unanswered', 'vbmodern-forum' ); ?></button>
       </div>
-      <a class="button button--primary" href="<?php echo esc_url( wp_login_url() ); ?>"><?php esc_html_e( 'Start New Thread', 'vbmodern-forum' ); ?></a>
+      <?php if ( is_user_logged_in() ) : ?>
+        <button class="button button--primary" type="button" data-modal-trigger="#vb-modal-topic"><?php esc_html_e( 'Start New Thread', 'vbmodern-forum' ); ?></button>
+      <?php else : ?>
+        <button class="button button--primary" type="button" data-modal-trigger="#vb-modal-register"><?php esc_html_e( 'Join to Start Thread', 'vbmodern-forum' ); ?></button>
+      <?php endif; ?>
     </div>
   </header>
 
@@ -45,6 +49,9 @@ get_header();
                 <span class="badge <?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['label'] ); ?></span>
                 <strong><?php echo esc_html( get_comments_number() ); ?></strong>
                 <small><?php esc_html_e( 'Replies', 'vbmodern-forum' ); ?></small>
+                <?php if ( vbmodern_forum_is_topic_locked( get_the_ID() ) ) : ?>
+                  <span class="thread-card__flag thread-card__flag--locked"><?php esc_html_e( 'Locked', 'vbmodern-forum' ); ?></span>
+                <?php endif; ?>
               </div>
             </article>
             <?php

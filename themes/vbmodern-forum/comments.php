@@ -37,10 +37,14 @@ if ( post_password_required() ) {
     <p class="no-comments"><?php esc_html_e( 'Comments are closed.', 'vbmodern-forum' ); ?></p>
   <?php endif; ?>
 
-  <?php comment_form( [
-      'class_form'         => 'form-card',
-      'title_reply_before' => '<h2 id="reply" class="section__title">',
-      'title_reply_after'  => '</h2>',
-      'class_submit'       => 'button button--primary',
-  ] ); ?>
+  <?php if ( vbmodern_forum_is_topic_locked( get_the_ID() ) ) : ?>
+    <p class="no-comments"><?php esc_html_e( 'Bu konu kilitli olduğu için yanıt gönderemezsiniz.', 'vbmodern-forum' ); ?></p>
+  <?php else : ?>
+    <?php comment_form( [
+        'class_form'         => 'form-card',
+        'title_reply_before' => '<h2 id="reply" class="section__title">',
+        'title_reply_after'  => '</h2>',
+        'class_submit'       => 'button button--primary',
+    ] ); ?>
+  <?php endif; ?>
 </section>

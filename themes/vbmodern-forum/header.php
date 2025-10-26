@@ -40,9 +40,10 @@
         ?>
         <div class="nav__actions">
           <?php if ( is_user_logged_in() ) : ?>
-            <a class="button nav__cta" href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"><?php esc_html_e( 'My Profile', 'vbmodern-forum' ); ?></a>
+            <button class="button button--ghost nav__cta" type="button" data-modal-trigger="#vb-modal-topic"><?php esc_html_e( 'Yeni Konu Aç', 'vbmodern-forum' ); ?></button>
+            <a class="button nav__cta" href="<?php echo esc_url( admin_url( 'profile.php' ) ); ?>"><?php esc_html_e( 'Profilim', 'vbmodern-forum' ); ?></a>
           <?php else : ?>
-            <a class="button nav__cta" href="<?php echo esc_url( wp_login_url() ); ?>"><?php esc_html_e( 'Join the Community', 'vbmodern-forum' ); ?></a>
+            <button class="button nav__cta" type="button" data-modal-trigger="#vb-modal-register"><?php esc_html_e( 'Join the Community', 'vbmodern-forum' ); ?></button>
           <?php endif; ?>
         </div>
       </nav>

@@ -17,6 +17,7 @@ if ( $board_categories ) :
     foreach ( $board_categories as $category ) :
         $latest = new WP_Query(
             [
+                'post_type'      => 'forum_topic',
                 'posts_per_page' => 1,
                 'cat'            => $category->term_id,
             ]

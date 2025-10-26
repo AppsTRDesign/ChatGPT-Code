@@ -21,8 +21,12 @@ get_header();
         <span><strong><?php echo wp_kses_post( vbmodern_forum_icon( 'activity' ) ); ?></strong> <?php esc_html_e( '1.2k active threads', 'vbmodern-forum' ); ?></span>
       </div>
       <div class="hero__actions">
-        <a class="button button--primary" href="<?php echo esc_url( get_permalink( get_option( 'page_for_posts' ) ) ); ?>"><?php esc_html_e( 'Browse Discussions', 'vbmodern-forum' ); ?></a>
-        <a class="button button--secondary" href="<?php echo esc_url( wp_registration_url() ); ?>"><?php esc_html_e( 'Create Account', 'vbmodern-forum' ); ?></a>
+        <a class="button button--primary" href="#boards-heading"><?php esc_html_e( 'Browse Discussions', 'vbmodern-forum' ); ?></a>
+        <?php if ( is_user_logged_in() ) : ?>
+          <button class="button button--secondary" type="button" data-modal-trigger="#vb-modal-topic"><?php esc_html_e( 'Yeni Konu Aç', 'vbmodern-forum' ); ?></button>
+        <?php else : ?>
+          <button class="button button--secondary" type="button" data-modal-trigger="#vb-modal-register"><?php esc_html_e( 'Create Account', 'vbmodern-forum' ); ?></button>
+        <?php endif; ?>
       </div>
       <div class="hero__stats">
         <div class="hero__stat">
@@ -51,6 +55,7 @@ get_header();
       <?php
       $featured = new WP_Query(
           [
+              'post_type'           => 'forum_topic',
               'posts_per_page'      => 3,
               'ignore_sticky_posts' => true,
           ]
@@ -122,6 +127,7 @@ get_header();
       <?php
       $recent = new WP_Query(
           [
+              'post_type'      => 'forum_topic',
               'posts_per_page' => 5,
           ]
       );

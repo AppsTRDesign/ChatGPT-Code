@@ -55,6 +55,7 @@
     </div>
   </footer><!-- .footer -->
 </div><!-- #page -->
+<?php get_template_part( 'template-parts/forum', 'modals' ); ?>
 <?php wp_footer(); ?>
 </body>
 </html>

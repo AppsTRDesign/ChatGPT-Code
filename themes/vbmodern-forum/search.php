@@ -37,6 +37,9 @@ get_header();
                 <span class="badge <?php echo esc_attr( $badge['class'] ); ?>"><?php echo esc_html( $badge['label'] ); ?></span>
                 <strong><?php echo esc_html( get_comments_number() ); ?></strong>
                 <small><?php esc_html_e( 'Replies', 'vbmodern-forum' ); ?></small>
+                <?php if ( vbmodern_forum_is_topic_locked( get_the_ID() ) ) : ?>
+                  <span class="thread-card__flag thread-card__flag--locked"><?php esc_html_e( 'Locked', 'vbmodern-forum' ); ?></span>
+                <?php endif; ?>
               </div>
             </article>
             <?php
