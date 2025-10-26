@@ -10,7 +10,13 @@ use App\Controllers\AuthController;
 use App\Controllers\ClientController;
 use App\Controllers\DashboardController;
 
-$route = trim($_GET['route'] ?? ($_SERVER['PATH_INFO'] ?? '/'), '/');
+$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+$path = parse_url($requestUri, PHP_URL_PATH) ?? '/';
+$route = trim($path, '/');
+
+if ($route === 'index.php') {
+    $route = '';
+}
 
 $protectedRoutes = ['admin/dashboard', 'admin/segments', 'admin/campaigns'];
 
