@@ -38,6 +38,12 @@ CREATE TABLE settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     meta_title VARCHAR(255) DEFAULT NULL,
     meta_description TEXT DEFAULT NULL,
+    meta_keywords TEXT DEFAULT NULL,
+    social_title VARCHAR(255) DEFAULT NULL,
+    social_description TEXT DEFAULT NULL,
+    social_image VARCHAR(255) DEFAULT NULL,
+    twitter_handle VARCHAR(191) DEFAULT NULL,
+    brand_banner VARCHAR(255) DEFAULT NULL,
     header_html TEXT DEFAULT NULL,
     footer_html TEXT DEFAULT NULL,
     logo VARCHAR(255) DEFAULT NULL,
@@ -89,6 +95,12 @@ CREATE TABLE settings (
 INSERT INTO settings (
     meta_title,
     meta_description,
+    meta_keywords,
+    social_title,
+    social_description,
+    social_image,
+    twitter_handle,
+    brand_banner,
     header_html,
     footer_html,
     analytics_enabled,
@@ -103,6 +115,12 @@ INSERT INTO settings (
 ) VALUES (
     'NoaSoft Dosya Deposu',
     'Güvenli ve hızlı dosya yükleme platformu.',
+    'dosya yükleme, bulut depolama, noa soft',
+    'NoaSoft Dosya Deposu',
+    'Dosyalarınızı güvenle saklayın ve paylaşın.',
+    NULL,
+    NULL,
+    NULL,
     '',
     CONCAT('© ', YEAR(CURDATE()), ' NoaSoft'),
     0,
@@ -113,6 +131,8 @@ INSERT INTO settings (
     0,
     'TRY',
     1,
+    NULL,
+    NULL,
     NULL
 );
 

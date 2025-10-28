@@ -34,6 +34,7 @@
     let bankInstructions = appConfig.bankInstructions || '';
     let currency = 'TRY';
     let activePackage = null;
+    let activePackageId = null;
 
     const formatBytes = (bytes) => {
         if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -55,16 +56,20 @@
         packages.forEach(pkg => {
             const col = document.createElement('div');
             col.className = 'col-md-4';
+            const isActive = activePackageId !== null && Number(activePackageId) === Number(pkg.id);
             col.innerHTML = `
-                <div class="card card-glass h-100 p-4 text-center">
-                    <h3 class="h4 text-white mb-3">${pkg.name}</h3>
+                <div class="card card-glass h-100 p-4 text-center${isActive ? ' card-package-active' : ''}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h3 class="h4 text-white mb-0">${pkg.name}</h3>
+                        ${isActive ? '<span class="badge bg-success-subtle text-success fw-semibold">Aktif</span>' : ''}
+                    </div>
                     <p class="display-6 fw-bold text-white">${pkg.price > 0 ? pkg.price.toFixed(2) + ' ₺' : 'Ücretsiz'}</p>
                     <span class="badge badge-custom mb-3">Depo: ${formatBytes(Number(pkg.storage_limit))}</span>
                     <p class="text-white-50 small mb-3">Aynı anda ${pkg.max_concurrent_uploads} yükleme hakkı</p>
                     <ul class="list-unstyled text-white-50 mb-4">
                         ${(pkg.features || []).map(feature => `<li>• ${feature}</li>`).join('') || '<li>• Standart özellikler</li>'}
                     </ul>
-                    <button class="btn btn-gradient w-100" data-action="purchase" data-id="${pkg.id}">Paketi Seç</button>
+                    <button class="btn btn-gradient w-100" data-action="purchase" data-id="${pkg.id}" ${isActive ? 'disabled' : ''}>${isActive ? 'Kullanımda' : 'Paketi Seç'}</button>
                 </div>
             `;
             container.appendChild(col);
@@ -84,6 +89,7 @@
         paymentProviders = data.payment_providers || {};
         bankInstructions = data.bank_instructions || '';
         currency = data.currency || 'TRY';
+        activePackageId = data.active_package_id ?? null;
         renderPackages(data.data || []);
     };
 

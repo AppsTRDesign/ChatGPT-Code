@@ -31,6 +31,11 @@ include __DIR__ . '/nav.php';
                             <label class="form-label">Meta Açıklama</label>
                             <input type="text" name="meta_description" class="form-control" value="<?= sanitize($settings['meta_description'] ?? '') ?>">
                         </div>
+                        <div class="col-12">
+                            <label class="form-label">Meta Anahtar Kelimeler</label>
+                            <input type="text" name="meta_keywords" class="form-control" placeholder="dosya yükleme, bulut depolama" value="<?= sanitize($settings['meta_keywords'] ?? '') ?>">
+                            <small class="text-white-50">Anahtar kelimeleri virgül ile ayırabilirsiniz.</small>
+                        </div>
                         <div class="col-md-6">
                             <label class="form-label">Header HTML</label>
                             <textarea name="header_html" class="form-control" rows="3"><?= sanitize($settings['header_html'] ?? '') ?></textarea>
@@ -59,6 +64,36 @@ include __DIR__ . '/nav.php';
                         <label class="form-label">Favicon</label>
                         <div class="dropzone dz-theme" id="faviconDropzone">
                             <div class="dz-message">Favicon dosyanızı sürükleyin veya tıklayın.</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="form-label">Banner</label>
+                        <div class="dropzone dz-theme" id="bannerDropzone">
+                            <div class="dz-message">Banner görselinizi sürükleyin veya tıklayın.</div>
+                        </div>
+                        <small class="text-white-50">Paylaşım sayfaları ve sosyal önizlemeler bu görseli kullanır.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Sosyal &amp; Paylaşım Meta Verileri</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Sosyal Başlık</label>
+                            <input type="text" name="social_title" class="form-control" value="<?= sanitize($settings['social_title'] ?? '') ?>" placeholder="Paylaşımlarda görünecek başlık">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Twitter Kullanıcı Adı</label>
+                            <input type="text" name="twitter_handle" class="form-control" value="<?= sanitize($settings['twitter_handle'] ?? '') ?>" placeholder="ornekhesap">
+                            <small class="text-white-50">"@" işareti eklemeden yazın.</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Sosyal Açıklama</label>
+                            <textarea name="social_description" class="form-control" rows="3" placeholder="Paylaşımlarda görünecek açıklama"><?= sanitize($settings['social_description'] ?? '') ?></textarea>
                         </div>
                     </div>
                 </div>

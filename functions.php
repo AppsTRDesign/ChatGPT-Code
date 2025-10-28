@@ -1078,6 +1078,12 @@ function ensureDefaultSettings(PDO $pdo): void
         id INT AUTO_INCREMENT PRIMARY KEY,
         meta_title VARCHAR(255) DEFAULT NULL,
         meta_description TEXT DEFAULT NULL,
+        meta_keywords TEXT DEFAULT NULL,
+        social_title VARCHAR(255) DEFAULT NULL,
+        social_description TEXT DEFAULT NULL,
+        social_image VARCHAR(255) DEFAULT NULL,
+        twitter_handle VARCHAR(191) DEFAULT NULL,
+        brand_banner VARCHAR(255) DEFAULT NULL,
         header_html TEXT DEFAULT NULL,
         footer_html TEXT DEFAULT NULL,
         logo VARCHAR(255) DEFAULT NULL,
@@ -1126,6 +1132,24 @@ function ensureDefaultSettings(PDO $pdo): void
         plesk_api_password VARCHAR(191) DEFAULT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
+    if (!schemaColumnExists($pdo, 'settings', 'meta_keywords')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN meta_keywords TEXT DEFAULT NULL AFTER meta_description');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'social_title')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN social_title VARCHAR(255) DEFAULT NULL AFTER meta_keywords');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'social_description')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN social_description TEXT DEFAULT NULL AFTER social_title');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'social_image')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN social_image VARCHAR(255) DEFAULT NULL AFTER social_description');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'twitter_handle')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN twitter_handle VARCHAR(191) DEFAULT NULL AFTER social_image');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'brand_banner')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN brand_banner VARCHAR(255) DEFAULT NULL AFTER twitter_handle');
+    }
     if (!schemaColumnExists($pdo, 'settings', 'mail_enabled')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN mail_enabled TINYINT(1) DEFAULT 0 AFTER favicon');
     }
@@ -1240,11 +1264,14 @@ function ensureDefaultSettings(PDO $pdo): void
             'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         ]);
-        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay, payment_currency, bank_transfer_enabled)
-            VALUES (:title, :description, :header, :footer, :enabled, :mime, :expiry, :public_share, :folder_password, :delay, :currency, :bank_enabled)');
+        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, meta_keywords, social_title, social_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay, payment_currency, bank_transfer_enabled)
+            VALUES (:title, :description, :keywords, :social_title, :social_description, :header, :footer, :enabled, :mime, :expiry, :public_share, :folder_password, :delay, :currency, :bank_enabled)');
         $stmt->execute([
             ':title' => 'NoaSoft Dosya Deposu',
             ':description' => 'Güvenli ve hızlı dosya yükleme platformu.',
+            ':keywords' => 'dosya yükleme, bulut depolama, noa soft',
+            ':social_title' => 'NoaSoft Dosya Deposu',
+            ':social_description' => 'Dosyalarınızı güvenle saklayın ve paylaşın.',
             ':header' => '',
             ':footer' => '<p>© ' . date('Y') . ' NoaSoft</p>',
             ':enabled' => 0,

@@ -61,6 +61,10 @@
         if (faviconFile) {
             formData.append('favicon', faviconFile, faviconFile.name);
         }
+        const bannerFile = zones.banner?.getAcceptedFiles()?.[0];
+        if (bannerFile) {
+            formData.append('banner', bannerFile, bannerFile.name);
+        }
         return formData;
     }
 
@@ -92,7 +96,8 @@
         }
         const zones = {
             logo: initDropzone('#logoDropzone'),
-            favicon: initDropzone('#faviconDropzone')
+            favicon: initDropzone('#faviconDropzone'),
+            banner: initDropzone('#bannerDropzone')
         };
         window.saveSettings = () => saveSettings(zones);
     });

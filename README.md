@@ -12,6 +12,7 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 - **Paylaşım ve Güvenli İndirme:** Herkese açık paylaşım bağlantıları, admin tanımlı geri sayım ile indirme butonunu aktifleştirme, gizli indirme linkleri (`/s/{token}` ve `/d/{token}`) ve paylaşım sayfasında reklam alanları.
 - **Paket ve Limit Yönetimi:** Admin panelinden izin verilen MIME türlerini paket bazında tanımlayın, maksimum eş zamanlı yüklemeleri, paylaşım süresini ve klasör şifreleme/publik paylaşım ayarlarını belirleyin.
 - **SEO Dostu Rotalar:** `.htaccess` ile `/file/{id}-{slug}` formatında temiz URL yönlendirmeleri.
+- **SEO Kontrolü:** Admin panelinden meta başlık/açıklama/anahtar kelime, sosyal paylaşım başlığı ve açıklaması ile banner/JSON-LD snippet yapılandırması.
 - **Admin Paneli:** Dosya ve kullanıcı yönetimi, paket tanımlama, paket bazlı MIME listesi, paylaşım süresi ve indirme gecikmesi, klasör şifreleme, reklam alanları ve genel meta/HTML/mail/analytics ayarları.
 - **Client Paneli:** Dosya yönetimi, paket satın alma, kullanım istatistikleri, profil düzenleme ve ajax tabanlı bildirimler.
 - **Ana Sayfa Vitrini:** Koyu temaya uyumlu yeni hero, özellik kartları, zaman çizelgesi ve paket vitrinleri ile satış odaklı sunum.

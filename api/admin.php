@@ -318,6 +318,10 @@ try {
             $fields = [
                 'meta_title' => trim($payload['meta_title'] ?? ''),
                 'meta_description' => trim($payload['meta_description'] ?? ''),
+                'meta_keywords' => trim($payload['meta_keywords'] ?? ''),
+                'social_title' => trim($payload['social_title'] ?? ''),
+                'social_description' => trim($payload['social_description'] ?? ''),
+                'twitter_handle' => trim($payload['twitter_handle'] ?? ''),
                 'header_html' => $payload['header_html'] ?? '',
                 'footer_html' => $payload['footer_html'] ?? '',
                 'mail_enabled' => !empty($payload['mail_enabled']) ? 1 : 0,
@@ -372,6 +376,8 @@ try {
             }
             $logoName = $settings['logo'] ?? null;
             $faviconName = $settings['favicon'] ?? null;
+            $bannerName = $settings['brand_banner'] ?? null;
+            $socialImageName = $settings['social_image'] ?? null;
             if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
                 [$mime] = validate_uploaded_file($_FILES['logo'], $pdo, ['image/jpeg', 'image/png', 'image/svg+xml', 'image/gif']);
                 if (!str_starts_with($mime, 'image/')) {
@@ -390,16 +396,32 @@ try {
                 $faviconName = 'favicon_' . bin2hex(random_bytes(8)) . '.' . strtolower($ext);
                 move_uploaded_file($_FILES['favicon']['tmp_name'], __DIR__ . '/../uploads/' . $faviconName);
             }
+            if (!empty($_FILES['banner']) && $_FILES['banner']['error'] === UPLOAD_ERR_OK) {
+                [$mime] = validate_uploaded_file($_FILES['banner'], $pdo, ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']);
+                if (!str_starts_with($mime, 'image/')) {
+                    throw new RuntimeException('Banner yalnızca görsel olmalıdır.');
+                }
+                $ext = pathinfo($_FILES['banner']['name'], PATHINFO_EXTENSION);
+                $bannerName = 'banner_' . bin2hex(random_bytes(8)) . '.' . strtolower($ext);
+                move_uploaded_file($_FILES['banner']['tmp_name'], __DIR__ . '/../uploads/' . $bannerName);
+                $socialImageName = $bannerName;
+            }
             $allowedMimeList = [];
             if ($fields['allowed_mime_types'] !== '') {
                 $allowedMimeList = array_filter(array_map('trim', preg_split('/[,\n]+/', $fields['allowed_mime_types']) ?: []));
             }
             $allowedMimeJson = json_encode(array_values(array_unique($allowedMimeList)));
 
-            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_enabled = :mail_enabled, mail_method = :mail_method, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, mail_from_name = :mail_from_name, mail_from_address = :mail_from_address, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_mime_types = :allowed_mime_types, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled, share_download_delay = :share_download_delay, share_password_required = :share_password_required, share_stats_enabled = :share_stats_enabled, ad_dashboard_html = :ad_dashboard_html, ad_share_top_html = :ad_share_top_html, ad_share_bottom_html = :ad_share_bottom_html, payment_currency = :payment_currency, iyzico_enabled = :iyzico_enabled, iyzico_api_key = :iyzico_api_key, iyzico_secret_key = :iyzico_secret_key, iyzico_base_url = :iyzico_base_url, stripe_enabled = :stripe_enabled, stripe_api_key = :stripe_api_key, stripe_publishable_key = :stripe_publishable_key, stripe_webhook_secret = :stripe_webhook_secret, bank_transfer_enabled = :bank_transfer_enabled, bank_transfer_instructions = :bank_transfer_instructions, auto_archive_enabled = :auto_archive_enabled, auto_delete_enabled = :auto_delete_enabled, archive_after_days = :archive_after_days, delete_after_days = :delete_after_days, geoip_database_path = :geoip_database_path, realtime_updates_enabled = :realtime_updates_enabled, plesk_api_url = :plesk_api_url, plesk_api_login = :plesk_api_login, plesk_api_password = :plesk_api_password LIMIT 1');
+            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, meta_keywords = :meta_keywords, social_title = :social_title, social_description = :social_description, social_image = :social_image, twitter_handle = :twitter_handle, brand_banner = :brand_banner, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_enabled = :mail_enabled, mail_method = :mail_method, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, mail_from_name = :mail_from_name, mail_from_address = :mail_from_address, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_mime_types = :allowed_mime_types, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled, share_download_delay = :share_download_delay, share_password_required = :share_password_required, share_stats_enabled = :share_stats_enabled, ad_dashboard_html = :ad_dashboard_html, ad_share_top_html = :ad_share_top_html, ad_share_bottom_html = :ad_share_bottom_html, payment_currency = :payment_currency, iyzico_enabled = :iyzico_enabled, iyzico_api_key = :iyzico_api_key, iyzico_secret_key = :iyzico_secret_key, iyzico_base_url = :iyzico_base_url, stripe_enabled = :stripe_enabled, stripe_api_key = :stripe_api_key, stripe_publishable_key = :stripe_publishable_key, stripe_webhook_secret = :stripe_webhook_secret, bank_transfer_enabled = :bank_transfer_enabled, bank_transfer_instructions = :bank_transfer_instructions, auto_archive_enabled = :auto_archive_enabled, auto_delete_enabled = :auto_delete_enabled, archive_after_days = :archive_after_days, delete_after_days = :delete_after_days, geoip_database_path = :geoip_database_path, realtime_updates_enabled = :realtime_updates_enabled, plesk_api_url = :plesk_api_url, plesk_api_login = :plesk_api_login, plesk_api_password = :plesk_api_password LIMIT 1');
             $stmt->execute([
                 ':meta_title' => $fields['meta_title'],
                 ':meta_description' => $fields['meta_description'],
+                ':meta_keywords' => $fields['meta_keywords'],
+                ':social_title' => $fields['social_title'] ?: $fields['meta_title'],
+                ':social_description' => $fields['social_description'] ?: $fields['meta_description'],
+                ':social_image' => $socialImageName,
+                ':twitter_handle' => $fields['twitter_handle'],
+                ':brand_banner' => $bannerName,
                 ':header_html' => $fields['header_html'],
                 ':footer_html' => $fields['footer_html'],
                 ':logo' => $logoName,

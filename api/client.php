@@ -97,9 +97,11 @@ try {
                     'plesk_service_plan' => $pkg['plesk_service_plan'] ?? null,
                 ];
             }, $stmt->fetchAll() ?: []);
+            $activePackage = package_for_user($pdo, (int) current_user()['id']);
             echo json_encode([
                 'status' => 'success',
                 'data' => $packages,
+                'active_package_id' => $activePackage ? (int) $activePackage['id'] : null,
                 'payment_providers' => $activeProviders,
                 'bank_instructions' => $settings['bank_transfer_instructions'] ?? '',
                 'currency' => $settings['payment_currency'] ?? 'TRY',
