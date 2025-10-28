@@ -26,10 +26,15 @@ try {
     exit('Database connection failed: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
 }
 
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
 require_once __DIR__ . '/functions.php';
 
 ensureDatabaseSchema($pdo);
 ensureDefaultPackages($pdo);
 ensureDefaultSettings($pdo);
 ensure_admin_exists($pdo);
+apply_retention_policies($pdo);
 

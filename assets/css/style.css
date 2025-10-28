@@ -76,6 +76,13 @@ body {
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
+.dropzone.dz-theme {
+    border-image: none;
+    border: 1px dashed rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.05);
+    color: #f5f7ff;
+}
+
 .dropzone.dz-drag-hover {
     transform: translateY(-6px);
     box-shadow: 0 12px 40px -18px rgba(105, 65, 198, 0.7);
@@ -85,6 +92,10 @@ body {
 .dropzone .dz-message {
     font-size: 1.1rem;
     color: #f2f4ff;
+}
+
+.dropzone.dz-theme .dz-message {
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .timeline {

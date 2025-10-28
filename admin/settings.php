@@ -12,112 +12,269 @@ if (!empty($settings['allowed_mime_types'])) {
     }
 }
 global $pageScripts;
-$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/admin-settings.js?v=1.0.0"></script>';
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/admin-settings.js?v=1.1.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
 <div class="container pb-5">
-    <div class="card card-glass p-4">
-        <h2 class="h5 mb-4">Genel Ayarlar</h2>
-        <form id="settingsForm" enctype="multipart/form-data">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Meta Başlık</label>
-                    <input type="text" name="meta_title" class="form-control" value="<?= sanitize($settings['meta_title'] ?? '') ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Meta Açıklama</label>
-                    <input type="text" name="meta_description" class="form-control" value="<?= sanitize($settings['meta_description'] ?? '') ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Header HTML</label>
-                    <textarea name="header_html" class="form-control" rows="3"><?= sanitize($settings['header_html'] ?? '') ?></textarea>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Footer HTML</label>
-                    <textarea name="footer_html" class="form-control" rows="3"><?= sanitize($settings['footer_html'] ?? '') ?></textarea>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Logo</label>
-                    <div class="dropzone" id="logoDropzone">
-                        <div class="dz-message">Logo dosyanızı sürükleyin veya tıklayın.</div>
+    <form id="settingsForm" class="row g-4" enctype="multipart/form-data">
+        <div class="col-12">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Meta &amp; İçerik Ayarları</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Meta Başlık</label>
+                            <input type="text" name="meta_title" class="form-control" value="<?= sanitize($settings['meta_title'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Meta Açıklama</label>
+                            <input type="text" name="meta_description" class="form-control" value="<?= sanitize($settings['meta_description'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Header HTML</label>
+                            <textarea name="header_html" class="form-control" rows="3"><?= sanitize($settings['header_html'] ?? '') ?></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Footer HTML</label>
+                            <textarea name="footer_html" class="form-control" rows="3"><?= sanitize($settings['footer_html'] ?? '') ?></textarea>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Favicon</label>
-                    <div class="dropzone" id="faviconDropzone">
-                        <div class="dz-message">Favicon dosyanızı sürükleyin veya tıklayın.</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Marka Ayarları</h2>
+                    <p class="text-white-50 small mb-3">Karanlık arayüz için yüksek kontrastlı logolar önerilir.</p>
+                    <div class="mb-4">
+                        <label class="form-label">Logo</label>
+                        <div class="dropzone dz-theme" id="logoDropzone">
+                            <div class="dz-message">Logo dosyanızı sürükleyin veya tıklayın.</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Favicon</label>
+                        <div class="dropzone dz-theme" id="faviconDropzone">
+                            <div class="dz-message">Favicon dosyanızı sürükleyin veya tıklayın.</div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Mail Sunucu</label>
-                    <input type="text" name="mail_host" class="form-control" value="<?= sanitize($settings['mail_host'] ?? '') ?>">
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Analitik &amp; Gerçek Zamanlı Takip</h2>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="analyticsEnabled" name="analytics_enabled" <?= !empty($settings['analytics_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="analyticsEnabled">Google Analytics kodunu aktif et</label>
+                    </div>
+                    <label class="form-label">Analytics Kodu</label>
+                    <textarea name="analytics_code" class="form-control mb-3" rows="3"><?= sanitize($settings['analytics_code'] ?? '') ?></textarea>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="shareStatsEnabled" name="share_stats_enabled" <?= !empty($settings['share_stats_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="shareStatsEnabled">Paylaşım istatistiklerini topla</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="realtimeUpdatesEnabled" name="realtime_updates_enabled" <?= !empty($settings['realtime_updates_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="realtimeUpdatesEnabled">WebSocket güncellemelerini aktif et</label>
+                    </div>
+                    <label class="form-label">GeoIP Veritabanı Yolu</label>
+                    <input type="text" name="geoip_database_path" class="form-control" value="<?= sanitize($settings['geoip_database_path'] ?? '') ?>" placeholder="/path/to/GeoLite2-City.mmdb">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Mail Port</label>
-                    <input type="number" name="mail_port" class="form-control" value="<?= sanitize($settings['mail_port'] ?? '') ?>">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Mail Kullanıcı</label>
-                    <input type="text" name="mail_username" class="form-control" value="<?= sanitize($settings['mail_username'] ?? '') ?>">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Mail Şifre</label>
-                    <input type="password" name="mail_password" class="form-control" value="<?= sanitize($settings['mail_password'] ?? '') ?>">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Şifreleme</label>
-                    <input type="text" name="mail_encryption" class="form-control" value="<?= sanitize($settings['mail_encryption'] ?? '') ?>">
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Google Analytics Kodu</label>
-                    <textarea name="analytics_code" class="form-control" rows="3"><?= sanitize($settings['analytics_code'] ?? '') ?></textarea>
-                </div>
-                <div class="col-12">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" id="analyticsEnabled" <?= !empty($settings['analytics_enabled']) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="analyticsEnabled">Analytics aktif</label>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Depo &amp; Paylaşım Politikaları</h2>
+                    <div class="row g-3">
+                        <div class="col-lg-4">
+                            <label class="form-label">İzin Verilen MIME Türleri</label>
+                            <textarea name="allowed_mime_types" class="form-control" rows="5" placeholder="image/jpeg&#10;application/pdf"><?= sanitize($allowedMimeText) ?></textarea>
+                            <small class="text-white-50">Virgül veya satır sonu ile ayırabilirsiniz.</small>
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label">Paylaşım Süresi (dakika)</label>
+                            <input type="number" name="share_expiry_minutes" class="form-control" value="<?= sanitize($settings['share_expiry_minutes'] ?? 1440) ?>">
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="publicSharingEnabled" name="public_sharing_enabled" <?= !empty($settings['public_sharing_enabled']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="publicSharingEnabled">Paylaşım bağlantıları aktif</label>
+                            </div>
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="folderPasswordsEnabled" name="folder_passwords_enabled" <?= !empty($settings['folder_passwords_enabled']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="folderPasswordsEnabled">Klasör şifreleme aktif</label>
+                            </div>
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="sharePasswordRequired" name="share_password_required" <?= !empty($settings['share_password_required']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="sharePasswordRequired">Paylaşım bağlantıları için şifre zorunlu</label>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label">Paylaşım İndirme Gecikmesi (saniye)</label>
+                            <input type="number" min="0" name="share_download_delay" class="form-control mb-3" value="<?= sanitize($settings['share_download_delay'] ?? 0) ?>">
+                            <label class="form-label">Saklama Politikası</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="autoArchiveEnabled" name="auto_archive_enabled" <?= !empty($settings['auto_archive_enabled']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="autoArchiveEnabled">Dosyaları belirtilen gün sonunda arşivle</label>
+                            </div>
+                            <input type="number" min="0" name="archive_after_days" class="form-control mt-2" placeholder="Arşivle (gün)" value="<?= sanitize($settings['archive_after_days'] ?? '') ?>">
+                            <div class="form-check form-switch mt-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="autoDeleteEnabled" name="auto_delete_enabled" <?= !empty($settings['auto_delete_enabled']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="autoDeleteEnabled">Dosyaları belirtilen gün sonunda sil</label>
+                            </div>
+                            <input type="number" min="0" name="delete_after_days" class="form-control mt-2" placeholder="Sil (gün)" value="<?= sanitize($settings['delete_after_days'] ?? '') ?>">
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">İzin Verilen MIME Türleri</label>
-                    <textarea name="allowed_mime_types" class="form-control" rows="4" placeholder="image/jpeg
-application/pdf"><?= sanitize($allowedMimeText) ?></textarea>
-                    <small class="text-white-50">Virgül veya satır sonu ile ayırın.</small>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Mail Ayarları</h2>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="mailEnabled" name="mail_enabled" <?= !empty($settings['mail_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="mailEnabled">E-posta gönderimini aktif et</label>
+                    </div>
+                    <label class="form-label">Gönderim Yöntemi</label>
+                    <select name="mail_method" class="form-select mb-3">
+                        <option value="smtp" <?= ($settings['mail_method'] ?? 'smtp') === 'smtp' ? 'selected' : '' ?>>SMTP</option>
+                        <option value="phpmail" <?= ($settings['mail_method'] ?? '') === 'phpmail' ? 'selected' : '' ?>>PHP mail()</option>
+                    </select>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Sunucu</label>
+                            <input type="text" name="mail_host" class="form-control" value="<?= sanitize($settings['mail_host'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Port</label>
+                            <input type="number" name="mail_port" class="form-control" value="<?= sanitize($settings['mail_port'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Kullanıcı</label>
+                            <input type="text" name="mail_username" class="form-control" value="<?= sanitize($settings['mail_username'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Şifre</label>
+                            <input type="password" name="mail_password" class="form-control" value="<?= sanitize($settings['mail_password'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Şifreleme</label>
+                            <input type="text" name="mail_encryption" class="form-control" placeholder="tls / ssl" value="<?= sanitize($settings['mail_encryption'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Gönderen Adı</label>
+                            <input type="text" name="mail_from_name" class="form-control" value="<?= sanitize($settings['mail_from_name'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Gönderen E-posta</label>
+                            <input type="email" name="mail_from_address" class="form-control" value="<?= sanitize($settings['mail_from_address'] ?? '') ?>">
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Paylaşım Süresi (dakika)</label>
-                    <input type="number" name="share_expiry_minutes" class="form-control" value="<?= sanitize($settings['share_expiry_minutes'] ?? 1440) ?>">
-                    <div class="form-check form-switch mt-3">
-                        <input class="form-check-input" type="checkbox" role="switch" id="publicSharingEnabled" <?= !empty($settings['public_sharing_enabled']) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="publicSharingEnabled">Paylaşım bağlantıları aktif</label>
-                    </div>
-                    <div class="form-check form-switch mt-2">
-                        <input class="form-check-input" type="checkbox" role="switch" id="folderPasswordsEnabled" <?= !empty($settings['folder_passwords_enabled']) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="folderPasswordsEnabled">Klasör şifreleme aktif</label>
-                    </div>
-                    <div class="mt-3">
-                        <label class="form-label">Paylaşım İndirme Gecikmesi (saniye)</label>
-                        <input type="number" min="0" name="share_download_delay" class="form-control" value="<?= sanitize($settings['share_download_delay'] ?? 0) ?>">
-                        <small class="text-white-50">Paylaşım sayfasındaki indirme butonu bu süre dolana kadar pasif kalır.</small>
-                    </div>
-                </div>
-                <div class="col-12">
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Reklam Alanları</h2>
                     <label class="form-label">Panel Reklam Alanı (HTML)</label>
-                    <textarea name="ad_dashboard_html" class="form-control" rows="3"><?= sanitize($settings['ad_dashboard_html'] ?? '') ?></textarea>
-                    <small class="text-white-50">Admin ve kullanıcı panellerinde kullanılabilecek özel HTML blokları.</small>
-                </div>
-                <div class="col-md-6">
+                    <textarea name="ad_dashboard_html" class="form-control mb-3" rows="3"><?= sanitize($settings['ad_dashboard_html'] ?? '') ?></textarea>
                     <label class="form-label">Paylaşım Sayfası Üst Reklamı</label>
-                    <textarea name="ad_share_top_html" class="form-control" rows="3"><?= sanitize($settings['ad_share_top_html'] ?? '') ?></textarea>
-                </div>
-                <div class="col-md-6">
+                    <textarea name="ad_share_top_html" class="form-control mb-3" rows="3"><?= sanitize($settings['ad_share_top_html'] ?? '') ?></textarea>
                     <label class="form-label">Paylaşım Sayfası Alt Reklamı</label>
                     <textarea name="ad_share_bottom_html" class="form-control" rows="3"><?= sanitize($settings['ad_share_bottom_html'] ?? '') ?></textarea>
                 </div>
             </div>
-            <button type="button" class="btn btn-gradient mt-4" onclick="saveSettings()">Kaydet</button>
-        </form>
-    </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Stripe Ayarları</h2>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="stripeEnabled" name="stripe_enabled" <?= !empty($settings['stripe_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="stripeEnabled">Stripe ile ödeme al</label>
+                    </div>
+                    <label class="form-label">Para Birimi</label>
+                    <input type="text" name="payment_currency" class="form-control mb-3" value="<?= sanitize($settings['payment_currency'] ?? 'TRY') ?>">
+                    <label class="form-label">Gizli Anahtar</label>
+                    <input type="text" name="stripe_api_key" class="form-control mb-3" value="<?= sanitize($settings['stripe_api_key'] ?? '') ?>">
+                    <label class="form-label">Yayınlanabilir Anahtar</label>
+                    <input type="text" name="stripe_publishable_key" class="form-control mb-3" value="<?= sanitize($settings['stripe_publishable_key'] ?? '') ?>">
+                    <label class="form-label">Webhook Secret</label>
+                    <input type="text" name="stripe_webhook_secret" class="form-control" value="<?= sanitize($settings['stripe_webhook_secret'] ?? '') ?>">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Iyzico Ayarları</h2>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="iyzicoEnabled" name="iyzico_enabled" <?= !empty($settings['iyzico_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="iyzicoEnabled">Iyzico ile ödeme al</label>
+                    </div>
+                    <label class="form-label">API Key</label>
+                    <input type="text" name="iyzico_api_key" class="form-control mb-3" value="<?= sanitize($settings['iyzico_api_key'] ?? '') ?>">
+                    <label class="form-label">Secret Key</label>
+                    <input type="text" name="iyzico_secret_key" class="form-control mb-3" value="<?= sanitize($settings['iyzico_secret_key'] ?? '') ?>">
+                    <label class="form-label">Base URL</label>
+                    <input type="text" name="iyzico_base_url" class="form-control" placeholder="https://api.iyzipay.com" value="<?= sanitize($settings['iyzico_base_url'] ?? '') ?>">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Havale / EFT Ayarları</h2>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="bankTransferEnabled" name="bank_transfer_enabled" <?= !empty($settings['bank_transfer_enabled']) ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="bankTransferEnabled">Havale / EFT seçeneğini aktif et</label>
+                    </div>
+                    <label class="form-label">Talimat Metni</label>
+                    <textarea name="bank_transfer_instructions" class="form-control" rows="6" placeholder="IBAN, açıklama, onay süreci vb."><?= sanitize($settings['bank_transfer_instructions'] ?? '') ?></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Plesk &amp; Entegrasyonlar</h2>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Plesk API URL</label>
+                            <input type="text" name="plesk_api_url" class="form-control" value="<?= sanitize($settings['plesk_api_url'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Plesk API Kullanıcı</label>
+                            <input type="text" name="plesk_api_login" class="form-control" value="<?= sanitize($settings['plesk_api_login'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Plesk API Şifre</label>
+                            <input type="password" name="plesk_api_password" class="form-control" value="<?= sanitize($settings['plesk_api_password'] ?? '') ?>">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 text-end">
+            <button type="button" class="btn btn-gradient px-4" onclick="saveSettings()">
+                <i class="bi bi-save me-2"></i>Ayarları Kaydet
+            </button>
+        </div>
+    </form>
 </div>
 <?php include __DIR__ . '/../templates/footer.php'; ?>

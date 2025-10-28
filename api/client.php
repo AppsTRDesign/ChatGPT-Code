@@ -94,29 +94,50 @@ try {
 
         case 'purchase-package':
             $packageId = (int) ($payload['package_id'] ?? 0);
+            $provider = $payload['provider'] ?? 'bank_transfer';
+            $allowedProviders = ['iyzico', 'stripe', 'bank_transfer'];
+            if (!in_array($provider, $allowedProviders, true)) {
+                throw new RuntimeException('Geçersiz ödeme yöntemi.');
+            }
             if ($packageId <= 0) {
                 throw new RuntimeException('Geçersiz paket seçimi.');
             }
-            $package = $pdo->prepare('SELECT * FROM packages WHERE id = :id AND is_active = 1');
-            $package->execute([':id' => $packageId]);
-            $pkg = $package->fetch();
+            $stmt = $pdo->prepare('SELECT * FROM packages WHERE id = :id AND is_active = 1');
+            $stmt->execute([':id' => $packageId]);
+            $pkg = $stmt->fetch();
             if (!$pkg) {
                 throw new RuntimeException('Paket bulunamadı.');
             }
+            $settings = fetch_settings($pdo);
             $user = current_user();
-            $pdo->prepare('INSERT INTO transactions (user_id, package_id, amount, status) VALUES (:user, :package, :amount, :status)')->execute([
-                ':user' => $user['id'],
-                ':package' => $packageId,
-                ':amount' => $pkg['price'],
-                ':status' => 'paid',
-            ]);
-            $pdo->prepare('UPDATE users SET package_id = :package WHERE id = :id')->execute([
-                ':package' => $packageId,
-                ':id' => $user['id'],
-            ]);
-            $updated = find_user_by_email($pdo, $user['email']);
-            login_user($updated);
-            echo json_encode(['status' => 'success', 'message' => 'Paketiniz güncellendi.']);
+            $returnUrl = BASE_URL . '/client/packages.php?payment=success';
+            $successUrl = $provider === 'iyzico'
+                ? BASE_URL . '/api/payment.php?provider=iyzico&return=' . urlencode($returnUrl)
+                : $returnUrl;
+            $cancelUrl = BASE_URL . '/client/packages.php?payment=cancel';
+            $result = initiate_payment($pdo, (int) $user['id'], $packageId, $provider, $successUrl, $cancelUrl);
+
+            if ($provider === 'bank_transfer') {
+                $transactionId = $result['transaction_id'];
+                notify_user(
+                    $pdo,
+                    $user['email'],
+                    'Paket satın alma talebiniz alındı',
+                    '<p>Havale/EFT ile ödeme talebiniz oluşturuldu. Ödeme bilgileriniz yönetici tarafından incelenecektir.</p>'
+                );
+                echo json_encode([
+                    'status' => 'success',
+                    'message' => 'Ödeme talebiniz oluşturuldu. Yönetici onayından sonra paketiniz aktifleşecektir.',
+                    'transaction_id' => $transactionId,
+                    'instructions' => $settings['bank_transfer_instructions'] ?? '',
+                ]);
+            } else {
+                echo json_encode([
+                    'status' => 'success',
+                    'payment_url' => $result['payment_url'] ?? '',
+                    'transaction_id' => $result['transaction_id'] ?? null,
+                ]);
+            }
             break;
 
         default:

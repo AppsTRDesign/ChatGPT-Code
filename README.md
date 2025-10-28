@@ -5,6 +5,7 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 ## Özellikler
 - **Modern Arayüz:** Bootstrap 5 tabanlı responsive tasarım, özel renk paleti, Dropzone teması ve SweetAlert bildirimleri.
 - **Gelişmiş Dosya Yöneticisi:** Çoklu seçim, CTRL+A ile tümünü seçme, Delete kısayolu, klasör oluşturma, ad değiştirme, taşıma, aynı klasördeki dosyalardan zip üretme ve sağ tık menüsünden paylaş/şifrele aksiyonları.
+- **Video/Ses Önizlemeleri:** Desteklenen MIME türleri için HTML5 video ve ses oynatıcıları, görseller/PDF'ler için yerleşik önizleme.
 - **Dosya Tipi İkonları & Sıralama:** MIME tipine göre otomatik ikon ataması, ada/boyuta/tarihe göre sıralama, sayfalama ve modern grid görünümü.
 - **Drag & Drop Yükleme:** Paket limitlerine göre otomatik ayarlanan paralel yükleme, MIME kontrolü ve klasör bazlı sürükle-bırak deneyimi.
 - **Yükleme Kuyrukları:** Manuel başlatılan Dropzone kuyruğu, iptal edilebilir görevler, detaylı ilerleme çubuğu ve toplu başarı bildirimleri.
@@ -14,6 +15,9 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 - **Admin Paneli:** Dosya ve kullanıcı yönetimi, paket tanımlama, paket bazlı MIME listesi, paylaşım süresi ve indirme gecikmesi, klasör şifreleme, reklam alanları ve genel meta/HTML/mail/analytics ayarları.
 - **Client Paneli:** Dosya yönetimi, paket satın alma, kullanım istatistikleri, profil düzenleme ve ajax tabanlı bildirimler.
 - **Ana Sayfa Vitrini:** Koyu temaya uyumlu yeni hero, özellik kartları, zaman çizelgesi ve paket vitrinleri ile satış odaklı sunum.
+- **Ödeme Otomasyonu:** Iyzico, Stripe ve Havale/EFT seçenekleri; aktif/pasif kontrolü, otomatik ödeme sayfası oluşturma ve webhook/callback ile paket ataması.
+- **Bildirim & Entegrasyonlar:** PHPMailer tabanlı SMTP/PHP mail seçimi, GeoIP2 ve DeviceDetector ile indirme istatistikleri, Stripe webhook ve Iyzico callback uç noktaları, Plesk API senkronizasyonu.
+- **Saklama Politikaları:** Belirli gün sonunda arşivleme veya otomatik silme için zamanlayıcı fonksiyonları.
 - **Güvenlik:** CSRF koruması, MIME tipi doğrulaması, 50 MB varsayılan sınır, `uploads/.htaccess` ile doğrudan erişim kısıtlama.
 - **Veritabanı Otomasyonu:** PDO ile bağlantı, ilk kurulumda tablo ve örnek verilerin (admin hesabı, paketler, varsayılan ayarlar) oluşturulması.
 - **AJAX Tabanlı İş Akışı:** Tüm form ve veri işlemleri `api/` uç noktaları üzerinden JSON cevapları ile çalışır.
@@ -24,7 +28,7 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
    git clone https://example.com/your-fork.git fileupload
    cd fileupload
    ```
-2. **PHP Bağımlılıkları:** Gerekirse `composer install` (şu an için zorunlu bağımlılık bulunmuyor).
+2. **PHP Bağımlılıkları:** Proje şu Composer paketlerine dayanır: `piwik/device-detector`, `geoip2/geoip2`, `phpmailer/phpmailer`, `iyzico/iyzipay-php`, `stripe/stripe-php`, `cboden/ratchet`. Yüklemek için `composer install` komutunu çalıştırın.
 3. **Veritabanı Oluştur:**
    ```sql
    CREATE DATABASE fileupload CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -45,6 +49,12 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 
 İlk girişten sonra güvenlik için parolayı güncelleyin.
 
+## Ödeme Entegrasyonları
+- **Iyzico:** Admin panelinden API anahtarlarını tanımlayıp modu aktifleştirin. Ödemeler `api/payment.php?provider=iyzico` uç noktasına geri döner ve başarılı işlemler otomatik olarak paketi atar.
+- **Stripe:** Webhook gizli anahtarını girin ve Stripe yönetim panelinde `https://fileupload.noasoft.org/api/payment.php?provider=stripe` adresini webhook olarak ekleyin. Checkout oturumları tamamlandığında paketler otomatik tanımlanır.
+- **Havale/EFT:** Banka talimatlarını girin; kullanıcılar satın alma sonrası pending işlem oluşturur ve yönetici onayı bekler.
+- **Plesk Senkronizasyonu:** Plesk API bilgileri ayarlandığında paket atamaları sonrasında limitler otomatik güncellenir.
+
 ## Dizinyapısı
 ```
 ├── admin/           # Yönetim paneli sayfaları
@@ -60,15 +70,15 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 ```
 
 ## Geliştirme İpuçları
-- **Önizleme Geliştirmeleri:** Video/ses türleri için entegre önizleyiciler ekleyin.
-- **Saklama Politikaları:** Dosyalar için otomatik arşivleme veya süre sonu silme kuralları tanımlayın.
-- **Paket Otomasyonu:** Plesk API ile paket limitlerini sunucu kaynaklarıyla eşleştirin.
-- **Bildirimler:** E-posta/SMS entegrasyonu ile yükleme ve paket süresi bildirimleri gönderin.
-- **İki Aşamalı Doğrulama:** Admin ve kullanıcı hesaplarına MFA desteği ekleyin.
-- **Gelişmiş Raporlama:** Dosya erişim logları ve indirme istatistikleri için ayrı analitik paneller hazırlayın.
-- **Harici Depolar:** AWS S3 veya benzeri bulut depolara şifreli yedekleme desteği ekleyin.
-- **Gerçek Zamanlı İzleme:** WebSocket veya SSE ile klasör/paket kullanımı değişikliklerini anlık gösterin.
-- **Paket Faturalandırma:** Ödeme altyapısı (Iyzico, Stripe vb.) ile paket satın alma işlemlerini otomatikleştirin.
+- **PDF/Excel Raporlama:** Admin ve client panellerindeki grafikler için çok formatlı dışa aktarma seçenekleri ekleyin.
+- **SMS Entegrasyonu:** Paket sonlanması ve ödeme bildirimleri için SMS sağlayıcılarıyla entegrasyon kurun.
+- **MFA & IP Kısıtlama:** Yönetici oturumlarını iki faktörlü doğrulama ve IP beyaz listeleme ile güçlendirin.
+- **Gelişmiş Analitik:** `file_access_logs` tablosunu kullanarak coğrafi/cihaz bazlı grafikler, PDF/Excel raporları ve ısı haritaları üretin.
+- **Gerçek Zamanlı Bildirimler:** Ratchet tabanlı WebSocket sunucusunu devreye alarak yükleme/paket kullanım uyarılarını canlı iletin.
+- **Harici Depo Desteği:** Dosya arşivlerini S3, Backblaze veya benzeri bulut depolara gönderecek adaptörler ekleyin.
+- **Planlı Görevler:** Saklama politikası işlemlerini cron veya queue altyapısı ile yöneterek performansı artırın.
+- **Gelişmiş Yetkilendirme:** Takım bazlı roller, dosya paylaşım izinleri ve audit log ekranları tasarlayın.
+- **Tematik Özelleştirme:** Tema değiştirici, çoklu dil desteği ve kullanıcı başına koyu/açık tema tercihi ekleyin.
 
 ## Testler
 Temel sözdizimi doğrulaması için:

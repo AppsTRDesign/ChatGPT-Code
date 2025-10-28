@@ -57,6 +57,7 @@ if ($token) {
         exit('Paylaşım süresi dolmuş.');
     }
     $path = __DIR__ . '/uploads/' . $file['stored_name'];
+    log_file_access($pdo, $file, current_user(), $token);
     streamFile($path, $file['filename'], $file['type'], $preview);
 }
 
@@ -73,6 +74,7 @@ if ($id > 0) {
         exit('Dosya erişimine izin verilmiyor.');
     }
     $path = __DIR__ . '/uploads/' . $file['stored_name'];
+    log_file_access($pdo, $file, current_user(), null);
     streamFile($path, $file['filename'], $file['type'], $preview);
 }
 

@@ -1,6 +1,16 @@
 <?php
 declare(strict_types=1);
 
+use DeviceDetector\DeviceDetector;
+use GeoIp2\Database\Reader;
+use Iyzipay\Model\BasketItem;
+use Iyzipay\Model\BasketItemType;
+use Iyzipay\Model\CheckoutFormInitialize;
+use Iyzipay\Options;
+use Iyzipay\Request\CreateCheckoutFormInitializeRequest;
+use PHPMailer\PHPMailer\PHPMailer;
+use Stripe\StripeClient;
+
 const DEFAULT_ALLOWED_MIME_TYPES = [
     'image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain',
     'application/zip', 'application/x-rar-compressed',
@@ -143,12 +153,96 @@ CREATE TABLE IF NOT EXISTS transactions (
     user_id INT NOT NULL,
     package_id INT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
-    status ENUM('pending', 'paid', 'failed') DEFAULT 'pending',
+    currency VARCHAR(10) NOT NULL DEFAULT 'TRY',
+    provider ENUM('iyzico','stripe','bank_transfer') NOT NULL DEFAULT 'bank_transfer',
+    status ENUM('pending', 'paid', 'failed', 'cancelled', 'refunded') DEFAULT 'pending',
+    reference VARCHAR(191) DEFAULT NULL,
+    payload JSON DEFAULT NULL,
+    paid_at DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_transactions_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_transactions_packages FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
+    CONSTRAINT fk_transactions_packages FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
+    INDEX idx_transactions_provider (provider),
+    INDEX idx_transactions_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 SQL);
+    if (!schemaColumnExists($pdo, 'transactions', 'currency')) {
+        $pdo->exec("ALTER TABLE transactions ADD COLUMN currency VARCHAR(10) NOT NULL DEFAULT 'TRY' AFTER amount");
+    }
+    if (!schemaColumnExists($pdo, 'transactions', 'provider')) {
+        $pdo->exec("ALTER TABLE transactions ADD COLUMN provider ENUM('iyzico','stripe','bank_transfer') NOT NULL DEFAULT 'bank_transfer' AFTER currency");
+    }
+    if (!schemaColumnExists($pdo, 'transactions', 'reference')) {
+        $pdo->exec("ALTER TABLE transactions ADD COLUMN reference VARCHAR(191) DEFAULT NULL AFTER status");
+    }
+    if (!schemaColumnExists($pdo, 'transactions', 'payload')) {
+        $pdo->exec("ALTER TABLE transactions ADD COLUMN payload JSON DEFAULT NULL AFTER reference");
+    }
+    if (!schemaColumnExists($pdo, 'transactions', 'paid_at')) {
+        $pdo->exec('ALTER TABLE transactions ADD COLUMN paid_at DATETIME DEFAULT NULL AFTER payload');
+    }
+    if (!schemaColumnExists($pdo, 'transactions', 'updated_at')) {
+        $pdo->exec('ALTER TABLE transactions ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at');
+    }
+    if (!schemaIndexExists($pdo, 'transactions', 'idx_transactions_provider')) {
+        $pdo->exec('ALTER TABLE transactions ADD INDEX idx_transactions_provider (provider)');
+    }
+    if (!schemaIndexExists($pdo, 'transactions', 'idx_transactions_status')) {
+        $pdo->exec('ALTER TABLE transactions ADD INDEX idx_transactions_status (status)');
+    }
+
+    $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS file_access_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    file_id INT NOT NULL,
+    user_id INT DEFAULT NULL,
+    share_token VARCHAR(64) DEFAULT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    country VARCHAR(120) DEFAULT NULL,
+    city VARCHAR(120) DEFAULT NULL,
+    latitude DECIMAL(10,6) DEFAULT NULL,
+    longitude DECIMAL(10,6) DEFAULT NULL,
+    device_type VARCHAR(50) DEFAULT NULL,
+    os VARCHAR(100) DEFAULT NULL,
+    browser VARCHAR(100) DEFAULT NULL,
+    platform VARCHAR(100) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_access_file (file_id),
+    INDEX idx_access_token (share_token),
+    CONSTRAINT fk_access_file FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+    CONSTRAINT fk_access_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+SQL);
+
+    $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS realtime_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT DEFAULT NULL,
+    channel VARCHAR(120) NOT NULL,
+    payload JSON NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_events_channel (channel),
+    INDEX idx_events_user (user_id),
+    CONSTRAINT fk_events_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+SQL);
+
+    $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS retention_policies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    archive_after_days INT DEFAULT NULL,
+    delete_after_days INT DEFAULT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+SQL);
+
+    if (!schemaColumnExists($pdo, 'files', 'retention_policy_id')) {
+        $pdo->exec('ALTER TABLE files ADD COLUMN retention_policy_id INT DEFAULT NULL AFTER share_expires_at');
+        $pdo->exec('ALTER TABLE files ADD CONSTRAINT fk_files_retention FOREIGN KEY (retention_policy_id) REFERENCES retention_policies(id) ON DELETE SET NULL');
+    }
     if (!schemaColumnExists($pdo, 'files', 'folder_id')) {
         $pdo->exec('ALTER TABLE files ADD COLUMN folder_id INT DEFAULT NULL AFTER user_id');
     }
@@ -840,11 +934,15 @@ function ensureDefaultSettings(PDO $pdo): void
         footer_html TEXT DEFAULT NULL,
         logo VARCHAR(255) DEFAULT NULL,
         favicon VARCHAR(255) DEFAULT NULL,
+        mail_enabled TINYINT(1) DEFAULT 0,
+        mail_method ENUM(\'phpmail\', \'smtp\') DEFAULT \'smtp\',
         mail_host VARCHAR(255) DEFAULT NULL,
         mail_port INT DEFAULT NULL,
         mail_username VARCHAR(255) DEFAULT NULL,
         mail_password VARCHAR(255) DEFAULT NULL,
         mail_encryption VARCHAR(10) DEFAULT NULL,
+        mail_from_name VARCHAR(150) DEFAULT NULL,
+        mail_from_address VARCHAR(191) DEFAULT NULL,
         analytics_code TEXT DEFAULT NULL,
         analytics_enabled TINYINT(1) DEFAULT 0,
         allowed_mime_types TEXT DEFAULT NULL,
@@ -852,11 +950,45 @@ function ensureDefaultSettings(PDO $pdo): void
         public_sharing_enabled TINYINT(1) DEFAULT 1,
         folder_passwords_enabled TINYINT(1) DEFAULT 1,
         share_download_delay INT DEFAULT 0,
+        share_password_required TINYINT(1) DEFAULT 0,
+        share_stats_enabled TINYINT(1) DEFAULT 1,
         ad_dashboard_html TEXT DEFAULT NULL,
         ad_share_top_html TEXT DEFAULT NULL,
-        ad_share_bottom_html TEXT DEFAULT NULL
+        ad_share_bottom_html TEXT DEFAULT NULL,
+        payment_currency VARCHAR(10) DEFAULT \'TRY\',
+        iyzico_enabled TINYINT(1) DEFAULT 0,
+        iyzico_api_key VARCHAR(191) DEFAULT NULL,
+        iyzico_secret_key VARCHAR(191) DEFAULT NULL,
+        iyzico_base_url VARCHAR(191) DEFAULT NULL,
+        stripe_enabled TINYINT(1) DEFAULT 0,
+        stripe_api_key VARCHAR(191) DEFAULT NULL,
+        stripe_publishable_key VARCHAR(191) DEFAULT NULL,
+        stripe_webhook_secret VARCHAR(191) DEFAULT NULL,
+        bank_transfer_enabled TINYINT(1) DEFAULT 1,
+        bank_transfer_instructions TEXT DEFAULT NULL,
+        auto_archive_enabled TINYINT(1) DEFAULT 0,
+        auto_delete_enabled TINYINT(1) DEFAULT 0,
+        archive_after_days INT DEFAULT NULL,
+        delete_after_days INT DEFAULT NULL,
+        geoip_database_path VARCHAR(255) DEFAULT NULL,
+        realtime_updates_enabled TINYINT(1) DEFAULT 0,
+        plesk_api_url VARCHAR(255) DEFAULT NULL,
+        plesk_api_login VARCHAR(191) DEFAULT NULL,
+        plesk_api_password VARCHAR(191) DEFAULT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
+    if (!schemaColumnExists($pdo, 'settings', 'mail_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN mail_enabled TINYINT(1) DEFAULT 0 AFTER favicon');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'mail_method')) {
+        $pdo->exec("ALTER TABLE settings ADD COLUMN mail_method ENUM('phpmail','smtp') DEFAULT 'smtp' AFTER mail_enabled");
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'mail_from_name')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN mail_from_name VARCHAR(150) DEFAULT NULL AFTER mail_encryption');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'mail_from_address')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN mail_from_address VARCHAR(191) DEFAULT NULL AFTER mail_from_name');
+    }
     if (!schemaColumnExists($pdo, 'settings', 'allowed_mime_types')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN allowed_mime_types TEXT DEFAULT NULL AFTER analytics_enabled');
     }
@@ -872,14 +1004,80 @@ function ensureDefaultSettings(PDO $pdo): void
     if (!schemaColumnExists($pdo, 'settings', 'share_download_delay')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN share_download_delay INT DEFAULT 0 AFTER folder_passwords_enabled');
     }
+    if (!schemaColumnExists($pdo, 'settings', 'share_password_required')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN share_password_required TINYINT(1) DEFAULT 0 AFTER share_download_delay');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'share_stats_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN share_stats_enabled TINYINT(1) DEFAULT 1 AFTER share_password_required');
+    }
     if (!schemaColumnExists($pdo, 'settings', 'ad_dashboard_html')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN ad_dashboard_html TEXT DEFAULT NULL AFTER share_download_delay');
+        $pdo->exec('ALTER TABLE settings ADD COLUMN ad_dashboard_html TEXT DEFAULT NULL AFTER share_stats_enabled');
     }
     if (!schemaColumnExists($pdo, 'settings', 'ad_share_top_html')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN ad_share_top_html TEXT DEFAULT NULL AFTER ad_dashboard_html');
     }
     if (!schemaColumnExists($pdo, 'settings', 'ad_share_bottom_html')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN ad_share_bottom_html TEXT DEFAULT NULL AFTER ad_share_top_html');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'payment_currency')) {
+        $pdo->exec("ALTER TABLE settings ADD COLUMN payment_currency VARCHAR(10) DEFAULT 'TRY' AFTER ad_share_bottom_html");
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'iyzico_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN iyzico_enabled TINYINT(1) DEFAULT 0 AFTER payment_currency');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'iyzico_api_key')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN iyzico_api_key VARCHAR(191) DEFAULT NULL AFTER iyzico_enabled');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'iyzico_secret_key')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN iyzico_secret_key VARCHAR(191) DEFAULT NULL AFTER iyzico_api_key');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'iyzico_base_url')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN iyzico_base_url VARCHAR(191) DEFAULT NULL AFTER iyzico_secret_key');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'stripe_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN stripe_enabled TINYINT(1) DEFAULT 0 AFTER iyzico_base_url');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'stripe_api_key')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN stripe_api_key VARCHAR(191) DEFAULT NULL AFTER stripe_enabled');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'stripe_publishable_key')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN stripe_publishable_key VARCHAR(191) DEFAULT NULL AFTER stripe_api_key');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'stripe_webhook_secret')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN stripe_webhook_secret VARCHAR(191) DEFAULT NULL AFTER stripe_publishable_key');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'bank_transfer_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN bank_transfer_enabled TINYINT(1) DEFAULT 1 AFTER stripe_webhook_secret');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'bank_transfer_instructions')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN bank_transfer_instructions TEXT DEFAULT NULL AFTER bank_transfer_enabled');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'auto_archive_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN auto_archive_enabled TINYINT(1) DEFAULT 0 AFTER bank_transfer_instructions');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'auto_delete_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN auto_delete_enabled TINYINT(1) DEFAULT 0 AFTER auto_archive_enabled');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'archive_after_days')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN archive_after_days INT DEFAULT NULL AFTER auto_delete_enabled');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'delete_after_days')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN delete_after_days INT DEFAULT NULL AFTER archive_after_days');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'geoip_database_path')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN geoip_database_path VARCHAR(255) DEFAULT NULL AFTER delete_after_days');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'realtime_updates_enabled')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN realtime_updates_enabled TINYINT(1) DEFAULT 0 AFTER geoip_database_path');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'plesk_api_url')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_url VARCHAR(255) DEFAULT NULL AFTER realtime_updates_enabled');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'plesk_api_login')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_login VARCHAR(191) DEFAULT NULL AFTER plesk_api_url');
+    }
+    if (!schemaColumnExists($pdo, 'settings', 'plesk_api_password')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_password VARCHAR(191) DEFAULT NULL AFTER plesk_api_login');
     }
 
     $count = (int) $pdo->query('SELECT COUNT(*) FROM settings')->fetchColumn();
@@ -890,8 +1088,8 @@ function ensureDefaultSettings(PDO $pdo): void
             'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         ]);
-        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay)
-            VALUES (:title, :description, :header, :footer, :enabled, :mime, :expiry, :public_share, :folder_password, :delay)');
+        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay, payment_currency, bank_transfer_enabled)
+            VALUES (:title, :description, :header, :footer, :enabled, :mime, :expiry, :public_share, :folder_password, :delay, :currency, :bank_enabled)');
         $stmt->execute([
             ':title' => 'NoaSoft Dosya Deposu',
             ':description' => 'Güvenli ve hızlı dosya yükleme platformu.',
@@ -903,6 +1101,8 @@ function ensureDefaultSettings(PDO $pdo): void
             ':public_share' => 1,
             ':folder_password' => 1,
             ':delay' => 0,
+            ':currency' => 'TRY',
+            ':bank_enabled' => 1,
         ]);
     }
 }
@@ -1079,5 +1279,404 @@ function ensure_admin_exists(PDO $pdo): void
             ':password_hash' => password_hash('ChangeMe123!', PASSWORD_DEFAULT),
         ]);
     }
+}
+
+function mailer_instance(PDO $pdo): ?PHPMailer
+{
+    $settings = fetch_settings($pdo);
+    if (empty($settings['mail_enabled'])) {
+        return null;
+    }
+    $mailer = new PHPMailer(true);
+    $mailer->CharSet = 'UTF-8';
+    $mailer->isHTML(true);
+    $fromAddress = $settings['mail_from_address'] ?: 'no-reply@fileupload.noasoft.org';
+    $fromName = $settings['mail_from_name'] ?: 'NoaSoft Depo';
+    $mailer->setFrom($fromAddress, $fromName);
+
+    if (($settings['mail_method'] ?? 'smtp') === 'smtp') {
+        $mailer->isSMTP();
+        $mailer->Host = $settings['mail_host'] ?? '';
+        $mailer->Port = (int) ($settings['mail_port'] ?? 587);
+        $mailer->SMTPAuth = true;
+        $mailer->Username = $settings['mail_username'] ?? '';
+        $mailer->Password = $settings['mail_password'] ?? '';
+        $encryption = $settings['mail_encryption'] ?? '';
+        if ($encryption === 'tls' || $encryption === 'ssl') {
+            $mailer->SMTPSecure = $encryption;
+        }
+    }
+
+    return $mailer;
+}
+
+function notify_user(PDO $pdo, string $email, string $subject, string $htmlBody): void
+{
+    $mailer = mailer_instance($pdo);
+    if (!$mailer) {
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $headers = implode("\r\n", [
+                'MIME-Version: 1.0',
+                'Content-Type: text/html; charset=UTF-8',
+                'From: no-reply@fileupload.noasoft.org'
+            ]);
+            @mail($email, $subject, $htmlBody, $headers);
+        }
+        return;
+    }
+
+    try {
+        $mailer->clearAllRecipients();
+        $mailer->addAddress($email);
+        $mailer->Subject = $subject;
+        $mailer->Body = $htmlBody;
+        $mailer->AltBody = strip_tags($htmlBody);
+        $mailer->send();
+    } catch (Throwable $e) {
+        error_log('Mail gönderilemedi: ' . $e->getMessage());
+    }
+}
+
+function geoip_lookup(PDO $pdo, string $ip): array
+{
+    $settings = fetch_settings($pdo);
+    $dbPath = $settings['geoip_database_path'] ?? '';
+    if (!$dbPath || !is_readable($dbPath)) {
+        return [];
+    }
+
+    try {
+        $reader = new Reader($dbPath);
+        $record = $reader->city($ip);
+        return [
+            'country' => $record->country->name ?? null,
+            'city' => $record->city->name ?? null,
+            'lat' => $record->location->latitude ?? null,
+            'lon' => $record->location->longitude ?? null,
+        ];
+    } catch (Throwable $e) {
+        error_log('GeoIP sorgusu başarısız: ' . $e->getMessage());
+        return [];
+    }
+}
+
+function device_details(string $userAgent): array
+{
+    $detector = new DeviceDetector($userAgent);
+    $detector->discardBotInformation();
+    $detector->parse();
+
+    if ($detector->isBot()) {
+        return [
+            'device_type' => 'bot',
+            'os' => null,
+            'browser' => null,
+            'platform' => null,
+        ];
+    }
+
+    return [
+        'device_type' => $detector->getDeviceName() ?: ($detector->getDevice() ?: null),
+        'os' => $detector->getOs('name') ?: null,
+        'browser' => $detector->getClient('name') ?: null,
+        'platform' => $detector->getBrandName() ?: null,
+    ];
+}
+
+function log_file_access(PDO $pdo, array $file, ?array $user = null, ?string $shareToken = null): void
+{
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    $geo = geoip_lookup($pdo, $ip);
+    $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $device = $ua ? device_details($ua) : [];
+
+    $stmt = $pdo->prepare('INSERT INTO file_access_logs (file_id, user_id, share_token, ip_address, country, city, latitude, longitude, device_type, os, browser, platform)
+        VALUES (:file_id, :user_id, :share_token, :ip, :country, :city, :lat, :lon, :device_type, :os, :browser, :platform)');
+    $stmt->execute([
+        ':file_id' => $file['id'],
+        ':user_id' => $user['id'] ?? null,
+        ':share_token' => $shareToken,
+        ':ip' => $ip,
+        ':country' => $geo['country'] ?? null,
+        ':city' => $geo['city'] ?? null,
+        ':lat' => $geo['lat'] ?? null,
+        ':lon' => $geo['lon'] ?? null,
+        ':device_type' => $device['device_type'] ?? null,
+        ':os' => $device['os'] ?? null,
+        ':browser' => $device['browser'] ?? null,
+        ':platform' => $device['platform'] ?? null,
+    ]);
+}
+
+function apply_retention_policies(PDO $pdo): void
+{
+    $settings = fetch_settings($pdo);
+    if (empty($settings['auto_archive_enabled']) && empty($settings['auto_delete_enabled'])) {
+        return;
+    }
+
+    $now = new DateTimeImmutable('now');
+    if (!empty($settings['auto_archive_enabled']) && !empty($settings['archive_after_days'])) {
+        $threshold = $now->sub(new DateInterval('P' . (int) $settings['archive_after_days'] . 'D'))->format('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('SELECT * FROM files WHERE uploaded_at <= :threshold AND (retention_policy_id IS NULL OR retention_policy_id = 0)');
+        $stmt->execute([':threshold' => $threshold]);
+        $files = $stmt->fetchAll();
+        foreach ($files as $file) {
+            archive_file($file);
+        }
+    }
+
+    if (!empty($settings['auto_delete_enabled']) && !empty($settings['delete_after_days'])) {
+        $threshold = $now->sub(new DateInterval('P' . (int) $settings['delete_after_days'] . 'D'))->format('Y-m-d H:i:s');
+        $stmt = $pdo->prepare('SELECT * FROM files WHERE uploaded_at <= :threshold');
+        $stmt->execute([':threshold' => $threshold]);
+        $files = $stmt->fetchAll();
+        foreach ($files as $file) {
+            delete_file_completely($pdo, (int) $file['id']);
+        }
+    }
+}
+
+function archive_file(array $file): void
+{
+    $uploadDir = __DIR__ . '/uploads';
+    $archiveDir = __DIR__ . '/archives';
+    if (!is_dir($archiveDir)) {
+        mkdir($archiveDir, 0775, true);
+    }
+    $source = $uploadDir . '/' . $file['stored_name'];
+    if (!is_file($source)) {
+        return;
+    }
+    $zipPath = $archiveDir . '/' . $file['stored_name'] . '.zip';
+    $zip = new ZipArchive();
+    if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+        $zip->addFile($source, $file['filename']);
+        $zip->close();
+    }
+}
+
+function delete_file_completely(PDO $pdo, int $fileId): void
+{
+    $stmt = $pdo->prepare('SELECT * FROM files WHERE id = :id');
+    $stmt->execute([':id' => $fileId]);
+    $file = $stmt->fetch();
+    if (!$file) {
+        return;
+    }
+    $path = __DIR__ . '/uploads/' . $file['stored_name'];
+    if (is_file($path)) {
+        @unlink($path);
+    }
+    $pdo->prepare('DELETE FROM files WHERE id = :id')->execute([':id' => $fileId]);
+}
+
+function iyzico_client(PDO $pdo): ?Options
+{
+    $settings = fetch_settings($pdo);
+    if (empty($settings['iyzico_enabled'])) {
+        return null;
+    }
+    $options = new Options();
+    $options->setApiKey($settings['iyzico_api_key'] ?? '');
+    $options->setSecretKey($settings['iyzico_secret_key'] ?? '');
+    $options->setBaseUrl($settings['iyzico_base_url'] ?: 'https://api.iyzipay.com');
+    return $options;
+}
+
+function stripe_client(PDO $pdo): ?StripeClient
+{
+    $settings = fetch_settings($pdo);
+    if (empty($settings['stripe_enabled']) || empty($settings['stripe_api_key'])) {
+        return null;
+    }
+    return new Stripe\StripeClient($settings['stripe_api_key']);
+}
+
+function initiate_payment(PDO $pdo, int $userId, int $packageId, string $provider, string $successUrl, string $cancelUrl): array
+{
+    $stmt = $pdo->prepare('SELECT * FROM packages WHERE id = :id');
+    $stmt->execute([':id' => $packageId]);
+    $package = $stmt->fetch();
+    if (!$package) {
+        throw new RuntimeException('Paket bulunamadı.');
+    }
+
+    $settings = fetch_settings($pdo);
+    $currency = $settings['payment_currency'] ?? 'TRY';
+
+    $pdo->prepare('INSERT INTO transactions (user_id, package_id, amount, currency, provider, status) VALUES (:user_id, :package_id, :amount, :currency, :provider, :status)')->execute([
+        ':user_id' => $userId,
+        ':package_id' => $packageId,
+        ':amount' => $package['price'],
+        ':currency' => $currency,
+        ':provider' => $provider,
+        ':status' => 'pending',
+    ]);
+    $transactionId = (int) $pdo->lastInsertId();
+
+    switch ($provider) {
+        case 'iyzico':
+            $options = iyzico_client($pdo);
+            if (!$options) {
+                throw new RuntimeException('Iyzico yapılandırması eksik.');
+            }
+            $request = new CreateCheckoutFormInitializeRequest();
+            $request->setPrice(number_format((float) $package['price'], 2, '.', ''));
+            $request->setPaidPrice(number_format((float) $package['price'], 2, '.', ''));
+            $request->setCurrency($currency);
+            $request->setCallbackUrl($successUrl);
+            $basketItem = new BasketItem();
+            $basketItem->setId((string) $packageId);
+            $basketItem->setName($package['name']);
+            $basketItem->setCategory1('Dosya Deposu');
+            $basketItem->setItemType(BasketItemType::VIRTUAL);
+            $basketItem->setPrice(number_format((float) $package['price'], 2, '.', ''));
+            $request->setBasketItems([$basketItem]);
+            $checkout = CheckoutFormInitialize::create($request, $options);
+            $token = $checkout->getToken();
+            $paymentUrl = $checkout->getPaymentPageUrl();
+            $pdo->prepare('UPDATE transactions SET reference = :reference, payload = :payload WHERE id = :id')->execute([
+                ':reference' => $token,
+                ':payload' => json_encode(['checkout_form_content' => $checkout->getCheckoutFormContent()], JSON_THROW_ON_ERROR),
+                ':id' => $transactionId,
+            ]);
+            return ['transaction_id' => $transactionId, 'payment_url' => $paymentUrl];
+        case 'stripe':
+            $client = stripe_client($pdo);
+            if (!$client) {
+                throw new RuntimeException('Stripe yapılandırması eksik.');
+            }
+            $session = $client->checkout->sessions->create([
+                'success_url' => $successUrl . '?session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => $cancelUrl,
+                'line_items' => [[
+                    'price_data' => [
+                        'currency' => strtolower($currency),
+                        'product_data' => ['name' => $package['name']],
+                        'unit_amount' => (int) round($package['price'] * 100),
+                    ],
+                    'quantity' => 1,
+                ]],
+                'mode' => 'payment',
+                'metadata' => ['transaction_id' => $transactionId],
+            ]);
+            $pdo->prepare('UPDATE transactions SET reference = :reference, payload = :payload WHERE id = :id')->execute([
+                ':reference' => $session->id,
+                ':payload' => json_encode($session->toArray(), JSON_THROW_ON_ERROR),
+                ':id' => $transactionId,
+            ]);
+            return ['transaction_id' => $transactionId, 'payment_url' => $session->url];
+        case 'bank_transfer':
+        default:
+            return ['transaction_id' => $transactionId];
+    }
+}
+
+function complete_transaction(PDO $pdo, int $transactionId, string $status, ?string $reference = null, ?array $payload = null): void
+{
+    $stmt = $pdo->prepare('UPDATE transactions SET status = :status, paid_at = CASE WHEN :status = "paid" THEN NOW() ELSE paid_at END, reference = COALESCE(:reference, reference), payload = COALESCE(:payload, payload) WHERE id = :id');
+    $stmt->execute([
+        ':status' => $status,
+        ':reference' => $reference,
+        ':payload' => $payload ? json_encode($payload, JSON_THROW_ON_ERROR) : null,
+        ':id' => $transactionId,
+    ]);
+
+    $transaction = fetch_transaction($pdo, $transactionId);
+    if (!$transaction) {
+        return;
+    }
+
+    $userStmt = $pdo->prepare('SELECT id, email, name FROM users WHERE id = :id');
+    $userStmt->execute([':id' => $transaction['user_id']]);
+    $user = $userStmt->fetch();
+
+    $packageStmt = $pdo->prepare('SELECT name FROM packages WHERE id = :id');
+    $packageStmt->execute([':id' => $transaction['package_id']]);
+    $package = $packageStmt->fetch();
+    $packageName = $package['name'] ?? 'Paket';
+
+    if ($status === 'paid') {
+        assign_package_to_user($pdo, (int) $transaction['user_id'], (int) $transaction['package_id']);
+        plesk_sync_package($pdo, (int) $transaction['user_id']);
+        if ($user) {
+            notify_user(
+                $pdo,
+                $user['email'],
+                'Paketiniz aktif edildi',
+                '<p>"' . sanitize($packageName) . '" paketi başarıyla aktif edildi.</p>'
+            );
+        }
+    } elseif ($status === 'failed' && $user) {
+        notify_user(
+            $pdo,
+            $user['email'],
+            'Ödeme işlemi başarısız oldu',
+            '<p>"' . sanitize($packageName) . '" paketi için ödeme başarısız oldu. Lütfen tekrar deneyin.</p>'
+        );
+    }
+}
+
+function fetch_transaction(PDO $pdo, int $transactionId): ?array
+{
+    $stmt = $pdo->prepare('SELECT * FROM transactions WHERE id = :id');
+    $stmt->execute([':id' => $transactionId]);
+    $tx = $stmt->fetch();
+    return $tx ?: null;
+}
+
+function assign_package_to_user(PDO $pdo, int $userId, int $packageId): void
+{
+    $stmt = $pdo->prepare('UPDATE users SET package_id = :package_id WHERE id = :id');
+    $stmt->execute([
+        ':package_id' => $packageId,
+        ':id' => $userId,
+    ]);
+}
+
+function plesk_sync_package(PDO $pdo, int $userId): void
+{
+    $settings = fetch_settings($pdo);
+    if (empty($settings['plesk_api_url']) || empty($settings['plesk_api_login']) || empty($settings['plesk_api_password'])) {
+        return;
+    }
+
+    $package = package_for_user($pdo, $userId);
+    if (!$package) {
+        return;
+    }
+
+    $ch = curl_init(rtrim($settings['plesk_api_url'], '/') . '/api/v2/clients/' . $userId . '/limits');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERPWD => $settings['plesk_api_login'] . ':' . $settings['plesk_api_password'],
+        CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode([
+            'disk_space' => (int) $package['storage_limit'],
+            'max_concurrent_uploads' => (int) $package['max_concurrent_uploads'],
+        ]),
+    ]);
+    $response = curl_exec($ch);
+    if ($response === false) {
+        error_log('Plesk eşitleme başarısız: ' . curl_error($ch));
+    }
+    curl_close($ch);
+}
+
+function push_realtime_event(PDO $pdo, string $channel, array $payload, ?int $userId = null): void
+{
+    $settings = fetch_settings($pdo);
+    if (empty($settings['realtime_updates_enabled'])) {
+        return;
+    }
+    $stmt = $pdo->prepare('INSERT INTO realtime_events (user_id, channel, payload) VALUES (:user_id, :channel, :payload)');
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':channel' => $channel,
+        ':payload' => json_encode($payload, JSON_THROW_ON_ERROR),
+    ]);
 }
 
