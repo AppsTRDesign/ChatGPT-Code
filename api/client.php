@@ -94,7 +94,6 @@ try {
                     'storage_limit' => (int) $pkg['storage_limit'],
                     'max_concurrent_uploads' => (int) $pkg['max_concurrent_uploads'],
                     'features' => $features,
-                    'plesk_service_plan' => $pkg['plesk_service_plan'] ?? null,
                 ];
             }, $stmt->fetchAll() ?: []);
             $activePackage = package_for_user($pdo, (int) current_user()['id']);
@@ -186,11 +185,11 @@ try {
                         'error' => $files['error'][$i],
                         'size' => $files['size'][$i],
                     ];
-                    [$mime] = validate_uploaded_file($file, null, ['application/pdf', 'image/jpeg', 'image/png']);
+                    [$mime] = validate_uploaded_file($file, null, ['pdf', 'jpeg', 'jpg', 'png']);
                     $entries[] = ['path' => store_payment_proof($file), 'mime' => $mime];
                 }
             } else {
-                [$mime] = validate_uploaded_file($files, null, ['application/pdf', 'image/jpeg', 'image/png']);
+                [$mime] = validate_uploaded_file($files, null, ['pdf', 'jpeg', 'jpg', 'png']);
                 $entries[] = ['path' => store_payment_proof($files), 'mime' => $mime];
             }
 
@@ -220,12 +219,6 @@ try {
                     ':attachments' => json_encode($merged, JSON_THROW_ON_ERROR),
                     ':note' => $note,
                 ]);
-
-            push_realtime_event($pdo, 'transactions', [
-                'type' => 'payment_notification',
-                'transaction_id' => $transactionId,
-                'status' => 'pending',
-            ], (int) current_user()['id']);
 
             echo json_encode(['status' => 'success', 'message' => 'Dekontunuz alındı. Yönetici onayı bekleniyor.', 'transaction_id' => $transactionId]);
             break;

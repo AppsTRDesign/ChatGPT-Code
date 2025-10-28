@@ -10,8 +10,6 @@
         return;
     }
 
-    document.dispatchEvent(new CustomEvent('realtime:subscribe', { detail: { channel: 'transactions' } }));
-
     let transactions = [];
 
     const statusBadge = (status) => {
@@ -149,12 +147,6 @@
 
     searchInput?.addEventListener('input', renderTable);
     statusSelect?.addEventListener('change', renderTable);
-
-    document.addEventListener('realtime:event', (event) => {
-        if (event.detail?.channel === 'transactions') {
-            fetchTransactions().catch(console.error);
-        }
-    });
 
     fetchTransactions().catch(error => {
         console.error(error);

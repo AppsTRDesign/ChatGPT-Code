@@ -10,8 +10,6 @@
         return;
     }
 
-    document.dispatchEvent(new CustomEvent('realtime:subscribe', { detail: { channel: 'transactions' } }));
-
     let notifications = [];
 
     const statusBadge = (status) => {
@@ -122,11 +120,6 @@
     };
 
     filterSelect?.addEventListener('change', render);
-    document.addEventListener('realtime:event', (event) => {
-        if (event.detail?.channel === 'transactions') {
-            load().catch(console.error);
-        }
-    });
     load().catch(error => {
         console.error(error);
         container.innerHTML = '<div class="col-12 text-center text-danger py-4">Bildirimler yüklenemedi.</div>';

@@ -18,7 +18,6 @@
     const form = document.getElementById('packageForm');
     const activeSwitch = document.getElementById('packageActive');
     const extensionTextarea = document.getElementById('packageExtensions');
-    const planInput = document.getElementById('packagePlan');
 
     let packages = [];
 
@@ -128,9 +127,6 @@
         form.querySelector('#packageUploads').value = pkg?.max_concurrent_uploads || '';
         form.querySelector('#packagePrice').value = pkg?.price || '';
         form.querySelector('#packageFeatures').value = (pkg?.features || []).join(', ');
-        if (planInput) {
-            planInput.value = pkg?.plesk_service_plan || '';
-        }
         if (activeSwitch) {
             activeSwitch.checked = pkg ? pkg.is_active === 1 : true;
         }

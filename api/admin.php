@@ -85,7 +85,6 @@ try {
                     'allowed_extensions' => $extensionList,
                     'price' => (float) $package['price'],
                     'is_active' => (int) $package['is_active'],
-                    'plesk_service_plan' => $package['plesk_service_plan'] ?? null,
                 ];
             }, $stmt->fetchAll() ?: []);
             echo json_encode(['status' => 'success', 'data' => $packages]);
@@ -239,60 +238,7 @@ try {
                 $txStatus = $status === 'approved' ? 'paid' : 'failed';
                 complete_transaction($pdo, (int) $notification['transaction_id'], $txStatus);
             }
-            push_realtime_event($pdo, 'transactions', [
-                'type' => 'payment_notification_updated',
-                'notification_id' => $notificationId,
-                'status' => $status,
-            ], (int) $notification['user_id']);
             echo json_encode(['status' => 'success', 'message' => 'Bildirim güncellendi.']);
-            break;
-
-        case 'plesk-test':
-            $settings = fetch_settings($pdo);
-            if (empty($settings['plesk_api_url']) || empty($settings['plesk_api_login']) || empty($settings['plesk_api_password'])) {
-                throw new RuntimeException('Plesk API ayarları eksik.');
-            }
-            $endpoint = rtrim($settings['plesk_api_url'], '/') . '/api/v2/servers';
-            $ch = curl_init($endpoint);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_USERPWD => $settings['plesk_api_login'] . ':' . $settings['plesk_api_password'],
-                CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-                CURLOPT_TIMEOUT => 10,
-            ]);
-            $response = curl_exec($ch);
-            if ($response === false) {
-                $error = curl_error($ch);
-                curl_close($ch);
-                throw new RuntimeException('Plesk bağlantısı sağlanamadı: ' . $error);
-            }
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            if ($code >= 200 && $code < 300) {
-                echo json_encode(['status' => 'success', 'message' => 'Plesk API bağlantısı başarılı.']);
-            } else {
-                throw new RuntimeException('Plesk API beklenmedik yanıt döndürdü. HTTP ' . $code);
-            }
-            break;
-
-        case 'ws-test':
-            $settings = fetch_settings($pdo);
-            if (empty($settings['realtime_ws_url'])) {
-                throw new RuntimeException('WebSocket URL yapılandırılmamış.');
-            }
-            $parts = parse_url($settings['realtime_ws_url']);
-            if (!$parts || empty($parts['host'])) {
-                throw new RuntimeException('Geçersiz WebSocket URL bilgisi.');
-            }
-            $port = $parts['port'] ?? (($parts['scheme'] ?? 'ws') === 'wss' ? 443 : 80);
-            $errno = 0;
-            $errstr = '';
-            $socket = @fsockopen($parts['host'], $port, $errno, $errstr, 5);
-            if (!$socket) {
-                throw new RuntimeException('WebSocket sunucusuna bağlanılamadı: ' . $errstr);
-            }
-            fclose($socket);
-            echo json_encode(['status' => 'success', 'message' => 'WebSocket bağlantısı kurulabiliyor.']);
             break;
 
         case 'usage-timeseries':
@@ -359,10 +305,6 @@ try {
                 'archive_after_days' => max(0, (int) ($payload['archive_after_days'] ?? 0)) ?: null,
                 'delete_after_days' => max(0, (int) ($payload['delete_after_days'] ?? 0)) ?: null,
                 'geoip_database_path' => trim($payload['geoip_database_path'] ?? ''),
-                'realtime_updates_enabled' => !empty($payload['realtime_updates_enabled']) ? 1 : 0,
-                'plesk_api_url' => trim($payload['plesk_api_url'] ?? ''),
-                'plesk_api_login' => trim($payload['plesk_api_login'] ?? ''),
-                'plesk_api_password' => trim($payload['plesk_api_password'] ?? ''),
             ];
             $settings = fetch_settings($pdo);
             if (!$settings) {
@@ -377,7 +319,7 @@ try {
             $bannerName = $settings['brand_banner'] ?? null;
             $socialImageName = $settings['social_image'] ?? null;
             if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-                [$mime] = validate_uploaded_file($_FILES['logo'], $pdo, ['image/jpeg', 'image/png', 'image/svg+xml', 'image/gif']);
+                [$mime] = validate_uploaded_file($_FILES['logo'], $pdo, ['jpg', 'jpeg', 'png', 'svg', 'gif']);
                 if (!str_starts_with($mime, 'image/')) {
                     throw new RuntimeException('Logo yalnızca görsel olmalıdır.');
                 }
@@ -386,7 +328,7 @@ try {
                 move_uploaded_file($_FILES['logo']['tmp_name'], __DIR__ . '/../uploads/' . $logoName);
             }
             if (!empty($_FILES['favicon']) && $_FILES['favicon']['error'] === UPLOAD_ERR_OK) {
-                [$mime] = validate_uploaded_file($_FILES['favicon'], $pdo, ['image/png', 'image/x-icon', 'image/svg+xml', 'image/gif']);
+                [$mime] = validate_uploaded_file($_FILES['favicon'], $pdo, ['png', 'ico', 'svg', 'gif']);
                 if (!str_starts_with($mime, 'image/')) {
                     throw new RuntimeException('Favicon yalnızca görsel olmalıdır.');
                 }
@@ -395,7 +337,7 @@ try {
                 move_uploaded_file($_FILES['favicon']['tmp_name'], __DIR__ . '/../uploads/' . $faviconName);
             }
             if (!empty($_FILES['banner']) && $_FILES['banner']['error'] === UPLOAD_ERR_OK) {
-                [$mime] = validate_uploaded_file($_FILES['banner'], $pdo, ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']);
+                [$mime] = validate_uploaded_file($_FILES['banner'], $pdo, ['jpg', 'jpeg', 'png', 'webp', 'svg']);
                 if (!str_starts_with($mime, 'image/')) {
                     throw new RuntimeException('Banner yalnızca görsel olmalıdır.');
                 }
@@ -407,7 +349,7 @@ try {
             $allowedExtensionList = normalise_extension_list($fields['allowed_extensions']);
             $allowedExtensionJson = json_encode($allowedExtensionList);
 
-            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, meta_keywords = :meta_keywords, social_title = :social_title, social_description = :social_description, social_image = :social_image, twitter_handle = :twitter_handle, brand_banner = :brand_banner, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_enabled = :mail_enabled, mail_method = :mail_method, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, mail_from_name = :mail_from_name, mail_from_address = :mail_from_address, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_extensions = :allowed_extensions, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled, share_download_delay = :share_download_delay, share_password_required = :share_password_required, share_stats_enabled = :share_stats_enabled, ad_dashboard_html = :ad_dashboard_html, ad_share_top_html = :ad_share_top_html, ad_share_bottom_html = :ad_share_bottom_html, payment_currency = :payment_currency, iyzico_enabled = :iyzico_enabled, iyzico_api_key = :iyzico_api_key, iyzico_secret_key = :iyzico_secret_key, iyzico_base_url = :iyzico_base_url, stripe_enabled = :stripe_enabled, stripe_api_key = :stripe_api_key, stripe_publishable_key = :stripe_publishable_key, stripe_webhook_secret = :stripe_webhook_secret, bank_transfer_enabled = :bank_transfer_enabled, bank_transfer_instructions = :bank_transfer_instructions, auto_archive_enabled = :auto_archive_enabled, auto_delete_enabled = :auto_delete_enabled, archive_after_days = :archive_after_days, delete_after_days = :delete_after_days, geoip_database_path = :geoip_database_path, realtime_updates_enabled = :realtime_updates_enabled, plesk_api_url = :plesk_api_url, plesk_api_login = :plesk_api_login, plesk_api_password = :plesk_api_password LIMIT 1');
+            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, meta_keywords = :meta_keywords, social_title = :social_title, social_description = :social_description, social_image = :social_image, twitter_handle = :twitter_handle, brand_banner = :brand_banner, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_enabled = :mail_enabled, mail_method = :mail_method, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, mail_from_name = :mail_from_name, mail_from_address = :mail_from_address, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_extensions = :allowed_extensions, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled, share_download_delay = :share_download_delay, share_password_required = :share_password_required, share_stats_enabled = :share_stats_enabled, ad_dashboard_html = :ad_dashboard_html, ad_share_top_html = :ad_share_top_html, ad_share_bottom_html = :ad_share_bottom_html, payment_currency = :payment_currency, iyzico_enabled = :iyzico_enabled, iyzico_api_key = :iyzico_api_key, iyzico_secret_key = :iyzico_secret_key, iyzico_base_url = :iyzico_base_url, stripe_enabled = :stripe_enabled, stripe_api_key = :stripe_api_key, stripe_publishable_key = :stripe_publishable_key, stripe_webhook_secret = :stripe_webhook_secret, bank_transfer_enabled = :bank_transfer_enabled, bank_transfer_instructions = :bank_transfer_instructions, auto_archive_enabled = :auto_archive_enabled, auto_delete_enabled = :auto_delete_enabled, archive_after_days = :archive_after_days, delete_after_days = :delete_after_days, geoip_database_path = :geoip_database_path LIMIT 1');
             $stmt->execute([
                 ':meta_title' => $fields['meta_title'],
                 ':meta_description' => $fields['meta_description'],
@@ -458,10 +400,6 @@ try {
                 ':archive_after_days' => $fields['archive_after_days'],
                 ':delete_after_days' => $fields['delete_after_days'],
                 ':geoip_database_path' => $fields['geoip_database_path'],
-                ':realtime_updates_enabled' => $fields['realtime_updates_enabled'],
-                ':plesk_api_url' => $fields['plesk_api_url'],
-                ':plesk_api_login' => $fields['plesk_api_login'],
-                ':plesk_api_password' => $fields['plesk_api_password'],
             ]);
             echo json_encode(['status' => 'success', 'message' => 'Ayarlar güncellendi.']);
             break;
@@ -496,16 +434,15 @@ try {
                 ':price' => (float) ($payload['price'] ?? 0),
                 ':active' => !empty($payload['is_active']) ? 1 : 0,
                 ':allowed_extensions' => $allowedExtensionsJson,
-                ':plan' => trim($payload['plesk_service_plan'] ?? ''),
             ];
             if (strlen($data[':name']) < 3) {
                 throw new RuntimeException('Paket adı en az 3 karakter olmalı.');
             }
             if ($packageId) {
-                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_extensions = :allowed_extensions, plesk_service_plan = :plan, price = :price, is_active = :active WHERE id = :id');
+                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_extensions = :allowed_extensions, price = :price, is_active = :active WHERE id = :id');
                 $stmt->execute($data + [':id' => $packageId]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, plesk_service_plan, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_extensions, :plan, :price, :active)');
+                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_extensions, :price, :active)');
                 $stmt->execute($data);
                 $packageId = (int) $pdo->lastInsertId();
             }

@@ -55,7 +55,6 @@ CREATE TABLE IF NOT EXISTS packages (
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
     allowed_extensions TEXT DEFAULT NULL,
-    plesk_service_plan VARCHAR(191) DEFAULT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -68,9 +67,6 @@ SQL);
     if (schemaColumnExists($pdo, 'packages', 'allowed_mime_types')) {
         $pdo->exec('UPDATE packages SET allowed_extensions = allowed_mime_types WHERE (allowed_extensions IS NULL OR allowed_extensions = \'\') AND allowed_mime_types IS NOT NULL');
         $pdo->exec('ALTER TABLE packages DROP COLUMN allowed_mime_types');
-    }
-    if (!schemaColumnExists($pdo, 'packages', 'plesk_service_plan')) {
-        $pdo->exec('ALTER TABLE packages ADD COLUMN plesk_service_plan VARCHAR(191) DEFAULT NULL AFTER allowed_extensions');
     }
 
     $pdo->exec(<<<SQL
@@ -241,19 +237,6 @@ CREATE TABLE IF NOT EXISTS file_access_logs (
 SQL);
 
     $pdo->exec(<<<SQL
-CREATE TABLE IF NOT EXISTS realtime_events (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT DEFAULT NULL,
-    channel VARCHAR(120) NOT NULL,
-    payload JSON NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_events_channel (channel),
-    INDEX idx_events_user (user_id),
-    CONSTRAINT fk_events_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-SQL);
-
-    $pdo->exec(<<<SQL
 CREATE TABLE IF NOT EXISTS retention_policies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
@@ -371,15 +354,7 @@ function store_file(PDO $pdo, array $data): int
         ':folder_id' => $data['folder_id'] ?? null,
         ':is_public' => !empty($data['is_public']) ? 1 : 0,
     ]);
-    $fileId = (int) $pdo->lastInsertId();
-    push_realtime_event($pdo, 'files', [
-        'event' => 'created',
-        'file_id' => $fileId,
-        'filename' => $data['filename'],
-        'size' => (int) $data['size'],
-        'folder_id' => $data['folder_id'] ?? null,
-    ], isset($data['user_id']) ? (int) $data['user_id'] : null);
-    return $fileId;
+    return (int) $pdo->lastInsertId();
 }
 
 function fetch_file(PDO $pdo, int $id): ?array
@@ -1125,12 +1100,7 @@ function ensureDefaultSettings(PDO $pdo): void
         auto_delete_enabled TINYINT(1) DEFAULT 0,
         archive_after_days INT DEFAULT NULL,
         delete_after_days INT DEFAULT NULL,
-        geoip_database_path VARCHAR(255) DEFAULT NULL,
-        realtime_updates_enabled TINYINT(1) DEFAULT 0,
-        realtime_ws_url VARCHAR(255) DEFAULT NULL,
-        plesk_api_url VARCHAR(255) DEFAULT NULL,
-        plesk_api_login VARCHAR(191) DEFAULT NULL,
-        plesk_api_password VARCHAR(191) DEFAULT NULL
+        geoip_database_path VARCHAR(255) DEFAULT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
     if (!schemaColumnExists($pdo, 'settings', 'meta_keywords')) {
@@ -1245,22 +1215,6 @@ function ensureDefaultSettings(PDO $pdo): void
     if (!schemaColumnExists($pdo, 'settings', 'geoip_database_path')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN geoip_database_path VARCHAR(255) DEFAULT NULL AFTER delete_after_days');
     }
-    if (!schemaColumnExists($pdo, 'settings', 'realtime_updates_enabled')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN realtime_updates_enabled TINYINT(1) DEFAULT 0 AFTER geoip_database_path');
-    }
-    if (!schemaColumnExists($pdo, 'settings', 'realtime_ws_url')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN realtime_ws_url VARCHAR(255) DEFAULT NULL AFTER realtime_updates_enabled');
-    }
-    if (!schemaColumnExists($pdo, 'settings', 'plesk_api_url')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_url VARCHAR(255) DEFAULT NULL AFTER realtime_ws_url');
-    }
-    if (!schemaColumnExists($pdo, 'settings', 'plesk_api_login')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_login VARCHAR(191) DEFAULT NULL AFTER plesk_api_url');
-    }
-    if (!schemaColumnExists($pdo, 'settings', 'plesk_api_password')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_password VARCHAR(191) DEFAULT NULL AFTER plesk_api_login');
-    }
-
     $count = (int) $pdo->query('SELECT COUNT(*) FROM settings')->fetchColumn();
     if ($count === 0) {
         $defaultExtensions = json_encode(DEFAULT_ALLOWED_EXTENSIONS);
@@ -1717,10 +1671,6 @@ function delete_file_completely(PDO $pdo, int $fileId): void
         @unlink($path);
     }
     $pdo->prepare('DELETE FROM files WHERE id = :id')->execute([':id' => $fileId]);
-    push_realtime_event($pdo, 'files', [
-        'event' => 'deleted',
-        'file_id' => $fileId,
-    ], $file['user_id'] ? (int) $file['user_id'] : null);
 }
 
 function store_payment_proof(array $file): string
@@ -1866,7 +1816,6 @@ function complete_transaction(PDO $pdo, int $transactionId, string $status, ?str
 
     if ($status === 'paid') {
         assign_package_to_user($pdo, (int) $transaction['user_id'], (int) $transaction['package_id']);
-        plesk_sync_package($pdo, (int) $transaction['user_id']);
         if ($user) {
             notify_user(
                 $pdo,
@@ -1884,12 +1833,6 @@ function complete_transaction(PDO $pdo, int $transactionId, string $status, ?str
         );
     }
 
-    push_realtime_event($pdo, 'transactions', [
-        'event' => 'updated',
-        'transaction_id' => (int) $transaction['id'],
-        'status' => $status,
-        'package_id' => (int) $transaction['package_id'],
-    ], (int) $transaction['user_id']);
 }
 
 function fetch_transaction(PDO $pdo, int $transactionId): ?array
@@ -1906,69 +1849,6 @@ function assign_package_to_user(PDO $pdo, int $userId, int $packageId): void
     $stmt->execute([
         ':package_id' => $packageId,
         ':id' => $userId,
-    ]);
-}
-
-function plesk_sync_package(PDO $pdo, int $userId): void
-{
-    $settings = fetch_settings($pdo);
-    if (empty($settings['plesk_api_url']) || empty($settings['plesk_api_login']) || empty($settings['plesk_api_password'])) {
-        return;
-    }
-
-    $package = package_for_user($pdo, $userId);
-    if (!$package) {
-        return;
-    }
-
-    $ch = curl_init(rtrim($settings['plesk_api_url'], '/') . '/api/v2/clients/' . $userId . '/limits');
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_USERPWD => $settings['plesk_api_login'] . ':' . $settings['plesk_api_password'],
-        CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-        CURLOPT_CUSTOMREQUEST => 'POST',
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS => json_encode([
-            'disk_space' => (int) $package['storage_limit'],
-            'max_concurrent_uploads' => (int) $package['max_concurrent_uploads'],
-        ]),
-    ]);
-    $response = curl_exec($ch);
-    if ($response === false) {
-        error_log('Plesk eşitleme başarısız: ' . curl_error($ch));
-    }
-    curl_close($ch);
-
-    if (!empty($package['plesk_service_plan'])) {
-        $planEndpoint = rtrim($settings['plesk_api_url'], '/') . '/api/v2/clients/' . $userId . '/service-plan';
-        $planCh = curl_init($planEndpoint);
-        curl_setopt_array($planCh, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_USERPWD => $settings['plesk_api_login'] . ':' . $settings['plesk_api_password'],
-            CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS => json_encode(['plan' => $package['plesk_service_plan']]),
-        ]);
-        $planResponse = curl_exec($planCh);
-        if ($planResponse === false) {
-            error_log('Plesk plan güncelleme başarısız: ' . curl_error($planCh));
-        }
-        curl_close($planCh);
-    }
-}
-
-function push_realtime_event(PDO $pdo, string $channel, array $payload, ?int $userId = null): void
-{
-    $settings = fetch_settings($pdo);
-    if (empty($settings['realtime_updates_enabled'])) {
-        return;
-    }
-    $stmt = $pdo->prepare('INSERT INTO realtime_events (user_id, channel, payload) VALUES (:user_id, :channel, :payload)');
-    $stmt->execute([
-        ':user_id' => $userId,
-        ':channel' => $channel,
-        ':payload' => json_encode($payload, JSON_THROW_ON_ERROR),
     ]);
 }
 

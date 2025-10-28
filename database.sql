@@ -3,7 +3,6 @@
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
 
-DROP TABLE IF EXISTS realtime_events;
 DROP TABLE IF EXISTS file_access_logs;
 DROP TABLE IF EXISTS retention_policies;
 DROP TABLE IF EXISTS transactions;
@@ -23,16 +22,15 @@ CREATE TABLE packages (
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
     allowed_extensions TEXT DEFAULT NULL,
-    plesk_service_plan VARCHAR(191) DEFAULT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, plesk_service_plan, price) VALUES
-    ('Başlangıç', 524288000, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), NULL, NULL, 0.00),
-    ('Profesyonel', 2147483648, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), NULL, NULL, 14.99),
-    ('Kurumsal', 5368709120, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), NULL, NULL, 49.99);
+INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, price) VALUES
+    ('Başlangıç', 524288000, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), NULL, 0.00),
+    ('Profesyonel', 2147483648, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), NULL, 14.99),
+    ('Kurumsal', 5368709120, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), NULL, 49.99);
 
 CREATE TABLE settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -84,12 +82,7 @@ CREATE TABLE settings (
     auto_delete_enabled TINYINT(1) DEFAULT 0,
     archive_after_days INT DEFAULT NULL,
     delete_after_days INT DEFAULT NULL,
-    geoip_database_path VARCHAR(255) DEFAULT NULL,
-    realtime_updates_enabled TINYINT(1) DEFAULT 0,
-    realtime_ws_url VARCHAR(255) DEFAULT NULL,
-    plesk_api_url VARCHAR(255) DEFAULT NULL,
-    plesk_api_login VARCHAR(191) DEFAULT NULL,
-    plesk_api_password VARCHAR(191) DEFAULT NULL
+    geoip_database_path VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO settings (
@@ -110,8 +103,7 @@ INSERT INTO settings (
     folder_passwords_enabled,
     share_download_delay,
     payment_currency,
-    bank_transfer_enabled,
-    realtime_ws_url
+    bank_transfer_enabled
 ) VALUES (
     'NoaSoft Dosya Deposu',
     'Güvenli ve hızlı dosya yükleme platformu.',
@@ -130,10 +122,7 @@ INSERT INTO settings (
     1,
     0,
     'TRY',
-    1,
-    NULL,
-    NULL,
-    NULL
+    1
 );
 
 CREATE TABLE users (
@@ -275,15 +264,4 @@ CREATE TABLE file_access_logs (
     INDEX idx_access_token (share_token),
     CONSTRAINT fk_access_file FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
     CONSTRAINT fk_access_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE realtime_events (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT DEFAULT NULL,
-    channel VARCHAR(120) NOT NULL,
-    payload JSON NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_events_channel (channel),
-    INDEX idx_events_user (user_id),
-    CONSTRAINT fk_events_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

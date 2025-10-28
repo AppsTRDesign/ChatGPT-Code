@@ -201,12 +201,6 @@
         });
     });
 
-    document.addEventListener('realtime:event', (event) => {
-        if (event.detail?.channel === 'files') {
-            loadStats().catch(console.error);
-        }
-    });
-
     loadStats().catch(error => {
         console.error(error);
         Swal.fire({ icon: 'error', title: 'Analitik alınamadı', text: error.message });

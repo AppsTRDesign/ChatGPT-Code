@@ -79,10 +79,6 @@ $structuredJson = json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNE
                 'bank_transfer' => !empty($settings['bank_transfer_enabled']),
             ], JSON_UNESCAPED_SLASHES) ?>,
             bankInstructions: <?= json_encode($settings['bank_transfer_instructions'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
-            realtime: <?= json_encode([
-                'enabled' => !empty($settings['realtime_updates_enabled']),
-                'wsUrl' => $settings['realtime_ws_url'] ?? null,
-            ], JSON_UNESCAPED_SLASHES) ?>,
             userId: <?= $currentUser ? (int) $currentUser['id'] : 'null' ?>
         });
     </script>
@@ -97,21 +93,20 @@ if ($currentUser) {
     if (is_admin()) {
         $panelLinks = [
             ['label' => 'Genel Bakış', 'href' => BASE_URL . '/admin', 'active' => str_ends_with($path, '/admin/index.php')],
-            ['label' => 'Dosyalar', 'href' => BASE_URL . '/admin/files.php', 'active' => str_ends_with($path, '/admin/files.php')],
-            ['label' => 'Üyeler', 'href' => BASE_URL . '/admin/users.php', 'active' => str_ends_with($path, '/admin/users.php')],
-            ['label' => 'Paketler', 'href' => BASE_URL . '/admin/packages.php', 'active' => str_ends_with($path, '/admin/packages.php')],
-            ['label' => 'Satın Alımlar', 'href' => BASE_URL . '/admin/purchases.php', 'active' => str_ends_with($path, '/admin/purchases.php')],
-            ['label' => 'Ödeme Bildirimleri', 'href' => BASE_URL . '/admin/payment-notifications.php', 'active' => str_ends_with($path, '/admin/payment-notifications.php')],
-            ['label' => 'Genel Ayarlar', 'href' => BASE_URL . '/admin/settings.php', 'active' => str_ends_with($path, '/admin/settings.php')],
-            ['label' => 'Entegrasyonlar', 'href' => BASE_URL . '/admin/integrations.php', 'active' => str_ends_with($path, '/admin/integrations.php')],
+            ['label' => 'Dosyalar', 'href' => BASE_URL . '/admin/files', 'active' => str_ends_with($path, '/admin/files.php')],
+            ['label' => 'Üyeler', 'href' => BASE_URL . '/admin/users', 'active' => str_ends_with($path, '/admin/users.php')],
+            ['label' => 'Paketler', 'href' => BASE_URL . '/admin/packages', 'active' => str_ends_with($path, '/admin/packages.php')],
+            ['label' => 'Satın Alımlar', 'href' => BASE_URL . '/admin/purchases', 'active' => str_ends_with($path, '/admin/purchases.php')],
+            ['label' => 'Ödeme Bildirimleri', 'href' => BASE_URL . '/admin/payment-notifications', 'active' => str_ends_with($path, '/admin/payment-notifications.php')],
+            ['label' => 'Genel Ayarlar', 'href' => BASE_URL . '/admin/settings', 'active' => str_ends_with($path, '/admin/settings.php')],
         ];
     } else {
         $panelLinks = [
             ['label' => 'Kontrol Paneli', 'href' => BASE_URL . '/client', 'active' => str_ends_with($path, '/client/index.php')],
-            ['label' => 'Dosyalarım', 'href' => BASE_URL . '/client/files.php', 'active' => str_ends_with($path, '/client/files.php')],
-            ['label' => 'Profil', 'href' => BASE_URL . '/client/profile.php', 'active' => str_ends_with($path, '/client/profile.php')],
-            ['label' => 'Paketler', 'href' => BASE_URL . '/client/packages.php', 'active' => str_ends_with($path, '/client/packages.php')],
-            ['label' => 'Paylaşım Analitiği', 'href' => BASE_URL . '/client/share-stats.php', 'active' => str_ends_with($path, '/client/share-stats.php')],
+            ['label' => 'Dosyalarım', 'href' => BASE_URL . '/client/files', 'active' => str_ends_with($path, '/client/files.php')],
+            ['label' => 'Profil', 'href' => BASE_URL . '/client/profile', 'active' => str_ends_with($path, '/client/profile.php')],
+            ['label' => 'Paketler', 'href' => BASE_URL . '/client/packages', 'active' => str_ends_with($path, '/client/packages.php')],
+            ['label' => 'Paylaşım Analitiği', 'href' => BASE_URL . '/client/share-stats', 'active' => str_ends_with($path, '/client/share-stats.php')],
         ];
     }
 }

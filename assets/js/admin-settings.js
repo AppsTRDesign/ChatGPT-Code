@@ -31,7 +31,6 @@
         const toggles = {
             analytics_enabled: document.getElementById('analyticsEnabled'),
             share_stats_enabled: document.getElementById('shareStatsEnabled'),
-            realtime_updates_enabled: document.getElementById('realtimeUpdatesEnabled'),
             public_sharing_enabled: document.getElementById('publicSharingEnabled'),
             folder_passwords_enabled: document.getElementById('folderPasswordsEnabled'),
             share_password_required: document.getElementById('sharePasswordRequired'),

@@ -49,6 +49,29 @@ include __DIR__ . '/nav.php';
             </div>
         </div>
 
+        <div class="col-12">
+            <div class="card card-glass h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Sosyal &amp; Paylaşım Meta Verileri</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Sosyal Başlık</label>
+                            <input type="text" name="social_title" class="form-control" value="<?= sanitize($settings['social_title'] ?? '') ?>" placeholder="Paylaşımlarda görünecek başlık">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Twitter Kullanıcı Adı</label>
+                            <input type="text" name="twitter_handle" class="form-control" value="<?= sanitize($settings['twitter_handle'] ?? '') ?>" placeholder="ornekhesap">
+                            <small class="text-white-50">"@" işareti eklemeden yazın.</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Sosyal Açıklama</label>
+                            <textarea name="social_description" class="form-control" rows="3" placeholder="Paylaşımlarda görünecek açıklama"><?= sanitize($settings['social_description'] ?? '') ?></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-12 col-xl-6">
             <div class="card card-glass h-100">
                 <div class="card-body">
@@ -77,33 +100,10 @@ include __DIR__ . '/nav.php';
             </div>
         </div>
 
-        <div class="col-12">
-            <div class="card card-glass h-100">
-                <div class="card-body">
-                    <h2 class="h5 mb-3">Sosyal &amp; Paylaşım Meta Verileri</h2>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Sosyal Başlık</label>
-                            <input type="text" name="social_title" class="form-control" value="<?= sanitize($settings['social_title'] ?? '') ?>" placeholder="Paylaşımlarda görünecek başlık">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Twitter Kullanıcı Adı</label>
-                            <input type="text" name="twitter_handle" class="form-control" value="<?= sanitize($settings['twitter_handle'] ?? '') ?>" placeholder="ornekhesap">
-                            <small class="text-white-50">"@" işareti eklemeden yazın.</small>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Sosyal Açıklama</label>
-                            <textarea name="social_description" class="form-control" rows="3" placeholder="Paylaşımlarda görünecek açıklama"><?= sanitize($settings['social_description'] ?? '') ?></textarea>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="col-12 col-xl-6">
             <div class="card card-glass h-100">
                 <div class="card-body">
-                    <h2 class="h5 mb-3">Analitik &amp; Gerçek Zamanlı Takip</h2>
+                    <h2 class="h5 mb-3">Analitik &amp; Takip</h2>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" role="switch" id="analyticsEnabled" name="analytics_enabled" <?= !empty($settings['analytics_enabled']) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="analyticsEnabled">Google Analytics kodunu aktif et</label>
@@ -113,10 +113,6 @@ include __DIR__ . '/nav.php';
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" type="checkbox" role="switch" id="shareStatsEnabled" name="share_stats_enabled" <?= !empty($settings['share_stats_enabled']) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="shareStatsEnabled">Paylaşım istatistiklerini topla</label>
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" role="switch" id="realtimeUpdatesEnabled" name="realtime_updates_enabled" <?= !empty($settings['realtime_updates_enabled']) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="realtimeUpdatesEnabled">WebSocket güncellemelerini aktif et</label>
                     </div>
                     <label class="form-label">GeoIP Veritabanı Yolu</label>
                     <input type="text" name="geoip_database_path" class="form-control" value="<?= sanitize($settings['geoip_database_path'] ?? '') ?>" placeholder="/path/to/GeoLite2-City.mmdb">
@@ -279,28 +275,6 @@ include __DIR__ . '/nav.php';
                     </div>
                     <label class="form-label">Talimat Metni</label>
                     <textarea name="bank_transfer_instructions" class="form-control" rows="6" placeholder="IBAN, açıklama, onay süreci vb."><?= sanitize($settings['bank_transfer_instructions'] ?? '') ?></textarea>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12">
-            <div class="card card-glass h-100">
-                <div class="card-body">
-                    <h2 class="h5 mb-3">Plesk &amp; Entegrasyonlar</h2>
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Plesk API URL</label>
-                            <input type="text" name="plesk_api_url" class="form-control" value="<?= sanitize($settings['plesk_api_url'] ?? '') ?>">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Plesk API Kullanıcı</label>
-                            <input type="text" name="plesk_api_login" class="form-control" value="<?= sanitize($settings['plesk_api_login'] ?? '') ?>">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Plesk API Şifre</label>
-                            <input type="password" name="plesk_api_password" class="form-control" value="<?= sanitize($settings['plesk_api_password'] ?? '') ?>">
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
