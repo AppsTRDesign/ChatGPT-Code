@@ -89,6 +89,7 @@
                 paramName: 'file',
                 maxFilesize: maxFilesizeMB,
                 parallelUploads,
+                uploadMultiple: form.dataset.uploadMultiple === 'true',
                 addRemoveLinks: false,
                 timeout: 0,
                 acceptedFiles: accepted,
@@ -163,6 +164,17 @@
                         formData.append('csrf_token', csrfToken);
                         if (form.dataset.folderId) {
                             formData.append('folder_id', form.dataset.folderId);
+                        }
+                        if (form.dataset.transactionId) {
+                            formData.append('transaction_id', form.dataset.transactionId);
+                        }
+                        const actionField = form.querySelector('input[name="action"], select[name="action"], textarea[name="action"]');
+                        if (actionField && actionField.value) {
+                            formData.append('action', actionField.value);
+                        }
+                        const noteField = form.querySelector('[name="note"]');
+                        if (noteField && noteField.value) {
+                            formData.append('note', noteField.value);
                         }
                     });
 
@@ -348,4 +360,80 @@
             }
         });
     });
+
+    const initRealtime = () => {
+        const realtime = appConfig.realtime || {};
+        if (!realtime.enabled || !realtime.wsUrl || typeof WebSocket === 'undefined') {
+            return;
+        }
+
+        let baseUrl = realtime.wsUrl;
+        try {
+            const socketUrl = new URL(realtime.wsUrl);
+            socketUrl.searchParams.set('channel', 'files');
+            if (appConfig.userId) {
+                socketUrl.searchParams.set('user', appConfig.userId);
+            }
+            baseUrl = socketUrl.toString();
+        } catch (error) {
+            console.warn('WebSocket URL parse edilemedi:', error);
+        }
+
+        let socket = null;
+        let reconnectTimer = null;
+
+        const connect = () => {
+            try {
+                socket = new WebSocket(baseUrl);
+            } catch (error) {
+                console.error('WebSocket bağlantısı kurulamadı:', error);
+                scheduleReconnect();
+                return;
+            }
+
+            socket.addEventListener('open', () => {
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                }
+            });
+
+            socket.addEventListener('message', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    document.dispatchEvent(new CustomEvent('realtime:event', { detail: data }));
+                } catch (error) {
+                    console.warn('Gerçek zamanlı veri işlenemedi:', error);
+                }
+            });
+
+            socket.addEventListener('close', scheduleReconnect);
+            socket.addEventListener('error', scheduleReconnect);
+        };
+
+        const scheduleReconnect = () => {
+            if (reconnectTimer) {
+                return;
+            }
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                connect();
+            }, 5000);
+        };
+
+        document.addEventListener('realtime:subscribe', (event) => {
+            const channel = event.detail?.channel;
+            if (!channel || !socket || socket.readyState !== WebSocket.OPEN) {
+                return;
+            }
+            const payload = { subscribe: channel };
+            if (appConfig.userId) {
+                payload.user_id = appConfig.userId;
+            }
+            socket.send(JSON.stringify(payload));
+        });
+
+        connect();
+    };
+
+    initRealtime();
 })();

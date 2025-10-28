@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS realtime_events;
 DROP TABLE IF EXISTS file_access_logs;
 DROP TABLE IF EXISTS retention_policies;
 DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS payment_notifications;
 DROP TABLE IF EXISTS contacts;
 DROP TABLE IF EXISTS password_resets;
 DROP TABLE IF EXISTS files;
@@ -22,15 +23,16 @@ CREATE TABLE packages (
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
     allowed_mime_types TEXT DEFAULT NULL,
+    plesk_service_plan VARCHAR(191) DEFAULT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, price) VALUES
-    ('Başlangıç', 524288000, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), NULL, 0.00),
-    ('Profesyonel', 2147483648, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), NULL, 14.99),
-    ('Kurumsal', 5368709120, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), NULL, 49.99);
+INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, plesk_service_plan, price) VALUES
+    ('Başlangıç', 524288000, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), NULL, NULL, 0.00),
+    ('Profesyonel', 2147483648, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), NULL, NULL, 14.99),
+    ('Kurumsal', 5368709120, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), NULL, NULL, 49.99);
 
 CREATE TABLE settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -78,6 +80,7 @@ CREATE TABLE settings (
     delete_after_days INT DEFAULT NULL,
     geoip_database_path VARCHAR(255) DEFAULT NULL,
     realtime_updates_enabled TINYINT(1) DEFAULT 0,
+    realtime_ws_url VARCHAR(255) DEFAULT NULL,
     plesk_api_url VARCHAR(255) DEFAULT NULL,
     plesk_api_login VARCHAR(191) DEFAULT NULL,
     plesk_api_password VARCHAR(191) DEFAULT NULL
@@ -95,7 +98,8 @@ INSERT INTO settings (
     folder_passwords_enabled,
     share_download_delay,
     payment_currency,
-    bank_transfer_enabled
+    bank_transfer_enabled,
+    realtime_ws_url
 ) VALUES (
     'NoaSoft Dosya Deposu',
     'Güvenli ve hızlı dosya yükleme platformu.',
@@ -108,7 +112,8 @@ INSERT INTO settings (
     1,
     0,
     'TRY',
-    1
+    1,
+    NULL
 );
 
 CREATE TABLE users (
@@ -126,7 +131,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO users (name, email, password_hash, role, email_verified)
-VALUES ('Sistem Yöneticisi', 'admin@fileupload.noasoft.org', '$2y$12$wcnefRGKeNssAK6zh42BlOR8W0KaehWhMQ/DzP4NEeah8x5stJjmu', 'admin', 1);
+VALUES ('Sistem Yöneticisi', 'admin@noasoft.org', '$2y$12$J.8D8vKhhm0k0HNKk4L0PeoZrygw9EwzBtuE70tL5z9KgMRgzd43W', 'admin', 1);
 
 CREATE TABLE folders (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -211,6 +216,24 @@ CREATE TABLE transactions (
     CONSTRAINT fk_transactions_packages FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
     INDEX idx_transactions_provider (provider),
     INDEX idx_transactions_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE payment_notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    transaction_id INT DEFAULT NULL,
+    user_id INT NOT NULL,
+    provider ENUM('iyzico','stripe','bank_transfer') NOT NULL DEFAULT 'bank_transfer',
+    amount DECIMAL(10,2) DEFAULT NULL,
+    currency VARCHAR(10) DEFAULT 'TRY',
+    status ENUM('pending','approved','rejected','insufficient') NOT NULL DEFAULT 'pending',
+    attachments JSON DEFAULT NULL,
+    note TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payment_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_payment_notifications_transaction FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL,
+    INDEX idx_payment_notifications_status (status),
+    UNIQUE KEY uniq_payment_notifications_tx (transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE file_access_logs (

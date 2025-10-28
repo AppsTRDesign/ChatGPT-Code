@@ -16,6 +16,9 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 - **Client Paneli:** Dosya yönetimi, paket satın alma, kullanım istatistikleri, profil düzenleme ve ajax tabanlı bildirimler.
 - **Ana Sayfa Vitrini:** Koyu temaya uyumlu yeni hero, özellik kartları, zaman çizelgesi ve paket vitrinleri ile satış odaklı sunum.
 - **Ödeme Otomasyonu:** Iyzico, Stripe ve Havale/EFT seçenekleri; aktif/pasif kontrolü, otomatik ödeme sayfası oluşturma ve webhook/callback ile paket ataması.
+- **Satın Alma & Dekont Yönetimi:** Banka transferleri için Dropzone destekli dekont yükleme, admin panelinde bekleyen/onaylanan/eksik ödeme takip kartları.
+- **Paylaşım Analitiği:** Client panelinde günlük/haftalık/aylık/yıllık grafikler, coğrafi ve cihaz kırılımları ile CSV/PDF dışa aktarma.
+- **Gerçek Zamanlı Uyarılar:** Ratchet tabanlı WebSocket sunucusu sayesinde dosya yüklemeleri, ödeme bildirimleri ve paket güncellemeleri canlı olarak yönetim ekranlarına yansır.
 - **Bildirim & Entegrasyonlar:** PHPMailer tabanlı SMTP/PHP mail seçimi, GeoIP2 ve DeviceDetector ile indirme istatistikleri, Stripe webhook ve Iyzico callback uç noktaları, Plesk API senkronizasyonu.
 - **Saklama Politikaları:** Belirli gün sonunda arşivleme veya otomatik silme için zamanlayıcı fonksiyonları.
 - **Güvenlik:** CSRF koruması, MIME tipi doğrulaması, 50 MB varsayılan sınır, `uploads/.htaccess` ile doğrudan erişim kısıtlama.
@@ -41,7 +44,8 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 6. **Sunucu Yapılandırması:**
    - Projeyi kök dizine yerleştirin (`public` alt klasörü kullanılmıyor).
    - Apache için `.htaccess` dosyasını etkinleştirin; Nginx kullanıyorsanız eşdeğer yönlendirme kurallarını ekleyin.
-7. **Dosya İzinleri:** `uploads/` klasörünün web sunucusu tarafından yazılabilir olduğundan emin olun.
+7. **Gerçek Zamanlı Sunucu:** `composer install` sonrası `php bin/realtime-server.php [port]` komutu ile WebSocket sunucusunu başlatın (varsayılan port 6001).
+8. **Dosya İzinleri:** `uploads/` klasörünün web sunucusu tarafından yazılabilir olduğundan emin olun.
 
 ### Varsayılan Yönetici Bilgileri
 - E-posta: `admin@noasoft.org`
@@ -52,8 +56,8 @@ Kurulumdan sonra kontrol paneline erişip güçlü bir parola belirlemeniz öner
 ## Ödeme Entegrasyonları
 - **Iyzico:** Admin panelinden API anahtarlarını tanımlayıp modu aktifleştirin. Ödemeler `api/payment.php?provider=iyzico` uç noktasına geri döner ve başarılı işlemler otomatik olarak paketi atar.
 - **Stripe:** Webhook gizli anahtarını girin ve Stripe yönetim panelinde `https://fileupload.noasoft.org/api/payment.php?provider=stripe` adresini webhook olarak ekleyin. Checkout oturumları tamamlandığında paketler otomatik tanımlanır.
-- **Havale/EFT:** Banka talimatlarını girin; kullanıcılar satın alma sonrası pending işlem oluşturur ve yönetici onayı bekler.
-- **Plesk Senkronizasyonu:** Plesk API bilgileri ayarlandığında paket atamaları sonrasında limitler otomatik güncellenir.
+- **Havale/EFT:** Banka talimatlarını girin; kullanıcılar paket seçimi sırasında ödeme yöntemini belirler, Dropzone ile dekont yükler ve yönetici panelinden onay bekler. Onaylanan işlemler otomatik olarak ilgili paketi atar.
+- **Plesk Senkronizasyonu:** Plesk API bilgileri ayarlandığında paket atamaları sonrasında limitler otomatik güncellenir ve isteğe bağlı servis planı kimliği paketlere eşlenebilir.
 
 ### Plesk API Kullanımı
 Plesk REST API çağrıları panelinizin 8443 portu üzerinden yapılır. Örnek taban URL formatı:
@@ -71,6 +75,16 @@ https://<plesk-host>:8443/api/v2
 4. Paket eşitlemesi tetiklendiğinde uygulama `POST /servers/{id}/subscriptions` ve benzeri uç noktalara çağrı yapabilmek için HTTP Basic kimlik doğrulaması kullanır. Plesk tarafında IP kısıtlaması varsa uygulama sunucusunu yetkilendirin.
 
 > **Not:** Plesk API'si varsayılan olarak self-signed sertifika ile gelir. Üretim ortamında geçerli bir TLS sertifikası kullanarak API bağlantısının kesilmesini önleyin.
+
+### WebSocket Sunucusu
+
+Gerçek zamanlı bildirimler için `bin/realtime-server.php` betiği Ratchet tabanlı bir WebSocket sunucusu sağlar. Sunucuyu kalıcı olarak çalıştırmak için bir servis yöneticisi (systemd, supervisor) kullanabilir veya geçici olarak aşağıdaki komutla başlatabilirsiniz:
+
+```bash
+php bin/realtime-server.php 6001
+```
+
+Admin veya client panelleri bağlantı kurduğunda otomatik olarak `files` kanalına abone olur; ihtiyaç halinde `document.dispatchEvent(new CustomEvent('realtime:subscribe', { detail: { channel: 'transactions' } }));` kodu ile farklı kanallara geçiş yapabilirsiniz.
 
 ## Dizinyapısı
 ```

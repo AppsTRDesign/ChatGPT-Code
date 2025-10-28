@@ -7,6 +7,34 @@
         return;
     }
 
+    const providerModalEl = document.getElementById('paymentProviderModal');
+    const providerModal = providerModalEl && window.bootstrap ? new window.bootstrap.Modal(providerModalEl) : null;
+    const providerList = document.getElementById('paymentProviderList');
+    const bankModalEl = document.getElementById('bankTransferModal');
+    const bankModal = bankModalEl && window.bootstrap ? new window.bootstrap.Modal(bankModalEl) : null;
+    const bankInstructionsEl = document.getElementById('bankInstructions');
+    const bankPackageEl = document.querySelector('[data-bank-package]');
+    const bankAmountEl = document.querySelector('[data-bank-amount]');
+    const bankForm = document.getElementById('bankTransferForm');
+    const bankNoteField = bankForm ? bankForm.querySelector('[name="note"]') : null;
+
+    let bankDropzone = null;
+    if (bankForm && bankForm.dropzone) {
+        bankDropzone = bankForm.dropzone;
+    } else if (bankForm && window.Dropzone && typeof window.Dropzone.forElement === 'function') {
+        try {
+            bankDropzone = window.Dropzone.forElement(bankForm);
+        } catch (error) {
+            console.warn('Dropzone erişimi başarısız:', error);
+        }
+    }
+
+    let packagesCache = [];
+    let paymentProviders = {};
+    let bankInstructions = appConfig.bankInstructions || '';
+    let currency = 'TRY';
+    let activePackage = null;
+
     const formatBytes = (bytes) => {
         if (!Number.isFinite(bytes) || bytes <= 0) {
             return '0 B';
@@ -23,6 +51,7 @@
             container.innerHTML = '<div class="col-12 text-center text-white-50">Aktif paket bulunamadı.</div>';
             return;
         }
+        packagesCache = packages;
         packages.forEach(pkg => {
             const col = document.createElement('div');
             col.className = 'col-md-4';
@@ -52,7 +81,73 @@
         if (data.status !== 'success') {
             throw new Error(data.message || 'Paketler alınamadı');
         }
+        paymentProviders = data.payment_providers || {};
+        bankInstructions = data.bank_instructions || '';
+        currency = data.currency || 'TRY';
         renderPackages(data.data || []);
+    };
+
+    const refreshBankModal = () => {
+        if (!bankModalEl || !activePackage) {
+            return;
+        }
+        if (bankPackageEl) {
+            bankPackageEl.textContent = `${activePackage.name}`;
+        }
+        if (bankAmountEl) {
+            const amountText = activePackage.price > 0 ? `${activePackage.price.toFixed(2)} ${currency}` : 'Ücretsiz';
+            bankAmountEl.textContent = amountText;
+        }
+        if (bankInstructionsEl) {
+            bankInstructionsEl.innerHTML = bankInstructions ? bankInstructions : '<em>Yönetici henüz ödeme talimatı eklememiş.</em>';
+        }
+        if (bankNoteField) {
+            bankNoteField.value = '';
+        }
+        if (bankForm) {
+            bankForm.dataset.transactionId = bankForm.querySelector('input[name="transaction_id"]').value || '';
+        }
+        if (bankDropzone) {
+            bankDropzone.removeAllFiles(true);
+        }
+    };
+
+    const handleProviderSelection = async (providerKey) => {
+        if (!activePackage) {
+            return;
+        }
+        try {
+            const response = await fetch(`${appConfig.baseUrl}/api/client.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ action: 'purchase-package', package_id: activePackage.id, provider: providerKey, csrf_token: appConfig.csrfToken })
+            });
+            const data = await response.json();
+            if (data.status !== 'success') {
+                throw new Error(data.message || 'Paket seçilemedi');
+            }
+            if (providerKey === 'bank_transfer') {
+                if (!data.transaction_id) {
+                    throw new Error('İşlem kimliği alınamadı.');
+                }
+                if (bankForm) {
+                    bankForm.dataset.transactionId = String(data.transaction_id);
+                    const hiddenId = bankForm.querySelector('input[name="transaction_id"]');
+                    if (hiddenId) {
+                        hiddenId.value = String(data.transaction_id);
+                    }
+                }
+                refreshBankModal();
+                providerModal?.hide();
+                bankModal?.show();
+            } else if (data.payment_url) {
+                window.location.href = data.payment_url;
+            } else {
+                Swal.fire({ icon: 'success', title: 'Başarılı', text: data.message || 'Paketiniz işleme alındı.' });
+            }
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
+        }
     };
 
     container.addEventListener('click', async (event) => {
@@ -61,29 +156,72 @@
             return;
         }
         const id = Number(button.dataset.id);
-        const confirm = await Swal.fire({
-            icon: 'question',
-            title: 'Paketi onaylıyor musunuz?',
-            showCancelButton: true,
-            confirmButtonText: 'Satın Al',
-            cancelButtonText: 'İptal'
-        });
-        if (!confirm.isConfirmed) {
+        activePackage = packagesCache.find(item => Number(item.id) === id) || null;
+        if (!activePackage) {
+            Swal.fire({ icon: 'error', title: 'Hata', text: 'Paket bulunamadı.' });
             return;
         }
-        try {
-            const response = await fetch(`${appConfig.baseUrl}/api/client.php`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ action: 'purchase-package', package_id: id, csrf_token: appConfig.csrfToken })
+        const available = Object.entries(paymentProviders).filter(([, enabled]) => Boolean(enabled));
+        if (!available.length) {
+            Swal.fire({ icon: 'warning', title: 'Ödeme yöntemi kapalı', text: 'Şu anda herhangi bir ödeme yöntemi aktif değil.' });
+            return;
+        }
+        if (available.length === 1) {
+            handleProviderSelection(available[0][0]);
+            return;
+        }
+        if (providerList) {
+            providerList.innerHTML = '';
+            available.forEach(([key]) => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                let label = '';
+                switch (key) {
+                    case 'iyzico':
+                        label = 'Iyzico (Kredi/Banka Kartı)';
+                        break;
+                    case 'stripe':
+                        label = 'Stripe (Kart)';
+                        break;
+                    case 'bank_transfer':
+                    default:
+                        label = 'Havale / EFT';
+                        break;
+                }
+                item.innerHTML = `<span>${label}</span><i class="bi bi-chevron-right"></i>`;
+                item.addEventListener('click', () => handleProviderSelection(key));
+                providerList.appendChild(item);
             });
-            const data = await response.json();
-            if (data.status !== 'success') {
-                throw new Error(data.message || 'Paket seçilemedi');
+        }
+        providerModal?.show();
+    });
+
+    if (bankDropzone && bankModalEl) {
+        bankModalEl.addEventListener('hidden.bs.modal', () => {
+            if (bankDropzone) {
+                bankDropzone.removeAllFiles(true);
             }
-            Swal.fire({ icon: 'success', title: 'Başarılı', text: data.message });
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
+            if (bankNoteField) {
+                bankNoteField.value = '';
+            }
+            if (bankForm) {
+                bankForm.dataset.transactionId = '';
+                const hiddenId = bankForm.querySelector('input[name="transaction_id"]');
+                if (hiddenId) {
+                    hiddenId.value = '';
+                }
+            }
+        });
+    }
+
+    document.addEventListener('upload:completed', (event) => {
+        if (!bankForm || !event.detail) {
+            return;
+        }
+        if (bankForm.dataset.transactionId && bankDropzone && event.detail.transaction_id) {
+            Swal.fire({ icon: 'success', title: 'Dekont alındı', text: 'Ödeme bildiriminiz incelenmek üzere kaydedildi.' });
+            bankModal?.hide();
         }
     });
 

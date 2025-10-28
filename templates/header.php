@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config.php';
 $settings = fetch_settings($pdo);
+$currentUser = current_user();
 $title = $settings['meta_title'] ?? 'NoaSoft Dosya Deposu';
 $description = $settings['meta_description'] ?? 'Dosyalarınızı güvenle saklayın ve paylaşın.';
 $logoPath = !empty($settings['logo']) ? BASE_URL . '/uploads/' . ltrim($settings['logo'], '/') : BASE_URL . '/assets/img/logo.svg';
@@ -24,7 +25,18 @@ $faviconPath = !empty($settings['favicon']) ? BASE_URL . '/uploads/' . ltrim($se
     <script>
         window.APP_CONFIG = Object.assign({}, window.APP_CONFIG || {}, {
             baseUrl: '<?= BASE_URL ?>',
-            csrfToken: '<?= csrf_token() ?>'
+            csrfToken: '<?= csrf_token() ?>',
+            paymentProviders: <?= json_encode([
+                'iyzico' => !empty($settings['iyzico_enabled']),
+                'stripe' => !empty($settings['stripe_enabled']),
+                'bank_transfer' => !empty($settings['bank_transfer_enabled']),
+            ], JSON_UNESCAPED_SLASHES) ?>,
+            bankInstructions: <?= json_encode($settings['bank_transfer_instructions'] ?? '', JSON_UNESCAPED_UNICODE) ?>,
+            realtime: <?= json_encode([
+                'enabled' => !empty($settings['realtime_updates_enabled']),
+                'wsUrl' => $settings['realtime_ws_url'] ?? null,
+            ], JSON_UNESCAPED_SLASHES) ?>,
+            userId: <?= $currentUser ? (int) $currentUser['id'] : 'null' ?>
         });
     </script>
 </head>

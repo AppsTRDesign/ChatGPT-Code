@@ -28,6 +28,13 @@ if (!verify_csrf($csrf)) {
 }
 
 $action = $payload['action'] ?? '';
+$settings = fetch_settings($pdo);
+$activeProviders = [
+    'iyzico' => !empty($settings['iyzico_enabled']),
+    'stripe' => !empty($settings['stripe_enabled']),
+    'bank_transfer' => !empty($settings['bank_transfer_enabled']),
+];
+$enabledProviders = array_keys(array_filter($activeProviders));
 
 try {
     switch ($action) {
@@ -87,16 +94,22 @@ try {
                     'storage_limit' => (int) $pkg['storage_limit'],
                     'max_concurrent_uploads' => (int) $pkg['max_concurrent_uploads'],
                     'features' => $features,
+                    'plesk_service_plan' => $pkg['plesk_service_plan'] ?? null,
                 ];
             }, $stmt->fetchAll() ?: []);
-            echo json_encode(['status' => 'success', 'data' => $packages]);
+            echo json_encode([
+                'status' => 'success',
+                'data' => $packages,
+                'payment_providers' => $activeProviders,
+                'bank_instructions' => $settings['bank_transfer_instructions'] ?? '',
+                'currency' => $settings['payment_currency'] ?? 'TRY',
+            ]);
             break;
 
         case 'purchase-package':
             $packageId = (int) ($payload['package_id'] ?? 0);
             $provider = $payload['provider'] ?? 'bank_transfer';
-            $allowedProviders = ['iyzico', 'stripe', 'bank_transfer'];
-            if (!in_array($provider, $allowedProviders, true)) {
+            if (!in_array($provider, $enabledProviders, true)) {
                 throw new RuntimeException('Geçersiz ödeme yöntemi.');
             }
             if ($packageId <= 0) {
@@ -108,7 +121,6 @@ try {
             if (!$pkg) {
                 throw new RuntimeException('Paket bulunamadı.');
             }
-            $settings = fetch_settings($pdo);
             $user = current_user();
             $returnUrl = BASE_URL . '/client/packages.php?payment=success';
             $successUrl = $provider === 'iyzico'
@@ -138,6 +150,88 @@ try {
                     'transaction_id' => $result['transaction_id'] ?? null,
                 ]);
             }
+            break;
+
+        case 'payment-proof':
+            $transactionId = (int) ($payload['transaction_id'] ?? 0);
+            if ($transactionId <= 0) {
+                throw new RuntimeException('Geçersiz işlem numarası.');
+            }
+            $transaction = fetch_transaction($pdo, $transactionId);
+            if (!$transaction || (int) $transaction['user_id'] !== (int) current_user()['id']) {
+                throw new RuntimeException('İşlem bulunamadı.');
+            }
+            if (($transaction['provider'] ?? '') !== 'bank_transfer') {
+                throw new RuntimeException('Bu işlem için dekont yüklenemez.');
+            }
+            if (!$activeProviders['bank_transfer']) {
+                throw new RuntimeException('Havale/EFT şu an aktif değil.');
+            }
+
+            if (empty($_FILES['file'])) {
+                throw new RuntimeException('Dekont dosyası bulunamadı.');
+            }
+
+            $files = $_FILES['file'];
+            $entries = [];
+            if (is_array($files['name'])) {
+                $count = count($files['name']);
+                for ($i = 0; $i < $count; $i++) {
+                    $file = [
+                        'name' => $files['name'][$i],
+                        'type' => $files['type'][$i],
+                        'tmp_name' => $files['tmp_name'][$i],
+                        'error' => $files['error'][$i],
+                        'size' => $files['size'][$i],
+                    ];
+                    [$mime] = validate_uploaded_file($file, null, ['application/pdf', 'image/jpeg', 'image/png']);
+                    $entries[] = ['path' => store_payment_proof($file), 'mime' => $mime];
+                }
+            } else {
+                [$mime] = validate_uploaded_file($files, null, ['application/pdf', 'image/jpeg', 'image/png']);
+                $entries[] = ['path' => store_payment_proof($files), 'mime' => $mime];
+            }
+
+            $note = trim((string) ($payload['note'] ?? ''));
+            $existingStmt = $pdo->prepare('SELECT attachments FROM payment_notifications WHERE transaction_id = :transaction_id LIMIT 1');
+            $existingStmt->execute([':transaction_id' => $transactionId]);
+            $existing = $existingStmt->fetchColumn();
+            $existingList = [];
+            if ($existing) {
+                $decoded = json_decode((string) $existing, true);
+                if (is_array($decoded)) {
+                    $existingList = $decoded;
+                }
+            }
+            $merged = array_values(array_merge($existingList, $entries));
+
+            $pdo->prepare('INSERT INTO payment_notifications (transaction_id, user_id, provider, amount, currency, status, attachments, note)
+                VALUES (:transaction_id, :user_id, :provider, :amount, :currency, :status, :attachments, :note)
+                ON DUPLICATE KEY UPDATE attachments = VALUES(attachments), note = VALUES(note), status = VALUES(status), updated_at = NOW()')
+                ->execute([
+                    ':transaction_id' => $transactionId,
+                    ':user_id' => current_user()['id'],
+                    ':provider' => 'bank_transfer',
+                    ':amount' => $transaction['amount'],
+                    ':currency' => $transaction['currency'],
+                    ':status' => 'pending',
+                    ':attachments' => json_encode($merged, JSON_THROW_ON_ERROR),
+                    ':note' => $note,
+                ]);
+
+            push_realtime_event($pdo, 'transactions', [
+                'type' => 'payment_notification',
+                'transaction_id' => $transactionId,
+                'status' => 'pending',
+            ], (int) current_user()['id']);
+
+            echo json_encode(['status' => 'success', 'message' => 'Dekontunuz alındı. Yönetici onayı bekleniyor.', 'transaction_id' => $transactionId]);
+            break;
+
+        case 'share-analytics':
+            $user = current_user();
+            $stats = share_statistics($pdo, (int) $user['id']);
+            echo json_encode(['status' => 'success', 'data' => $stats]);
             break;
 
         default:

@@ -9,6 +9,7 @@ $settings = fetch_settings($pdo);
         <li class="nav-item"><a class="nav-link<?= basename($_SERVER['SCRIPT_NAME']) === 'files.php' ? ' active' : '' ?>" href="<?= BASE_URL ?>/client/files.php">Dosyalarım</a></li>
         <li class="nav-item"><a class="nav-link<?= basename($_SERVER['SCRIPT_NAME']) === 'profile.php' ? ' active' : '' ?>" href="<?= BASE_URL ?>/client/profile.php">Profil</a></li>
         <li class="nav-item"><a class="nav-link<?= basename($_SERVER['SCRIPT_NAME']) === 'packages.php' ? ' active' : '' ?>" href="<?= BASE_URL ?>/client/packages.php">Paketler</a></li>
+        <li class="nav-item"><a class="nav-link<?= basename($_SERVER['SCRIPT_NAME']) === 'share-stats.php' ? ' active' : '' ?>" href="<?= BASE_URL ?>/client/share-stats.php">Paylaşım Analitiği</a></li>
     </ul>
     <?php if (!empty($settings['ad_dashboard_html'])): ?>
         <div class="card card-glass p-3 mb-4">

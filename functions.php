@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS packages (
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
     allowed_mime_types TEXT DEFAULT NULL,
+    plesk_service_plan VARCHAR(191) DEFAULT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -66,6 +67,9 @@ SQL);
 
     if (!schemaColumnExists($pdo, 'packages', 'allowed_mime_types')) {
         $pdo->exec('ALTER TABLE packages ADD COLUMN allowed_mime_types TEXT DEFAULT NULL AFTER features');
+    }
+    if (!schemaColumnExists($pdo, 'packages', 'plesk_service_plan')) {
+        $pdo->exec('ALTER TABLE packages ADD COLUMN plesk_service_plan VARCHAR(191) DEFAULT NULL AFTER allowed_mime_types');
     }
 
     $pdo->exec(<<<SQL
@@ -191,6 +195,26 @@ SQL);
     if (!schemaIndexExists($pdo, 'transactions', 'idx_transactions_status')) {
         $pdo->exec('ALTER TABLE transactions ADD INDEX idx_transactions_status (status)');
     }
+
+    $pdo->exec(<<<SQL
+CREATE TABLE IF NOT EXISTS payment_notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    transaction_id INT DEFAULT NULL,
+    user_id INT NOT NULL,
+    provider ENUM('iyzico','stripe','bank_transfer') NOT NULL DEFAULT 'bank_transfer',
+    amount DECIMAL(10,2) DEFAULT NULL,
+    currency VARCHAR(10) DEFAULT 'TRY',
+    status ENUM('pending','approved','rejected','insufficient') NOT NULL DEFAULT 'pending',
+    attachments JSON DEFAULT NULL,
+    note TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payment_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_payment_notifications_transaction FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL,
+    INDEX idx_payment_notifications_status (status),
+    UNIQUE KEY uniq_payment_notifications_tx (transaction_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+SQL);
 
     $pdo->exec(<<<SQL
 CREATE TABLE IF NOT EXISTS file_access_logs (
@@ -346,7 +370,15 @@ function store_file(PDO $pdo, array $data): int
         ':folder_id' => $data['folder_id'] ?? null,
         ':is_public' => !empty($data['is_public']) ? 1 : 0,
     ]);
-    return (int) $pdo->lastInsertId();
+    $fileId = (int) $pdo->lastInsertId();
+    push_realtime_event($pdo, 'files', [
+        'event' => 'created',
+        'file_id' => $fileId,
+        'filename' => $data['filename'],
+        'size' => (int) $data['size'],
+        'folder_id' => $data['folder_id'] ?? null,
+    ], isset($data['user_id']) ? (int) $data['user_id'] : null);
+    return $fileId;
 }
 
 function fetch_file(PDO $pdo, int $id): ?array
@@ -922,6 +954,93 @@ function collect_usage_timeseries(PDO $pdo, string $range = 'daily'): array
     }, $rows);
 }
 
+function collect_share_timeseries(PDO $pdo, int $userId, string $range = 'daily'): array
+{
+    $range = strtolower($range);
+    switch ($range) {
+        case 'weekly':
+            $sql = "SELECT DATE_FORMAT(fal.created_at, '%x-W%v') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK) GROUP BY DATE_FORMAT(fal.created_at, '%x-W%v') ORDER BY sort_key";
+            break;
+        case 'monthly':
+            $sql = "SELECT DATE_FORMAT(fal.created_at, '%Y-%m') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY DATE_FORMAT(fal.created_at, '%Y-%m') ORDER BY sort_key";
+            break;
+        case 'yearly':
+            $sql = "SELECT DATE_FORMAT(fal.created_at, '%Y') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 5 YEAR) GROUP BY DATE_FORMAT(fal.created_at, '%Y') ORDER BY sort_key";
+            break;
+        case 'daily':
+        default:
+            $sql = "SELECT DATE(fal.created_at) AS label, DATE(fal.created_at) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY DATE(fal.created_at) ORDER BY sort_key";
+            break;
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':uid' => $userId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    return array_map(static function (array $row): array {
+        return [
+            'label' => (string) $row['label'],
+            'downloads' => (int) $row['downloads'],
+            'bytes' => (int) $row['bytes'],
+        ];
+    }, $rows);
+}
+
+function share_statistics(PDO $pdo, int $userId): array
+{
+    $ranges = ['daily', 'weekly', 'monthly', 'yearly'];
+    $timeseries = [];
+    foreach ($ranges as $range) {
+        $timeseries[$range] = collect_share_timeseries($pdo, $userId, $range);
+    }
+
+    $locationStmt = $pdo->prepare("SELECT COALESCE(NULLIF(fal.country, ''), 'Bilinmiyor') AS country, COALESCE(NULLIF(fal.city, ''), 'Bilinmiyor') AS city, COUNT(*) AS downloads FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid GROUP BY country, city ORDER BY downloads DESC LIMIT 25");
+    $locationStmt->execute([':uid' => $userId]);
+    $locations = array_map(static function (array $row): array {
+        return [
+            'country' => $row['country'],
+            'city' => $row['city'],
+            'downloads' => (int) $row['downloads'],
+        ];
+    }, $locationStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+
+    $deviceStmt = $pdo->prepare("SELECT COALESCE(NULLIF(fal.device_type, ''), 'Bilinmiyor') AS device_type, COALESCE(NULLIF(fal.os, ''), 'Bilinmiyor') AS os, COALESCE(NULLIF(fal.browser, ''), 'Bilinmiyor') AS browser, COALESCE(NULLIF(fal.platform, ''), 'Bilinmiyor') AS platform, COUNT(*) AS downloads FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid GROUP BY device_type, os, browser, platform ORDER BY downloads DESC LIMIT 25");
+    $deviceStmt->execute([':uid' => $userId]);
+    $devices = array_map(static function (array $row): array {
+        return [
+            'device_type' => $row['device_type'],
+            'os' => $row['os'],
+            'browser' => $row['browser'],
+            'platform' => $row['platform'],
+            'downloads' => (int) $row['downloads'],
+        ];
+    }, $deviceStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+
+    $recentStmt = $pdo->prepare('SELECT fal.id, fal.ip_address, fal.country, fal.city, fal.device_type, fal.os, fal.browser, fal.platform, fal.created_at, fal.share_token, f.filename FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid ORDER BY fal.created_at DESC LIMIT 50');
+    $recentStmt->execute([':uid' => $userId]);
+    $recent = array_map(static function (array $row): array {
+        return [
+            'id' => (int) $row['id'],
+            'ip_address' => $row['ip_address'],
+            'country' => $row['country'],
+            'city' => $row['city'],
+            'device_type' => $row['device_type'],
+            'os' => $row['os'],
+            'browser' => $row['browser'],
+            'platform' => $row['platform'],
+            'created_at' => $row['created_at'],
+            'share_token' => $row['share_token'],
+            'filename' => $row['filename'],
+        ];
+    }, $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+
+    return [
+        'timeseries' => $timeseries,
+        'locations' => $locations,
+        'devices' => $devices,
+        'recent' => $recent,
+    ];
+}
+
 function ensureDefaultPackages(PDO $pdo): void
 {
     $count = (int) $pdo->query('SELECT COUNT(*) FROM packages')->fetchColumn();
@@ -1001,6 +1120,7 @@ function ensureDefaultSettings(PDO $pdo): void
         delete_after_days INT DEFAULT NULL,
         geoip_database_path VARCHAR(255) DEFAULT NULL,
         realtime_updates_enabled TINYINT(1) DEFAULT 0,
+        realtime_ws_url VARCHAR(255) DEFAULT NULL,
         plesk_api_url VARCHAR(255) DEFAULT NULL,
         plesk_api_login VARCHAR(191) DEFAULT NULL,
         plesk_api_password VARCHAR(191) DEFAULT NULL
@@ -1099,8 +1219,11 @@ function ensureDefaultSettings(PDO $pdo): void
     if (!schemaColumnExists($pdo, 'settings', 'realtime_updates_enabled')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN realtime_updates_enabled TINYINT(1) DEFAULT 0 AFTER geoip_database_path');
     }
+    if (!schemaColumnExists($pdo, 'settings', 'realtime_ws_url')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN realtime_ws_url VARCHAR(255) DEFAULT NULL AFTER realtime_updates_enabled');
+    }
     if (!schemaColumnExists($pdo, 'settings', 'plesk_api_url')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_url VARCHAR(255) DEFAULT NULL AFTER realtime_updates_enabled');
+        $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_url VARCHAR(255) DEFAULT NULL AFTER realtime_ws_url');
     }
     if (!schemaColumnExists($pdo, 'settings', 'plesk_api_login')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN plesk_api_login VARCHAR(191) DEFAULT NULL AFTER plesk_api_url');
@@ -1523,6 +1646,25 @@ function delete_file_completely(PDO $pdo, int $fileId): void
         @unlink($path);
     }
     $pdo->prepare('DELETE FROM files WHERE id = :id')->execute([':id' => $fileId]);
+    push_realtime_event($pdo, 'files', [
+        'event' => 'deleted',
+        'file_id' => $fileId,
+    ], $file['user_id'] ? (int) $file['user_id'] : null);
+}
+
+function store_payment_proof(array $file): string
+{
+    $directory = __DIR__ . '/uploads/payment-proofs';
+    if (!is_dir($directory)) {
+        mkdir($directory, 0775, true);
+    }
+    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: '');
+    $stored = 'proof_' . bin2hex(random_bytes(12)) . ($extension ? '.' . $extension : '');
+    $target = $directory . '/' . $stored;
+    if (!move_uploaded_file($file['tmp_name'], $target)) {
+        throw new RuntimeException('Dekont kaydedilemedi.');
+    }
+    return 'payment-proofs/' . $stored;
 }
 
 function iyzico_client(PDO $pdo): ?Options
@@ -1670,6 +1812,13 @@ function complete_transaction(PDO $pdo, int $transactionId, string $status, ?str
             '<p>"' . sanitize($packageName) . '" paketi için ödeme başarısız oldu. Lütfen tekrar deneyin.</p>'
         );
     }
+
+    push_realtime_event($pdo, 'transactions', [
+        'event' => 'updated',
+        'transaction_id' => (int) $transaction['id'],
+        'status' => $status,
+        'package_id' => (int) $transaction['package_id'],
+    ], (int) $transaction['user_id']);
 }
 
 function fetch_transaction(PDO $pdo, int $transactionId): ?array
@@ -1718,6 +1867,24 @@ function plesk_sync_package(PDO $pdo, int $userId): void
         error_log('Plesk eşitleme başarısız: ' . curl_error($ch));
     }
     curl_close($ch);
+
+    if (!empty($package['plesk_service_plan'])) {
+        $planEndpoint = rtrim($settings['plesk_api_url'], '/') . '/api/v2/clients/' . $userId . '/service-plan';
+        $planCh = curl_init($planEndpoint);
+        curl_setopt_array($planCh, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_USERPWD => $settings['plesk_api_login'] . ':' . $settings['plesk_api_password'],
+            CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS => json_encode(['plan' => $package['plesk_service_plan']]),
+        ]);
+        $planResponse = curl_exec($planCh);
+        if ($planResponse === false) {
+            error_log('Plesk plan güncelleme başarısız: ' . curl_error($planCh));
+        }
+        curl_close($planCh);
+    }
 }
 
 function push_realtime_event(PDO $pdo, string $channel, array $payload, ?int $userId = null): void

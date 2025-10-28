@@ -87,6 +87,7 @@ try {
                     'allowed_mime_types' => $mimeList,
                     'price' => (float) $package['price'],
                     'is_active' => (int) $package['is_active'],
+                    'plesk_service_plan' => $package['plesk_service_plan'] ?? null,
                 ];
             }, $stmt->fetchAll() ?: []);
             echo json_encode(['status' => 'success', 'data' => $packages]);
@@ -130,6 +131,170 @@ try {
                 ];
             }, $rows);
             echo json_encode(['status' => 'success', 'data' => $files]);
+            break;
+
+        case 'list-transactions':
+            $stmt = $pdo->query('SELECT t.*, u.name AS user_name, u.email AS user_email, p.name AS package_name FROM transactions t LEFT JOIN users u ON u.id = t.user_id LEFT JOIN packages p ON p.id = t.package_id ORDER BY t.created_at DESC');
+            $transactions = array_map(static function (array $row): array {
+                $labels = [
+                    'pending' => 'Beklemede',
+                    'paid' => 'Ödendi',
+                    'failed' => 'Başarısız',
+                    'cancelled' => 'İptal',
+                    'refunded' => 'İade',
+                ];
+                return [
+                    'id' => (int) $row['id'],
+                    'user_id' => (int) $row['user_id'],
+                    'user_name' => $row['user_name'] ?? '—',
+                    'user_email' => $row['user_email'] ?? '—',
+                    'package_id' => (int) $row['package_id'],
+                    'package_name' => $row['package_name'] ?? '—',
+                    'amount' => (float) $row['amount'],
+                    'currency' => $row['currency'] ?? 'TRY',
+                    'provider' => $row['provider'],
+                    'status' => $row['status'],
+                    'status_label' => $labels[$row['status']] ?? ucfirst($row['status']),
+                    'reference' => $row['reference'],
+                    'created_at' => $row['created_at'],
+                ];
+            }, $stmt->fetchAll() ?: []);
+            echo json_encode(['status' => 'success', 'data' => $transactions]);
+            break;
+
+        case 'update-transaction':
+            $transactionId = (int) ($payload['transaction_id'] ?? 0);
+            $newStatus = $payload['status'] ?? '';
+            $allowed = ['paid', 'failed', 'cancelled'];
+            if ($transactionId <= 0 || !in_array($newStatus, $allowed, true)) {
+                throw new RuntimeException('Geçersiz işlem verisi.');
+            }
+            $transaction = fetch_transaction($pdo, $transactionId);
+            if (!$transaction) {
+                throw new RuntimeException('İşlem bulunamadı.');
+            }
+            complete_transaction($pdo, $transactionId, $newStatus);
+            echo json_encode(['status' => 'success', 'message' => 'İşlem durumu güncellendi.']);
+            break;
+
+        case 'list-payment-notifications':
+            $stmt = $pdo->query('SELECT n.*, u.name AS user_name, u.email AS user_email, p.name AS package_name, t.amount, t.currency FROM payment_notifications n INNER JOIN users u ON u.id = n.user_id LEFT JOIN transactions t ON t.id = n.transaction_id LEFT JOIN packages p ON p.id = t.package_id ORDER BY n.created_at DESC');
+            $notifications = array_map(static function (array $row): array {
+                $attachments = [];
+                if (!empty($row['attachments'])) {
+                    $decoded = json_decode($row['attachments'], true);
+                    if (is_array($decoded)) {
+                        $attachments = array_map(static function ($item): array {
+                            $path = is_array($item) ? ($item['path'] ?? '') : '';
+                            return [
+                                'path' => $path,
+                                'url' => $path ? BASE_URL . '/uploads/' . ltrim($path, '/') : null,
+                                'mime' => is_array($item) ? ($item['mime'] ?? null) : null,
+                            ];
+                        }, $decoded);
+                    }
+                }
+                $labels = [
+                    'pending' => 'Beklemede',
+                    'approved' => 'Onaylandı',
+                    'rejected' => 'Reddedildi',
+                    'insufficient' => 'Eksik ödeme',
+                ];
+                return [
+                    'id' => (int) $row['id'],
+                    'transaction_id' => $row['transaction_id'] ? (int) $row['transaction_id'] : null,
+                    'user_id' => (int) $row['user_id'],
+                    'user_name' => $row['user_name'],
+                    'user_email' => $row['user_email'],
+                    'package_name' => $row['package_name'] ?? '—',
+                    'amount' => (float) ($row['amount'] ?? 0),
+                    'currency' => $row['currency'] ?? 'TRY',
+                    'provider' => $row['provider'],
+                    'status' => $row['status'],
+                    'status_label' => $labels[$row['status']] ?? ucfirst($row['status']),
+                    'attachments' => $attachments,
+                    'note' => $row['note'],
+                    'created_at' => $row['created_at'],
+                ];
+            }, $stmt->fetchAll() ?: []);
+            echo json_encode(['status' => 'success', 'data' => $notifications]);
+            break;
+
+        case 'update-payment-notification':
+            $notificationId = (int) ($payload['notification_id'] ?? 0);
+            $status = $payload['status'] ?? '';
+            $allowedStatuses = ['approved', 'rejected', 'insufficient'];
+            if ($notificationId <= 0 || !in_array($status, $allowedStatuses, true)) {
+                throw new RuntimeException('Geçersiz bildirim verisi.');
+            }
+            $stmt = $pdo->prepare('SELECT * FROM payment_notifications WHERE id = :id');
+            $stmt->execute([':id' => $notificationId]);
+            $notification = $stmt->fetch();
+            if (!$notification) {
+                throw new RuntimeException('Bildirim bulunamadı.');
+            }
+            $pdo->prepare('UPDATE payment_notifications SET status = :status, updated_at = NOW() WHERE id = :id')->execute([
+                ':status' => $status,
+                ':id' => $notificationId,
+            ]);
+            if (!empty($notification['transaction_id'])) {
+                $txStatus = $status === 'approved' ? 'paid' : 'failed';
+                complete_transaction($pdo, (int) $notification['transaction_id'], $txStatus);
+            }
+            push_realtime_event($pdo, 'transactions', [
+                'type' => 'payment_notification_updated',
+                'notification_id' => $notificationId,
+                'status' => $status,
+            ], (int) $notification['user_id']);
+            echo json_encode(['status' => 'success', 'message' => 'Bildirim güncellendi.']);
+            break;
+
+        case 'plesk-test':
+            $settings = fetch_settings($pdo);
+            if (empty($settings['plesk_api_url']) || empty($settings['plesk_api_login']) || empty($settings['plesk_api_password'])) {
+                throw new RuntimeException('Plesk API ayarları eksik.');
+            }
+            $endpoint = rtrim($settings['plesk_api_url'], '/') . '/api/v2/servers';
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_USERPWD => $settings['plesk_api_login'] . ':' . $settings['plesk_api_password'],
+                CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
+                CURLOPT_TIMEOUT => 10,
+            ]);
+            $response = curl_exec($ch);
+            if ($response === false) {
+                $error = curl_error($ch);
+                curl_close($ch);
+                throw new RuntimeException('Plesk bağlantısı sağlanamadı: ' . $error);
+            }
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code >= 200 && $code < 300) {
+                echo json_encode(['status' => 'success', 'message' => 'Plesk API bağlantısı başarılı.']);
+            } else {
+                throw new RuntimeException('Plesk API beklenmedik yanıt döndürdü. HTTP ' . $code);
+            }
+            break;
+
+        case 'ws-test':
+            $settings = fetch_settings($pdo);
+            if (empty($settings['realtime_ws_url'])) {
+                throw new RuntimeException('WebSocket URL yapılandırılmamış.');
+            }
+            $parts = parse_url($settings['realtime_ws_url']);
+            if (!$parts || empty($parts['host'])) {
+                throw new RuntimeException('Geçersiz WebSocket URL bilgisi.');
+            }
+            $port = $parts['port'] ?? (($parts['scheme'] ?? 'ws') === 'wss' ? 443 : 80);
+            $errno = 0;
+            $errstr = '';
+            $socket = @fsockopen($parts['host'], $port, $errno, $errstr, 5);
+            if (!$socket) {
+                throw new RuntimeException('WebSocket sunucusuna bağlanılamadı: ' . $errstr);
+            }
+            fclose($socket);
+            echo json_encode(['status' => 'success', 'message' => 'WebSocket bağlantısı kurulabiliyor.']);
             break;
 
         case 'usage-timeseries':
@@ -319,15 +484,16 @@ try {
                 ':price' => (float) ($payload['price'] ?? 0),
                 ':active' => !empty($payload['is_active']) ? 1 : 0,
                 ':allowed_mime_types' => $allowedMimeJson,
+                ':plan' => trim($payload['plesk_service_plan'] ?? ''),
             ];
             if (strlen($data[':name']) < 3) {
                 throw new RuntimeException('Paket adı en az 3 karakter olmalı.');
             }
             if ($packageId) {
-                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_mime_types = :allowed_mime_types, price = :price, is_active = :active WHERE id = :id');
+                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_mime_types = :allowed_mime_types, plesk_service_plan = :plan, price = :price, is_active = :active WHERE id = :id');
                 $stmt->execute($data + [':id' => $packageId]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_mime_types, :price, :active)');
+                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, plesk_service_plan, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_mime_types, :plan, :price, :active)');
                 $stmt->execute($data);
                 $packageId = (int) $pdo->lastInsertId();
             }

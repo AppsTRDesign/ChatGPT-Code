@@ -61,6 +61,11 @@ include __DIR__ . '/nav.php';
                         <input type="number" step="0.01" class="form-control" id="packagePrice" name="price" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="packagePlan">Plesk Servis Planı</label>
+                        <input type="text" class="form-control" id="packagePlan" name="plesk_service_plan" placeholder="service-plan GUID veya adı">
+                        <small class="text-white-50">Plesk API eşitlemesinde kullanılacak plan kimliği (opsiyonel).</small>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label" for="packageFeatures">Özellikler (virgülle ayırın)</label>
                         <input type="text" class="form-control" id="packageFeatures" name="features">
                     </div>
