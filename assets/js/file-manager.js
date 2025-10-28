@@ -209,10 +209,10 @@
                 switch (action) {
                     case 'rename':
                     case 'move':
-                        button.disabled = totalSelected !== 1;
+                        button.disabled = action === 'rename' ? totalSelected !== 1 : totalSelected === 0;
                         break;
                     case 'zip':
-                        button.disabled = selectedFiles === 0 || selectedFolders > 0;
+                        button.disabled = totalSelected === 0;
                         break;
                     case 'delete':
                         button.disabled = totalSelected === 0;
@@ -257,9 +257,7 @@
                 item.style.display = '';
 
                 if (selectedCount > 1) {
-                    if (action === 'delete') {
-                        item.style.display = '';
-                    } else if (action === 'zip' && selectedFiles > 0 && selectedFolders === 0) {
+                    if (action === 'delete' || action === 'zip' || action === 'move') {
                         item.style.display = '';
                     } else {
                         item.style.display = 'none';
@@ -289,7 +287,7 @@
                     }
                 }
                 if (action === 'zip') {
-                    item.style.display = type === 'file' ? '' : 'none';
+                    item.style.display = '';
                 }
             });
 
@@ -569,14 +567,24 @@
         }
 
         async function moveSelected() {
-            const selection = getSingleSelection();
-            if (!selection) {
+            const selectedFiles = Array.from(state.selection.files);
+            const selectedFolders = Array.from(state.selection.folders);
+            const totalSelected = selectedFiles.length + selectedFolders.length;
+            if (totalSelected === 0) {
                 return;
             }
+            const blockedFolders = new Set(selectedFolders.map(id => String(id)));
             const options = state.allFolders
-                .filter(folder => String(folder.id) !== String(selection.id))
+                .filter(folder => {
+                    if (blockedFolders.has(String(folder.id))) {
+                        return false;
+                    }
+                    const ancestors = folder.ancestors || [];
+                    return !ancestors.some(ancestorId => blockedFolders.has(String(ancestorId)));
+                })
                 .map(folder => `<option value="${folder.id}">${folder.path}</option>`)
                 .join('');
+
             const html = `<select id="fm-move-target" class="form-select">`
                 + `<option value="">Ana Depo</option>${options}`
                 + '</select>';
@@ -595,10 +603,9 @@
             if (value === undefined) {
                 return;
             }
-            const action = selection.type === 'folder' ? 'move-folder' : 'move-file';
-            const payloadKey = selection.type === 'folder' ? 'folder_id' : 'file_id';
-            const result = await fmRequest(action, {
-                [payloadKey]: selection.id,
+            const result = await fmRequest('move-selection', {
+                folder_ids: selectedFolders,
+                file_ids: selectedFiles,
                 target_id: value,
             });
             if (result.status === 'success') {
@@ -722,11 +729,17 @@
 
         async function zipSelected() {
             const selectedFiles = Array.from(state.selection.files);
-            if (!selectedFiles.length || state.selection.folders.size > 0) {
-                showToast('error', 'Zip için sadece dosya seçin.');
+            const selectedFolders = Array.from(state.selection.folders);
+            if (!selectedFiles.length && !selectedFolders.length) {
+                showToast('error', 'Zip için öğe seçmelisiniz.');
                 return;
             }
-            const result = await fmRequest('zip-files', { file_ids: selectedFiles });
+            const payload = {
+                file_ids: selectedFiles,
+                folder_ids: selectedFolders,
+                context_folder_id: state.folderId,
+            };
+            const result = await fmRequest('zip-selection', payload);
             if (result.status === 'success' && result.archive) {
                 await Swal.fire({
                     icon: 'success',

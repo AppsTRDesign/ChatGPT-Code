@@ -44,6 +44,94 @@ try {
                 ],
             ]);
             break;
+        case 'list-users':
+            $stmt = $pdo->query('SELECT u.*, p.name AS package_name FROM users u LEFT JOIN packages p ON p.id = u.package_id ORDER BY u.created_at DESC');
+            $users = array_map(static function (array $user): array {
+                return [
+                    'id' => (int) $user['id'],
+                    'name' => $user['name'],
+                    'email' => $user['email'],
+                    'role' => $user['role'],
+                    'package_id' => $user['package_id'] ? (int) $user['package_id'] : null,
+                    'package_name' => $user['package_name'] ?? null,
+                    'email_verified' => (int) $user['email_verified'],
+                    'created_at' => $user['created_at'],
+                ];
+            }, $stmt->fetchAll() ?: []);
+            echo json_encode(['status' => 'success', 'data' => $users]);
+            break;
+
+        case 'list-packages':
+            $stmt = $pdo->query('SELECT * FROM packages ORDER BY price ASC');
+            $packages = array_map(static function (array $package): array {
+                $features = [];
+                if (!empty($package['features'])) {
+                    $decoded = json_decode($package['features'], true);
+                    if (is_array($decoded)) {
+                        $features = $decoded;
+                    }
+                }
+                $mimeList = [];
+                if (!empty($package['allowed_mime_types'])) {
+                    $decoded = json_decode($package['allowed_mime_types'], true);
+                    if (is_array($decoded)) {
+                        $mimeList = $decoded;
+                    }
+                }
+                return [
+                    'id' => (int) $package['id'],
+                    'name' => $package['name'],
+                    'storage_limit' => (int) $package['storage_limit'],
+                    'max_concurrent_uploads' => (int) $package['max_concurrent_uploads'],
+                    'features' => $features,
+                    'allowed_mime_types' => $mimeList,
+                    'price' => (float) $package['price'],
+                    'is_active' => (int) $package['is_active'],
+                ];
+            }, $stmt->fetchAll() ?: []);
+            echo json_encode(['status' => 'success', 'data' => $packages]);
+            break;
+
+        case 'list-files':
+            $stmt = $pdo->query('SELECT f.*, u.name AS owner_name FROM files f LEFT JOIN users u ON u.id = f.user_id ORDER BY f.uploaded_at DESC');
+            $rows = $stmt->fetchAll() ?: [];
+            $folderIds = array_unique(array_filter(array_map(static fn($row) => $row['folder_id'] ? (int) $row['folder_id'] : null, $rows)));
+            $folderMap = [];
+            if ($folderIds) {
+                $placeholders = implode(',', array_fill(0, count($folderIds), '?'));
+                $folderStmt = $pdo->prepare("SELECT * FROM folders WHERE id IN ($placeholders)");
+                $folderStmt->execute($folderIds);
+                foreach ($folderStmt->fetchAll() as $folder) {
+                    $folderMap[(int) $folder['id']] = [
+                        'name' => $folder['name'],
+                        'path' => folder_path($pdo, $folder),
+                    ];
+                }
+            }
+            $files = array_map(static function (array $row) use ($folderMap): array {
+                $extension = pathinfo($row['filename'], PATHINFO_EXTENSION);
+                $slug = slugify(pathinfo($row['filename'], PATHINFO_FILENAME));
+                $downloadUrl = BASE_URL . '/file/' . $row['id'] . '-' . $slug . ($extension ? '.' . strtolower($extension) : '');
+                $folderId = $row['folder_id'] ? (int) $row['folder_id'] : null;
+                $folderData = $folderId && isset($folderMap[$folderId]) ? $folderMap[$folderId] : null;
+                return [
+                    'id' => (int) $row['id'],
+                    'filename' => $row['filename'],
+                    'stored_name' => $row['stored_name'],
+                    'size' => (int) $row['size'],
+                    'type' => $row['type'],
+                    'uploaded_at' => $row['uploaded_at'],
+                    'owner_name' => $row['owner_name'] ?? null,
+                    'owner_id' => (int) $row['user_id'],
+                    'folder_id' => $folderId,
+                    'folder_path' => $folderData['path'] ?? 'Ana Depo',
+                    'download_url' => $downloadUrl,
+                    'direct_url' => BASE_URL . '/uploads/' . $row['stored_name'],
+                ];
+            }, $rows);
+            echo json_encode(['status' => 'success', 'data' => $files]);
+            break;
+
 
         case 'update-settings':
             $fields = [

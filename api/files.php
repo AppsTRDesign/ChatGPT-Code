@@ -74,6 +74,8 @@ try {
                     'is_public' => (int) $file['is_public'],
                     'share_token' => $file['share_token'] ?? null,
                     'share_expires_at' => $file['share_expires_at'] ?? null,
+                    'owner_name' => $file['owner_name'] ?? null,
+                    'folder_id' => isset($file['folder_id']) ? ($file['folder_id'] !== null ? (int) $file['folder_id'] : null) : null,
                 ];
             }, $data['files']);
             echo json_encode([
@@ -422,8 +424,83 @@ try {
             if (empty($fileIds)) {
                 throw new RuntimeException('Zip oluşturmak için dosya seçin.');
             }
-            $archive = create_files_archive($pdo, $fileIds, $user, $isAdmin);
+            $contextFolderId = isset($payload['context_folder_id']) && $payload['context_folder_id'] !== ''
+                ? (int) $payload['context_folder_id']
+                : null;
+            $archive = create_files_archive($pdo, $fileIds, $user, $isAdmin, $contextFolderId);
             echo json_encode(['status' => 'success', 'message' => 'Zip dosyası oluşturuldu.', 'archive' => $archive]);
+            break;
+
+        case 'zip-selection':
+            $fileIds = array_filter(array_map('intval', (array) ($payload['file_ids'] ?? [])));
+            $folderIds = array_filter(array_map('intval', (array) ($payload['folder_ids'] ?? [])));
+            if (empty($fileIds) && empty($folderIds)) {
+                throw new RuntimeException('Zip oluşturmak için öğe seçin.');
+            }
+            $contextFolderId = isset($payload['context_folder_id']) && $payload['context_folder_id'] !== ''
+                ? (int) $payload['context_folder_id']
+                : null;
+            $archive = create_selection_archive($pdo, $fileIds, $folderIds, $user, $isAdmin, $contextFolderId);
+            echo json_encode(['status' => 'success', 'message' => 'Zip dosyası hazırlandı.', 'archive' => $archive]);
+            break;
+
+        case 'move-selection':
+            $fileIds = array_filter(array_map('intval', (array) ($payload['file_ids'] ?? [])));
+            $folderIds = array_filter(array_map('intval', (array) ($payload['folder_ids'] ?? [])));
+            $targetId = isset($payload['target_id']) && $payload['target_id'] !== '' ? (int) $payload['target_id'] : null;
+            if (empty($fileIds) && empty($folderIds)) {
+                throw new RuntimeException('Taşınacak öğe seçilmedi.');
+            }
+            $targetFolder = null;
+            if ($targetId) {
+                $targetFolder = fetch_folder($pdo, $targetId);
+                if (!$targetFolder) {
+                    throw new RuntimeException('Hedef klasör bulunamadı.');
+                }
+                if (!$isAdmin && (int) $targetFolder['user_id'] !== (int) $user['id']) {
+                    throw new RuntimeException('Hedef klasör size ait değil.');
+                }
+            }
+
+            foreach ($folderIds as $folderId) {
+                $folder = fetch_folder($pdo, $folderId);
+                if (!$folder) {
+                    continue;
+                }
+                if (!$isAdmin && (int) $folder['user_id'] !== (int) $user['id']) {
+                    throw new RuntimeException('Size ait olmayan klasörü taşıyamazsınız.');
+                }
+                if ($targetFolder && folder_is_descendant($pdo, (int) $folder['id'], $targetFolder['id'])) {
+                    throw new RuntimeException('Bir klasörü kendi altına taşıyamazsınız.');
+                }
+            }
+
+            foreach ($folderIds as $folderId) {
+                $folder = fetch_folder($pdo, $folderId);
+                if (!$folder) {
+                    continue;
+                }
+                $pdo->prepare('UPDATE folders SET parent_id = :parent WHERE id = :id')->execute([
+                    ':parent' => $targetId ?: null,
+                    ':id' => $folderId,
+                ]);
+            }
+
+            foreach ($fileIds as $fileId) {
+                $file = fetch_file($pdo, $fileId);
+                if (!$file) {
+                    continue;
+                }
+                if (!$isAdmin && (int) $file['user_id'] !== (int) $user['id']) {
+                    throw new RuntimeException('Size ait olmayan dosya taşınamaz.');
+                }
+                $pdo->prepare('UPDATE files SET folder_id = :folder WHERE id = :id')->execute([
+                    ':folder' => $targetId ?: null,
+                    ':id' => $fileId,
+                ]);
+            }
+
+            echo json_encode(['status' => 'success', 'message' => 'Seçilen öğeler taşındı.']);
             break;
 
         case 'zip-folder':

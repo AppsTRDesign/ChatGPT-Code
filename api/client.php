@@ -70,6 +70,28 @@ try {
             ]);
             break;
 
+        case 'list-packages':
+            $stmt = $pdo->query('SELECT * FROM packages WHERE is_active = 1 ORDER BY price ASC');
+            $packages = array_map(static function (array $pkg): array {
+                $features = [];
+                if (!empty($pkg['features'])) {
+                    $decoded = json_decode($pkg['features'], true);
+                    if (is_array($decoded)) {
+                        $features = $decoded;
+                    }
+                }
+                return [
+                    'id' => (int) $pkg['id'],
+                    'name' => $pkg['name'],
+                    'price' => (float) $pkg['price'],
+                    'storage_limit' => (int) $pkg['storage_limit'],
+                    'max_concurrent_uploads' => (int) $pkg['max_concurrent_uploads'],
+                    'features' => $features,
+                ];
+            }, $stmt->fetchAll() ?: []);
+            echo json_encode(['status' => 'success', 'data' => $packages]);
+            break;
+
         case 'purchase-package':
             $packageId = (int) ($payload['package_id'] ?? 0);
             if ($packageId <= 0) {

@@ -11,6 +11,8 @@ if (!empty($settings['allowed_mime_types'])) {
         $allowedMimeText = (string) $settings['allowed_mime_types'];
     }
 }
+global $pageScripts;
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/admin-settings.js?v=1.0.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
@@ -118,69 +120,4 @@ application/pdf"><?= sanitize($allowedMimeText) ?></textarea>
         </form>
     </div>
 </div>
-<script>
-const appConfig = window.APP_CONFIG || {};
-const logoDropzone = new Dropzone('#logoDropzone', {
-    url: '#',
-    autoProcessQueue: false,
-    maxFiles: 1,
-    acceptedFiles: 'image/*',
-    addRemoveLinks: true,
-    dictRemoveFile: 'Kaldır',
-    init() {
-        this.on('maxfilesexceeded', file => {
-            this.removeAllFiles();
-            this.addFile(file);
-        });
-    }
-});
-
-const faviconDropzone = new Dropzone('#faviconDropzone', {
-    url: '#',
-    autoProcessQueue: false,
-    maxFiles: 1,
-    acceptedFiles: 'image/*',
-    addRemoveLinks: true,
-    dictRemoveFile: 'Kaldır',
-    init() {
-        this.on('maxfilesexceeded', file => {
-            this.removeAllFiles();
-            this.addFile(file);
-        });
-    }
-});
-
-async function saveSettings() {
-    const form = document.getElementById('settingsForm');
-    const formData = new FormData(form);
-    formData.append('action', 'update-settings');
-    formData.append('csrf_token', appConfig.csrfToken);
-    formData.append('analytics_enabled', document.getElementById('analyticsEnabled').checked ? 1 : 0);
-    formData.append('public_sharing_enabled', document.getElementById('publicSharingEnabled').checked ? 1 : 0);
-    formData.append('folder_passwords_enabled', document.getElementById('folderPasswordsEnabled').checked ? 1 : 0);
-    formData.append('share_download_delay', form.share_download_delay.value || 0);
-    const logoFile = logoDropzone.getAcceptedFiles()[0];
-    if (logoFile) {
-        formData.append('logo', logoFile, logoFile.name);
-    }
-    const faviconFile = faviconDropzone.getAcceptedFiles()[0];
-    if (faviconFile) {
-        formData.append('favicon', faviconFile, faviconFile.name);
-    }
-    try {
-        const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Ayarlar kaydedilemedi');
-        }
-        Swal.fire({ icon: 'success', title: 'Kaydedildi', text: data.message });
-    } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
-    }
-}
-</script>
 <?php include __DIR__ . '/../templates/footer.php'; ?>

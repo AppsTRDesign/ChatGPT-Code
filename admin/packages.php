@@ -1,18 +1,22 @@
 <?php
 require_once __DIR__ . '/../config.php';
 require_auth(true);
-$packages = $pdo->query('SELECT * FROM packages ORDER BY price ASC')->fetchAll();
+global $pageScripts;
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/admin-packages.js?v=1.0.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
 <div class="container pb-5">
     <div class="card card-glass p-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3 data-table-toolbar">
             <h2 class="h5 mb-0">Paketler</h2>
-            <button class="btn btn-gradient" data-bs-toggle="modal" data-bs-target="#packageModal">Yeni Paket</button>
+            <div class="d-flex gap-2">
+                <input type="search" id="adminPackagesSearch" class="form-control data-table-search" placeholder="Paket ara">
+                <button class="btn btn-gradient" id="newPackageButton" data-bs-toggle="modal" data-bs-target="#packageModal">Yeni Paket</button>
+            </div>
         </div>
         <div class="table-responsive">
-            <table class="table table-dark-glass align-middle">
+            <table class="table table-modern align-middle" id="adminPackagesTable">
                 <thead>
                     <tr>
                         <th>Ad</th>
@@ -24,36 +28,7 @@ include __DIR__ . '/nav.php';
                         <th></th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach ($packages as $package): ?>
-                        <?php
-                        $mimeList = [];
-                        if (!empty($package['allowed_mime_types'])) {
-                            $decodedMime = json_decode($package['allowed_mime_types'], true);
-                            if (is_array($decodedMime)) {
-                                $mimeList = $decodedMime;
-                            } else {
-                                $mimeList = array_map('trim', explode(',', (string) $package['allowed_mime_types']));
-                            }
-                        }
-                        $mimePreview = $mimeList ? implode(', ', array_slice($mimeList, 0, 3)) . (count($mimeList) > 3 ? '…' : '') : 'Genel ayarlar';
-                        ?>
-                        <tr id="package-<?= (int) $package['id'] ?>">
-                            <td><?= sanitize($package['name']) ?></td>
-                            <td><?= format_bytes((int) $package['storage_limit']) ?></td>
-                            <td><?= (int) $package['max_concurrent_uploads'] ?></td>
-                            <td><?= sanitize($mimePreview) ?></td>
-                            <td><?= number_format((float) $package['price'], 2) ?> ₺</td>
-                            <td>
-                                <span class="badge <?= $package['is_active'] ? 'bg-success' : 'bg-secondary' ?>"><?= $package['is_active'] ? 'Aktif' : 'Pasif' ?></span>
-                            </td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-outline-light me-2" data-bs-toggle="modal" data-bs-target="#packageModal" data-package='<?= json_encode($package, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'>Düzenle</button>
-                                <button class="btn btn-sm btn-danger" onclick="deletePackage(<?= (int) $package['id'] ?>)">Sil</button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
@@ -109,100 +84,4 @@ application/pdf"></textarea>
     </div>
 </div>
 <script>
-const appConfig = window.APP_CONFIG || {};
-const packageModal = document.getElementById('packageModal');
-packageModal?.addEventListener('show.bs.modal', event => {
-    const button = event.relatedTarget;
-    if (!button?.getAttribute('data-package')) {
-        document.getElementById('packageForm').reset();
-        document.getElementById('packageId').value = '';
-        document.getElementById('packageActive').checked = true;
-        document.getElementById('packageMime').value = '';
-        return;
-    }
-    const data = JSON.parse(button.getAttribute('data-package'));
-    document.getElementById('packageId').value = data.id;
-    document.getElementById('packageName').value = data.name;
-    document.getElementById('packageStorage').value = data.storage_limit;
-    document.getElementById('packageUploads').value = data.max_concurrent_uploads;
-    document.getElementById('packagePrice').value = data.price;
-    document.getElementById('packageFeatures').value = (JSON.parse(data.features || '[]') || []).join(', ');
-    document.getElementById('packageActive').checked = data.is_active == 1;
-    let mimeText = '';
-    if (data.allowed_mime_types) {
-        try {
-            const parsed = JSON.parse(data.allowed_mime_types);
-            if (Array.isArray(parsed)) {
-                mimeText = parsed.join('\n');
-            } else {
-                mimeText = String(data.allowed_mime_types);
-            }
-        } catch (error) {
-            mimeText = String(data.allowed_mime_types);
-        }
-    }
-    document.getElementById('packageMime').value = mimeText;
-});
-
-async function savePackage() {
-    const form = document.getElementById('packageForm');
-    const formData = new FormData(form);
-    const features = formData.get('features');
-    const featureList = features ? features.split(',').map(item => item.trim()).filter(Boolean) : [];
-    formData.set('features', JSON.stringify(featureList));
-    formData.append('action', 'save-package');
-    formData.append('csrf_token', appConfig.csrfToken);
-    formData.append('is_active', document.getElementById('packageActive').checked ? 1 : 0);
-    const mimeText = formData.get('allowed_mime_types');
-    if (mimeText) {
-        const mimeList = String(mimeText)
-            .split(/[,\n]+/)
-            .map(item => item.trim())
-            .filter(Boolean);
-        formData.set('allowed_mime_types', JSON.stringify(mimeList));
-    }
-    try {
-        const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Paket kaydedilemedi');
-        }
-        Swal.fire({ icon: 'success', title: 'Kaydedildi', text: data.message });
-        setTimeout(() => window.location.reload(), 800);
-    } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
-    }
-}
-
-async function deletePackage(id) {
-    const confirm = await Swal.fire({
-        icon: 'warning',
-        title: 'Emin misiniz?',
-        text: 'Paket silinecek.',
-        showCancelButton: true,
-        confirmButtonText: 'Sil',
-        cancelButtonText: 'İptal'
-    });
-    if (!confirm.isConfirmed) return;
-    try {
-        const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'delete-package', id, csrf_token: appConfig.csrfToken })
-        });
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Paket silinemedi');
-        }
-        document.getElementById(`package-${id}`)?.remove();
-        Swal.fire({ icon: 'success', title: 'Silindi', text: data.message });
-    } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
-    }
-}
-</script>
 <?php include __DIR__ . '/../templates/footer.php'; ?>

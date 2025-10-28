@@ -105,10 +105,14 @@
                     };
 
                     const updateButtons = () => {
-                        const hasQueued = dropzoneInstance.getFilesWithStatus(Dropzone.ADDED).length > 0;
+                        const queued = dropzoneInstance.getQueuedFiles();
+                        const added = typeof dropzoneInstance.getFilesWithStatus === 'function'
+                            ? dropzoneInstance.getFilesWithStatus(Dropzone.ADDED || 'added')
+                            : [];
+                        const hasQueued = queued.length > 0 || added.length > 0;
                         const isUploading = dropzoneInstance.getActiveFiles().length > 0;
                         if (startButton) {
-                            startButton.disabled = !hasQueued || isUploading;
+                            startButton.disabled = !hasQueued && !isUploading;
                         }
                         if (clearButton) {
                             clearButton.disabled = !hasQueued && dropzoneInstance.files.length === 0;
@@ -261,9 +265,15 @@
                     if (startButton) {
                         startButton.addEventListener('click', () => {
                             resetCounters();
-                            const queued = dropzoneInstance.getFilesWithStatus(Dropzone.ADDED);
-                            if (!queued.length) {
+                            const queued = dropzoneInstance.getQueuedFiles();
+                            const added = typeof dropzoneInstance.getFilesWithStatus === 'function'
+                                ? dropzoneInstance.getFilesWithStatus(Dropzone.ADDED || 'added')
+                                : [];
+                            if (!queued.length && !added.length) {
                                 return;
+                            }
+                            if (added.length && typeof dropzoneInstance.enqueueFiles === 'function') {
+                                dropzoneInstance.enqueueFiles(added);
                             }
                             dropzoneInstance.processQueue();
                         });

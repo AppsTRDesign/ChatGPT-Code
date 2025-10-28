@@ -294,6 +294,18 @@ function folder_path(PDO $pdo, array $folder): string
     return implode(' / ', $segments);
 }
 
+function folder_ancestor_ids(PDO $pdo, int $folderId): array
+{
+    $ancestors = [];
+    $current = fetch_folder($pdo, $folderId);
+    while ($current && !empty($current['parent_id'])) {
+        $parentId = (int) $current['parent_id'];
+        $ancestors[] = $parentId;
+        $current = fetch_folder($pdo, $parentId);
+    }
+    return $ancestors;
+}
+
 function list_user_folders(PDO $pdo, array $user, bool $isAdmin): array
 {
     if ($isAdmin) {
@@ -316,6 +328,7 @@ function list_user_folders(PDO $pdo, array $user, bool $isAdmin): array
             'parent_id' => $folder['parent_id'] ? (int) $folder['parent_id'] : null,
             'is_public' => (int) $folder['is_public'],
             'is_protected' => (int) $folder['is_protected'],
+            'ancestors' => folder_ancestor_ids($pdo, (int) $folder['id']),
         ];
     }, $folders);
 }
@@ -589,7 +602,7 @@ function create_folder_archive(PDO $pdo, int $folderId, array $user, bool $isAdm
     ];
 }
 
-function create_files_archive(PDO $pdo, array $fileIds, array $user, bool $isAdmin): array
+function create_files_archive(PDO $pdo, array $fileIds, array $user, bool $isAdmin, ?int $targetFolderId = null): array
 {
     $fileIds = array_values(array_unique(array_map('intval', $fileIds)));
     $fileIds = array_filter($fileIds, static fn (int $id): bool => $id > 0);
@@ -612,11 +625,19 @@ function create_files_archive(PDO $pdo, array $fileIds, array $user, bool $isAdm
         if (!$isAdmin && (int) $file['user_id'] !== (int) $user['id']) {
             throw new RuntimeException('Size ait olmayan dosyalar seçtiniz.');
         }
-        if ($file['folder_id'] !== $files[0]['folder_id']) {
-            throw new RuntimeException('Zip işlemi için aynı klasördeki dosyaları seçmelisiniz.');
-        }
         if ((int) $file['user_id'] !== $ownerId) {
             throw new RuntimeException('Farklı kullanıcılara ait dosyalar birleştirilemez.');
+        }
+    }
+
+    $destinationFolderId = $targetFolderId !== null ? $targetFolderId : $baseFolder;
+    if ($destinationFolderId) {
+        $destinationFolder = fetch_folder($pdo, $destinationFolderId);
+        if (!$destinationFolder) {
+            throw new RuntimeException('Hedef klasör bulunamadı.');
+        }
+        if (!$isAdmin && (int) $destinationFolder['user_id'] !== $ownerId) {
+            throw new RuntimeException('Hedef klasör size ait değil.');
         }
     }
 
@@ -646,7 +667,119 @@ function create_files_archive(PDO $pdo, array $fileIds, array $user, bool $isAdm
         'type' => 'application/zip',
         'uploader_ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
         'user_id' => $isAdmin ? $ownerId : $user['id'],
-        'folder_id' => $baseFolder,
+        'folder_id' => $destinationFolderId,
+    ]);
+
+    $slug = slugify(pathinfo($archiveFilename, PATHINFO_FILENAME));
+    $downloadUrl = BASE_URL . '/file/' . $newFileId . '-' . $slug . '.zip';
+
+    return [
+        'file_id' => $newFileId,
+        'filename' => $archiveFilename,
+        'download_url' => $downloadUrl,
+    ];
+}
+
+function create_selection_archive(PDO $pdo, array $fileIds, array $folderIds, array $user, bool $isAdmin, ?int $contextFolderId = null): array
+{
+    $fileIds = array_values(array_unique(array_map('intval', $fileIds)));
+    $folderIds = array_values(array_unique(array_map('intval', $folderIds)));
+    $fileIds = array_filter($fileIds, static fn (int $id): bool => $id > 0);
+    $folderIds = array_filter($folderIds, static fn (int $id): bool => $id > 0);
+
+    if (empty($fileIds) && empty($folderIds)) {
+        throw new RuntimeException('Arşivlenecek öğe seçilmedi.');
+    }
+
+    $ownerId = (int) $user['id'];
+    $resolvedOwner = null;
+
+    $files = [];
+    if (!empty($fileIds)) {
+        $placeholders = implode(',', array_fill(0, count($fileIds), '?'));
+        $stmt = $pdo->prepare("SELECT * FROM files WHERE id IN ($placeholders)");
+        $stmt->execute($fileIds);
+        $files = $stmt->fetchAll();
+        if (!$files) {
+            throw new RuntimeException('Dosyalar bulunamadı.');
+        }
+        foreach ($files as $file) {
+            if (!$isAdmin && (int) $file['user_id'] !== $ownerId) {
+                throw new RuntimeException('Size ait olmayan dosyalar seçtiniz.');
+            }
+            $resolvedOwner ??= (int) $file['user_id'];
+            if ($resolvedOwner !== (int) $file['user_id']) {
+                throw new RuntimeException('Farklı kullanıcılara ait öğeler seçilemez.');
+            }
+        }
+    }
+
+    $folders = [];
+    if (!empty($folderIds)) {
+        $placeholders = implode(',', array_fill(0, count($folderIds), '?'));
+        $stmt = $pdo->prepare("SELECT * FROM folders WHERE id IN ($placeholders)");
+        $stmt->execute($folderIds);
+        $folders = $stmt->fetchAll();
+        if (!$folders) {
+            throw new RuntimeException('Klasörler bulunamadı.');
+        }
+        foreach ($folders as $folder) {
+            if (!$isAdmin && (int) $folder['user_id'] !== $ownerId) {
+                throw new RuntimeException('Size ait olmayan klasör seçtiniz.');
+            }
+            $resolvedOwner ??= (int) $folder['user_id'];
+            if ($resolvedOwner !== (int) $folder['user_id']) {
+                throw new RuntimeException('Farklı kullanıcılara ait klasörler seçilemez.');
+            }
+        }
+    }
+
+    $resolvedOwner ??= $ownerId;
+
+    $destinationFolderId = $contextFolderId !== null ? $contextFolderId : null;
+    if ($destinationFolderId) {
+        $targetFolder = fetch_folder($pdo, $destinationFolderId);
+        if (!$targetFolder) {
+            throw new RuntimeException('Hedef klasör bulunamadı.');
+        }
+        if (!$isAdmin && (int) $targetFolder['user_id'] !== $resolvedOwner) {
+            throw new RuntimeException('Hedef klasör size ait değil.');
+        }
+    }
+
+    if (!class_exists('ZipArchive')) {
+        throw new RuntimeException('ZipArchive desteği mevcut değil.');
+    }
+
+    $archiveStored = bin2hex(random_bytes(14)) . '.zip';
+    $archivePath = __DIR__ . '/uploads/' . $archiveStored;
+    $zip = new ZipArchive();
+    if ($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        throw new RuntimeException('Arşiv oluşturulamadı.');
+    }
+
+    foreach ($files as $file) {
+        $source = __DIR__ . '/uploads/' . $file['stored_name'];
+        if (is_file($source)) {
+            $zip->addFile($source, $file['filename']);
+        }
+    }
+
+    foreach ($folders as $folder) {
+        add_folder_to_zip($pdo, $zip, (int) $folder['id']);
+    }
+
+    $zip->close();
+
+    $archiveFilename = 'Secili-' . date('Ymd-His') . '.zip';
+    $newFileId = store_file($pdo, [
+        'filename' => $archiveFilename,
+        'stored_name' => $archiveStored,
+        'size' => filesize($archivePath),
+        'type' => 'application/zip',
+        'uploader_ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
+        'user_id' => $resolvedOwner,
+        'folder_id' => $destinationFolderId,
     ]);
 
     $slug = slugify(pathinfo($archiveFilename, PATHINFO_FILENAME));

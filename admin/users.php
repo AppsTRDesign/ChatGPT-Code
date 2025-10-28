@@ -1,17 +1,19 @@
 <?php
 require_once __DIR__ . '/../config.php';
 require_auth(true);
-$packages = $pdo->query('SELECT id, name FROM packages WHERE is_active = 1 ORDER BY name')->fetchAll();
+global $pageScripts;
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/admin-users.js?v=1.0.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
 <div class="container pb-5">
     <div class="card card-glass p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3 data-table-toolbar">
             <h2 class="h5 mb-0">Üye Yönetimi</h2>
+            <input type="search" id="adminUsersSearch" class="form-control data-table-search" placeholder="İsim, e-posta veya paket ara">
         </div>
         <div class="table-responsive">
-            <table class="table table-dark-glass align-middle" id="adminUsersTable">
+            <table class="table table-modern align-middle" id="adminUsersTable">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -22,24 +24,7 @@ include __DIR__ . '/nav.php';
                         <th></th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php
-                    $stmt = $pdo->query("SELECT u.*, p.name AS package_name FROM users u LEFT JOIN packages p ON p.id = u.package_id ORDER BY u.created_at DESC");
-                    foreach ($stmt as $user):
-                    ?>
-                    <tr id="user-<?= (int) $user['id'] ?>">
-                        <td><?= (int) $user['id'] ?></td>
-                        <td><?= sanitize($user['name']) ?></td>
-                        <td><?= sanitize($user['email']) ?></td>
-                        <td><?= sanitize($user['package_name'] ?? '—') ?></td>
-                        <td><span class="badge <?= $user['email_verified'] ? 'bg-success' : 'bg-secondary' ?>"><?= $user['email_verified'] ? 'Onaylı' : 'Onaysız' ?></span></td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-outline-light me-2" data-bs-toggle="modal" data-bs-target="#userModal" data-user='<?= json_encode($user, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>'>Düzenle</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteUser(<?= (int) $user['id'] ?>)">Sil</button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
@@ -74,9 +59,6 @@ include __DIR__ . '/nav.php';
                         <label class="form-label" for="userPackage">Paket</label>
                         <select class="form-select" id="userPackage" name="package_id">
                             <option value="">Seçilmedi</option>
-                            <?php foreach ($packages as $package): ?>
-                                <option value="<?= (int) $package['id'] ?>"><?= sanitize($package['name']) ?></option>
-                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="form-check form-switch">
@@ -92,73 +74,4 @@ include __DIR__ . '/nav.php';
         </div>
     </div>
 </div>
-<script>
-const appConfig = window.APP_CONFIG || {};
-const userModal = document.getElementById('userModal');
-userModal?.addEventListener('show.bs.modal', event => {
-    const button = event.relatedTarget;
-    const data = JSON.parse(button.getAttribute('data-user'));
-    document.getElementById('userId').value = data.id;
-    document.getElementById('userName').value = data.name;
-    document.getElementById('userEmail').value = data.email;
-    document.getElementById('userRole').value = data.role;
-    document.getElementById('userPackage').value = data.package_id || '';
-    document.getElementById('userVerified').checked = data.email_verified == 1;
-});
-
-async function saveUser() {
-    const form = document.getElementById('userForm');
-    const formData = new FormData(form);
-    formData.append('action', 'update-user');
-    formData.append('csrf_token', appConfig.csrfToken);
-    const verified = document.getElementById('userVerified').checked;
-    try {
-        const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Kayıt güncellenemedi');
-        }
-        await fetch('<?= BASE_URL ?>/api/admin.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'verify-user', id: formData.get('id'), verified, csrf_token: appConfig.csrfToken })
-        });
-        Swal.fire({ icon: 'success', title: 'Kaydedildi', text: data.message });
-        setTimeout(() => window.location.reload(), 800);
-    } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
-    }
-}
-
-async function deleteUser(id) {
-    const confirm = await Swal.fire({
-        icon: 'warning',
-        title: 'Emin misiniz?',
-        text: 'Üye kalıcı olarak silinecek.',
-        showCancelButton: true,
-        confirmButtonText: 'Sil',
-        cancelButtonText: 'İptal'
-    });
-    if (!confirm.isConfirmed) return;
-    try {
-        const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'delete-user', id, csrf_token: appConfig.csrfToken })
-        });
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Silinemedi');
-        }
-        document.getElementById(`user-${id}`)?.remove();
-        Swal.fire({ icon: 'success', title: 'Silindi', text: data.message });
-    } catch (error) {
-        Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
-    }
-}
-</script>
 <?php include __DIR__ . '/../templates/footer.php'; ?>
