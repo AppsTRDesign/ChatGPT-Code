@@ -76,11 +76,16 @@ try {
                     $decoded = json_decode($package['allowed_extensions'], true);
                     $extensionList = normalise_extension_list($decoded ?: $package['allowed_extensions']);
                 }
+                $storageBytes = (int) $package['storage_limit'];
+                $maxUploadBytes = isset($package['max_upload_size']) ? (int) $package['max_upload_size'] : 0;
                 return [
                     'id' => (int) $package['id'],
                     'name' => $package['name'],
-                    'storage_limit' => (int) $package['storage_limit'],
+                    'storage_limit' => $storageBytes,
+                    'storage_limit_mb' => $storageBytes > 0 ? (int) round($storageBytes / 1048576) : 0,
                     'max_concurrent_uploads' => (int) $package['max_concurrent_uploads'],
+                    'max_upload_size' => $maxUploadBytes,
+                    'max_upload_size_mb' => $maxUploadBytes > 0 ? (int) ceil($maxUploadBytes / 1048576) : null,
                     'features' => $features,
                     'allowed_extensions' => $extensionList,
                     'price' => (float) $package['price'],
@@ -426,9 +431,12 @@ try {
                 $allowedExtensionsJson = $allowedExtensions ? json_encode($allowedExtensions) : null;
             }
 
+            $storageMb = max(0, (float) ($payload['storage_limit'] ?? 0));
+            $maxUploadMb = max(0, (float) ($payload['max_upload_size'] ?? 0));
             $data = [
                 ':name' => trim($payload['name'] ?? ''),
-                ':storage' => (int) ($payload['storage_limit'] ?? 0),
+                ':storage' => (int) round($storageMb * 1048576),
+                ':max_upload_size' => (int) round($maxUploadMb * 1048576),
                 ':uploads' => (int) ($payload['max_concurrent_uploads'] ?? 1),
                 ':features' => $featuresJson,
                 ':price' => (float) ($payload['price'] ?? 0),
@@ -439,10 +447,10 @@ try {
                 throw new RuntimeException('Paket adı en az 3 karakter olmalı.');
             }
             if ($packageId) {
-                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_extensions = :allowed_extensions, price = :price, is_active = :active WHERE id = :id');
+                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_upload_size = :max_upload_size, max_concurrent_uploads = :uploads, features = :features, allowed_extensions = :allowed_extensions, price = :price, is_active = :active WHERE id = :id');
                 $stmt->execute($data + [':id' => $packageId]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_extensions, :price, :active)');
+                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_upload_size, max_concurrent_uploads, features, allowed_extensions, price, is_active) VALUES (:name, :storage, :max_upload_size, :uploads, :features, :allowed_extensions, :price, :active)');
                 $stmt->execute($data);
                 $packageId = (int) $pdo->lastInsertId();
             }

@@ -85,12 +85,12 @@
     const renderLocations = () => {
         locationList.innerHTML = '';
         if (!stats.locations.length) {
-            locationList.innerHTML = '<li class="list-group-item bg-transparent text-white-50">Veri yok</li>';
+            locationList.innerHTML = '<li class="list-group-item text-white-50">Veri yok</li>';
             return;
         }
         stats.locations.forEach(location => {
             const li = document.createElement('li');
-            li.className = 'list-group-item bg-transparent d-flex justify-content-between text-white';
+            li.className = 'list-group-item d-flex justify-content-between align-items-center text-white';
             li.innerHTML = `<span>${location.country} / ${location.city}</span><span class="badge bg-primary">${location.downloads}</span>`;
             locationList.appendChild(li);
         });
@@ -99,12 +99,12 @@
     const renderDevices = () => {
         deviceList.innerHTML = '';
         if (!stats.devices.length) {
-            deviceList.innerHTML = '<li class="list-group-item bg-transparent text-white-50">Veri yok</li>';
+            deviceList.innerHTML = '<li class="list-group-item text-white-50">Veri yok</li>';
             return;
         }
         stats.devices.forEach(device => {
             const li = document.createElement('li');
-            li.className = 'list-group-item bg-transparent text-white';
+            li.className = 'list-group-item text-white';
             li.innerHTML = `
                 <div class="d-flex justify-content-between">
                     <div>

@@ -419,18 +419,26 @@
             if (uploadZone) {
                 const allowedList = Array.isArray(state.limits.allowed_extensions) ? state.limits.allowed_extensions : [];
                 uploadZone.dataset.accepted = allowedList.map(ext => `.${ext}`).join(',');
+                const maxFiles = state.limits.max_concurrent_uploads ?? '';
+                uploadZone.dataset.maxFiles = maxFiles || '';
+                const maxUploadBytes = state.limits.max_upload_size ?? null;
+                uploadZone.dataset.maxFilesize = maxUploadBytes ? (maxUploadBytes / 1048576).toFixed(2) : '';
                 uploadZone.dispatchEvent(new CustomEvent('set-folder', {
                     detail: {
                         folderId: state.folderId,
                         parallelUploads: state.limits.max_concurrent_uploads,
                         acceptedFiles: allowedList.map(ext => `.${ext}`),
+                        maxFiles,
+                        maxFilesizeMb: maxUploadBytes ? maxUploadBytes / 1048576 : null,
                     }
                 }));
             }
             if (uploadLimitEl) {
                 const limit = state.limits.max_concurrent_uploads ?? 1;
                 const packageName = state.limits.package_name ? ` • Paket: ${state.limits.package_name}` : '';
-                uploadLimitEl.textContent = `Eş zamanlı yükleme limiti: ${limit}${packageName}`;
+                const maxUploadBytes = state.limits.max_upload_size ?? null;
+                const perFileText = maxUploadBytes ? ` • Tek dosya limiti: ${formatBytes(maxUploadBytes)}` : '';
+                uploadLimitEl.textContent = `Eş zamanlı yükleme limiti: ${limit}${perFileText}${packageName}`;
             }
         }
 

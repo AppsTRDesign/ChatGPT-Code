@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS packages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     storage_limit BIGINT NOT NULL,
+    max_upload_size BIGINT DEFAULT NULL,
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
     allowed_extensions TEXT DEFAULT NULL,
@@ -63,6 +64,10 @@ SQL);
 
     if (!schemaColumnExists($pdo, 'packages', 'allowed_extensions')) {
         $pdo->exec('ALTER TABLE packages ADD COLUMN allowed_extensions TEXT DEFAULT NULL AFTER features');
+    }
+    if (!schemaColumnExists($pdo, 'packages', 'max_upload_size')) {
+        $pdo->exec('ALTER TABLE packages ADD COLUMN max_upload_size BIGINT DEFAULT NULL AFTER storage_limit');
+        $pdo->exec('UPDATE packages SET max_upload_size = 52428800 WHERE max_upload_size IS NULL');
     }
     if (schemaColumnExists($pdo, 'packages', 'allowed_mime_types')) {
         $pdo->exec('UPDATE packages SET allowed_extensions = allowed_mime_types WHERE (allowed_extensions IS NULL OR allowed_extensions = \'\') AND allowed_mime_types IS NOT NULL');
@@ -1021,25 +1026,28 @@ function ensureDefaultPackages(PDO $pdo): void
 {
     $count = (int) $pdo->query('SELECT COUNT(*) FROM packages')->fetchColumn();
     if ($count === 0) {
-        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, price) VALUES
-            (:name1, :storage1, :upload1, :features1, :ext1, :price1),
-            (:name2, :storage2, :upload2, :features2, :ext2, :price2),
-            (:name3, :storage3, :upload3, :features3, :ext3, :price3)');
+        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_upload_size, max_concurrent_uploads, features, allowed_extensions, price) VALUES
+            (:name1, :storage1, :max1, :upload1, :features1, :ext1, :price1),
+            (:name2, :storage2, :max2, :upload2, :features2, :ext2, :price2),
+            (:name3, :storage3, :max3, :upload3, :features3, :ext3, :price3)');
         $stmt->execute([
             ':name1' => 'Başlangıç',
             ':storage1' => 524288000,
+            ':max1' => 52428800,
             ':upload1' => 2,
             ':features1' => json_encode(['Temel depolama', 'Sınırlı destek']),
             ':ext1' => null,
             ':price1' => 0.00,
             ':name2' => 'Profesyonel',
             ':storage2' => 2147483648,
+            ':max2' => 104857600,
             ':upload2' => 5,
             ':features2' => json_encode(['Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar']),
             ':ext2' => null,
             ':price2' => 14.99,
             ':name3' => 'Kurumsal',
             ':storage3' => 5368709120,
+            ':max3' => 209715200,
             ':upload3' => 10,
             ':features3' => json_encode(['Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA']),
             ':ext3' => null,
@@ -1373,19 +1381,23 @@ function allowed_mime_types(PDO $pdo, ?int $packageId = null): array
     return allowed_extensions($pdo, $packageId);
 }
 
-function validate_uploaded_file(array $file, ?PDO $pdo = null, ?array $allowedOverride = null): array
+function validate_uploaded_file(array $file, ?PDO $pdo = null, ?array $allowedOverride = null, ?int $maxSizeOverride = null): array
 {
-    $maxSize = 50 * 1024 * 1024;
+    $maxSize = $maxSizeOverride && $maxSizeOverride > 0 ? (int) $maxSizeOverride : 50 * 1024 * 1024;
     if ($file['error'] !== UPLOAD_ERR_OK) {
         throw new RuntimeException('Dosya yüklenemedi.');
     }
     if ($file['size'] > $maxSize) {
-        throw new RuntimeException('Dosya boyutu 50MB sınırını aşıyor.');
+        throw new RuntimeException('Dosya boyutu ' . format_bytes($maxSize) . ' sınırını aşıyor.');
     }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mimeType = $finfo->file($file['tmp_name']);
     $extension = strtolower((string) pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
-    $allowedExtensions = $allowedOverride ?? ($pdo ? allowed_extensions($pdo) : DEFAULT_ALLOWED_EXTENSIONS);
+    if ($allowedOverride !== null) {
+        $allowedExtensions = normalise_extension_list($allowedOverride);
+    } else {
+        $allowedExtensions = $pdo ? allowed_extensions($pdo) : DEFAULT_ALLOWED_EXTENSIONS;
+    }
     if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
         throw new RuntimeException('Desteklenmeyen dosya uzantısı.');
     }

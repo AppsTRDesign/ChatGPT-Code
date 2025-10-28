@@ -20,11 +20,11 @@ include __DIR__ . '/nav.php';
                         <button class="btn btn-gradient" data-export="pdf">PDF Aktar</button>
                     </div>
                 </div>
-                <div class="d-flex gap-2 mb-3 flex-wrap" id="timeseriesRanges">
-                    <button class="btn btn-sm btn-outline-light active" data-range="daily">Günlük</button>
-                    <button class="btn btn-sm btn-outline-light" data-range="weekly">Haftalık</button>
-                    <button class="btn btn-sm btn-outline-light" data-range="monthly">Aylık</button>
-                    <button class="btn btn-sm btn-outline-light" data-range="yearly">Yıllık</button>
+                <div class="btn-group btn-group-sm d-flex flex-wrap mb-3" role="group" id="timeseriesRanges">
+                    <button type="button" class="btn btn-outline-light active" data-range="daily">Günlük</button>
+                    <button type="button" class="btn btn-outline-light" data-range="weekly">Haftalık</button>
+                    <button type="button" class="btn btn-outline-light" data-range="monthly">Aylık</button>
+                    <button type="button" class="btn btn-outline-light" data-range="yearly">Yıllık</button>
                 </div>
                 <div class="chart-wrapper">
                     <canvas id="shareTimeseries"></canvas>

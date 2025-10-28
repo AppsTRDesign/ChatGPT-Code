@@ -101,6 +101,8 @@ try {
                     'storage_formatted' => format_bytes((int) $usage['total_size']),
                     'storage_total' => $package ? (int) $package['storage_limit'] : null,
                     'max_concurrent_uploads' => $package ? (int) $package['max_concurrent_uploads'] : 3,
+                    'max_upload_size' => $package && !empty($package['max_upload_size']) ? (int) $package['max_upload_size'] : null,
+                    'max_upload_size_formatted' => $package && !empty($package['max_upload_size']) ? format_bytes((int) $package['max_upload_size']) : null,
                     'allowed_extensions' => $allowedExtensions,
                     'total_files' => (int) $usage['total_files'],
                     'package_name' => $package['name'] ?? null,

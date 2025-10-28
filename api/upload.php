@@ -30,7 +30,8 @@ try {
     $user = current_user();
     $package = package_for_user($pdo, (int) $user['id']);
     $allowedExtensions = allowed_extensions($pdo, $package['id'] ?? null);
-    [$mimeType, $size, $extension] = validate_uploaded_file($file, $pdo, $allowedExtensions);
+    $maxUploadSize = $package && !empty($package['max_upload_size']) ? (int) $package['max_upload_size'] : null;
+    [$mimeType, $size, $extension] = validate_uploaded_file($file, $pdo, $allowedExtensions, $maxUploadSize);
     $folderId = isset($_POST['folder_id']) ? (int) $_POST['folder_id'] : null;
     if ($folderId) {
         $folder = fetch_folder($pdo, $folderId);

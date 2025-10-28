@@ -89,6 +89,7 @@ h6 {
     border-radius: 20px;
     padding: 3rem 2rem;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
 }
 
 .dropzone.dz-theme {
@@ -96,6 +97,10 @@ h6 {
     border: 1px dashed rgba(255, 255, 255, 0.35);
     background: rgba(255, 255, 255, 0.05);
     color: #f5f7ff;
+}
+
+.fm-dropzone {
+    cursor: pointer;
 }
 
 .dropzone.dz-drag-hover {
@@ -164,6 +169,28 @@ h6 {
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 14px 40px -20px rgba(0, 0, 0, 0.8);
+}
+
+.card-layer {
+    background: rgba(17, 21, 38, 0.72);
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 36px -22px rgba(0, 0, 0, 0.75);
+    color: #f5f6ff;
+}
+
+.card-layer .card-body {
+    background: transparent;
+}
+
+.card-layer .list-group-item {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #f5f6ff;
+}
+
+.card-layer .list-group-item + .list-group-item {
+    border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 .table-dark-glass {

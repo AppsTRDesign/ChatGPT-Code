@@ -20,7 +20,8 @@ include __DIR__ . '/nav.php';
                 <thead>
                     <tr>
                         <th>Ad</th>
-                        <th>Depolama</th>
+                        <th>Depolama (MB)</th>
+                        <th>Tek Dosya Limiti</th>
                         <th>Maks. Yükleme</th>
                         <th>İzinli Türler</th>
                         <th>Fiyat</th>
@@ -49,8 +50,13 @@ include __DIR__ . '/nav.php';
                         <input type="text" class="form-control" id="packageName" name="name" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="packageStorage">Depolama (byte)</label>
-                        <input type="number" class="form-control" id="packageStorage" name="storage_limit" required>
+                        <label class="form-label" for="packageStorage">Depolama Limiti (MB)</label>
+                        <input type="number" min="0" class="form-control" id="packageStorage" name="storage_limit" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="packageMaxUpload">Tek Dosya Limiti (MB)</label>
+                        <input type="number" min="0" class="form-control" id="packageMaxUpload" name="max_upload_size">
+                        <small class="text-white-50">0 bırakılırsa sınırsız kabul edilir.</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="packageUploads">Maksimum aynı anda yükleme</label>

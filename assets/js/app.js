@@ -70,7 +70,8 @@
         document.querySelectorAll('[data-dropzone]').forEach(form => {
             const uploadUrl = form.getAttribute('action') || form.dataset.uploadUrl || `${baseUrl}/api/upload.php`;
             const maxFilesizeMB = parseFloat(form.dataset.maxFilesize || '50');
-            const parallelUploads = parseInt(form.dataset.parallelUploads || '1', 10) || 1;
+            const maxFilesAttr = parseInt(form.dataset.maxFiles || '0', 10);
+            let parallelUploads = parseInt(form.dataset.parallelUploads || '1', 10) || 1;
             const accepted = form.dataset.accepted || null;
             const previewTemplateSelector = form.dataset.previewTemplate || '';
             const previewsContainerSelector = form.dataset.previewsContainer || '';
@@ -83,12 +84,18 @@
 
             let successfulUploads = 0;
             let failedUploads = 0;
+            let currentMaxFilesize = Number.isFinite(maxFilesizeMB) && maxFilesizeMB > 0 ? maxFilesizeMB : 50;
+            const defaultMaxFilesize = currentMaxFilesize;
+            let currentMaxFiles = Number.isFinite(maxFilesAttr) && maxFilesAttr > 0 ? maxFilesAttr : 0;
+            const defaultMaxFiles = currentMaxFiles;
+            parallelUploads = Math.max(1, currentMaxFiles > 0 ? Math.min(parallelUploads, currentMaxFiles) : parallelUploads);
 
             const dz = new Dropzone(form, {
                 url: uploadUrl,
                 paramName: 'file',
-                maxFilesize: maxFilesizeMB,
+                maxFilesize: currentMaxFilesize,
                 parallelUploads,
+                maxFiles: currentMaxFiles > 0 ? currentMaxFiles : undefined,
                 uploadMultiple: form.dataset.uploadMultiple === 'true',
                 addRemoveLinks: false,
                 timeout: 0,
@@ -152,6 +159,14 @@
                                     updateButtons();
                                 });
                             }
+                        }
+                        updateButtons();
+                    });
+
+                    this.on('maxfilesexceeded', function (file) {
+                        dropzoneInstance.removeFile(file);
+                        if (currentMaxFiles > 0) {
+                            showAlert('error', `Aynı anda en fazla ${currentMaxFiles} dosya seçebilirsiniz.`);
                         }
                         updateButtons();
                     });
@@ -309,10 +324,44 @@
                 const folderId = event.detail?.folderId ?? '';
                 form.dataset.folderId = folderId;
                 if (event.detail?.parallelUploads && form.dropzone) {
-                    form.dropzone.options.parallelUploads = event.detail.parallelUploads;
+                    let incoming = parseInt(event.detail.parallelUploads, 10);
+                    if (!Number.isFinite(incoming) || incoming <= 0) {
+                        incoming = 1;
+                    }
+                    if (currentMaxFiles > 0) {
+                        incoming = Math.min(incoming, currentMaxFiles);
+                    }
+                    form.dropzone.options.parallelUploads = incoming;
                 }
                 if (event.detail?.acceptedFiles && form.dropzone) {
                     form.dropzone.options.acceptedFiles = event.detail.acceptedFiles.join(',');
+                }
+                if (Object.prototype.hasOwnProperty.call(event.detail || {}, 'maxFiles')) {
+                    const incomingMax = parseInt(event.detail.maxFiles, 10);
+                    if (Number.isFinite(incomingMax) && incomingMax > 0) {
+                        currentMaxFiles = incomingMax;
+                        form.dataset.maxFiles = String(incomingMax);
+                        form.dropzone.options.maxFiles = incomingMax;
+                        if (form.dropzone.options.parallelUploads > incomingMax) {
+                            form.dropzone.options.parallelUploads = incomingMax;
+                        }
+                    } else {
+                        currentMaxFiles = defaultMaxFiles;
+                        form.dataset.maxFiles = currentMaxFiles ? String(currentMaxFiles) : '';
+                        form.dropzone.options.maxFiles = currentMaxFiles || null;
+                    }
+                }
+                if (Object.prototype.hasOwnProperty.call(event.detail || {}, 'maxFilesizeMb')) {
+                    const incomingSize = parseFloat(event.detail.maxFilesizeMb);
+                    if (Number.isFinite(incomingSize) && incomingSize > 0) {
+                        currentMaxFilesize = incomingSize;
+                        form.dataset.maxFilesize = String(incomingSize);
+                        form.dropzone.options.maxFilesize = incomingSize;
+                    } else {
+                        currentMaxFilesize = defaultMaxFilesize;
+                        form.dataset.maxFilesize = defaultMaxFilesize ? String(defaultMaxFilesize) : '';
+                        form.dropzone.options.maxFilesize = currentMaxFilesize;
+                    }
                 }
             });
         });

@@ -57,6 +57,8 @@
             const col = document.createElement('div');
             col.className = 'col-md-4';
             const isActive = activePackageId !== null && Number(activePackageId) === Number(pkg.id);
+            const maxUploadText = pkg.max_upload_size ? formatBytes(Number(pkg.max_upload_size)) : 'Sınırsız';
+            const storageText = pkg.storage_limit ? formatBytes(Number(pkg.storage_limit)) : '0 B';
             col.innerHTML = `
                 <div class="card card-glass h-100 p-4 text-center${isActive ? ' card-package-active' : ''}">
                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -64,7 +66,8 @@
                         ${isActive ? '<span class="badge bg-success-subtle text-success fw-semibold">Aktif</span>' : ''}
                     </div>
                     <p class="display-6 fw-bold text-white">${pkg.price > 0 ? pkg.price.toFixed(2) + ' ₺' : 'Ücretsiz'}</p>
-                    <span class="badge badge-custom mb-3">Depo: ${formatBytes(Number(pkg.storage_limit))}</span>
+                    <span class="badge badge-custom mb-2">Depo: ${storageText}</span>
+                    <span class="badge bg-transparent border border-light-subtle text-white-50 mb-3">Tek dosya: ${maxUploadText}</span>
                     <p class="text-white-50 small mb-3">Aynı anda ${pkg.max_concurrent_uploads} yükleme hakkı</p>
                     <ul class="list-unstyled text-white-50 mb-4">
                         ${(pkg.features || []).map(feature => `<li>• ${feature}</li>`).join('') || '<li>• Standart özellikler</li>'}

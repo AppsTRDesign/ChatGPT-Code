@@ -87,12 +87,17 @@ try {
                         $features = $decoded;
                     }
                 }
+                $storageBytes = (int) $pkg['storage_limit'];
+                $maxUploadBytes = isset($pkg['max_upload_size']) ? (int) $pkg['max_upload_size'] : 0;
                 return [
                     'id' => (int) $pkg['id'],
                     'name' => $pkg['name'],
                     'price' => (float) $pkg['price'],
-                    'storage_limit' => (int) $pkg['storage_limit'],
+                    'storage_limit' => $storageBytes,
+                    'storage_limit_mb' => $storageBytes > 0 ? (int) round($storageBytes / 1048576) : 0,
                     'max_concurrent_uploads' => (int) $pkg['max_concurrent_uploads'],
+                    'max_upload_size' => $maxUploadBytes,
+                    'max_upload_size_mb' => $maxUploadBytes > 0 ? (int) ceil($maxUploadBytes / 1048576) : null,
                     'features' => $features,
                 ];
             }, $stmt->fetchAll() ?: []);

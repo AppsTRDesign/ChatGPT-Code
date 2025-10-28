@@ -19,6 +19,7 @@ CREATE TABLE packages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     storage_limit BIGINT NOT NULL,
+    max_upload_size BIGINT DEFAULT NULL,
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
     allowed_extensions TEXT DEFAULT NULL,
@@ -27,10 +28,10 @@ CREATE TABLE packages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, price) VALUES
-    ('Başlangıç', 524288000, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), NULL, 0.00),
-    ('Profesyonel', 2147483648, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), NULL, 14.99),
-    ('Kurumsal', 5368709120, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), NULL, 49.99);
+INSERT INTO packages (name, storage_limit, max_upload_size, max_concurrent_uploads, features, allowed_extensions, price) VALUES
+    ('Başlangıç', 524288000, 52428800, 2, JSON_ARRAY('Temel depolama', 'Sınırlı destek'), NULL, 0.00),
+    ('Profesyonel', 2147483648, 104857600, 5, JSON_ARRAY('Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar'), NULL, 14.99),
+    ('Kurumsal', 5368709120, 209715200, 10, JSON_ARRAY('Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA'), NULL, 49.99);
 
 CREATE TABLE settings (
     id INT AUTO_INCREMENT PRIMARY KEY,

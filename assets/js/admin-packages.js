@@ -53,7 +53,7 @@
         if (!data.length) {
             const tr = document.createElement('tr');
             const td = document.createElement('td');
-            td.colSpan = 7;
+            td.colSpan = 8;
             td.className = 'text-center text-white-50';
             td.textContent = 'Paket bulunamadı.';
             tr.appendChild(td);
@@ -63,9 +63,12 @@
         data.forEach(pkg => {
             const tr = document.createElement('tr');
             tr.dataset.packageId = pkg.id;
+            const storageLabel = pkg.storage_limit_mb ? `${pkg.storage_limit_mb} MB` : formatBytes(Number(pkg.storage_limit));
+            const maxUploadLabel = pkg.max_upload_size_mb ? `${pkg.max_upload_size_mb} MB` : 'Sınırsız';
             tr.innerHTML = `
                 <td data-label="Ad">${escapeHtml(pkg.name)}</td>
-                <td data-label="Depolama">${formatBytes(Number(pkg.storage_limit))}</td>
+                <td data-label="Depolama (MB)">${storageLabel}</td>
+                <td data-label="Tek Dosya Limiti">${maxUploadLabel}</td>
                 <td data-label="Maks. Yükleme">${pkg.max_concurrent_uploads}</td>
                 <td data-label="İzinli Türler">${escapeHtml(summarizeExtensions(pkg.allowed_extensions))}</td>
                 <td data-label="Fiyat">${Number(pkg.price).toFixed(2)} ₺</td>
@@ -86,7 +89,13 @@
             return;
         }
         const filtered = packages.filter(pkg => {
-            const tokens = [pkg.name, summarizeExtensions(pkg.allowed_extensions), pkg.price].join(' ').toLowerCase();
+            const tokens = [
+                pkg.name,
+                summarizeExtensions(pkg.allowed_extensions),
+                pkg.price,
+                pkg.storage_limit_mb,
+                pkg.max_upload_size_mb ?? 'sınırsız'
+            ].join(' ').toLowerCase();
             return tokens.includes(query);
         });
         renderTable(filtered);
@@ -123,7 +132,7 @@
         form.reset();
         form.querySelector('#packageId').value = pkg?.id || '';
         form.querySelector('#packageName').value = pkg?.name || '';
-        form.querySelector('#packageStorage').value = pkg?.storage_limit || '';
+        form.querySelector('#packageStorage').value = pkg?.storage_limit_mb ?? '';
         form.querySelector('#packageUploads').value = pkg?.max_concurrent_uploads || '';
         form.querySelector('#packagePrice').value = pkg?.price || '';
         form.querySelector('#packageFeatures').value = (pkg?.features || []).join(', ');
@@ -132,6 +141,10 @@
         }
         if (extensionTextarea) {
             extensionTextarea.value = (pkg?.allowed_extensions || []).join('\n');
+        }
+        const maxUploadInput = form.querySelector('#packageMaxUpload');
+        if (maxUploadInput) {
+            maxUploadInput.value = pkg?.max_upload_size_mb ?? '';
         }
         if (autoShow) {
             modal?.show();
@@ -151,6 +164,10 @@
         formData.append('action', 'save-package');
         formData.append('csrf_token', appConfig.csrfToken);
         formData.append('is_active', activeSwitch?.checked ? 1 : 0);
+        const storageValue = Number(formData.get('storage_limit') || 0);
+        formData.set('storage_limit', Number.isFinite(storageValue) ? storageValue : 0);
+        const maxUploadValue = Number(formData.get('max_upload_size') || 0);
+        formData.set('max_upload_size', Number.isFinite(maxUploadValue) ? maxUploadValue : 0);
         const extensionRaw = (formData.get('allowed_extensions') || '').toString();
         if (extensionRaw) {
             const extList = extensionRaw.split(/[\n,]+/).map(item => item.replace(/^\./, '').trim()).filter(Boolean);
