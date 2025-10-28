@@ -44,10 +44,10 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 7. **Dosya İzinleri:** `uploads/` klasörünün web sunucusu tarafından yazılabilir olduğundan emin olun.
 
 ### Varsayılan Yönetici Bilgileri
-- E-posta: `admin@fileupload.noasoft.org`
-- Parola: `ChangeMe123!`
+- E-posta: `admin@noasoft.org`
+- Parola: `admin`
 
-İlk girişten sonra güvenlik için parolayı güncelleyin.
+Kurulumdan sonra kontrol paneline erişip güçlü bir parola belirlemeniz önerilir.
 
 ## Ödeme Entegrasyonları
 - **Iyzico:** Admin panelinden API anahtarlarını tanımlayıp modu aktifleştirin. Ödemeler `api/payment.php?provider=iyzico` uç noktasına geri döner ve başarılı işlemler otomatik olarak paketi atar.

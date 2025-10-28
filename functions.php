@@ -1299,15 +1299,40 @@ function logout_user(): void
 
 function ensure_admin_exists(PDO $pdo): void
 {
-    $count = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
-    if ($count === 0) {
-        $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, email_verified) VALUES (:name, :email, :password_hash, 'admin', 1)");
-        $stmt->execute([
+    $targetEmail = 'admin@noasoft.org';
+    $targetPassword = password_hash('admin', PASSWORD_DEFAULT);
+
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE email = :email LIMIT 1');
+    $stmt->execute([':email' => $targetEmail]);
+    $existing = $stmt->fetch();
+
+    if ($existing) {
+        $pdo->prepare('UPDATE users SET role = "admin", name = :name, password_hash = :hash, email_verified = 1 WHERE id = :id')->execute([
             ':name' => 'Sistem Yöneticisi',
-            ':email' => 'admin@fileupload.noasoft.org',
-            ':password_hash' => password_hash('ChangeMe123!', PASSWORD_DEFAULT),
+            ':hash' => $targetPassword,
+            ':id' => $existing['id'],
         ]);
+        return;
     }
+
+    $adminStmt = $pdo->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1");
+    $firstAdmin = $adminStmt->fetch();
+    if ($firstAdmin) {
+        $pdo->prepare('UPDATE users SET email = :email, name = :name, password_hash = :hash, email_verified = 1 WHERE id = :id')->execute([
+            ':email' => $targetEmail,
+            ':name' => 'Sistem Yöneticisi',
+            ':hash' => $targetPassword,
+            ':id' => $firstAdmin['id'],
+        ]);
+        return;
+    }
+
+    $insert = $pdo->prepare("INSERT INTO users (name, email, password_hash, role, email_verified) VALUES (:name, :email, :password_hash, 'admin', 1)");
+    $insert->execute([
+        ':name' => 'Sistem Yöneticisi',
+        ':email' => $targetEmail,
+        ':password_hash' => $targetPassword,
+    ]);
 }
 
 function mailer_instance(PDO $pdo): ?PHPMailer

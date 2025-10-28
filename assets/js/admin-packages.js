@@ -10,7 +10,10 @@
     const tbody = table.querySelector('tbody');
     const searchInput = document.getElementById('adminPackagesSearch');
     const modalEl = document.getElementById('packageModal');
-    const bootstrapLib = window.bootstrap;
+    let bootstrapLib = window.bootstrap || window.Bootstrap || null;
+    if (typeof bootstrap !== 'undefined') {
+        bootstrapLib = bootstrap;
+    }
     const modal = modalEl && bootstrapLib ? new bootstrapLib.Modal(modalEl) : null;
     const form = document.getElementById('packageForm');
     const activeSwitch = document.getElementById('packageActive');
@@ -98,7 +101,14 @@
         if (!response.ok) {
             throw new Error('Sunucu isteği başarısız oldu');
         }
-        const data = await response.json();
+        const raw = await response.text();
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch (error) {
+            console.error('Sunucu yanıtı çözümlenemedi:', raw);
+            throw new Error('Sunucudan beklenmeyen yanıt alındı.');
+        }
         if (data.status !== 'success') {
             throw new Error(data.message || 'Paketler alınamadı');
         }
