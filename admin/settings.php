@@ -2,13 +2,13 @@
 require_once __DIR__ . '/../config.php';
 require_auth(true);
 $settings = fetch_settings($pdo);
-$allowedMimeText = '';
-if (!empty($settings['allowed_mime_types'])) {
-    $decoded = json_decode($settings['allowed_mime_types'], true);
+$allowedExtensionText = '';
+if (!empty($settings['allowed_extensions'])) {
+    $decoded = json_decode($settings['allowed_extensions'], true);
     if (is_array($decoded)) {
-        $allowedMimeText = implode("\n", $decoded);
+        $allowedExtensionText = implode("\n", $decoded);
     } else {
-        $allowedMimeText = (string) $settings['allowed_mime_types'];
+        $allowedExtensionText = (string) $settings['allowed_extensions'];
     }
 }
 global $pageScripts;
@@ -130,9 +130,9 @@ include __DIR__ . '/nav.php';
                     <h2 class="h5 mb-3">Depo &amp; Paylaşım Politikaları</h2>
                     <div class="row g-3">
                         <div class="col-lg-4">
-                            <label class="form-label">İzin Verilen MIME Türleri</label>
-                            <textarea name="allowed_mime_types" class="form-control" rows="5" placeholder="image/jpeg&#10;application/pdf"><?= sanitize($allowedMimeText) ?></textarea>
-                            <small class="text-white-50">Virgül veya satır sonu ile ayırabilirsiniz.</small>
+                            <label class="form-label">İzin Verilen Dosya Uzantıları</label>
+                            <textarea name="allowed_extensions" class="form-control" rows="5" placeholder="jpg&#10;png&#10;pdf"><?= sanitize($allowedExtensionText) ?></textarea>
+                            <small class="text-white-50">Her satıra bir uzantı yazın, başında nokta kullanmanıza gerek yoktur.</small>
                         </div>
                         <div class="col-lg-4">
                             <label class="form-label">Paylaşım Süresi (dakika)</label>

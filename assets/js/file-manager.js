@@ -75,6 +75,7 @@
         const breadcrumbsEl = app.querySelector('[data-fm-breadcrumbs]');
         const usageStat = app.querySelector('[data-fm-stat="usage"]');
         const allowedEl = app.querySelector('[data-fm-allowed]');
+        const uploadLimitEl = app.querySelector('[data-fm-upload-limit]');
         const contextMenu = document.querySelector('[data-fm-context]');
         const uploadZone = document.querySelector('#clientUploadZone');
         const toolbarButtons = Array.from(app.querySelectorAll('[data-fm-action]'));
@@ -412,19 +413,24 @@
                 usageStat.textContent = total ? `${formatBytes(used)} / ${formatBytes(total)}` : formatBytes(used);
             }
             if (allowedEl) {
-                const allowedList = Array.isArray(state.limits.allowed_mime_types) ? state.limits.allowed_mime_types : [];
-                allowedEl.textContent = allowedList.length ? allowedList.join(', ') : '—';
+                const allowedList = Array.isArray(state.limits.allowed_extensions) ? state.limits.allowed_extensions : [];
+                allowedEl.textContent = allowedList.length ? allowedList.map(ext => `.${ext}`).join(', ') : '—';
             }
             if (uploadZone) {
-                const allowedList = Array.isArray(state.limits.allowed_mime_types) ? state.limits.allowed_mime_types : [];
-                uploadZone.dataset.accepted = allowedList.join(',');
+                const allowedList = Array.isArray(state.limits.allowed_extensions) ? state.limits.allowed_extensions : [];
+                uploadZone.dataset.accepted = allowedList.map(ext => `.${ext}`).join(',');
                 uploadZone.dispatchEvent(new CustomEvent('set-folder', {
                     detail: {
                         folderId: state.folderId,
                         parallelUploads: state.limits.max_concurrent_uploads,
-                        acceptedFiles: allowedList,
+                        acceptedFiles: allowedList.map(ext => `.${ext}`),
                     }
                 }));
+            }
+            if (uploadLimitEl) {
+                const limit = state.limits.max_concurrent_uploads ?? 1;
+                const packageName = state.limits.package_name ? ` • Paket: ${state.limits.package_name}` : '';
+                uploadLimitEl.textContent = `Eş zamanlı yükleme limiti: ${limit}${packageName}`;
             }
         }
 

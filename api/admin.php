@@ -71,12 +71,10 @@ try {
                         $features = $decoded;
                     }
                 }
-                $mimeList = [];
-                if (!empty($package['allowed_mime_types'])) {
-                    $decoded = json_decode($package['allowed_mime_types'], true);
-                    if (is_array($decoded)) {
-                        $mimeList = $decoded;
-                    }
+                $extensionList = [];
+                if (!empty($package['allowed_extensions'])) {
+                    $decoded = json_decode($package['allowed_extensions'], true);
+                    $extensionList = normalise_extension_list($decoded ?: $package['allowed_extensions']);
                 }
                 return [
                     'id' => (int) $package['id'],
@@ -84,7 +82,7 @@ try {
                     'storage_limit' => (int) $package['storage_limit'],
                     'max_concurrent_uploads' => (int) $package['max_concurrent_uploads'],
                     'features' => $features,
-                    'allowed_mime_types' => $mimeList,
+                    'allowed_extensions' => $extensionList,
                     'price' => (float) $package['price'],
                     'is_active' => (int) $package['is_active'],
                     'plesk_service_plan' => $package['plesk_service_plan'] ?? null,
@@ -335,7 +333,7 @@ try {
                 'mail_from_address' => trim($payload['mail_from_address'] ?? ''),
                 'analytics_code' => $payload['analytics_code'] ?? '',
                 'analytics_enabled' => !empty($payload['analytics_enabled']) ? 1 : 0,
-                'allowed_mime_types' => trim($payload['allowed_mime_types'] ?? ''),
+                'allowed_extensions' => trim($payload['allowed_extensions'] ?? ''),
                 'share_expiry_minutes' => (int) ($payload['share_expiry_minutes'] ?? 1440),
                 'public_sharing_enabled' => !empty($payload['public_sharing_enabled']) ? 1 : 0,
                 'folder_passwords_enabled' => !empty($payload['folder_passwords_enabled']) ? 1 : 0,
@@ -406,13 +404,10 @@ try {
                 move_uploaded_file($_FILES['banner']['tmp_name'], __DIR__ . '/../uploads/' . $bannerName);
                 $socialImageName = $bannerName;
             }
-            $allowedMimeList = [];
-            if ($fields['allowed_mime_types'] !== '') {
-                $allowedMimeList = array_filter(array_map('trim', preg_split('/[,\n]+/', $fields['allowed_mime_types']) ?: []));
-            }
-            $allowedMimeJson = json_encode(array_values(array_unique($allowedMimeList)));
+            $allowedExtensionList = normalise_extension_list($fields['allowed_extensions']);
+            $allowedExtensionJson = json_encode($allowedExtensionList);
 
-            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, meta_keywords = :meta_keywords, social_title = :social_title, social_description = :social_description, social_image = :social_image, twitter_handle = :twitter_handle, brand_banner = :brand_banner, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_enabled = :mail_enabled, mail_method = :mail_method, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, mail_from_name = :mail_from_name, mail_from_address = :mail_from_address, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_mime_types = :allowed_mime_types, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled, share_download_delay = :share_download_delay, share_password_required = :share_password_required, share_stats_enabled = :share_stats_enabled, ad_dashboard_html = :ad_dashboard_html, ad_share_top_html = :ad_share_top_html, ad_share_bottom_html = :ad_share_bottom_html, payment_currency = :payment_currency, iyzico_enabled = :iyzico_enabled, iyzico_api_key = :iyzico_api_key, iyzico_secret_key = :iyzico_secret_key, iyzico_base_url = :iyzico_base_url, stripe_enabled = :stripe_enabled, stripe_api_key = :stripe_api_key, stripe_publishable_key = :stripe_publishable_key, stripe_webhook_secret = :stripe_webhook_secret, bank_transfer_enabled = :bank_transfer_enabled, bank_transfer_instructions = :bank_transfer_instructions, auto_archive_enabled = :auto_archive_enabled, auto_delete_enabled = :auto_delete_enabled, archive_after_days = :archive_after_days, delete_after_days = :delete_after_days, geoip_database_path = :geoip_database_path, realtime_updates_enabled = :realtime_updates_enabled, plesk_api_url = :plesk_api_url, plesk_api_login = :plesk_api_login, plesk_api_password = :plesk_api_password LIMIT 1');
+            $stmt = $pdo->prepare('UPDATE settings SET meta_title = :meta_title, meta_description = :meta_description, meta_keywords = :meta_keywords, social_title = :social_title, social_description = :social_description, social_image = :social_image, twitter_handle = :twitter_handle, brand_banner = :brand_banner, header_html = :header_html, footer_html = :footer_html, logo = :logo, favicon = :favicon, mail_enabled = :mail_enabled, mail_method = :mail_method, mail_host = :mail_host, mail_port = :mail_port, mail_username = :mail_username, mail_password = :mail_password, mail_encryption = :mail_encryption, mail_from_name = :mail_from_name, mail_from_address = :mail_from_address, analytics_code = :analytics_code, analytics_enabled = :analytics_enabled, allowed_extensions = :allowed_extensions, share_expiry_minutes = :share_expiry_minutes, public_sharing_enabled = :public_sharing_enabled, folder_passwords_enabled = :folder_passwords_enabled, share_download_delay = :share_download_delay, share_password_required = :share_password_required, share_stats_enabled = :share_stats_enabled, ad_dashboard_html = :ad_dashboard_html, ad_share_top_html = :ad_share_top_html, ad_share_bottom_html = :ad_share_bottom_html, payment_currency = :payment_currency, iyzico_enabled = :iyzico_enabled, iyzico_api_key = :iyzico_api_key, iyzico_secret_key = :iyzico_secret_key, iyzico_base_url = :iyzico_base_url, stripe_enabled = :stripe_enabled, stripe_api_key = :stripe_api_key, stripe_publishable_key = :stripe_publishable_key, stripe_webhook_secret = :stripe_webhook_secret, bank_transfer_enabled = :bank_transfer_enabled, bank_transfer_instructions = :bank_transfer_instructions, auto_archive_enabled = :auto_archive_enabled, auto_delete_enabled = :auto_delete_enabled, archive_after_days = :archive_after_days, delete_after_days = :delete_after_days, geoip_database_path = :geoip_database_path, realtime_updates_enabled = :realtime_updates_enabled, plesk_api_url = :plesk_api_url, plesk_api_login = :plesk_api_login, plesk_api_password = :plesk_api_password LIMIT 1');
             $stmt->execute([
                 ':meta_title' => $fields['meta_title'],
                 ':meta_description' => $fields['meta_description'],
@@ -437,7 +432,7 @@ try {
                 ':mail_from_address' => $fields['mail_from_address'],
                 ':analytics_code' => $fields['analytics_code'],
                 ':analytics_enabled' => $fields['analytics_enabled'],
-                ':allowed_mime_types' => $allowedMimeJson,
+                ':allowed_extensions' => $allowedExtensionJson,
                 ':share_expiry_minutes' => $fields['share_expiry_minutes'] ?: 1440,
                 ':public_sharing_enabled' => $fields['public_sharing_enabled'],
                 ':folder_passwords_enabled' => $fields['folder_passwords_enabled'],
@@ -484,18 +479,13 @@ try {
             }
             $featuresJson = json_encode(array_values(array_filter($decodedFeatures, static fn($item) => $item !== '')));
 
-            $rawMime = $payload['allowed_mime_types'] ?? '';
-            if (is_string($rawMime) && $rawMime !== '') {
-                $decodedMime = json_decode($rawMime, true);
-                if (is_array($decodedMime)) {
-                    $allowedMimeJson = json_encode(array_values(array_filter(array_map('trim', $decodedMime))));
-                } else {
-                    $allowedMimeJson = json_encode(array_values(array_filter(array_map('trim', preg_split('/[,\n]+/', $rawMime) ?: []))));
-                }
-            } elseif (is_array($rawMime)) {
-                $allowedMimeJson = json_encode(array_values(array_filter(array_map('trim', $rawMime))));
+            $rawExtensions = $payload['allowed_extensions'] ?? '';
+            if ($rawExtensions === null || $rawExtensions === '') {
+                $allowedExtensionsJson = null;
             } else {
-                $allowedMimeJson = null;
+                $decodedExtensions = is_string($rawExtensions) ? json_decode($rawExtensions, true) : $rawExtensions;
+                $allowedExtensions = normalise_extension_list($decodedExtensions ?: $rawExtensions);
+                $allowedExtensionsJson = $allowedExtensions ? json_encode($allowedExtensions) : null;
             }
 
             $data = [
@@ -505,17 +495,17 @@ try {
                 ':features' => $featuresJson,
                 ':price' => (float) ($payload['price'] ?? 0),
                 ':active' => !empty($payload['is_active']) ? 1 : 0,
-                ':allowed_mime_types' => $allowedMimeJson,
+                ':allowed_extensions' => $allowedExtensionsJson,
                 ':plan' => trim($payload['plesk_service_plan'] ?? ''),
             ];
             if (strlen($data[':name']) < 3) {
                 throw new RuntimeException('Paket adı en az 3 karakter olmalı.');
             }
             if ($packageId) {
-                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_mime_types = :allowed_mime_types, plesk_service_plan = :plan, price = :price, is_active = :active WHERE id = :id');
+                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_concurrent_uploads = :uploads, features = :features, allowed_extensions = :allowed_extensions, plesk_service_plan = :plan, price = :price, is_active = :active WHERE id = :id');
                 $stmt->execute($data + [':id' => $packageId]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, plesk_service_plan, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_mime_types, :plan, :price, :active)');
+                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, plesk_service_plan, price, is_active) VALUES (:name, :storage, :uploads, :features, :allowed_extensions, :plan, :price, :active)');
                 $stmt->execute($data);
                 $packageId = (int) $pdo->lastInsertId();
             }

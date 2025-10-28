@@ -11,11 +11,8 @@ use Iyzipay\Request\CreateCheckoutFormInitializeRequest;
 use PHPMailer\PHPMailer\PHPMailer;
 use Stripe\StripeClient;
 
-const DEFAULT_ALLOWED_MIME_TYPES = [
-    'image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain',
-    'application/zip', 'application/x-rar-compressed',
-    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const DEFAULT_ALLOWED_EXTENSIONS = [
+    'jpg', 'jpeg', 'png', 'gif', 'pdf', 'txt', 'zip', 'rar', 'doc', 'docx', 'xls', 'xlsx'
 ];
 
 function schemaColumnExists(PDO $pdo, string $table, string $column): bool
@@ -57,7 +54,7 @@ CREATE TABLE IF NOT EXISTS packages (
     storage_limit BIGINT NOT NULL,
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
-    allowed_mime_types TEXT DEFAULT NULL,
+    allowed_extensions TEXT DEFAULT NULL,
     plesk_service_plan VARCHAR(191) DEFAULT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -65,11 +62,15 @@ CREATE TABLE IF NOT EXISTS packages (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 SQL);
 
-    if (!schemaColumnExists($pdo, 'packages', 'allowed_mime_types')) {
-        $pdo->exec('ALTER TABLE packages ADD COLUMN allowed_mime_types TEXT DEFAULT NULL AFTER features');
+    if (!schemaColumnExists($pdo, 'packages', 'allowed_extensions')) {
+        $pdo->exec('ALTER TABLE packages ADD COLUMN allowed_extensions TEXT DEFAULT NULL AFTER features');
+    }
+    if (schemaColumnExists($pdo, 'packages', 'allowed_mime_types')) {
+        $pdo->exec('UPDATE packages SET allowed_extensions = allowed_mime_types WHERE (allowed_extensions IS NULL OR allowed_extensions = \'\') AND allowed_mime_types IS NOT NULL');
+        $pdo->exec('ALTER TABLE packages DROP COLUMN allowed_mime_types');
     }
     if (!schemaColumnExists($pdo, 'packages', 'plesk_service_plan')) {
-        $pdo->exec('ALTER TABLE packages ADD COLUMN plesk_service_plan VARCHAR(191) DEFAULT NULL AFTER allowed_mime_types');
+        $pdo->exec('ALTER TABLE packages ADD COLUMN plesk_service_plan VARCHAR(191) DEFAULT NULL AFTER allowed_extensions');
     }
 
     $pdo->exec(<<<SQL
@@ -1045,28 +1046,28 @@ function ensureDefaultPackages(PDO $pdo): void
 {
     $count = (int) $pdo->query('SELECT COUNT(*) FROM packages')->fetchColumn();
     if ($count === 0) {
-        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_mime_types, price) VALUES
-            (:name1, :storage1, :upload1, :features1, :mime1, :price1),
-            (:name2, :storage2, :upload2, :features2, :mime2, :price2),
-            (:name3, :storage3, :upload3, :features3, :mime3, :price3)');
+        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_concurrent_uploads, features, allowed_extensions, price) VALUES
+            (:name1, :storage1, :upload1, :features1, :ext1, :price1),
+            (:name2, :storage2, :upload2, :features2, :ext2, :price2),
+            (:name3, :storage3, :upload3, :features3, :ext3, :price3)');
         $stmt->execute([
             ':name1' => 'Başlangıç',
             ':storage1' => 524288000,
             ':upload1' => 2,
             ':features1' => json_encode(['Temel depolama', 'Sınırlı destek']),
-            ':mime1' => null,
+            ':ext1' => null,
             ':price1' => 0.00,
             ':name2' => 'Profesyonel',
             ':storage2' => 2147483648,
             ':upload2' => 5,
             ':features2' => json_encode(['Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar']),
-            ':mime2' => null,
+            ':ext2' => null,
             ':price2' => 14.99,
             ':name3' => 'Kurumsal',
             ':storage3' => 5368709120,
             ':upload3' => 10,
             ':features3' => json_encode(['Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA']),
-            ':mime3' => null,
+            ':ext3' => null,
             ':price3' => 49.99,
         ]);
     }
@@ -1099,7 +1100,7 @@ function ensureDefaultSettings(PDO $pdo): void
         mail_from_address VARCHAR(191) DEFAULT NULL,
         analytics_code TEXT DEFAULT NULL,
         analytics_enabled TINYINT(1) DEFAULT 0,
-        allowed_mime_types TEXT DEFAULT NULL,
+        allowed_extensions TEXT DEFAULT NULL,
         share_expiry_minutes INT DEFAULT 1440,
         public_sharing_enabled TINYINT(1) DEFAULT 1,
         folder_passwords_enabled TINYINT(1) DEFAULT 1,
@@ -1162,11 +1163,15 @@ function ensureDefaultSettings(PDO $pdo): void
     if (!schemaColumnExists($pdo, 'settings', 'mail_from_address')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN mail_from_address VARCHAR(191) DEFAULT NULL AFTER mail_from_name');
     }
-    if (!schemaColumnExists($pdo, 'settings', 'allowed_mime_types')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN allowed_mime_types TEXT DEFAULT NULL AFTER analytics_enabled');
+    if (!schemaColumnExists($pdo, 'settings', 'allowed_extensions')) {
+        $pdo->exec('ALTER TABLE settings ADD COLUMN allowed_extensions TEXT DEFAULT NULL AFTER analytics_enabled');
+    }
+    if (schemaColumnExists($pdo, 'settings', 'allowed_mime_types')) {
+        $pdo->exec('UPDATE settings SET allowed_extensions = allowed_mime_types WHERE (allowed_extensions IS NULL OR allowed_extensions = \'\') AND allowed_mime_types IS NOT NULL');
+        $pdo->exec('ALTER TABLE settings DROP COLUMN allowed_mime_types');
     }
     if (!schemaColumnExists($pdo, 'settings', 'share_expiry_minutes')) {
-        $pdo->exec('ALTER TABLE settings ADD COLUMN share_expiry_minutes INT DEFAULT 1440 AFTER allowed_mime_types');
+        $pdo->exec('ALTER TABLE settings ADD COLUMN share_expiry_minutes INT DEFAULT 1440 AFTER allowed_extensions');
     }
     if (!schemaColumnExists($pdo, 'settings', 'public_sharing_enabled')) {
         $pdo->exec('ALTER TABLE settings ADD COLUMN public_sharing_enabled TINYINT(1) DEFAULT 1 AFTER share_expiry_minutes');
@@ -1258,14 +1263,9 @@ function ensureDefaultSettings(PDO $pdo): void
 
     $count = (int) $pdo->query('SELECT COUNT(*) FROM settings')->fetchColumn();
     if ($count === 0) {
-        $defaultMime = json_encode([
-            'image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain',
-            'application/zip', 'application/x-rar-compressed',
-            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        ]);
-        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, meta_keywords, social_title, social_description, header_html, footer_html, analytics_enabled, allowed_mime_types, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay, payment_currency, bank_transfer_enabled)
-            VALUES (:title, :description, :keywords, :social_title, :social_description, :header, :footer, :enabled, :mime, :expiry, :public_share, :folder_password, :delay, :currency, :bank_enabled)');
+        $defaultExtensions = json_encode(DEFAULT_ALLOWED_EXTENSIONS);
+        $stmt = $pdo->prepare('INSERT INTO settings (meta_title, meta_description, meta_keywords, social_title, social_description, header_html, footer_html, analytics_enabled, allowed_extensions, share_expiry_minutes, public_sharing_enabled, folder_passwords_enabled, share_download_delay, payment_currency, bank_transfer_enabled)
+            VALUES (:title, :description, :keywords, :social_title, :social_description, :header, :footer, :enabled, :extensions, :expiry, :public_share, :folder_password, :delay, :currency, :bank_enabled)');
         $stmt->execute([
             ':title' => 'NoaSoft Dosya Deposu',
             ':description' => 'Güvenli ve hızlı dosya yükleme platformu.',
@@ -1275,7 +1275,7 @@ function ensureDefaultSettings(PDO $pdo): void
             ':header' => '',
             ':footer' => '<p>© ' . date('Y') . ' NoaSoft</p>',
             ':enabled' => 0,
-            ':mime' => $defaultMime,
+            ':extensions' => $defaultExtensions,
             ':expiry' => 1440,
             ':public_share' => 1,
             ':folder_password' => 1,
@@ -1331,7 +1331,54 @@ function redirect_if_authenticated(): void
     }
 }
 
-function allowed_mime_types(PDO $pdo, ?int $packageId = null): array
+function normalise_extension_list($values): array
+{
+    if (is_string($values)) {
+        $values = preg_split('/[\s,]+/', $values) ?: [];
+    }
+    if (!is_array($values)) {
+        return [];
+    }
+    $extensions = [];
+    foreach ($values as $value) {
+        if (!is_string($value) || $value === '') {
+            continue;
+        }
+        $trimmed = strtolower(trim($value));
+        $trimmed = ltrim($trimmed, '.');
+        if ($trimmed === '') {
+            continue;
+        }
+        if (strpos($trimmed, '/') !== false) {
+            $extensions = array_merge($extensions, mime_to_extensions($trimmed));
+            continue;
+        }
+        $extensions[] = preg_replace('/[^a-z0-9\+_-]/', '', $trimmed);
+    }
+    return array_values(array_filter(array_unique($extensions)));
+}
+
+function mime_to_extensions(string $mime): array
+{
+    static $map = [
+        'image/jpeg' => ['jpg', 'jpeg'],
+        'image/png' => ['png'],
+        'image/gif' => ['gif'],
+        'application/pdf' => ['pdf'],
+        'text/plain' => ['txt'],
+        'application/zip' => ['zip'],
+        'application/x-zip-compressed' => ['zip'],
+        'application/x-rar-compressed' => ['rar'],
+        'application/vnd.rar' => ['rar'],
+        'application/msword' => ['doc'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => ['docx'],
+        'application/vnd.ms-excel' => ['xls'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => ['xlsx'],
+    ];
+    return $map[$mime] ?? [];
+}
+
+function allowed_extensions(PDO $pdo, ?int $packageId = null): array
 {
     static $cache = [];
     $key = $packageId ? 'pkg_' . $packageId : 'settings';
@@ -1341,39 +1388,35 @@ function allowed_mime_types(PDO $pdo, ?int $packageId = null): array
 
     $list = [];
     if ($packageId) {
-        $stmt = $pdo->prepare('SELECT allowed_mime_types FROM packages WHERE id = :id');
+        $stmt = $pdo->prepare('SELECT allowed_extensions FROM packages WHERE id = :id');
         $stmt->execute([':id' => $packageId]);
         $rawPackage = $stmt->fetchColumn();
         if ($rawPackage) {
             $decoded = json_decode((string) $rawPackage, true);
-            if (is_array($decoded)) {
-                $list = $decoded;
-            } else {
-                $list = preg_split('/[,\n]/', (string) $rawPackage) ?: [];
-            }
+            $list = normalise_extension_list($decoded ?: $rawPackage);
         }
     }
 
     if (empty($list)) {
         $settings = fetch_settings($pdo);
-        $raw = $settings['allowed_mime_types'] ?? '';
+        $raw = $settings['allowed_extensions'] ?? '';
         if (is_string($raw) && $raw !== '') {
             $decoded = json_decode($raw, true);
-            if (is_array($decoded)) {
-                $list = $decoded;
-            } else {
-                $list = preg_split('/[,\n]/', $raw) ?: [];
-            }
+            $list = normalise_extension_list($decoded ?: $raw);
         }
     }
 
-    $list = array_filter(array_map('trim', $list));
     if (empty($list)) {
-        $list = DEFAULT_ALLOWED_MIME_TYPES;
+        $list = DEFAULT_ALLOWED_EXTENSIONS;
     }
 
-    $cache[$key] = array_values(array_unique($list));
+    $cache[$key] = $list;
     return $cache[$key];
+}
+
+function allowed_mime_types(PDO $pdo, ?int $packageId = null): array
+{
+    return allowed_extensions($pdo, $packageId);
 }
 
 function validate_uploaded_file(array $file, ?PDO $pdo = null, ?array $allowedOverride = null): array
@@ -1387,11 +1430,12 @@ function validate_uploaded_file(array $file, ?PDO $pdo = null, ?array $allowedOv
     }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mimeType = $finfo->file($file['tmp_name']);
-    $allowedTypes = $allowedOverride ?? ($pdo ? allowed_mime_types($pdo) : DEFAULT_ALLOWED_MIME_TYPES);
-    if (!in_array($mimeType, $allowedTypes, true)) {
-        throw new RuntimeException('Desteklenmeyen dosya türü.');
+    $extension = strtolower((string) pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+    $allowedExtensions = $allowedOverride ?? ($pdo ? allowed_extensions($pdo) : DEFAULT_ALLOWED_EXTENSIONS);
+    if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
+        throw new RuntimeException('Desteklenmeyen dosya uzantısı.');
     }
-    return [$mimeType, $file['size']];
+    return [$mimeType, $file['size'], $extension];
 }
 
 function package_for_user(PDO $pdo, int $userId): ?array

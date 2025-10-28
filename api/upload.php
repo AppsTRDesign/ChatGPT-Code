@@ -29,8 +29,8 @@ $file = $_FILES['file'];
 try {
     $user = current_user();
     $package = package_for_user($pdo, (int) $user['id']);
-    $allowedTypes = allowed_mime_types($pdo, $package['id'] ?? null);
-    [$mimeType, $size] = validate_uploaded_file($file, $pdo, $allowedTypes);
+    $allowedExtensions = allowed_extensions($pdo, $package['id'] ?? null);
+    [$mimeType, $size, $extension] = validate_uploaded_file($file, $pdo, $allowedExtensions);
     $folderId = isset($_POST['folder_id']) ? (int) $_POST['folder_id'] : null;
     if ($folderId) {
         $folder = fetch_folder($pdo, $folderId);
@@ -41,8 +41,7 @@ try {
     if (!can_upload($pdo, (int) $user['id'], $size)) {
         throw new RuntimeException('Depo alanı limitini aştınız.');
     }
-    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $storedName = bin2hex(random_bytes(16)) . ($extension ? '.' . strtolower($extension) : '');
+    $storedName = bin2hex(random_bytes(16)) . ($extension ? '.' . $extension : '');
     $destination = __DIR__ . '/../uploads/' . $storedName;
     if (!move_uploaded_file($file['tmp_name'], $destination)) {
         throw new RuntimeException('Dosya kaydedilemedi.');
@@ -57,7 +56,7 @@ try {
         'folder_id' => $folderId,
     ]);
     $slug = slugify(pathinfo($file['name'], PATHINFO_FILENAME));
-    $fileUrl = BASE_URL . '/file/' . $fileId . '-' . $slug . ($extension ? '.' . strtolower($extension) : '');
+    $fileUrl = BASE_URL . '/file/' . $fileId . '-' . $slug . ($extension ? '.' . $extension : '');
     echo json_encode([
         'status' => 'success',
         'message' => 'Dosya başarıyla yüklendi.',

@@ -73,9 +73,17 @@ include __DIR__ . '/nav.php';
             <form action="<?= BASE_URL ?>/api/upload.php" class="dropzone fm-dropzone" id="clientUploadZone" data-dropzone data-parallel-uploads="1" data-preview-template="#fm-upload-item-template" data-previews-container="[data-upload-list]">
                 <div class="dz-message">
                     Dosyalarınızı buraya sürükleyip bırakın veya tıklayarak seçin.
-                    <span class="d-block text-white-50 small">Desteklenen türler: <span data-fm-allowed></span></span>
                 </div>
             </form>
+            <div class="mt-3 p-3 border border-dashed rounded-3 bg-dark-40">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div>
+                        <div class="fw-semibold text-uppercase extra-small text-white-50">İzin Verilen Uzantılar</div>
+                        <div class="text-white" data-fm-allowed>—</div>
+                    </div>
+                    <div class="text-white-50 extra-small" data-fm-upload-limit></div>
+                </div>
+            </div>
             <div class="fm-upload-list" data-upload-list></div>
         </div>
     </div>

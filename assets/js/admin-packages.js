@@ -17,7 +17,7 @@
     const modal = modalEl && bootstrapLib ? new bootstrapLib.Modal(modalEl) : null;
     const form = document.getElementById('packageForm');
     const activeSwitch = document.getElementById('packageActive');
-    const mimeTextarea = document.getElementById('packageMime');
+    const extensionTextarea = document.getElementById('packageExtensions');
     const planInput = document.getElementById('packagePlan');
 
     let packages = [];
@@ -39,14 +39,14 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-    const summarizeMime = (list) => {
+    const summarizeExtensions = (list) => {
         if (!list?.length) {
             return 'Genel ayarlar';
         }
         if (list.length <= 3) {
-            return list.join(', ');
+            return list.map(item => `.${item}`).join(', ');
         }
-        return `${list.slice(0, 3).join(', ')}…`;
+        return `${list.slice(0, 3).map(item => `.${item}`).join(', ')}…`;
     };
 
     const renderTable = (data) => {
@@ -68,7 +68,7 @@
                 <td data-label="Ad">${escapeHtml(pkg.name)}</td>
                 <td data-label="Depolama">${formatBytes(Number(pkg.storage_limit))}</td>
                 <td data-label="Maks. Yükleme">${pkg.max_concurrent_uploads}</td>
-                <td data-label="İzinli Türler">${escapeHtml(summarizeMime(pkg.allowed_mime_types))}</td>
+                <td data-label="İzinli Türler">${escapeHtml(summarizeExtensions(pkg.allowed_extensions))}</td>
                 <td data-label="Fiyat">${Number(pkg.price).toFixed(2)} ₺</td>
                 <td data-label="Durum"><span class="badge ${pkg.is_active ? 'bg-success' : 'bg-secondary'}">${pkg.is_active ? 'Aktif' : 'Pasif'}</span></td>
                 <td data-label="İşlemler" class="text-end">
@@ -87,7 +87,7 @@
             return;
         }
         const filtered = packages.filter(pkg => {
-            const tokens = [pkg.name, summarizeMime(pkg.allowed_mime_types), pkg.price].join(' ').toLowerCase();
+            const tokens = [pkg.name, summarizeExtensions(pkg.allowed_extensions), pkg.price].join(' ').toLowerCase();
             return tokens.includes(query);
         });
         renderTable(filtered);
@@ -134,8 +134,8 @@
         if (activeSwitch) {
             activeSwitch.checked = pkg ? pkg.is_active === 1 : true;
         }
-        if (mimeTextarea) {
-            mimeTextarea.value = (pkg?.allowed_mime_types || []).join('\n');
+        if (extensionTextarea) {
+            extensionTextarea.value = (pkg?.allowed_extensions || []).join('\n');
         }
         if (autoShow) {
             modal?.show();
@@ -155,10 +155,10 @@
         formData.append('action', 'save-package');
         formData.append('csrf_token', appConfig.csrfToken);
         formData.append('is_active', activeSwitch?.checked ? 1 : 0);
-        const mimeRaw = (formData.get('allowed_mime_types') || '').toString();
-        if (mimeRaw) {
-            const mimeList = mimeRaw.split(/[\n,]+/).map(item => item.trim()).filter(Boolean);
-            formData.set('allowed_mime_types', JSON.stringify(mimeList));
+        const extensionRaw = (formData.get('allowed_extensions') || '').toString();
+        if (extensionRaw) {
+            const extList = extensionRaw.split(/[\n,]+/).map(item => item.replace(/^\./, '').trim()).filter(Boolean);
+            formData.set('allowed_extensions', JSON.stringify(extList));
         }
         try {
             const response = await fetch(`${appConfig.baseUrl}/api/admin.php`, {

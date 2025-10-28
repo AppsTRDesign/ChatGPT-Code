@@ -70,10 +70,11 @@ include __DIR__ . '/nav.php';
                         <input type="text" class="form-control" id="packageFeatures" name="features">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="packageMime">İzinli MIME Türleri</label>
-                        <textarea class="form-control" id="packageMime" name="allowed_mime_types" rows="3" placeholder="image/jpeg
-application/pdf"></textarea>
-                        <small class="text-white-50">Virgül veya satır sonu ile ayırın. Boş bırakılırsa genel ayarlar kullanılır.</small>
+                        <label class="form-label" for="packageExtensions">İzinli Uzantılar</label>
+                        <textarea class="form-control" id="packageExtensions" name="allowed_extensions" rows="3" placeholder="jpg
+png
+pdf"></textarea>
+                        <small class="text-white-50">Her satıra bir uzantı yazın. Boş bırakılırsa genel ayarlardaki liste uygulanır.</small>
                     </div>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" role="switch" id="packageActive">
