@@ -893,6 +893,35 @@ function format_bytes(int $bytes): string
     return number_format($bytes / (1024 ** $power), 2) . ' ' . $units[$power];
 }
 
+function collect_usage_timeseries(PDO $pdo, string $range = 'daily'): array
+{
+    $range = strtolower($range);
+    switch ($range) {
+        case 'weekly':
+            $sql = "SELECT DATE_FORMAT(uploaded_at, '%x-W%v') AS label, MIN(DATE(uploaded_at)) AS sort_key, COUNT(*) AS uploads, COALESCE(SUM(size), 0) AS bytes FROM files WHERE uploaded_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK) GROUP BY DATE_FORMAT(uploaded_at, '%x-W%v') ORDER BY sort_key";
+            break;
+        case 'monthly':
+            $sql = "SELECT DATE_FORMAT(uploaded_at, '%Y-%m') AS label, MIN(DATE(uploaded_at)) AS sort_key, COUNT(*) AS uploads, COALESCE(SUM(size), 0) AS bytes FROM files WHERE uploaded_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY DATE_FORMAT(uploaded_at, '%Y-%m') ORDER BY sort_key";
+            break;
+        case 'yearly':
+            $sql = "SELECT DATE_FORMAT(uploaded_at, '%Y') AS label, MIN(DATE(uploaded_at)) AS sort_key, COUNT(*) AS uploads, COALESCE(SUM(size), 0) AS bytes FROM files WHERE uploaded_at >= DATE_SUB(NOW(), INTERVAL 5 YEAR) GROUP BY DATE_FORMAT(uploaded_at, '%Y') ORDER BY sort_key";
+            break;
+        case 'daily':
+        default:
+            $sql = "SELECT DATE(uploaded_at) AS label, DATE(uploaded_at) AS sort_key, COUNT(*) AS uploads, COALESCE(SUM(size), 0) AS bytes FROM files WHERE uploaded_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) GROUP BY DATE(uploaded_at) ORDER BY sort_key";
+            break;
+    }
+
+    $rows = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    return array_map(static function (array $row): array {
+        return [
+            'label' => (string) $row['label'],
+            'uploads' => (int) $row['uploads'],
+            'bytes' => (int) $row['bytes'],
+        ];
+    }, $rows);
+}
+
 function ensureDefaultPackages(PDO $pdo): void
 {
     $count = (int) $pdo->query('SELECT COUNT(*) FROM packages')->fetchColumn();

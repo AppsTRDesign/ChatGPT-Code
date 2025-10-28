@@ -55,6 +55,23 @@ A PHP 8 file upload and storage platform tailored for AlmaLinux/Plesk deployment
 - **Havale/EFT:** Banka talimatlarını girin; kullanıcılar satın alma sonrası pending işlem oluşturur ve yönetici onayı bekler.
 - **Plesk Senkronizasyonu:** Plesk API bilgileri ayarlandığında paket atamaları sonrasında limitler otomatik güncellenir.
 
+### Plesk API Kullanımı
+Plesk REST API çağrıları panelinizin 8443 portu üzerinden yapılır. Örnek taban URL formatı:
+
+```
+https://<plesk-host>:8443/api/v2
+```
+
+1. Plesk panelinden **Araçlar & Ayarlar → API Erişimi** bölümüne gidin ve REST API'yi etkinleştirin.
+2. Bir API kullanıcı hesabı oluşturun veya mevcut yönetici hesabınız için parola kullanın.
+3. Yönetici panelindeki **Genel Ayarlar → Plesk API** kartına aşağıdaki alanları girin:
+   - **API URL:** Örn. `https://example.com:8443/api/v2`
+   - **API Kullanıcı Adı:** Plesk kullanıcı adı veya özel API hesabı.
+   - **API Parolası:** Kullanıcı parolası veya API anahtarı.
+4. Paket eşitlemesi tetiklendiğinde uygulama `POST /servers/{id}/subscriptions` ve benzeri uç noktalara çağrı yapabilmek için HTTP Basic kimlik doğrulaması kullanır. Plesk tarafında IP kısıtlaması varsa uygulama sunucusunu yetkilendirin.
+
+> **Not:** Plesk API'si varsayılan olarak self-signed sertifika ile gelir. Üretim ortamında geçerli bir TLS sertifikası kullanarak API bağlantısının kesilmesini önleyin.
+
 ## Dizinyapısı
 ```
 ├── admin/           # Yönetim paneli sayfaları

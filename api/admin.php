@@ -132,6 +132,22 @@ try {
             echo json_encode(['status' => 'success', 'data' => $files]);
             break;
 
+        case 'usage-timeseries':
+            $requestedRanges = $payload['ranges'] ?? ['daily'];
+            if (!is_array($requestedRanges)) {
+                $requestedRanges = [$requestedRanges];
+            }
+            $uniqueRanges = array_values(array_unique(array_filter($requestedRanges, static fn($range) => is_string($range))));
+            if (!$uniqueRanges) {
+                $uniqueRanges = ['daily'];
+            }
+            $series = [];
+            foreach ($uniqueRanges as $range) {
+                $series[$range] = collect_usage_timeseries($pdo, $range);
+            }
+            echo json_encode(['status' => 'success', 'data' => $series]);
+            break;
+
 
         case 'update-settings':
             $fields = [

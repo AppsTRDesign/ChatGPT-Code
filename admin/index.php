@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../config.php';
 require_auth(true);
+global $pageScripts;
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/admin-dashboard.js?v=1.0.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
@@ -25,31 +27,26 @@ include __DIR__ . '/nav.php';
             </div>
         </div>
     </div>
+    <div class="card card-glass p-4 mt-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+            <div>
+                <h2 class="h5 mb-1">Depo Kullanım Eğilimleri</h2>
+                <p class="text-white-50 small mb-0">Günlük, haftalık, aylık ve yıllık dosya yükleme istatistikleri</p>
+            </div>
+            <div class="btn-group" role="group" aria-label="Zaman seçici">
+                <button type="button" class="btn btn-outline-light" data-range="daily">Günlük</button>
+                <button type="button" class="btn btn-outline-light" data-range="weekly">Haftalık</button>
+                <button type="button" class="btn btn-outline-light" data-range="monthly">Aylık</button>
+                <button type="button" class="btn btn-outline-light" data-range="yearly">Yıllık</button>
+            </div>
+        </div>
+        <div class="chart-wrapper mb-4">
+            <canvas id="adminUsageChart" height="120"></canvas>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-gradient" data-export="csv">Excel (CSV) İndir</button>
+            <button type="button" class="btn btn-outline-light" data-export="pdf">PDF İndir</button>
+        </div>
+    </div>
 </div>
-<script>
-(async () => {
-    const appConfig = window.APP_CONFIG || {};
-    try {
-        const formData = new FormData();
-        formData.append('action', 'stats');
-        formData.append('csrf_token', appConfig.csrfToken);
-        const response = await fetch('<?= BASE_URL ?>/api/admin.php', {
-            method: 'POST',
-            body: formData,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-        const data = await response.json();
-        if (data.status === 'success') {
-            Object.entries(data.data).forEach(([key, value]) => {
-                const el = document.querySelector(`[data-stat="${key}"]`);
-                if (el) {
-                    el.textContent = value;
-                }
-            });
-        }
-    } catch (error) {
-        console.error(error);
-    }
-})();
-</script>
 <?php include __DIR__ . '/../templates/footer.php'; ?>

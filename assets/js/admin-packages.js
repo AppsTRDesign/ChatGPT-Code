@@ -10,7 +10,8 @@
     const tbody = table.querySelector('tbody');
     const searchInput = document.getElementById('adminPackagesSearch');
     const modalEl = document.getElementById('packageModal');
-    const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+    const bootstrapLib = window.bootstrap;
+    const modal = modalEl && bootstrapLib ? new bootstrapLib.Modal(modalEl) : null;
     const form = document.getElementById('packageForm');
     const activeSwitch = document.getElementById('packageActive');
     const mimeTextarea = document.getElementById('packageMime');
@@ -94,6 +95,9 @@
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify({ action: 'list-packages', csrf_token: appConfig.csrfToken })
         });
+        if (!response.ok) {
+            throw new Error('Sunucu isteği başarısız oldu');
+        }
         const data = await response.json();
         if (data.status !== 'success') {
             throw new Error(data.message || 'Paketler alınamadı');

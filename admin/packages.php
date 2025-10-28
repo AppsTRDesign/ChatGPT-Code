@@ -83,5 +83,4 @@ application/pdf"></textarea>
         </div>
     </div>
 </div>
-<script>
 <?php include __DIR__ . '/../templates/footer.php'; ?>

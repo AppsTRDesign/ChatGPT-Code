@@ -14,6 +14,21 @@ body {
     flex-direction: column;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: #f8f9ff;
+}
+
+.card,
+.modal-content,
+.table {
+    color: #f5f6ff;
+}
+
 .text-white-50,
 .text-white-50 small,
 .text-white-50 .small {
@@ -212,6 +227,13 @@ textarea::placeholder {
 .btn-outline-light:focus {
     background: rgba(255, 255, 255, 0.08);
     color: #ffffff;
+}
+
+.btn-outline-light.active,
+.btn-outline-light:active {
+    background: rgba(255, 255, 255, 0.25) !important;
+    color: #0f1124 !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
 }
 
 a.link-light:hover {
