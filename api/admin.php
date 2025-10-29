@@ -98,7 +98,7 @@ try {
         case 'list-files':
             $stmt = $pdo->query('SELECT f.*, u.name AS owner_name FROM files f LEFT JOIN users u ON u.id = f.user_id ORDER BY f.uploaded_at DESC');
             $rows = $stmt->fetchAll() ?: [];
-            $folderIds = array_unique(array_filter(array_map(static fn($row) => $row['folder_id'] ? (int) $row['folder_id'] : null, $rows)));
+            $folderIds = array_values(array_unique(array_filter(array_map(static fn($row) => $row['folder_id'] ? (int) $row['folder_id'] : null, $rows))));
             $folderMap = [];
             if ($folderIds) {
                 $placeholders = implode(',', array_fill(0, count($folderIds), '?'));
@@ -129,7 +129,6 @@ try {
                     'folder_id' => $folderId,
                     'folder_path' => $folderData['path'] ?? 'Ana Depo',
                     'download_url' => $downloadUrl,
-                    'direct_url' => BASE_URL . '/uploads/' . $row['stored_name'],
                 ];
             }, $rows);
             echo json_encode(['status' => 'success', 'data' => $files]);
@@ -262,6 +261,11 @@ try {
             echo json_encode(['status' => 'success', 'data' => $series]);
             break;
 
+        case 'share-analytics':
+            $analytics = share_statistics_all($pdo);
+            echo json_encode(['status' => 'success', 'data' => $analytics]);
+            break;
+
 
         case 'update-settings':
             $fields = [
@@ -323,6 +327,11 @@ try {
             $faviconName = $settings['favicon'] ?? null;
             $bannerName = $settings['brand_banner'] ?? null;
             $socialImageName = $settings['social_image'] ?? null;
+            $oldLogo = $logoName;
+            $oldFavicon = $faviconName;
+            $oldBanner = $bannerName;
+            $oldSocialImage = $socialImageName;
+            $pendingDeletes = [];
             if (!empty($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
                 [$mime] = validate_uploaded_file($_FILES['logo'], $pdo, ['jpg', 'jpeg', 'png', 'svg', 'gif']);
                 if (!str_starts_with($mime, 'image/')) {
@@ -331,6 +340,9 @@ try {
                 $ext = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
                 $logoName = 'logo_' . bin2hex(random_bytes(8)) . '.' . strtolower($ext);
                 move_uploaded_file($_FILES['logo']['tmp_name'], __DIR__ . '/../uploads/' . $logoName);
+                if ($oldLogo && $oldLogo !== $logoName) {
+                    $pendingDeletes[] = $oldLogo;
+                }
             }
             if (!empty($_FILES['favicon']) && $_FILES['favicon']['error'] === UPLOAD_ERR_OK) {
                 [$mime] = validate_uploaded_file($_FILES['favicon'], $pdo, ['png', 'ico', 'svg', 'gif']);
@@ -340,6 +352,9 @@ try {
                 $ext = pathinfo($_FILES['favicon']['name'], PATHINFO_EXTENSION);
                 $faviconName = 'favicon_' . bin2hex(random_bytes(8)) . '.' . strtolower($ext);
                 move_uploaded_file($_FILES['favicon']['tmp_name'], __DIR__ . '/../uploads/' . $faviconName);
+                if ($oldFavicon && $oldFavicon !== $faviconName) {
+                    $pendingDeletes[] = $oldFavicon;
+                }
             }
             if (!empty($_FILES['banner']) && $_FILES['banner']['error'] === UPLOAD_ERR_OK) {
                 [$mime] = validate_uploaded_file($_FILES['banner'], $pdo, ['jpg', 'jpeg', 'png', 'webp', 'svg']);
@@ -350,6 +365,12 @@ try {
                 $bannerName = 'banner_' . bin2hex(random_bytes(8)) . '.' . strtolower($ext);
                 move_uploaded_file($_FILES['banner']['tmp_name'], __DIR__ . '/../uploads/' . $bannerName);
                 $socialImageName = $bannerName;
+                if ($oldBanner && $oldBanner !== $bannerName) {
+                    $pendingDeletes[] = $oldBanner;
+                }
+                if ($oldSocialImage && $oldSocialImage !== $bannerName) {
+                    $pendingDeletes[] = $oldSocialImage;
+                }
             }
             $allowedExtensionList = normalise_extension_list($fields['allowed_extensions']);
             $allowedExtensionJson = json_encode($allowedExtensionList);
@@ -406,6 +427,12 @@ try {
                 ':delete_after_days' => $fields['delete_after_days'],
                 ':geoip_database_path' => $fields['geoip_database_path'],
             ]);
+            foreach ($pendingDeletes as $asset) {
+                $assetPath = __DIR__ . '/../uploads/' . ltrim($asset, '/');
+                if (is_file($assetPath)) {
+                    @unlink($assetPath);
+                }
+            }
             echo json_encode(['status' => 'success', 'message' => 'Ayarlar güncellendi.']);
             break;
 

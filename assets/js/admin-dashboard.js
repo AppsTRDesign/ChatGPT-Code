@@ -74,6 +74,7 @@
 
     const renderChart = (range) => {
         const { labels, uploads, bytes } = buildDataset(range);
+        const megabytes = bytes.map(value => Number((value / (1024 * 1024)).toFixed(2)));
         const chartData = {
             labels,
             datasets: [
@@ -81,16 +82,16 @@
                     type: 'bar',
                     label: 'Yükleme Sayısı',
                     data: uploads,
-                    backgroundColor: 'rgba(99, 102, 241, 0.6)',
-                    borderRadius: 10,
+                    backgroundColor: 'rgba(99, 102, 241, 0.65)',
+                    borderRadius: 8,
+                    yAxisID: 'y',
                 },
                 {
-                    type: 'line',
+                    type: 'bar',
                     label: 'Toplam Boyut (MB)',
-                    data: bytes.map(value => Number((value / (1024 * 1024)).toFixed(2))),
-                    borderColor: '#facc15',
-                    backgroundColor: 'rgba(250, 204, 21, 0.3)',
-                    tension: 0.3,
+                    data: megabytes,
+                    backgroundColor: 'rgba(250, 204, 21, 0.65)',
+                    borderRadius: 8,
                     yAxisID: 'y1',
                 }
             ]
@@ -98,11 +99,12 @@
 
         const chartOptions = {
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 y: {
                     beginAtZero: true,
                     ticks: { color: '#f8f9ff' },
-                    grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                    grid: { color: 'rgba(255, 255, 255, 0.12)' }
                 },
                 y1: {
                     beginAtZero: true,
@@ -112,7 +114,7 @@
                 },
                 x: {
                     ticks: { color: '#f8f9ff' },
-                    grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                    grid: { color: 'rgba(255, 255, 255, 0.12)' }
                 }
             },
             plugins: {
@@ -124,7 +126,7 @@
                 tooltip: {
                     callbacks: {
                         label(context) {
-                            if (context.datasetIndex === 1) {
+                            if (context.dataset.yAxisID === 'y1') {
                                 return `${context.dataset.label}: ${formatBytes(bytes[context.dataIndex] || 0)}`;
                             }
                             return `${context.dataset.label}: ${context.parsed.y}`;

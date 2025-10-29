@@ -11,6 +11,9 @@ if (!empty($settings['allowed_extensions'])) {
         $allowedExtensionText = (string) $settings['allowed_extensions'];
     }
 }
+$logoUrl = !empty($settings['logo']) ? BASE_URL . '/uploads/' . ltrim($settings['logo'], '/') : '';
+$faviconUrl = !empty($settings['favicon']) ? BASE_URL . '/uploads/' . ltrim($settings['favicon'], '/') : '';
+$bannerUrl = !empty($settings['brand_banner']) ? BASE_URL . '/uploads/' . ltrim($settings['brand_banner'], '/') : '';
 global $pageScripts;
 $pageScripts[] = '<script src="' . BASE_URL . '/assets/js/admin-settings.js?v=1.1.0"></script>';
 include __DIR__ . '/../templates/header.php';
@@ -79,21 +82,36 @@ include __DIR__ . '/nav.php';
                     <p class="text-white-50 small mb-3">Karanlık arayüz için yüksek kontrastlı logolar önerilir.</p>
                     <div class="mb-4">
                         <label class="form-label">Logo</label>
-                        <div class="dropzone dz-theme" id="logoDropzone">
+                        <div class="dropzone dz-theme" id="logoDropzone" data-existing-url="<?= sanitize($logoUrl) ?>" data-existing-name="Mevcut logo">
                             <div class="dz-message">Logo dosyanızı sürükleyin veya tıklayın.</div>
                         </div>
+                        <?php if ($logoUrl): ?>
+                            <div class="brand-preview mt-2">
+                                <img src="<?= sanitize($logoUrl) ?>" alt="Logo önizleme" class="img-thumbnail bg-white" width="96" height="96">
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div>
                         <label class="form-label">Favicon</label>
-                        <div class="dropzone dz-theme" id="faviconDropzone">
+                        <div class="dropzone dz-theme" id="faviconDropzone" data-existing-url="<?= sanitize($faviconUrl) ?>" data-existing-name="Mevcut favicon">
                             <div class="dz-message">Favicon dosyanızı sürükleyin veya tıklayın.</div>
                         </div>
+                        <?php if ($faviconUrl): ?>
+                            <div class="brand-preview mt-2">
+                                <img src="<?= sanitize($faviconUrl) ?>" alt="Favicon önizleme" class="img-thumbnail bg-white" width="48" height="48">
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div class="mt-4">
                         <label class="form-label">Banner</label>
-                        <div class="dropzone dz-theme" id="bannerDropzone">
+                        <div class="dropzone dz-theme" id="bannerDropzone" data-existing-url="<?= sanitize($bannerUrl) ?>" data-existing-name="Mevcut banner">
                             <div class="dz-message">Banner görselinizi sürükleyin veya tıklayın.</div>
                         </div>
+                        <?php if ($bannerUrl): ?>
+                            <div class="brand-preview mt-2">
+                                <img src="<?= sanitize($bannerUrl) ?>" alt="Banner önizleme" class="img-fluid rounded border border-light border-opacity-25">
+                            </div>
+                        <?php endif; ?>
                         <small class="text-white-50">Paylaşım sayfaları ve sosyal önizlemeler bu görseli kullanır.</small>
                     </div>
                 </div>

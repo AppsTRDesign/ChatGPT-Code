@@ -50,7 +50,6 @@
                     <div class="extra-small text-white-50">${escapeHtml(file.folder_path || 'Ana Depo')}</div>
                     <div class="mt-1 d-flex gap-2 flex-wrap extra-small">
                         <a class="link-light" href="${file.download_url}" target="_blank">Bağlantı</a>
-                        <a class="link-light" href="${file.direct_url}" target="_blank">Sunucuda görüntüle</a>
                     </div>
                 </td>
                 <td data-label="Boyut">${formatBytes(Number(file.size))}</td>

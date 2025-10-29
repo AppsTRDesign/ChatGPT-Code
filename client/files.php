@@ -22,6 +22,7 @@ include __DIR__ . '/nav.php';
             <div class="fm-toolbar mt-4 d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-gradient" data-fm-action="new-folder"><i class="bi bi-folder-plus me-1"></i>Klasör Oluştur</button>
                 <button type="button" class="btn btn-outline-light" data-fm-action="upload"><i class="bi bi-cloud-arrow-up me-1"></i>Dosya Yükle</button>
+                <button type="button" class="btn btn-outline-light" data-fm-action="new-file"><i class="bi bi-file-earmark-plus me-1"></i>Yeni Dosya</button>
                 <button type="button" class="btn btn-outline-light" data-fm-action="rename"><i class="bi bi-pencil-square me-1"></i>Ad Değiştir</button>
                 <button type="button" class="btn btn-outline-light" data-fm-action="move"><i class="bi bi-arrows-move me-1"></i>Taşı</button>
                 <button type="button" class="btn btn-outline-light" data-fm-action="select-all"><i class="bi bi-check2-all me-1"></i>Tümünü Seç</button>

@@ -8,7 +8,9 @@
         if (!element || typeof Dropzone === 'undefined') {
             return null;
         }
-        return new Dropzone(element, {
+        const existingUrl = element.dataset.existingUrl || '';
+        const existingName = element.dataset.existingName || 'Mevcut dosya';
+        const zone = new Dropzone(element, {
             url: '#',
             autoProcessQueue: false,
             maxFiles: 1,
@@ -22,6 +24,20 @@
                 });
             }
         });
+        if (existingUrl) {
+            const mock = { name: existingName, size: 0, accepted: true };
+            zone.emit('addedfile', mock);
+            zone.emit('thumbnail', mock, existingUrl);
+            if (mock.previewElement) {
+                mock.previewElement.classList.add('dz-success', 'dz-complete');
+                const progress = mock.previewElement.querySelector('.dz-progress');
+                if (progress) {
+                    progress.remove();
+                }
+            }
+            zone.files.push(mock);
+        }
+        return zone;
     }
 
     function gatherFormData(form, zones) {

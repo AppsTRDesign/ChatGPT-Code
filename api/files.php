@@ -150,6 +150,55 @@ try {
             echo json_encode(['status' => 'success', 'message' => 'Klasör oluşturuldu.']);
             break;
 
+        case 'create-text-file':
+            $name = trim((string) ($payload['name'] ?? ''));
+            $content = (string) ($payload['content'] ?? '');
+            if ($name === '') {
+                throw new RuntimeException('Dosya adı zorunludur.');
+            }
+            $extension = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
+            if ($extension === '') {
+                throw new RuntimeException('Dosya uzantısı belirtilmelidir.');
+            }
+            $folderId = isset($payload['folder_id']) ? (int) $payload['folder_id'] : null;
+            if ($folderId) {
+                $folder = fetch_folder($pdo, $folderId);
+                if (!$folder || (!$isAdmin && (int) $folder['user_id'] !== (int) $user['id'])) {
+                    throw new RuntimeException('Klasör erişim yetkiniz yok.');
+                }
+            }
+            $package = package_for_user($pdo, (int) $user['id']);
+            $allowedExtensions = allowed_extensions($pdo, $package['id'] ?? null);
+            if ($allowedExtensions && !in_array($extension, $allowedExtensions, true)) {
+                throw new RuntimeException('Bu uzantıda dosya oluşturamazsınız.');
+            }
+            $sizeBytes = strlen($content);
+            $maxUploadSize = $package && !empty($package['max_upload_size']) ? (int) $package['max_upload_size'] : null;
+            if ($maxUploadSize && $sizeBytes > $maxUploadSize) {
+                throw new RuntimeException('Dosya içeriği paketinizin tek dosya limitini aşıyor.');
+            }
+            if (!can_upload($pdo, (int) $user['id'], $sizeBytes)) {
+                throw new RuntimeException('Depo alanı limitini aşıyor.');
+            }
+            $storedName = bin2hex(random_bytes(16)) . '.' . $extension;
+            $destination = __DIR__ . '/../uploads/' . $storedName;
+            if (file_put_contents($destination, $content) === false) {
+                throw new RuntimeException('Dosya oluşturulamadı.');
+            }
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->file($destination) ?: 'text/plain';
+            $fileId = store_file($pdo, [
+                'filename' => $name,
+                'stored_name' => $storedName,
+                'size' => $sizeBytes,
+                'type' => $mimeType,
+                'uploader_ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
+                'user_id' => $user['id'],
+                'folder_id' => $folderId,
+            ]);
+            echo json_encode(['status' => 'success', 'message' => 'Dosya oluşturuldu.', 'file_id' => $fileId]);
+            break;
+
         case 'rename-folder':
             $folderId = (int) ($payload['folder_id'] ?? 0);
             $name = trim((string) ($payload['name'] ?? ''));

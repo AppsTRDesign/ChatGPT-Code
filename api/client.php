@@ -228,6 +228,23 @@ try {
             echo json_encode(['status' => 'success', 'message' => 'Dekontunuz alındı. Yönetici onayı bekleniyor.', 'transaction_id' => $transactionId]);
             break;
 
+        case 'list-shared-files':
+            $user = current_user();
+            $stmt = $pdo->prepare('SELECT id, filename, share_token, share_created_at, share_expires_at FROM files WHERE user_id = :uid AND share_token IS NOT NULL ORDER BY share_created_at DESC');
+            $stmt->execute([':uid' => $user['id']]);
+            $shared = array_map(static function (array $row): array {
+                return [
+                    'id' => (int) $row['id'],
+                    'filename' => $row['filename'],
+                    'share_token' => $row['share_token'],
+                    'share_created_at' => $row['share_created_at'],
+                    'share_expires_at' => $row['share_expires_at'],
+                    'share_url' => $row['share_token'] ? BASE_URL . '/s/' . $row['share_token'] : null,
+                ];
+            }, $stmt->fetchAll() ?: []);
+            echo json_encode(['status' => 'success', 'data' => $shared]);
+            break;
+
         case 'share-analytics':
             $user = current_user();
             $stats = share_statistics($pdo, (int) $user['id']);

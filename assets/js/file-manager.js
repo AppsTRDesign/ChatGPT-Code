@@ -547,6 +547,63 @@
             }
         }
 
+        async function createTextFile() {
+            const allowedList = Array.isArray(state.limits.allowed_extensions) ? state.limits.allowed_extensions : [];
+            const suggestedExt = allowedList.length ? allowedList[0] : 'txt';
+            const maxUploadBytes = state.limits.max_upload_size ? Number(state.limits.max_upload_size) : null;
+            const html = `
+                <input type="text" id="fm-file-name" class="swal2-input" value="yeni-dosya.${suggestedExt}" placeholder="Dosya adı">
+                <textarea id="fm-file-content" class="swal2-textarea" placeholder="Dosya içeriği" rows="4"></textarea>
+            `;
+            const { value } = await Swal.fire({
+                title: 'Yeni dosya oluştur',
+                html,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Oluştur',
+                cancelButtonText: 'Vazgeç',
+                preConfirm: () => {
+                    const nameInput = document.getElementById('fm-file-name');
+                    const contentInput = document.getElementById('fm-file-content');
+                    const name = nameInput ? nameInput.value.trim() : '';
+                    const content = contentInput ? contentInput.value : '';
+                    if (!name) {
+                        Swal.showValidationMessage('Lütfen dosya adı girin.');
+                        return null;
+                    }
+                    const extension = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+                    if (!extension) {
+                        Swal.showValidationMessage('Dosya uzantısı belirtilmelidir.');
+                        return null;
+                    }
+                    if (allowedList.length && !allowedList.includes(extension)) {
+                        Swal.showValidationMessage(`Desteklenmeyen uzantı (.${extension}).`);
+                        return null;
+                    }
+                    const contentBytes = new TextEncoder().encode(content).length;
+                    if (maxUploadBytes && contentBytes > maxUploadBytes) {
+                        Swal.showValidationMessage(`Dosya içeriği çok büyük. Maksimum ${formatBytes(maxUploadBytes)} olabilir.`);
+                        return null;
+                    }
+                    return { name, content };
+                }
+            });
+            if (!value) {
+                return;
+            }
+            const result = await fmRequest('create-text-file', {
+                name: value.name,
+                content: value.content,
+                folder_id: state.folderId,
+            });
+            if (result.status === 'success') {
+                showToast('success', result.message || 'Dosya oluşturuldu.');
+                await loadFolder({ folderId: state.folderId, resetPage: false });
+            } else {
+                showToast('error', result.message || 'Dosya oluşturulamadı.');
+            }
+        }
+
         async function renameSelected() {
             const selection = getSingleSelection();
             if (!selection) {
@@ -796,6 +853,9 @@
                         break;
                     case 'upload':
                         uploadZone?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        break;
+                    case 'new-file':
+                        await createTextFile();
                         break;
                     case 'rename':
                         await renameSelected();

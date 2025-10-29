@@ -935,27 +935,32 @@ function collect_usage_timeseries(PDO $pdo, string $range = 'daily'): array
     }, $rows);
 }
 
-function collect_share_timeseries(PDO $pdo, int $userId, string $range = 'daily'): array
+function collect_share_timeseries(PDO $pdo, ?int $userId, string $range = 'daily'): array
 {
     $range = strtolower($range);
+    $userFilter = $userId !== null ? ' AND f.user_id = :uid' : '';
+    $params = [];
+    if ($userId !== null) {
+        $params[':uid'] = $userId;
+    }
     switch ($range) {
         case 'weekly':
-            $sql = "SELECT DATE_FORMAT(fal.created_at, '%x-W%v') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK) GROUP BY DATE_FORMAT(fal.created_at, '%x-W%v') ORDER BY sort_key";
+            $sql = "SELECT DATE_FORMAT(fal.created_at, '%x-W%v') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE fal.created_at >= DATE_SUB(NOW(), INTERVAL 12 WEEK)" . $userFilter . " GROUP BY DATE_FORMAT(fal.created_at, '%x-W%v') ORDER BY sort_key";
             break;
         case 'monthly':
-            $sql = "SELECT DATE_FORMAT(fal.created_at, '%Y-%m') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY DATE_FORMAT(fal.created_at, '%Y-%m') ORDER BY sort_key";
+            $sql = "SELECT DATE_FORMAT(fal.created_at, '%Y-%m') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE fal.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)" . $userFilter . " GROUP BY DATE_FORMAT(fal.created_at, '%Y-%m') ORDER BY sort_key";
             break;
         case 'yearly':
-            $sql = "SELECT DATE_FORMAT(fal.created_at, '%Y') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 5 YEAR) GROUP BY DATE_FORMAT(fal.created_at, '%Y') ORDER BY sort_key";
+            $sql = "SELECT DATE_FORMAT(fal.created_at, '%Y') AS label, MIN(DATE(fal.created_at)) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE fal.created_at >= DATE_SUB(NOW(), INTERVAL 5 YEAR)" . $userFilter . " GROUP BY DATE_FORMAT(fal.created_at, '%Y') ORDER BY sort_key";
             break;
         case 'daily':
         default:
-            $sql = "SELECT DATE(fal.created_at) AS label, DATE(fal.created_at) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid AND fal.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY DATE(fal.created_at) ORDER BY sort_key";
+            $sql = "SELECT DATE(fal.created_at) AS label, DATE(fal.created_at) AS sort_key, COUNT(*) AS downloads, COALESCE(SUM(f.size), 0) AS bytes FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE fal.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)" . $userFilter . " GROUP BY DATE(fal.created_at) ORDER BY sort_key";
             break;
     }
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([':uid' => $userId]);
+    $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     return array_map(static function (array $row): array {
         return [
@@ -966,7 +971,7 @@ function collect_share_timeseries(PDO $pdo, int $userId, string $range = 'daily'
     }, $rows);
 }
 
-function share_statistics(PDO $pdo, int $userId): array
+function share_statistics_scope(PDO $pdo, ?int $userId = null): array
 {
     $ranges = ['daily', 'weekly', 'monthly', 'yearly'];
     $timeseries = [];
@@ -974,8 +979,16 @@ function share_statistics(PDO $pdo, int $userId): array
         $timeseries[$range] = collect_share_timeseries($pdo, $userId, $range);
     }
 
-    $locationStmt = $pdo->prepare("SELECT COALESCE(NULLIF(fal.country, ''), 'Bilinmiyor') AS country, COALESCE(NULLIF(fal.city, ''), 'Bilinmiyor') AS city, COUNT(*) AS downloads FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid GROUP BY country, city ORDER BY downloads DESC LIMIT 25");
-    $locationStmt->execute([':uid' => $userId]);
+    $params = [];
+    $userClause = '';
+    if ($userId !== null) {
+        $params[':uid'] = $userId;
+        $userClause = ' AND f.user_id = :uid';
+    }
+
+    $locationSql = "SELECT COALESCE(NULLIF(fal.country, ''), 'Bilinmiyor') AS country, COALESCE(NULLIF(fal.city, ''), 'Bilinmiyor') AS city, COUNT(*) AS downloads FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE 1=1" . $userClause . " GROUP BY country, city ORDER BY downloads DESC LIMIT 25";
+    $locationStmt = $pdo->prepare($locationSql);
+    $locationStmt->execute($params);
     $locations = array_map(static function (array $row): array {
         return [
             'country' => $row['country'],
@@ -984,8 +997,9 @@ function share_statistics(PDO $pdo, int $userId): array
         ];
     }, $locationStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
 
-    $deviceStmt = $pdo->prepare("SELECT COALESCE(NULLIF(fal.device_type, ''), 'Bilinmiyor') AS device_type, COALESCE(NULLIF(fal.os, ''), 'Bilinmiyor') AS os, COALESCE(NULLIF(fal.browser, ''), 'Bilinmiyor') AS browser, COALESCE(NULLIF(fal.platform, ''), 'Bilinmiyor') AS platform, COUNT(*) AS downloads FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid GROUP BY device_type, os, browser, platform ORDER BY downloads DESC LIMIT 25");
-    $deviceStmt->execute([':uid' => $userId]);
+    $deviceSql = "SELECT COALESCE(NULLIF(fal.device_type, ''), 'Bilinmiyor') AS device_type, COALESCE(NULLIF(fal.os, ''), 'Bilinmiyor') AS os, COALESCE(NULLIF(fal.browser, ''), 'Bilinmiyor') AS browser, COALESCE(NULLIF(fal.platform, ''), 'Bilinmiyor') AS platform, COUNT(*) AS downloads FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE 1=1" . $userClause . " GROUP BY device_type, os, browser, platform ORDER BY downloads DESC LIMIT 25";
+    $deviceStmt = $pdo->prepare($deviceSql);
+    $deviceStmt->execute($params);
     $devices = array_map(static function (array $row): array {
         return [
             'device_type' => $row['device_type'],
@@ -996,8 +1010,10 @@ function share_statistics(PDO $pdo, int $userId): array
         ];
     }, $deviceStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
 
-    $recentStmt = $pdo->prepare('SELECT fal.id, fal.ip_address, fal.country, fal.city, fal.device_type, fal.os, fal.browser, fal.platform, fal.created_at, fal.share_token, f.filename FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id WHERE f.user_id = :uid ORDER BY fal.created_at DESC LIMIT 50');
-    $recentStmt->execute([':uid' => $userId]);
+    $recentSql = 'SELECT fal.id, fal.ip_address, fal.country, fal.city, fal.device_type, fal.os, fal.browser, fal.platform, fal.created_at, fal.share_token, f.filename, u.name AS user_name FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id LEFT JOIN users u ON u.id = f.user_id WHERE 1=1'
+        . $userClause . ' ORDER BY fal.created_at DESC LIMIT 50';
+    $recentStmt = $pdo->prepare($recentSql);
+    $recentStmt->execute($params);
     $recent = array_map(static function (array $row): array {
         return [
             'id' => (int) $row['id'],
@@ -1011,6 +1027,7 @@ function share_statistics(PDO $pdo, int $userId): array
             'created_at' => $row['created_at'],
             'share_token' => $row['share_token'],
             'filename' => $row['filename'],
+            'user_name' => $row['user_name'] ?? null,
         ];
     }, $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
 
@@ -1020,6 +1037,16 @@ function share_statistics(PDO $pdo, int $userId): array
         'devices' => $devices,
         'recent' => $recent,
     ];
+}
+
+function share_statistics(PDO $pdo, int $userId): array
+{
+    return share_statistics_scope($pdo, $userId);
+}
+
+function share_statistics_all(PDO $pdo): array
+{
+    return share_statistics_scope($pdo, null);
 }
 
 function ensureDefaultPackages(PDO $pdo): void
@@ -1393,6 +1420,12 @@ function validate_uploaded_file(array $file, ?PDO $pdo = null, ?array $allowedOv
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mimeType = $finfo->file($file['tmp_name']);
     $extension = strtolower((string) pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
+    if ($extension === '' && $mimeType) {
+        $guessed = mime_to_extensions($mimeType);
+        if (!empty($guessed)) {
+            $extension = $guessed[0];
+        }
+    }
     if ($allowedOverride !== null) {
         $allowedExtensions = normalise_extension_list($allowedOverride);
     } else {

@@ -94,6 +94,7 @@ if ($currentUser) {
         $panelLinks = [
             ['label' => 'Genel Bakış', 'href' => BASE_URL . '/admin', 'active' => str_ends_with($path, '/admin/index.php')],
             ['label' => 'Dosyalar', 'href' => BASE_URL . '/admin/files', 'active' => str_ends_with($path, '/admin/files.php')],
+            ['label' => 'Paylaşım Analitiği', 'href' => BASE_URL . '/admin/share-analytics', 'active' => str_ends_with($path, '/admin/share-analytics.php')],
             ['label' => 'Üyeler', 'href' => BASE_URL . '/admin/users', 'active' => str_ends_with($path, '/admin/users.php')],
             ['label' => 'Paketler', 'href' => BASE_URL . '/admin/packages', 'active' => str_ends_with($path, '/admin/packages.php')],
             ['label' => 'Satın Alımlar', 'href' => BASE_URL . '/admin/purchases', 'active' => str_ends_with($path, '/admin/purchases.php')],
@@ -106,7 +107,7 @@ if ($currentUser) {
             ['label' => 'Dosyalarım', 'href' => BASE_URL . '/client/files', 'active' => str_ends_with($path, '/client/files.php')],
             ['label' => 'Profil', 'href' => BASE_URL . '/client/profile', 'active' => str_ends_with($path, '/client/profile.php')],
             ['label' => 'Paketler', 'href' => BASE_URL . '/client/packages', 'active' => str_ends_with($path, '/client/packages.php')],
-            ['label' => 'Paylaşım Analitiği', 'href' => BASE_URL . '/client/share-stats', 'active' => str_ends_with($path, '/client/share-stats.php')],
+            ['label' => 'Paylaşılan Dosyalar', 'href' => BASE_URL . '/client/shared', 'active' => str_ends_with($path, '/client/shared.php')],
         ];
     }
 }

@@ -556,12 +556,24 @@ a.link-light:hover {
     color: var(--accent);
 }
 
+.breadcrumb-dark .breadcrumb-item.active {
+    color: #f8f9ff;
+}
+
 .fm-dropzone {
     min-height: 180px;
 }
 
 .fm-dropzone .dz-message {
     font-size: 1rem;
+}
+
+.dz-theme {
+    cursor: pointer;
+}
+
+.dz-theme * {
+    cursor: inherit;
 }
 
 .fm-upload-list {
