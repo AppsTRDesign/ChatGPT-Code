@@ -82,36 +82,54 @@ include __DIR__ . '/nav.php';
                     <p class="text-white-50 small mb-3">Karanlık arayüz için yüksek kontrastlı logolar önerilir.</p>
                     <div class="mb-4">
                         <label class="form-label">Logo</label>
-                        <div class="dropzone dz-theme" id="logoDropzone" data-existing-url="<?= sanitize($logoUrl) ?>" data-existing-name="Mevcut logo">
+                        <div class="dropzone dz-theme" id="logoDropzone"
+                            data-existing-url="<?= sanitize($logoUrl) ?>"
+                            data-existing-name="Mevcut logo"
+                            data-preview-target="#logoPreview"
+                            data-empty-text="Henüz logo seçilmedi.">
                             <div class="dz-message">Logo dosyanızı sürükleyin veya tıklayın.</div>
                         </div>
-                        <?php if ($logoUrl): ?>
-                            <div class="brand-preview mt-2">
+                        <div class="brand-preview mt-2" id="logoPreview">
+                            <?php if ($logoUrl): ?>
                                 <img src="<?= sanitize($logoUrl) ?>" alt="Logo önizleme" class="img-thumbnail bg-white" width="96" height="96">
-                            </div>
-                        <?php endif; ?>
+                            <?php else: ?>
+                                <span class="text-white-50 small d-block">Henüz logo yüklenmedi.</span>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <div>
                         <label class="form-label">Favicon</label>
-                        <div class="dropzone dz-theme" id="faviconDropzone" data-existing-url="<?= sanitize($faviconUrl) ?>" data-existing-name="Mevcut favicon">
+                        <div class="dropzone dz-theme" id="faviconDropzone"
+                            data-existing-url="<?= sanitize($faviconUrl) ?>"
+                            data-existing-name="Mevcut favicon"
+                            data-preview-target="#faviconPreview"
+                            data-empty-text="Henüz favicon seçilmedi.">
                             <div class="dz-message">Favicon dosyanızı sürükleyin veya tıklayın.</div>
                         </div>
-                        <?php if ($faviconUrl): ?>
-                            <div class="brand-preview mt-2">
+                        <div class="brand-preview mt-2" id="faviconPreview">
+                            <?php if ($faviconUrl): ?>
                                 <img src="<?= sanitize($faviconUrl) ?>" alt="Favicon önizleme" class="img-thumbnail bg-white" width="48" height="48">
-                            </div>
-                        <?php endif; ?>
+                            <?php else: ?>
+                                <span class="text-white-50 small d-block">Henüz favicon yüklenmedi.</span>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <div class="mt-4">
                         <label class="form-label">Banner</label>
-                        <div class="dropzone dz-theme" id="bannerDropzone" data-existing-url="<?= sanitize($bannerUrl) ?>" data-existing-name="Mevcut banner">
+                        <div class="dropzone dz-theme" id="bannerDropzone"
+                            data-existing-url="<?= sanitize($bannerUrl) ?>"
+                            data-existing-name="Mevcut banner"
+                            data-preview-target="#bannerPreview"
+                            data-empty-text="Henüz banner seçilmedi.">
                             <div class="dz-message">Banner görselinizi sürükleyin veya tıklayın.</div>
                         </div>
-                        <?php if ($bannerUrl): ?>
-                            <div class="brand-preview mt-2">
+                        <div class="brand-preview mt-2" id="bannerPreview">
+                            <?php if ($bannerUrl): ?>
                                 <img src="<?= sanitize($bannerUrl) ?>" alt="Banner önizleme" class="img-fluid rounded border border-light border-opacity-25">
-                            </div>
-                        <?php endif; ?>
+                            <?php else: ?>
+                                <span class="text-white-50 small d-block">Henüz banner yüklenmedi.</span>
+                            <?php endif; ?>
+                        </div>
                         <small class="text-white-50">Paylaşım sayfaları ve sosyal önizlemeler bu görseli kullanır.</small>
                     </div>
                 </div>
