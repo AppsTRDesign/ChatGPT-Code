@@ -92,6 +92,11 @@ h6 {
     cursor: pointer;
 }
 
+.dropzone.dz-clickable,
+.dropzone.dz-clickable * {
+    cursor: pointer;
+}
+
 .dropzone.dz-theme {
     border-image: none;
     border: 1px dashed rgba(255, 255, 255, 0.35);

@@ -17,7 +17,7 @@
         timeseries: {},
         locations: [],
         devices: [],
-        recent: [],
+        recent: { items: [], total: 0 },
     };
     let currentRange = 'daily';
     let chartInstance = null;
@@ -119,21 +119,30 @@
 
     const renderRecent = () => {
         tableBody.innerHTML = '';
-        if (!stats.recent.length) {
+        const items = Array.isArray(stats.recent)
+            ? stats.recent
+            : (Array.isArray(stats.recent?.items) ? stats.recent.items : []);
+
+        if (!items.length) {
             tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-white-50 py-3">Son kayıt bulunamadı.</td></tr>';
             return;
         }
-        tableBody.innerHTML = stats.recent.slice(0, 50).map(item => {
-            const location = [item.country, item.city].filter(Boolean).join(' / ') || 'Bilinmiyor';
-            const device = item.device_type || '—';
+
+        tableBody.innerHTML = items.slice(0, 50).map(item => {
+            const location = item.top_location || 'Bilinmiyor';
+            const browser = item.top_browser || '—';
+            const device = item.top_device || '—';
+            const language = item.top_language || 'Bilinmiyor';
+            const clicks = `${item.clicks || 0}`;
+            const uniqueIps = `${item.unique_ips || 0}`;
             return `
                 <tr>
                     <td>${item.filename || '—'}</td>
-                    <td>${item.ip_address || '—'}</td>
-                    <td>${location}</td>
+                    <td>${clicks} / ${uniqueIps}</td>
+                    <td>${browser}</td>
+                    <td>${language}</td>
                     <td>${device}</td>
-                    <td>${item.browser || '—'}</td>
-                    <td class="text-white-50 small">${item.created_at}</td>
+                    <td class="text-white-50 small">${item.last_access || '—'}</td>
                 </tr>`;
         }).join('');
     };

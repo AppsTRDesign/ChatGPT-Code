@@ -69,16 +69,29 @@ include __DIR__ . '/nav.php';
             <div class="card card-layer">
                 <div class="card-body">
                     <h3 class="h6 mb-3">Son Paylaşılan Bağlantılar</h3>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div class="flex-grow-1 flex-md-grow-0" style="min-width: 220px;">
+                            <input type="search" class="form-control" id="clientShareSearch" placeholder="Bağlantı ara...">
+                        </div>
+                        <div class="d-flex align-items-center gap-2 ms-md-auto">
+                            <span class="text-white-50 extra-small" id="clientSharePageInfo">0 kayıt</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-light" id="clientSharePrev">Önceki</button>
+                                <button type="button" class="btn btn-outline-light" id="clientShareNext">Sonraki</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-modern mb-0" id="clientShareRecent">
                             <thead>
                                 <tr>
                                     <th>Dosya</th>
-                                    <th>IP</th>
-                                    <th>Konum</th>
-                                    <th>Cihaz</th>
+                                    <th>Tıklamalar</th>
                                     <th>Tarayıcı</th>
-                                    <th>Tarih</th>
+                                    <th>Dil</th>
+                                    <th>Cihaz</th>
+                                    <th>Konum</th>
+                                    <th>Son Tıklama</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>

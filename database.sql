@@ -260,6 +260,7 @@ CREATE TABLE file_access_logs (
     os VARCHAR(100) DEFAULT NULL,
     browser VARCHAR(100) DEFAULT NULL,
     platform VARCHAR(100) DEFAULT NULL,
+    language VARCHAR(32) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_access_file (file_id),
     INDEX idx_access_token (share_token),

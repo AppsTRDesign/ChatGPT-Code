@@ -13,15 +13,25 @@ include __DIR__ . '/nav.php';
                 <h1 class="h4 mb-1">Ödeme Bildirimleri</h1>
                 <p class="text-white-50 small mb-0">Havale/EFT dekontlarını inceleyin ve paket atamasını tamamlayın.</p>
             </div>
-            <select class="form-select w-auto" id="notificationFilter">
-                <option value="">Tümü</option>
-                <option value="pending">Beklemede</option>
-                <option value="approved">Onaylandı</option>
-                <option value="rejected">Reddedildi</option>
-                <option value="insufficient">Eksik ödeme</option>
-            </select>
+            <div class="d-flex flex-wrap gap-2">
+                <input type="search" class="form-control" id="notificationSearch" placeholder="Bildirim ara...">
+                <select class="form-select" id="notificationFilter">
+                    <option value="">Tümü</option>
+                    <option value="pending">Beklemede</option>
+                    <option value="approved">Onaylandı</option>
+                    <option value="rejected">Reddedildi</option>
+                    <option value="insufficient">Eksik ödeme</option>
+                </select>
+            </div>
         </div>
         <div id="notificationList" class="row g-3"></div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+            <span class="text-white-50 extra-small" id="notificationPageInfo">0 kayıt</span>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-light" id="notificationPrev">Önceki</button>
+                <button type="button" class="btn btn-outline-light" id="notificationNext">Sonraki</button>
+            </div>
+        </div>
     </div>
 </div>
 <template id="notificationTemplate">

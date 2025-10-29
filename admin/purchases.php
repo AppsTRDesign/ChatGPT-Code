@@ -41,6 +41,13 @@ include __DIR__ . '/nav.php';
                 <tbody></tbody>
             </table>
         </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+            <span class="text-white-50 extra-small" id="transactionPageInfo">0 kayıt</span>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-light" id="transactionPrev">Önceki</button>
+                <button type="button" class="btn btn-outline-light" id="transactionNext">Sonraki</button>
+            </div>
+        </div>
     </div>
 </div>
 <?php include __DIR__ . '/../templates/footer.php'; ?>

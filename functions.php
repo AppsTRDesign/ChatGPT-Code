@@ -233,6 +233,7 @@ CREATE TABLE IF NOT EXISTS file_access_logs (
     os VARCHAR(100) DEFAULT NULL,
     browser VARCHAR(100) DEFAULT NULL,
     platform VARCHAR(100) DEFAULT NULL,
+    language VARCHAR(32) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_access_file (file_id),
     INDEX idx_access_token (share_token),
@@ -240,6 +241,10 @@ CREATE TABLE IF NOT EXISTS file_access_logs (
     CONSTRAINT fk_access_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 SQL);
+
+    if (!schemaColumnExists($pdo, 'file_access_logs', 'language')) {
+        $pdo->exec("ALTER TABLE file_access_logs ADD COLUMN language VARCHAR(32) DEFAULT NULL AFTER platform");
+    }
 
     $pdo->exec(<<<SQL
 CREATE TABLE IF NOT EXISTS retention_policies (
@@ -1010,32 +1015,118 @@ function share_statistics_scope(PDO $pdo, ?int $userId = null): array
         ];
     }, $deviceStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
 
-    $recentSql = 'SELECT fal.id, fal.ip_address, fal.country, fal.city, fal.device_type, fal.os, fal.browser, fal.platform, fal.created_at, fal.share_token, f.filename, u.name AS user_name FROM file_access_logs fal INNER JOIN files f ON f.id = fal.file_id LEFT JOIN users u ON u.id = f.user_id WHERE 1=1'
-        . $userClause . ' ORDER BY fal.created_at DESC LIMIT 50';
+    $recentSql = 'SELECT fal.id, fal.file_id, fal.share_token, fal.ip_address, fal.country, fal.city, fal.device_type, fal.os, fal.browser, fal.platform, fal.language, fal.created_at, f.filename, f.size, u.name AS user_name '
+        . 'FROM file_access_logs fal '
+        . 'INNER JOIN files f ON f.id = fal.file_id '
+        . 'LEFT JOIN users u ON u.id = f.user_id '
+        . 'WHERE 1=1' . $userClause . ' ORDER BY fal.created_at DESC LIMIT 250';
     $recentStmt = $pdo->prepare($recentSql);
     $recentStmt->execute($params);
-    $recent = array_map(static function (array $row): array {
+    $rows = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $groups = [];
+    foreach ($rows as $row) {
+        $groupKey = $row['share_token'] ?: ('direct-' . $row['file_id']);
+        if (!isset($groups[$groupKey])) {
+            $groups[$groupKey] = [
+                'key' => $groupKey,
+                'share_token' => $row['share_token'] ?: null,
+                'file_id' => (int) $row['file_id'],
+                'filename' => $row['filename'] ?? '—',
+                'user_name' => $row['user_name'] ?? null,
+                'clicks' => 0,
+                'unique_ips' => [],
+                'first_access' => $row['created_at'],
+                'last_access' => $row['created_at'],
+                'browser_counts' => [],
+                'language_counts' => [],
+                'device_counts' => [],
+                'location_counts' => [],
+            ];
+        }
+
+        $group = &$groups[$groupKey];
+        $group['clicks']++;
+        if (!empty($row['ip_address'])) {
+            $group['unique_ips'][$row['ip_address']] = true;
+        }
+        if ($group['last_access'] < $row['created_at']) {
+            $group['last_access'] = $row['created_at'];
+        }
+        if ($group['first_access'] > $row['created_at']) {
+            $group['first_access'] = $row['created_at'];
+        }
+
+        $browser = $row['browser'] ? $row['browser'] : 'Bilinmiyor';
+        $group['browser_counts'][$browser] = ($group['browser_counts'][$browser] ?? 0) + 1;
+
+        $language = $row['language'] ? strtoupper($row['language']) : 'Bilinmiyor';
+        $group['language_counts'][$language] = ($group['language_counts'][$language] ?? 0) + 1;
+
+        $device = $row['device_type'] ? $row['device_type'] : 'Bilinmiyor';
+        $group['device_counts'][$device] = ($group['device_counts'][$device] ?? 0) + 1;
+
+        $locationParts = array_filter([$row['country'] ?? null, $row['city'] ?? null], static fn($value) => (string) $value !== '');
+        $locationLabel = $locationParts ? implode(' / ', $locationParts) : 'Bilinmiyor';
+        $group['location_counts'][$locationLabel] = ($group['location_counts'][$locationLabel] ?? 0) + 1;
+        unset($group);
+    }
+
+    $recent = array_map(static function (array $group): array {
+        $resolveTop = static function (array $counts): array {
+            if (!$counts) {
+                return ['label' => 'Bilinmiyor', 'count' => 0];
+            }
+            arsort($counts);
+            $label = (string) array_key_first($counts);
+            $count = (int) $counts[$label];
+            return ['label' => $label, 'count' => $count];
+        };
+
+        $topBrowser = $resolveTop($group['browser_counts']);
+        $topLanguage = $resolveTop($group['language_counts']);
+        $topDevice = $resolveTop($group['device_counts']);
+        $topLocation = $resolveTop($group['location_counts']);
+
         return [
-            'id' => (int) $row['id'],
-            'ip_address' => $row['ip_address'],
-            'country' => $row['country'],
-            'city' => $row['city'],
-            'device_type' => $row['device_type'],
-            'os' => $row['os'],
-            'browser' => $row['browser'],
-            'platform' => $row['platform'],
-            'created_at' => $row['created_at'],
-            'share_token' => $row['share_token'],
-            'filename' => $row['filename'],
-            'user_name' => $row['user_name'] ?? null,
+            'group_key' => $group['key'],
+            'share_token' => $group['share_token'],
+            'file_id' => $group['file_id'],
+            'filename' => $group['filename'],
+            'user_name' => $group['user_name'],
+            'clicks' => (int) $group['clicks'],
+            'unique_ips' => count($group['unique_ips']),
+            'top_browser' => $topBrowser['label'],
+            'top_browser_count' => $topBrowser['count'],
+            'top_language' => $topLanguage['label'],
+            'top_language_count' => $topLanguage['count'],
+            'top_device' => $topDevice['label'],
+            'top_device_count' => $topDevice['count'],
+            'top_location' => $topLocation['label'],
+            'top_location_count' => $topLocation['count'],
+            'first_access' => $group['first_access'],
+            'last_access' => $group['last_access'],
+            'breakdown' => [
+                'browsers' => $group['browser_counts'],
+                'languages' => $group['language_counts'],
+                'devices' => $group['device_counts'],
+                'locations' => $group['location_counts'],
+            ],
         ];
-    }, $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }, array_values($groups));
+
+    usort($recent, static function (array $a, array $b): int {
+        return strcmp($b['last_access'], $a['last_access']);
+    });
 
     return [
         'timeseries' => $timeseries,
         'locations' => $locations,
         'devices' => $devices,
-        'recent' => $recent,
+        'recent' => [
+            'items' => $recent,
+            'total' => count($recent),
+        ],
     ];
 }
 
@@ -1637,8 +1728,15 @@ function log_file_access(PDO $pdo, array $file, ?array $user = null, ?string $sh
     $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
     $device = $ua ? device_details($ua) : [];
 
-    $stmt = $pdo->prepare('INSERT INTO file_access_logs (file_id, user_id, share_token, ip_address, country, city, latitude, longitude, device_type, os, browser, platform)
-        VALUES (:file_id, :user_id, :share_token, :ip, :country, :city, :lat, :lon, :device_type, :os, :browser, :platform)');
+    $languageHeader = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+    $language = null;
+    if ($languageHeader) {
+        $primary = explode(',', $languageHeader)[0] ?? '';
+        $language = $primary ? substr(strtolower(trim($primary)), 0, 32) : null;
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO file_access_logs (file_id, user_id, share_token, ip_address, country, city, latitude, longitude, device_type, os, browser, platform, language)
+        VALUES (:file_id, :user_id, :share_token, :ip, :country, :city, :lat, :lon, :device_type, :os, :browser, :platform, :language)');
     $stmt->execute([
         ':file_id' => $file['id'],
         ':user_id' => $user['id'] ?? null,
@@ -1652,6 +1750,7 @@ function log_file_access(PDO $pdo, array $file, ?array $user = null, ?string $sh
         ':os' => $device['os'] ?? null,
         ':browser' => $device['browser'] ?? null,
         ':platform' => $device['platform'] ?? null,
+        ':language' => $language,
     ]);
 }
 
@@ -1848,6 +1947,14 @@ function complete_transaction(PDO $pdo, int $transactionId, string $status, ?str
     $transaction = fetch_transaction($pdo, $transactionId);
     if (!$transaction) {
         return;
+    }
+
+    if ($status === 'paid') {
+        $notifyStmt = $pdo->prepare('UPDATE payment_notifications SET status = "approved", updated_at = NOW() WHERE transaction_id = :tx AND status <> "approved"');
+        $notifyStmt->execute([':tx' => $transactionId]);
+    } elseif (in_array($status, ['failed', 'cancelled'], true)) {
+        $notifyStmt = $pdo->prepare('UPDATE payment_notifications SET status = "rejected", updated_at = NOW() WHERE transaction_id = :tx AND status = "pending"');
+        $notifyStmt->execute([':tx' => $transactionId]);
     }
 
     $userStmt = $pdo->prepare('SELECT id, email, name FROM users WHERE id = :id');

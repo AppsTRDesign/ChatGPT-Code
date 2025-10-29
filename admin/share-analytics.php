@@ -49,17 +49,30 @@ include __DIR__ . '/nav.php';
             <div class="card card-layer">
                 <div class="card-body">
                     <h2 class="h6 mb-3">Son Paylaşım İstekleri</h2>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                        <div class="flex-grow-1 flex-md-grow-0" style="min-width: 220px;">
+                            <input type="search" class="form-control" id="adminShareSearch" placeholder="Bağlantı ara...">
+                        </div>
+                        <div class="d-flex align-items-center gap-2 ms-md-auto">
+                            <span class="text-white-50 extra-small" id="adminSharePageInfo">0 kayıt</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-light" id="adminSharePrev">Önceki</button>
+                                <button type="button" class="btn btn-outline-light" id="adminShareNext">Sonraki</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-modern mb-0" id="adminShareRecent">
                             <thead>
                                 <tr>
                                     <th>Dosya</th>
                                     <th>Kullanıcı</th>
-                                    <th>IP</th>
-                                    <th>Konum</th>
-                                    <th>Cihaz</th>
+                                    <th>Tıklamalar</th>
                                     <th>Tarayıcı</th>
-                                    <th>Tarih</th>
+                                    <th>Dil</th>
+                                    <th>Cihaz</th>
+                                    <th>Konum</th>
+                                    <th>Son Tıklama</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>

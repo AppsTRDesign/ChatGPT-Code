@@ -5,12 +5,22 @@
     const tableBody = document.querySelector('#transactionTable tbody');
     const searchInput = document.getElementById('transactionSearch');
     const statusSelect = document.getElementById('transactionStatus');
+    const pageInfo = document.getElementById('transactionPageInfo');
+    const prevButton = document.getElementById('transactionPrev');
+    const nextButton = document.getElementById('transactionNext');
 
     if (!tableBody) {
         return;
     }
 
     let transactions = [];
+    const state = {
+        page: 1,
+        perPage: 10,
+        status: statusSelect?.value || '',
+        search: '',
+    };
+    let pagination = { page: 1, per_page: state.perPage, total: 0 };
 
     const statusBadge = (status) => {
         switch (status) {
@@ -45,7 +55,14 @@
         const response = await fetch(`${appConfig.baseUrl}/api/admin.php`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            body: JSON.stringify({ action: 'list-transactions', csrf_token: appConfig.csrfToken })
+            body: JSON.stringify({
+                action: 'list-transactions',
+                page: state.page,
+                per_page: state.perPage,
+                status: state.status,
+                search: state.search,
+                csrf_token: appConfig.csrfToken,
+            })
         });
         if (!response.ok) {
             throw new Error('İşlemler alınamadı');
@@ -54,31 +71,46 @@
         if (data.status !== 'success') {
             throw new Error(data.message || 'İşlemler alınamadı');
         }
-        transactions = data.data || [];
+        const payload = data.data || {};
+        transactions = Array.isArray(payload.items) ? payload.items : [];
+        const meta = payload.pagination || {};
+        pagination = {
+            page: meta.page ? Number(meta.page) : state.page,
+            per_page: meta.per_page ? Number(meta.per_page) : state.perPage,
+            total: meta.total ? Number(meta.total) : transactions.length,
+        };
+        state.perPage = pagination.per_page;
+        if (!pagination.total) {
+            state.page = 1;
+            pagination.page = 1;
+        }
+        const totalPages = pagination.per_page ? Math.ceil((pagination.total || 0) / pagination.per_page) : 1;
+        if (pagination.total && pagination.page > totalPages) {
+            state.page = totalPages;
+            pagination.page = totalPages;
+            await fetchTransactions();
+            return;
+        }
+        state.page = pagination.page;
         renderTable();
     };
 
     const renderTable = () => {
-        const query = (searchInput?.value || '').toLowerCase();
-        const status = statusSelect?.value || '';
-        const rows = transactions.filter(item => {
-            const matchesStatus = !status || item.status === status;
-            if (!matchesStatus) {
-                return false;
-            }
-            if (!query) {
-                return true;
-            }
-            const haystack = `${item.user_name} ${item.user_email} ${item.package_name} ${item.provider}`.toLowerCase();
-            return haystack.includes(query);
-        });
-
-        if (!rows.length) {
+        if (!transactions.length) {
             tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-white-50 py-4">Kayıt bulunamadı.</td></tr>';
+            if (pageInfo) {
+                pageInfo.textContent = '0 kayıt';
+            }
+            if (prevButton) {
+                prevButton.disabled = true;
+            }
+            if (nextButton) {
+                nextButton.disabled = true;
+            }
             return;
         }
 
-        tableBody.innerHTML = rows.map(row => `
+        tableBody.innerHTML = transactions.map(row => `
             <tr data-id="${row.id}">
                 <td>#${row.id}</td>
                 <td>
@@ -99,6 +131,21 @@
                 </td>
             </tr>
         `).join('');
+
+        if (pageInfo) {
+            const total = pagination.total || 0;
+            const start = (pagination.page - 1) * pagination.per_page + 1;
+            const end = start + transactions.length - 1;
+            pageInfo.textContent = `${start}-${end} / ${total}`;
+        }
+
+        if (prevButton) {
+            prevButton.disabled = pagination.page <= 1;
+        }
+        if (nextButton) {
+            const totalPages = pagination.per_page ? Math.ceil((pagination.total || 0) / pagination.per_page) : 1;
+            nextButton.disabled = pagination.page >= totalPages;
+        }
     };
 
     const updateTransaction = async (id, status) => {
@@ -145,8 +192,50 @@
         });
     });
 
-    searchInput?.addEventListener('input', renderTable);
-    statusSelect?.addEventListener('change', renderTable);
+    if (searchInput) {
+        let searchTimer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                state.search = searchInput.value || '';
+                state.page = 1;
+                fetchTransactions().catch(error => {
+                    console.error(error);
+                    tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">İşlemler yüklenemedi.</td></tr>';
+                });
+            }, 300);
+        });
+    }
+
+    statusSelect?.addEventListener('change', () => {
+        state.status = statusSelect.value || '';
+        state.page = 1;
+        fetchTransactions().catch(error => {
+            console.error(error);
+            tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">İşlemler yüklenemedi.</td></tr>';
+        });
+    });
+
+    prevButton?.addEventListener('click', () => {
+        if (state.page > 1) {
+            state.page -= 1;
+            fetchTransactions().catch(error => {
+                console.error(error);
+                tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">İşlemler yüklenemedi.</td></tr>';
+            });
+        }
+    });
+
+    nextButton?.addEventListener('click', () => {
+        const totalPages = pagination.per_page ? Math.ceil((pagination.total || 0) / pagination.per_page) : 1;
+        if (state.page < totalPages) {
+            state.page += 1;
+            fetchTransactions().catch(error => {
+                console.error(error);
+                tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">İşlemler yüklenemedi.</td></tr>';
+            });
+        }
+    });
 
     fetchTransactions().catch(error => {
         console.error(error);

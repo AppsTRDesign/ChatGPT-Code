@@ -7,15 +7,21 @@
     const locationList = document.getElementById('adminShareLocations');
     const deviceList = document.getElementById('adminShareDevices');
     const tableBody = document.querySelector('#adminShareRecent tbody');
+    const recentSearchInput = document.getElementById('adminShareSearch');
+    const recentPageInfo = document.getElementById('adminSharePageInfo');
+    const recentPrevButton = document.getElementById('adminSharePrev');
+    const recentNextButton = document.getElementById('adminShareNext');
     const exportButtons = document.querySelectorAll('[data-admin-share-export]');
 
     if (!chartCanvas || !rangeContainer || !locationList || !deviceList || !tableBody) {
         return;
     }
 
-    let analytics = { timeseries: {}, locations: [], devices: [], recent: [] };
+    let analytics = { timeseries: {}, locations: [], devices: [], recent: { items: [], total: 0 } };
     let chartInstance = null;
     let currentRange = 'daily';
+    let recentPage = 1;
+    const recentPerPage = 10;
 
     const formatBytes = (bytes) => {
         if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -38,6 +44,7 @@
             throw new Error(data.message || 'Analitik verileri alınamadı');
         }
         analytics = data.data || analytics;
+        recentPage = 1;
         renderAll();
     };
 
@@ -162,26 +169,82 @@
         });
     };
 
-    const renderRecent = () => {
-        tableBody.innerHTML = '';
-        if (!analytics.recent.length) {
-            tableBody.innerHTML = '<tr><td colspan="7" class="text-center text-white-50 py-3">Son kayıt bulunamadı.</td></tr>';
-            return;
+    const getRecentItems = () => {
+        const recent = analytics.recent;
+        if (Array.isArray(recent)) {
+            return recent;
         }
-        tableBody.innerHTML = analytics.recent.map((item) => {
-            const location = [item.country, item.city].filter(Boolean).join(' / ') || 'Bilinmiyor';
-            const device = item.device_type || '—';
-            return `
-                <tr>
-                    <td>${item.filename || '—'}</td>
-                    <td>${item.user_name || '—'}</td>
-                    <td>${item.ip_address || '—'}</td>
-                    <td>${location}</td>
-                    <td>${device}</td>
-                    <td>${item.browser || '—'}</td>
-                    <td class="text-white-50 extra-small">${item.created_at}</td>
-                </tr>`;
-        }).join('');
+        if (recent && Array.isArray(recent.items)) {
+            return recent.items;
+        }
+        return [];
+    };
+
+    const renderRecent = () => {
+        const items = getRecentItems();
+        const query = (recentSearchInput?.value || '').toLowerCase();
+        const filtered = !query
+            ? items
+            : items.filter((item) => {
+                const haystack = [
+                    item.filename,
+                    item.user_name,
+                    item.top_browser,
+                    item.top_language,
+                    item.top_device,
+                    item.top_location,
+                ].map((value) => (value || '').toString().toLowerCase()).join(' ');
+                return haystack.includes(query);
+            });
+
+        const totalPages = filtered.length ? Math.ceil(filtered.length / recentPerPage) : 1;
+        recentPage = Math.min(Math.max(1, recentPage), totalPages);
+        const startIndex = filtered.length ? (recentPage - 1) * recentPerPage : 0;
+        const pageItems = filtered.slice(startIndex, startIndex + recentPerPage);
+
+        if (!pageItems.length) {
+            tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-white-50 py-3">Son kayıt bulunamadı.</td></tr>';
+        } else {
+            tableBody.innerHTML = pageItems.map((item) => {
+                const location = item.top_location || 'Bilinmiyor';
+                const browser = item.top_browser || '—';
+                const language = item.top_language || 'Bilinmiyor';
+                const device = item.top_device || '—';
+                const clicks = `${item.clicks || 0}`;
+                const uniqueIps = `${item.unique_ips || 0}`;
+                return `
+                    <tr>
+                        <td>${item.filename || '—'}</td>
+                        <td>${item.user_name || '—'}</td>
+                        <td>
+                            <div class="fw-semibold">${clicks}</div>
+                            <div class="text-white-50 extra-small">${uniqueIps} benzersiz IP</div>
+                        </td>
+                        <td>${browser}</td>
+                        <td>${language}</td>
+                        <td>${device}</td>
+                        <td>${location}</td>
+                        <td class="text-white-50 extra-small">${item.last_access || '—'}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        if (recentPageInfo) {
+            if (!filtered.length) {
+                recentPageInfo.textContent = '0 kayıt';
+            } else {
+                const start = startIndex + 1;
+                const end = startIndex + pageItems.length;
+                const totalText = filtered.length !== items.length ? `${filtered.length} (Toplam ${items.length})` : `${filtered.length}`;
+                recentPageInfo.textContent = `${start}-${end} / ${totalText}`;
+            }
+        }
+        if (recentPrevButton) {
+            recentPrevButton.disabled = recentPage <= 1 || !filtered.length;
+        }
+        if (recentNextButton) {
+            recentNextButton.disabled = recentPage >= totalPages || !filtered.length;
+        }
     };
 
     const exportCsv = () => {
@@ -245,6 +308,29 @@
                 exportPdf();
             }
         });
+    });
+
+    if (recentSearchInput) {
+        let searchTimer;
+        recentSearchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                recentPage = 1;
+                renderRecent();
+            }, 250);
+        });
+    }
+
+    recentPrevButton?.addEventListener('click', () => {
+        if (recentPage > 1) {
+            recentPage -= 1;
+            renderRecent();
+        }
+    });
+
+    recentNextButton?.addEventListener('click', () => {
+        recentPage += 1;
+        renderRecent();
     });
 
     loadAnalytics().catch((error) => {

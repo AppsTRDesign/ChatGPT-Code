@@ -135,7 +135,42 @@ try {
             break;
 
         case 'list-transactions':
-            $stmt = $pdo->query('SELECT t.*, u.name AS user_name, u.email AS user_email, p.name AS package_name FROM transactions t LEFT JOIN users u ON u.id = t.user_id LEFT JOIN packages p ON p.id = t.package_id ORDER BY t.created_at DESC');
+            $page = max(1, (int) ($payload['page'] ?? 1));
+            $perPage = (int) ($payload['per_page'] ?? 10);
+            $perPage = max(5, min(100, $perPage));
+            $statusFilter = trim((string) ($payload['status'] ?? ''));
+            $searchTerm = trim((string) ($payload['search'] ?? ''));
+
+            $where = [];
+            $params = [];
+            if ($statusFilter !== '') {
+                $where[] = 't.status = :status';
+                $params[':status'] = $statusFilter;
+            }
+            if ($searchTerm !== '') {
+                $where[] = '(u.name LIKE :search OR u.email LIKE :search OR p.name LIKE :search OR t.reference LIKE :search)';
+                $params[':search'] = '%' . $searchTerm . '%';
+            }
+            $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+            $countStmt = $pdo->prepare('SELECT COUNT(*) FROM transactions t LEFT JOIN users u ON u.id = t.user_id LEFT JOIN packages p ON p.id = t.package_id ' . $whereSql);
+            $countStmt->execute($params);
+            $total = (int) $countStmt->fetchColumn();
+
+            $offset = ($page - 1) * $perPage;
+            $listSql = 'SELECT t.*, u.name AS user_name, u.email AS user_email, p.name AS package_name FROM transactions t '
+                . 'LEFT JOIN users u ON u.id = t.user_id '
+                . 'LEFT JOIN packages p ON p.id = t.package_id '
+                . $whereSql . ' ORDER BY t.created_at DESC LIMIT :limit OFFSET :offset';
+            $stmt = $pdo->prepare($listSql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
             $transactions = array_map(static function (array $row): array {
                 $labels = [
                     'pending' => 'Beklemede',
@@ -159,8 +194,19 @@ try {
                     'reference' => $row['reference'],
                     'created_at' => $row['created_at'],
                 ];
-            }, $stmt->fetchAll() ?: []);
-            echo json_encode(['status' => 'success', 'data' => $transactions]);
+            }, $rows);
+
+            echo json_encode([
+                'status' => 'success',
+                'data' => [
+                    'items' => $transactions,
+                    'pagination' => [
+                        'page' => $page,
+                        'per_page' => $perPage,
+                        'total' => $total,
+                    ],
+                ],
+            ]);
             break;
 
         case 'update-transaction':
@@ -179,7 +225,44 @@ try {
             break;
 
         case 'list-payment-notifications':
-            $stmt = $pdo->query('SELECT n.*, u.name AS user_name, u.email AS user_email, p.name AS package_name, t.amount, t.currency FROM payment_notifications n INNER JOIN users u ON u.id = n.user_id LEFT JOIN transactions t ON t.id = n.transaction_id LEFT JOIN packages p ON p.id = t.package_id ORDER BY n.created_at DESC');
+            $page = max(1, (int) ($payload['page'] ?? 1));
+            $perPage = (int) ($payload['per_page'] ?? 6);
+            $perPage = max(3, min(50, $perPage));
+            $statusFilter = trim((string) ($payload['status'] ?? ''));
+            $searchTerm = trim((string) ($payload['search'] ?? ''));
+
+            $where = [];
+            $params = [];
+            if ($statusFilter !== '') {
+                $where[] = 'n.status = :status';
+                $params[':status'] = $statusFilter;
+            }
+            if ($searchTerm !== '') {
+                $where[] = '(u.name LIKE :search OR u.email LIKE :search OR p.name LIKE :search OR n.provider LIKE :search OR n.note LIKE :search)';
+                $params[':search'] = '%' . $searchTerm . '%';
+            }
+            $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+            $countStmt = $pdo->prepare('SELECT COUNT(*) FROM payment_notifications n INNER JOIN users u ON u.id = n.user_id LEFT JOIN transactions t ON t.id = n.transaction_id LEFT JOIN packages p ON p.id = t.package_id ' . $whereSql);
+            $countStmt->execute($params);
+            $total = (int) $countStmt->fetchColumn();
+
+            $offset = ($page - 1) * $perPage;
+            $listSql = 'SELECT n.*, u.name AS user_name, u.email AS user_email, p.name AS package_name, t.amount, t.currency '
+                . 'FROM payment_notifications n '
+                . 'INNER JOIN users u ON u.id = n.user_id '
+                . 'LEFT JOIN transactions t ON t.id = n.transaction_id '
+                . 'LEFT JOIN packages p ON p.id = t.package_id '
+                . $whereSql . ' ORDER BY n.created_at DESC LIMIT :limit OFFSET :offset';
+            $stmt = $pdo->prepare($listSql);
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
+
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
             $notifications = array_map(static function (array $row): array {
                 $attachments = [];
                 if (!empty($row['attachments'])) {
@@ -217,8 +300,19 @@ try {
                     'note' => $row['note'],
                     'created_at' => $row['created_at'],
                 ];
-            }, $stmt->fetchAll() ?: []);
-            echo json_encode(['status' => 'success', 'data' => $notifications]);
+            }, $rows);
+
+            echo json_encode([
+                'status' => 'success',
+                'data' => [
+                    'items' => $notifications,
+                    'pagination' => [
+                        'page' => $page,
+                        'per_page' => $perPage,
+                        'total' => $total,
+                    ],
+                ],
+            ]);
             break;
 
         case 'update-payment-notification':

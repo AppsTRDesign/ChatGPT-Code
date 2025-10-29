@@ -74,6 +74,7 @@
             this.previewTemplate = this.options.previewTemplate;
             this.clickable = element.querySelector('.dz-message') || element;
             this.autoProcessQueue = !!this.options.autoProcessQueue;
+            this.element.classList.add('dz-clickable');
 
             this.initInput();
             this.bindEvents();
@@ -136,9 +137,24 @@
                     this.addFiles(files);
                 }
             });
-            this.clickable.addEventListener('click', () => {
+            const openPicker = (event) => {
+                if (event.defaultPrevented) {
+                    return;
+                }
+                const interactive = event.target.closest('button, a, input, textarea, select, label, [data-dz-remove]');
+                if (interactive) {
+                    return;
+                }
                 this.fileInput.click();
-            });
+            };
+            this.element.addEventListener('click', openPicker);
+            if (this.clickable && this.clickable !== this.element) {
+                this.clickable.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openPicker(event);
+                });
+            }
         }
 
         addFiles(files) {
