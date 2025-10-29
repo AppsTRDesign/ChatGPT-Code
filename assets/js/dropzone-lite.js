@@ -155,6 +155,15 @@
                     openPicker(event);
                 });
             }
+
+            this.element.querySelectorAll('.dz-message').forEach((message) => {
+                message.style.cursor = 'pointer';
+                message.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openPicker(event);
+                });
+            });
         }
 
         addFiles(files) {
@@ -220,7 +229,9 @@
         uploadFile(file) {
             file.status = Dropzone.UPLOADING;
             this.activeUploads += 1;
-            const formData = new FormData(this.element);
+            const formData = this.element instanceof HTMLFormElement
+                ? new FormData(this.element)
+                : new FormData();
             formData.delete(this.options.paramName);
             formData.append(this.options.paramName, file, file.name);
             const xhr = new XMLHttpRequest();
