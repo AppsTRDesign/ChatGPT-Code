@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS packages (
     max_concurrent_uploads INT NOT NULL,
     features TEXT NOT NULL,
     allowed_extensions TEXT DEFAULT NULL,
+    share_analytics_enabled TINYINT(1) NOT NULL DEFAULT 1,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -64,6 +65,9 @@ SQL);
 
     if (!schemaColumnExists($pdo, 'packages', 'allowed_extensions')) {
         $pdo->exec('ALTER TABLE packages ADD COLUMN allowed_extensions TEXT DEFAULT NULL AFTER features');
+    }
+    if (!schemaColumnExists($pdo, 'packages', 'share_analytics_enabled')) {
+        $pdo->exec('ALTER TABLE packages ADD COLUMN share_analytics_enabled TINYINT(1) NOT NULL DEFAULT 1 AFTER allowed_extensions');
     }
     if (!schemaColumnExists($pdo, 'packages', 'max_upload_size')) {
         $pdo->exec('ALTER TABLE packages ADD COLUMN max_upload_size BIGINT DEFAULT NULL AFTER storage_limit');
@@ -339,6 +343,12 @@ function require_auth(bool $admin = false): void
 function sanitize(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+}
+
+function is_editable_extension(string $extension): bool
+{
+    static $editable = ['txt', 'md', 'markdown', 'html', 'htm', 'css', 'js', 'json', 'xml', 'yml', 'yaml', 'csv', 'log', 'ini', 'env', 'php'];
+    return in_array(strtolower($extension), $editable, true);
 }
 
 function slugify(string $text): string
@@ -904,6 +914,331 @@ function create_selection_archive(PDO $pdo, array $fileIds, array $folderIds, ar
     ];
 }
 
+function normalize_archive_entry(string $entry): ?string
+{
+    $entry = str_replace('\\', '/', $entry);
+    $entry = preg_replace('#/+#', '/', $entry);
+    $entry = ltrim($entry, '/');
+    if ($entry === '') {
+        return null;
+    }
+    if (substr($entry, -1) === '/') {
+        return null;
+    }
+    $segments = [];
+    foreach (explode('/', $entry) as $segment) {
+        if ($segment === '' || $segment === '.') {
+            continue;
+        }
+        if ($segment === '..') {
+            return null;
+        }
+        $segments[] = $segment;
+    }
+    return $segments ? implode('/', $segments) : null;
+}
+
+function ensure_unique_child_folder(PDO $pdo, int $userId, ?int $parentId, string $baseName): array
+{
+    $baseName = trim($baseName) !== '' ? trim($baseName) : 'Arsiv';
+    $candidate = $baseName;
+    $suffix = 1;
+
+    while (true) {
+        $stmt = $pdo->prepare('SELECT * FROM folders WHERE user_id = :user AND parent_id <=> :parent AND name = :name LIMIT 1');
+        $stmt->bindValue(':user', $userId, PDO::PARAM_INT);
+        if ($parentId === null) {
+            $stmt->bindValue(':parent', null, PDO::PARAM_NULL);
+        } else {
+            $stmt->bindValue(':parent', $parentId, PDO::PARAM_INT);
+        }
+        $stmt->bindValue(':name', $candidate, PDO::PARAM_STR);
+        $stmt->execute();
+        $existing = $stmt->fetch();
+        if (!$existing) {
+            $insert = $pdo->prepare('INSERT INTO folders (user_id, parent_id, name, is_public, is_protected, created_at, updated_at) VALUES (:user, :parent, :name, 0, 0, NOW(), NOW())');
+            $insert->bindValue(':user', $userId, PDO::PARAM_INT);
+            if ($parentId === null) {
+                $insert->bindValue(':parent', null, PDO::PARAM_NULL);
+            } else {
+                $insert->bindValue(':parent', $parentId, PDO::PARAM_INT);
+            }
+            $insert->bindValue(':name', $candidate, PDO::PARAM_STR);
+            $insert->execute();
+            $newId = (int) $pdo->lastInsertId();
+            $folder = fetch_folder($pdo, $newId);
+            if (!$folder) {
+                throw new RuntimeException('Klasör oluşturulamadı.');
+            }
+            return $folder;
+        }
+        $candidate = $baseName . ' (' . $suffix . ')';
+        $suffix++;
+    }
+}
+
+function remove_directory_recursive(string $path): void
+{
+    if (!is_dir($path)) {
+        if (is_file($path)) {
+            @unlink($path);
+        }
+        return;
+    }
+
+    $iterator = new \RecursiveIteratorIterator(
+        new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+        \RecursiveIteratorIterator::CHILD_FIRST
+    );
+
+    foreach ($iterator as $item) {
+        if ($item->isDir()) {
+            @rmdir($item->getPathname());
+        } else {
+            @unlink($item->getPathname());
+        }
+    }
+
+    @rmdir($path);
+}
+
+function extract_archive_contents(PDO $pdo, array $file, array $actor, bool $isAdmin, ?int $contextFolderId, array $allowedExtensions): array
+{
+    $ownerId = (int) ($file['user_id'] ?? 0);
+    if ($ownerId <= 0) {
+        throw new RuntimeException('Dosya sahibi bulunamadı.');
+    }
+    $actorId = (int) ($actor['id'] ?? 0);
+    if (!$isAdmin && $ownerId !== $actorId) {
+        throw new RuntimeException('Bu arşivi ayıklama yetkiniz yok.');
+    }
+
+    $sourcePath = __DIR__ . '/uploads/' . $file['stored_name'];
+    if (!is_file($sourcePath)) {
+        throw new RuntimeException('Arşiv dosyası bulunamadı.');
+    }
+
+    $targetParentId = $contextFolderId !== null ? $contextFolderId : ($file['folder_id'] !== null ? (int) $file['folder_id'] : null);
+    if ($targetParentId) {
+        $targetFolder = fetch_folder($pdo, $targetParentId);
+        if (!$targetFolder) {
+            throw new RuntimeException('Hedef klasör bulunamadı.');
+        }
+        if (!$isAdmin && (int) $targetFolder['user_id'] !== $ownerId) {
+            throw new RuntimeException('Hedef klasör size ait değil.');
+        }
+    }
+
+    $allowedSet = [];
+    foreach ($allowedExtensions as $extension) {
+        $normalized = strtolower(trim((string) $extension));
+        if ($normalized !== '') {
+            $allowedSet[$normalized] = true;
+        }
+    }
+    if (empty($allowedSet)) {
+        foreach (DEFAULT_ALLOWED_EXTENSIONS as $extension) {
+            $allowedSet[strtolower($extension)] = true;
+        }
+    }
+
+    $tmpDir = sys_get_temp_dir() . '/extract_' . bin2hex(random_bytes(6));
+    if (!mkdir($tmpDir, 0775, true) && !is_dir($tmpDir)) {
+        throw new RuntimeException('Geçici klasör oluşturulamadı.');
+    }
+
+    $archiveExtension = strtolower((string) pathinfo($file['filename'] ?? '', PATHINFO_EXTENSION));
+    $allowedFiles = [];
+    $skipped = [];
+
+    try {
+        if ($archiveExtension === 'zip') {
+            if (!class_exists('ZipArchive')) {
+                throw new RuntimeException('ZipArchive desteği mevcut değil.');
+            }
+            $zip = new ZipArchive();
+            if ($zip->open($sourcePath) !== true) {
+                throw new RuntimeException('Zip arşivi açılamadı.');
+            }
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                if (!$stat) {
+                    continue;
+                }
+                $originalName = $stat['name'] ?? '';
+                $normalized = normalize_archive_entry($originalName);
+                if ($normalized === null) {
+                    $skipped[] = ['name' => $originalName, 'reason' => 'Geçersiz dosya yolu'];
+                    continue;
+                }
+                $extension = strtolower((string) pathinfo($normalized, PATHINFO_EXTENSION));
+                if ($extension === '') {
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'Dosya uzantısı bulunamadı'];
+                    continue;
+                }
+                if (!isset($allowedSet[$extension])) {
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'İzin verilmeyen uzantı'];
+                    continue;
+                }
+                $stream = $zip->getStream($originalName);
+                if (!$stream) {
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'Arşivden okunamadı'];
+                    continue;
+                }
+                $targetPath = $tmpDir . '/' . $normalized;
+                $targetDir = dirname($targetPath);
+                if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+                    fclose($stream);
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'Geçici dizin oluşturulamadı'];
+                    continue;
+                }
+                $output = fopen($targetPath, 'wb');
+                if (!$output) {
+                    fclose($stream);
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'Geçici dosya oluşturulamadı'];
+                    continue;
+                }
+                stream_copy_to_stream($stream, $output);
+                fclose($stream);
+                fclose($output);
+                $allowedFiles[] = [
+                    'path' => $targetPath,
+                    'extension' => $extension,
+                    'display' => basename($normalized) ?: $normalized,
+                ];
+            }
+            $zip->close();
+        } elseif ($archiveExtension === 'rar') {
+            if (!class_exists('RarArchive')) {
+                throw new RuntimeException('RAR desteği aktif değil.');
+            }
+            $rar = RarArchive::open($sourcePath);
+            if (!$rar) {
+                throw new RuntimeException('RAR arşivi açılamadı.');
+            }
+            $entries = $rar->getEntries();
+            foreach ($entries as $entry) {
+                $originalName = $entry->getName();
+                $normalized = normalize_archive_entry($originalName);
+                if ($normalized === null || $entry->isDirectory()) {
+                    continue;
+                }
+                $extension = strtolower((string) pathinfo($normalized, PATHINFO_EXTENSION));
+                if ($extension === '') {
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'Dosya uzantısı bulunamadı'];
+                    continue;
+                }
+                if (!isset($allowedSet[$extension])) {
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'İzin verilmeyen uzantı'];
+                    continue;
+                }
+                $targetPath = $tmpDir . '/' . $normalized;
+                $targetDir = dirname($targetPath);
+                if (!is_dir($targetDir) && !mkdir($targetDir, 0775, true) && !is_dir($targetDir)) {
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'Geçici dizin oluşturulamadı'];
+                    continue;
+                }
+                if (!$entry->extract($tmpDir, $normalized)) {
+                    $skipped[] = ['name' => basename($normalized) ?: $normalized, 'reason' => 'Dosya arşivden çıkarılamadı'];
+                    continue;
+                }
+                $allowedFiles[] = [
+                    'path' => $targetPath,
+                    'extension' => $extension,
+                    'display' => basename($normalized) ?: $normalized,
+                ];
+            }
+            $rar->close();
+        } else {
+            throw new RuntimeException('Desteklenmeyen arşiv türü.');
+        }
+
+        if (empty($allowedFiles)) {
+            throw new RuntimeException('Arşivde izin verilen uzantılara sahip dosya bulunamadı.');
+        }
+
+        $package = package_for_user($pdo, $ownerId);
+        $maxUploadSize = $package && !empty($package['max_upload_size']) ? (int) $package['max_upload_size'] : null;
+        $storageLimit = $package && !empty($package['storage_limit']) ? (int) $package['storage_limit'] : null;
+        $usage = user_storage_usage($pdo, $ownerId);
+        $currentSize = (int) $usage['total_size'];
+        $addedSize = 0;
+
+        $baseName = pathinfo($file['filename'] ?? '', PATHINFO_FILENAME);
+        if (!$baseName) {
+            $baseName = 'Arsiv-' . date('Ymd-His');
+        }
+        $destinationFolder = ensure_unique_child_folder($pdo, $ownerId, $targetParentId, $baseName);
+
+        $saved = [];
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        foreach ($allowedFiles as $temp) {
+            if (!is_file($temp['path'])) {
+                $skipped[] = ['name' => $temp['display'], 'reason' => 'Geçici dosya bulunamadı'];
+                continue;
+            }
+            $size = filesize($temp['path']);
+            if ($size === false) {
+                $skipped[] = ['name' => $temp['display'], 'reason' => 'Dosya boyutu okunamadı'];
+                continue;
+            }
+            if ($maxUploadSize && $size > $maxUploadSize) {
+                $skipped[] = ['name' => $temp['display'], 'reason' => 'Tek dosya boyutu sınırını aşıyor'];
+                continue;
+            }
+            if ($storageLimit && ($currentSize + $addedSize + $size) > $storageLimit) {
+                $skipped[] = ['name' => $temp['display'], 'reason' => 'Depo sınırı aşıldı'];
+                continue;
+            }
+            $storedName = bin2hex(random_bytes(16)) . '.' . $temp['extension'];
+            $targetPath = __DIR__ . '/uploads/' . $storedName;
+            if (!rename($temp['path'], $targetPath)) {
+                if (!copy($temp['path'], $targetPath)) {
+                    $skipped[] = ['name' => $temp['display'], 'reason' => 'Dosya kaydedilemedi'];
+                    continue;
+                }
+                @unlink($temp['path']);
+            }
+            $mime = $finfo->file($targetPath) ?: 'application/octet-stream';
+            $fileId = store_file($pdo, [
+                'filename' => $temp['display'],
+                'stored_name' => $storedName,
+                'size' => $size,
+                'type' => $mime,
+                'uploader_ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
+                'user_id' => $ownerId,
+                'folder_id' => $destinationFolder['id'] ?? null,
+            ]);
+            $addedSize += $size;
+            $saved[] = [
+                'id' => $fileId,
+                'name' => $temp['display'],
+                'size' => $size,
+            ];
+        }
+
+        if (empty($saved) && !empty($destinationFolder['id'])) {
+            $stmt = $pdo->prepare('DELETE FROM folders WHERE id = :id AND user_id = :user LIMIT 1');
+            $stmt->execute([
+                ':id' => $destinationFolder['id'],
+                ':user' => $ownerId,
+            ]);
+            $destinationFolder = null;
+        }
+
+        return [
+            'folder' => $destinationFolder ? [
+                'id' => $destinationFolder['id'],
+                'name' => $destinationFolder['name'],
+            ] : null,
+            'extracted' => $saved,
+            'skipped' => $skipped,
+        ];
+    } finally {
+        remove_directory_recursive($tmpDir);
+    }
+}
+
 function format_bytes(int $bytes): string
 {
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -1144,10 +1479,10 @@ function ensureDefaultPackages(PDO $pdo): void
 {
     $count = (int) $pdo->query('SELECT COUNT(*) FROM packages')->fetchColumn();
     if ($count === 0) {
-        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_upload_size, max_concurrent_uploads, features, allowed_extensions, price) VALUES
-            (:name1, :storage1, :max1, :upload1, :features1, :ext1, :price1),
-            (:name2, :storage2, :max2, :upload2, :features2, :ext2, :price2),
-            (:name3, :storage3, :max3, :upload3, :features3, :ext3, :price3)');
+        $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_upload_size, max_concurrent_uploads, features, allowed_extensions, share_analytics_enabled, price) VALUES
+            (:name1, :storage1, :max1, :upload1, :features1, :ext1, :share1, :price1),
+            (:name2, :storage2, :max2, :upload2, :features2, :ext2, :share2, :price2),
+            (:name3, :storage3, :max3, :upload3, :features3, :ext3, :share3, :price3)');
         $stmt->execute([
             ':name1' => 'Başlangıç',
             ':storage1' => 524288000,
@@ -1155,6 +1490,7 @@ function ensureDefaultPackages(PDO $pdo): void
             ':upload1' => 2,
             ':features1' => json_encode(['Temel depolama', 'Sınırlı destek']),
             ':ext1' => null,
+            ':share1' => 0,
             ':price1' => 0.00,
             ':name2' => 'Profesyonel',
             ':storage2' => 2147483648,
@@ -1162,6 +1498,7 @@ function ensureDefaultPackages(PDO $pdo): void
             ':upload2' => 5,
             ':features2' => json_encode(['Gelişmiş depolama', 'Öncelikli destek', 'Analitik raporlar']),
             ':ext2' => null,
+            ':share2' => 1,
             ':price2' => 14.99,
             ':name3' => 'Kurumsal',
             ':storage3' => 5368709120,
@@ -1169,6 +1506,7 @@ function ensureDefaultPackages(PDO $pdo): void
             ':upload3' => 10,
             ':features3' => json_encode(['Sınırsız paylaşım', 'Takım yönetimi', 'Özel SLA']),
             ':ext3' => null,
+            ':share3' => 1,
             ':price3' => 49.99,
         ]);
     }
@@ -1723,6 +2061,18 @@ function device_details(string $userAgent): array
 
 function log_file_access(PDO $pdo, array $file, ?array $user = null, ?string $shareToken = null): void
 {
+    $settings = fetch_settings($pdo);
+    if (empty($settings['share_stats_enabled'])) {
+        return;
+    }
+    $ownerId = isset($file['user_id']) ? (int) $file['user_id'] : null;
+    if ($ownerId) {
+        $package = package_for_user($pdo, $ownerId);
+        if ($package && empty($package['share_analytics_enabled'])) {
+            return;
+        }
+    }
+
     $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     $geo = geoip_lookup($pdo, $ip);
     $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';

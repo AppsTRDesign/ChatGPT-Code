@@ -5,12 +5,15 @@ A PHP 8 file upload and storage platform built for AlmaLinux deployments. The sy
 ## Özellikler
 - **Modern Arayüz:** Bootstrap 5 tabanlı responsive tasarım, özel renk paleti, Dropzone teması ve SweetAlert bildirimleri.
 - **Gelişmiş Dosya Yöneticisi:** Çoklu seçim, CTRL+A ile tümünü seçme, Delete kısayolu, klasör oluşturma, ad değiştirme, taşıma, aynı klasördeki dosyalardan zip üretme ve sağ tık menüsünden paylaş/şifrele aksiyonları.
+- **Arşiv Ayıklama:** Zip/RAR arşivlerini izin verilen uzantılara göre otomatik olarak yeni klasöre çıkarın; paket limitleri aşıldığında kullanıcıya bilgi verilir.
 - **Video/Ses Önizlemeleri:** Desteklenen MIME türleri için HTML5 video ve ses oynatıcıları, görseller/PDF'ler için yerleşik önizleme.
 - **Dosya Tipi İkonları & Sıralama:** MIME tipine göre otomatik ikon ataması, ada/boyuta/tarihe göre sıralama, sayfalama ve modern grid görünümü.
 - **Drag & Drop Yükleme:** Paket limitlerine göre otomatik ayarlanan paralel yükleme, MIME kontrolü ve klasör bazlı sürükle-bırak deneyimi.
 - **Yükleme Kuyrukları:** Manuel başlatılan Dropzone kuyruğu, iptal edilebilir görevler, detaylı ilerleme çubuğu ve toplu başarı bildirimleri.
+- **Metin Düzenleyici:** TXT/HTML/PHP gibi metin tabanlı dosyaları tarayıcı içi Ace editörü ile düzenleyin.
 - **Paylaşım ve Güvenli İndirme:** Herkese açık paylaşım bağlantıları, admin tanımlı geri sayım ile indirme butonunu aktifleştirme, gizli indirme linkleri (`/s/{token}` ve `/d/{token}`) ve paylaşım sayfasında reklam alanları.
 - **Paket ve Limit Yönetimi:** Admin panelinden izin verilen dosya uzantılarını paket bazında tanımlayın, maksimum eş zamanlı yüklemeleri, paylaşım süresini ve klasör şifreleme/publik paylaşım ayarlarını belirleyin.
+- **Paket Bazlı Analitik:** Paylaşım analitiği yalnızca paketinde özellik aktif olan kullanıcılar için açılır; menü ve grafikler otomatik gizlenir.
 - **SEO Dostu Rotalar:** `.htaccess` ile `/file/{id}-{slug}` formatında temiz URL yönlendirmeleri.
 - **SEO Kontrolü:** Admin panelinden meta başlık/açıklama/anahtar kelime, sosyal paylaşım başlığı ve açıklaması ile banner/JSON-LD snippet yapılandırması.
 - **Admin Paneli:** Dosya ve kullanıcı yönetimi, paket tanımlama, paket bazlı MIME listesi, paylaşım süresi ve indirme gecikmesi, klasör şifreleme, reklam alanları ve genel meta/HTML/mail/analytics ayarları.
@@ -20,6 +23,7 @@ A PHP 8 file upload and storage platform built for AlmaLinux deployments. The sy
 - **Satın Alma & Dekont Yönetimi:** Banka transferleri için Dropzone destekli dekont yükleme, admin panelinde bekleyen/onaylanan/eksik ödeme takip kartları.
 - **Paylaşım Analitiği:** Client panelinde günlük/haftalık/aylık/yıllık grafikler, coğrafi ve cihaz kırılımları ile CSV/PDF dışa aktarma.
 - **Bildirim & Entegrasyonlar:** PHPMailer tabanlı SMTP/PHP mail seçimi, GeoIP2 ve DeviceDetector ile indirme istatistikleri ile Stripe ve Iyzico ödeme bildirim uç noktaları.
+- **GeoIP Dropzone:** Yönetim panelinden GeoIP veritabanını Dropzone ile yükleyip yolunu otomatik güncelleyin.
 - **Saklama Politikaları:** Belirli gün sonunda arşivleme veya otomatik silme için zamanlayıcı fonksiyonları.
 - **Güvenlik:** CSRF koruması, MIME tipi doğrulaması, 50 MB varsayılan sınır, `uploads/.htaccess` ile doğrudan erişim kısıtlama.
 - **Veritabanı Otomasyonu:** PDO ile bağlantı, ilk kurulumda tablo ve örnek verilerin (admin hesabı, paketler, varsayılan ayarlar) oluşturulması.

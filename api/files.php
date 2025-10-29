@@ -199,6 +199,91 @@ try {
             echo json_encode(['status' => 'success', 'message' => 'Dosya oluşturuldu.', 'file_id' => $fileId]);
             break;
 
+        case 'load-text-file':
+            $fileId = (int) ($payload['file_id'] ?? 0);
+            if ($fileId <= 0) {
+                throw new RuntimeException('Geçersiz dosya.');
+            }
+            $file = fetch_file($pdo, $fileId);
+            if (!$file) {
+                throw new RuntimeException('Dosya bulunamadı.');
+            }
+            if (!$isAdmin && (int) $file['user_id'] !== (int) $user['id']) {
+                throw new RuntimeException('Bu dosyayı görüntüleme yetkiniz yok.');
+            }
+            $path = __DIR__ . '/../uploads/' . $file['stored_name'];
+            if (!is_file($path)) {
+                throw new RuntimeException('Dosya sunucuda bulunamadı.');
+            }
+            $extension = strtolower((string) pathinfo($file['filename'], PATHINFO_EXTENSION));
+            $mimeType = $file['type'] ?? '';
+            if (!is_editable_extension($extension) && (!is_string($mimeType) || strpos($mimeType, 'text/') !== 0)) {
+                throw new RuntimeException('Bu dosya düzenlemeye uygun değil.');
+            }
+            $size = filesize($path);
+            if ($size !== false && $size > 1048576) {
+                throw new RuntimeException('Dosya düzenleme sınırını aşıyor (1 MB).');
+            }
+            $content = file_get_contents($path);
+            if ($content === false) {
+                throw new RuntimeException('Dosya içeriği okunamadı.');
+            }
+            echo json_encode(['status' => 'success', 'filename' => $file['filename'], 'content' => $content]);
+            break;
+
+        case 'save-text-file':
+            $fileId = (int) ($payload['file_id'] ?? 0);
+            if ($fileId <= 0) {
+                throw new RuntimeException('Geçersiz dosya.');
+            }
+            $content = (string) ($payload['content'] ?? '');
+            $file = fetch_file($pdo, $fileId);
+            if (!$file) {
+                throw new RuntimeException('Dosya bulunamadı.');
+            }
+            if (!$isAdmin && (int) $file['user_id'] !== (int) $user['id']) {
+                throw new RuntimeException('Bu dosyayı güncelleme yetkiniz yok.');
+            }
+            $path = __DIR__ . '/../uploads/' . $file['stored_name'];
+            if (!is_file($path)) {
+                throw new RuntimeException('Dosya sunucuda bulunamadı.');
+            }
+            $extension = strtolower((string) pathinfo($file['filename'], PATHINFO_EXTENSION));
+            $mimeType = $file['type'] ?? '';
+            if (!is_editable_extension($extension) && (!is_string($mimeType) || strpos($mimeType, 'text/') !== 0)) {
+                throw new RuntimeException('Bu dosya düzenlemeye uygun değil.');
+            }
+            $newSize = strlen($content);
+            if ($newSize > 1048576) {
+                throw new RuntimeException('Dosya düzenleme sınırını aşıyor (1 MB).');
+            }
+            $ownerId = (int) ($file['user_id'] ?? 0);
+            if ($ownerId > 0) {
+                $package = package_for_user($pdo, $ownerId);
+                if ($package && !empty($package['max_upload_size']) && $newSize > (int) $package['max_upload_size']) {
+                    throw new RuntimeException('Dosya içeriği paketinizin tek dosya limitini aşıyor.');
+                }
+                if ($package && !empty($package['storage_limit'])) {
+                    $usage = user_storage_usage($pdo, $ownerId);
+                    $newTotal = (int) $usage['total_size'] - (int) $file['size'] + $newSize;
+                    if ($newTotal > (int) $package['storage_limit']) {
+                        throw new RuntimeException('Depolama limitinizi aşıyorsunuz.');
+                    }
+                }
+            }
+            if (file_put_contents($path, $content, LOCK_EX) === false) {
+                throw new RuntimeException('Dosya yazma işlemi başarısız.');
+            }
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $updatedMime = $finfo->file($path) ?: ($mimeType ?: 'text/plain');
+            $pdo->prepare('UPDATE files SET size = :size, type = :type, uploaded_at = NOW() WHERE id = :id')->execute([
+                ':size' => $newSize,
+                ':type' => $updatedMime,
+                ':id' => $fileId,
+            ]);
+            echo json_encode(['status' => 'success', 'message' => 'Dosya güncellendi.']);
+            break;
+
         case 'rename-folder':
             $folderId = (int) ($payload['folder_id'] ?? 0);
             $name = trim((string) ($payload['name'] ?? ''));
@@ -493,6 +578,38 @@ try {
                 : null;
             $archive = create_selection_archive($pdo, $fileIds, $folderIds, $user, $isAdmin, $contextFolderId);
             echo json_encode(['status' => 'success', 'message' => 'Zip dosyası hazırlandı.', 'archive' => $archive]);
+            break;
+
+        case 'extract-archive':
+            $fileId = (int) ($payload['file_id'] ?? 0);
+            if ($fileId <= 0) {
+                throw new RuntimeException('Geçersiz arşiv dosyası.');
+            }
+            $contextFolderId = isset($payload['context_folder_id']) && $payload['context_folder_id'] !== ''
+                ? (int) $payload['context_folder_id']
+                : null;
+            $file = fetch_file($pdo, $fileId);
+            if (!$file) {
+                throw new RuntimeException('Dosya bulunamadı.');
+            }
+            if (!$isAdmin && (int) $file['user_id'] !== (int) $user['id']) {
+                throw new RuntimeException('Arşivi ayıklama yetkiniz yok.');
+            }
+            $package = package_for_user($pdo, (int) ($file['user_id'] ?? $user['id']));
+            $allowedExtensions = allowed_extensions($pdo, $package['id'] ?? null);
+            $result = extract_archive_contents($pdo, $file, $user, $isAdmin, $contextFolderId, $allowedExtensions);
+            $extractedCount = isset($result['extracted']) ? count($result['extracted']) : 0;
+            $skippedCount = isset($result['skipped']) ? count($result['skipped']) : 0;
+            $message = $extractedCount > 0
+                ? sprintf('%d dosya çıkarıldı%s.', $extractedCount, $skippedCount ? ' (' . $skippedCount . ' atlandı)' : '')
+                : ($skippedCount > 0 ? 'Tüm öğeler sınırlar nedeniyle atlandı.' : 'Arşivde uygun dosya bulunamadı.');
+            echo json_encode([
+                'status' => $extractedCount > 0 ? 'success' : 'error',
+                'message' => $message,
+                'extracted' => $result['extracted'],
+                'skipped' => $result['skipped'],
+                'folder' => $result['folder'],
+            ]);
             break;
 
         case 'move-selection':

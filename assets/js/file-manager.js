@@ -15,6 +15,8 @@
         { match: (type) => type.startsWith('text/'), icon: 'bi-file-earmark-text' },
     ];
 
+    const ARCHIVE_EXTENSIONS = new Set(['zip', 'rar']);
+
     function showToast(type, message) {
         Swal.fire({
             icon: type,
@@ -50,6 +52,77 @@
         }
         const match = FILE_ICON_MAP.find(rule => rule.match(type));
         return match ? match.icon : 'bi-file-earmark';
+    }
+
+    function escapeHtml(value = '') {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    const EDITABLE_EXTENSIONS = new Set(['txt', 'md', 'markdown', 'html', 'htm', 'css', 'js', 'json', 'xml', 'yml', 'yaml', 'csv', 'log', 'ini', 'env', 'php']);
+
+    function fileExtension(filename = '') {
+        const parts = filename.toLowerCase().split('.');
+        if (parts.length < 2) {
+            return '';
+        }
+        return parts.pop();
+    }
+
+    function aceModeForExtension(extension) {
+        switch (extension) {
+            case 'js':
+                return 'javascript';
+            case 'json':
+                return 'json';
+            case 'html':
+            case 'htm':
+                return 'html';
+            case 'css':
+                return 'css';
+            case 'md':
+            case 'markdown':
+                return 'markdown';
+            case 'xml':
+                return 'xml';
+            case 'yml':
+            case 'yaml':
+                return 'yaml';
+            case 'ini':
+            case 'env':
+                return 'ini';
+            case 'php':
+                return 'php';
+            default:
+                return 'text';
+        }
+    }
+
+    function isEditableFileMeta(file) {
+        if (!file) {
+            return false;
+        }
+        const extension = fileExtension(file.filename || '');
+        if (extension && EDITABLE_EXTENSIONS.has(extension)) {
+            return true;
+        }
+        return typeof file.type === 'string' && file.type.startsWith('text/');
+    }
+
+    function isArchiveFileMeta(file) {
+        if (!file) {
+            return false;
+        }
+        const extension = fileExtension(file.filename || '');
+        if (extension && ARCHIVE_EXTENSIONS.has(extension)) {
+            return true;
+        }
+        const type = typeof file.type === 'string' ? file.type : '';
+        return type.includes('zip') || type.includes('rar') || type.includes('compressed');
     }
 
     function isFormElement(element) {
@@ -276,6 +349,10 @@
                         item.style.display = state.settings.folder_passwords ? '' : 'none';
                         return;
                     }
+                    if (action === 'extract' || action === 'edit-text') {
+                        item.style.display = 'none';
+                        return;
+                    }
                 } else if (type === 'file') {
                     if (action === 'protect') {
                         item.style.display = 'none';
@@ -284,6 +361,16 @@
                     if (action === 'share') {
                         item.style.display = state.settings.public_sharing ? '' : 'none';
                         item.textContent = 'Paylaş';
+                        return;
+                    }
+                    if (action === 'edit-text') {
+                        const fileMeta = state.files.find(file => file.id === Number(element.dataset.id));
+                        item.style.display = isEditableFileMeta(fileMeta) ? '' : 'none';
+                        return;
+                    }
+                    if (action === 'extract') {
+                        const fileMeta = state.files.find(file => file.id === Number(element.dataset.id));
+                        item.style.display = isArchiveFileMeta(fileMeta) ? '' : 'none';
                         return;
                     }
                 }
@@ -798,6 +885,74 @@
             }
         }
 
+        async function editTextFile(fileId) {
+            const target = state.files.find(file => file.id === Number(fileId));
+            if (!target || !isEditableFileMeta(target)) {
+                showToast('error', 'Bu dosya düzenlenemez.');
+                return;
+            }
+            try {
+                const response = await fmRequest('load-text-file', { file_id: fileId });
+                if (response.status !== 'success') {
+                    throw new Error(response.message || 'Dosya içeriği alınamadı.');
+                }
+                const content = typeof response.content === 'string' ? response.content : '';
+                const editorId = `fm-editor-${Date.now()}`;
+                let aceEditor = null;
+                const extension = fileExtension(target.filename || '');
+                const { value, isConfirmed } = await Swal.fire({
+                    title: 'Metni Düzenle',
+                    html: `
+                        <div class="text-white-50 small mb-2">${escapeHtml(target.filename)}</div>
+                        <div id="${editorId}" class="fm-ace-editor"></div>
+                    `,
+                    focusConfirm: false,
+                    width: '60rem',
+                    showCancelButton: true,
+                    confirmButtonText: 'Kaydet',
+                    cancelButtonText: 'İptal',
+                    didOpen: () => {
+                        if (window.ace) {
+                            aceEditor = window.ace.edit(editorId);
+                            aceEditor.setTheme('ace/theme/twilight');
+                            aceEditor.session.setMode(`ace/mode/${aceModeForExtension(extension)}`);
+                            aceEditor.setValue(content, -1);
+                            aceEditor.focus();
+                            aceEditor.resize();
+                        } else {
+                            const container = document.getElementById(editorId);
+                            if (container) {
+                                container.textContent = content;
+                            }
+                        }
+                    },
+                    preConfirm: () => {
+                        if (aceEditor) {
+                            return aceEditor.getValue();
+                        }
+                        const container = document.getElementById(editorId);
+                        return container ? container.textContent || '' : content;
+                    }
+                });
+                if (!isConfirmed) {
+                    return;
+                }
+                const newContent = typeof value === 'string' ? value : content;
+                if (newContent === content) {
+                    return;
+                }
+                const saveResponse = await fmRequest('save-text-file', { file_id: fileId, content: newContent });
+                if (saveResponse.status !== 'success') {
+                    throw new Error(saveResponse.message || 'Dosya kaydedilemedi.');
+                }
+                showToast('success', saveResponse.message || 'Dosya güncellendi.');
+                await loadFolder({ folderId: state.folderId, resetPage: false });
+            } catch (error) {
+                console.error(error);
+                showToast('error', error.message || 'Metin düzenleyici açılamadı.');
+            }
+        }
+
         async function zipSelected() {
             const selectedFiles = Array.from(state.selection.files);
             const selectedFolders = Array.from(state.selection.folders);
@@ -820,6 +975,35 @@
                 await loadFolder({ folderId: state.folderId, resetPage: false });
             } else {
                 showToast('error', result.message || 'Zip oluşturulamadı.');
+            }
+        }
+
+        async function extractArchive(fileId) {
+            if (!fileId) {
+                return;
+            }
+            const result = await fmRequest('extract-archive', {
+                file_id: fileId,
+                context_folder_id: state.folderId,
+            });
+            if (result.status === 'success') {
+                const skipped = Array.isArray(result.skipped) ? result.skipped : [];
+                let html = escapeHtml(result.message || 'Arşiv başarıyla ayıklandı.');
+                if (skipped.length) {
+                    const list = skipped
+                        .map(item => `<li>${escapeHtml(item.name || 'Dosya')} – ${escapeHtml(item.reason || 'Atlandı')}</li>`)
+                        .join('');
+                    html += `<div class="mt-3 text-start"><strong>Atlanan dosyalar:</strong><ul class="mt-2 ps-3">${list}</ul></div>`;
+                }
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Arşiv ayıklandı',
+                    html,
+                    confirmButtonColor: '#6941c6'
+                });
+                await loadFolder({ folderId: state.folderId, resetPage: false });
+            } else {
+                showToast('error', result.message || 'Arşiv ayıklanamadı.');
             }
         }
 
@@ -944,6 +1128,14 @@
                         break;
                     case 'zip':
                         await zipSelected();
+                        break;
+                    case 'extract':
+                        if (selected?.type === 'file') {
+                            await extractArchive(selected.id);
+                        }
+                        break;
+                    case 'edit-text':
+                        await editTextFile(selected.id);
                         break;
                     case 'delete':
                         await deleteSelected();

@@ -2,7 +2,8 @@
 require_once __DIR__ . '/../config.php';
 require_login_redirect();
 global $pageScripts;
-$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/file-manager.js?v=1.2.0"></script>';
+$pageScripts[] = '<script src="https://cdn.jsdelivr.net/npm/ace-builds@1.32.3/src-min-noconflict/ace.js"></script>';
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/file-manager.js?v=1.3.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
@@ -116,8 +117,10 @@ include __DIR__ . '/nav.php';
         <li data-action="rename">Ad Değiştir</li>
         <li data-action="move">Taşı</li>
         <li data-action="share">Paylaş</li>
+        <li data-action="edit-text">Metni Düzenle</li>
         <li data-action="protect">Şifrele</li>
         <li data-action="zip">Zip Oluştur</li>
+        <li data-action="extract">Arşivi Ayıkla</li>
         <li data-action="delete" class="text-danger">Sil</li>
     </ul>
 </div>
