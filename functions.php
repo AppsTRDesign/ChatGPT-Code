@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 use DeviceDetector\DeviceDetector;
 use GeoIp2\Database\Reader;
+use Herbie\Application;
+use Herbie\ApplicationFactory;
 use Iyzipay\Model\BasketItem;
 use Iyzipay\Model\BasketItemType;
 use Iyzipay\Model\CheckoutFormInitialize;
@@ -349,6 +351,89 @@ function is_editable_extension(string $extension): bool
 {
     static $editable = ['txt', 'md', 'markdown', 'html', 'htm', 'css', 'js', 'json', 'xml', 'yml', 'yaml', 'csv', 'log', 'ini', 'env', 'php'];
     return in_array(strtolower($extension), $editable, true);
+}
+
+function render_herbie_preview(string $content, string $extension = ''): string
+{
+    $extension = strtolower($extension);
+    $fallback = '<pre class="herbie-editor-fallback">' . htmlspecialchars($content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</pre>';
+
+    if (!class_exists(Application::class) && !class_exists(ApplicationFactory::class)) {
+        return $fallback;
+    }
+
+    static $herbieApp = null;
+    try {
+        if ($herbieApp === null) {
+            $config = [
+                'app' => [
+                    'charset' => 'UTF-8',
+                    'debug' => false,
+                    'timezone' => date_default_timezone_get() ?: 'UTC',
+                ],
+            ];
+
+            if (class_exists(ApplicationFactory::class)) {
+                $factory = new ApplicationFactory();
+                $herbieApp = $factory->create($config, [
+                    'site' => __DIR__,
+                    'config' => __DIR__,
+                    'plugins' => __DIR__,
+                    'themes' => __DIR__,
+                ]);
+            } else {
+                $herbieApp = new Application($config, __DIR__);
+            }
+
+            if ($herbieApp && method_exists($herbieApp, 'init')) {
+                $herbieApp->init();
+            }
+        }
+
+        $container = null;
+        if ($herbieApp) {
+            if (method_exists($herbieApp, 'getContainer')) {
+                $container = $herbieApp->getContainer();
+            } elseif (method_exists($herbieApp, 'get')) {
+                $container = $herbieApp;
+            }
+        }
+
+        $html = '';
+        if ($container) {
+            $hasService = static fn ($service) => (
+                (is_object($container) && method_exists($container, 'has') && $container->has($service)) ||
+                ($container instanceof \ArrayAccess && $container->offsetExists($service))
+            );
+            $getService = static fn ($service) => (
+                is_object($container) && method_exists($container, 'get') ? $container->get($service) :
+                ($container instanceof \ArrayAccess ? $container[$service] : null)
+            );
+
+            if ($hasService('markdown')) {
+                $markdown = $getService('markdown');
+                if (is_object($markdown) && method_exists($markdown, 'parse')) {
+                    $html = (string) $markdown->parse($content);
+                }
+            }
+
+            if ($html === '' && $hasService('textile')) {
+                $textile = $getService('textile');
+                if (is_object($textile) && method_exists($textile, 'parse')) {
+                    $html = (string) $textile->parse($content);
+                }
+            }
+        }
+
+        if ($html === '') {
+            $html = $fallback;
+        }
+
+        return $html;
+    } catch (\Throwable $exception) {
+        error_log('Herbie preview error: ' . $exception->getMessage());
+        return $fallback;
+    }
 }
 
 function slugify(string $text): string

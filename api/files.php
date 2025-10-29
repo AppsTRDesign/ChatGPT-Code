@@ -228,7 +228,24 @@ try {
             if ($content === false) {
                 throw new RuntimeException('Dosya içeriği okunamadı.');
             }
-            echo json_encode(['status' => 'success', 'filename' => $file['filename'], 'content' => $content]);
+            echo json_encode([
+                'status' => 'success',
+                'filename' => $file['filename'],
+                'content' => $content,
+                'preview' => render_herbie_preview($content, $extension),
+            ]);
+            break;
+
+        case 'render-text-preview':
+            $content = (string) ($payload['content'] ?? '');
+            $extension = strtolower((string) ($payload['extension'] ?? ''));
+            if (strlen($content) > 1048576) {
+                throw new RuntimeException('Ön izleme limiti aşıldı.');
+            }
+            echo json_encode([
+                'status' => 'success',
+                'html' => render_herbie_preview($content, $extension),
+            ]);
             break;
 
         case 'save-text-file':

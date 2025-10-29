@@ -519,6 +519,73 @@ a.link-light:hover {
     min-width: 190px;
 }
 
+.herbie-editor-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+@media (min-width: 992px) {
+    .herbie-editor-wrapper {
+        flex-direction: row;
+    }
+}
+
+.herbie-editor-pane,
+.herbie-preview-pane {
+    flex: 1;
+    background: rgba(15, 17, 34, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 1.25rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.fm-herbie-textarea {
+    background: rgba(10, 12, 24, 0.85);
+    border-radius: 14px;
+    color: #f5f5ff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 320px;
+    font-family: 'Fira Code', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+    resize: vertical;
+}
+
+.fm-herbie-textarea:focus {
+    border-color: rgba(105, 65, 198, 0.6);
+    box-shadow: 0 0 0 0.25rem rgba(105, 65, 198, 0.15);
+}
+
+.herbie-preview-pane {
+    overflow: hidden;
+}
+
+.fm-herbie-preview {
+    background: rgba(10, 12, 24, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 1rem;
+    min-height: 320px;
+    overflow-y: auto;
+    color: #f5f5ff;
+}
+
+.fm-herbie-preview h1,
+.fm-herbie-preview h2,
+.fm-herbie-preview h3,
+.fm-herbie-preview h4,
+.fm-herbie-preview h5,
+.fm-herbie-preview h6 {
+    color: #f5f5ff;
+}
+
+.herbie-editor-fallback {
+    white-space: pre-wrap;
+    margin: 0;
+    font-family: 'Fira Code', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+    color: #f5f5ff;
+}
+
 .fm-sort:focus {
     border-color: rgba(255, 127, 80, 0.6);
     box-shadow: 0 0 0 0.2rem rgba(255, 127, 80, 0.12);

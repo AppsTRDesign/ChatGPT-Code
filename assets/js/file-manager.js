@@ -73,35 +73,6 @@
         return parts.pop();
     }
 
-    function aceModeForExtension(extension) {
-        switch (extension) {
-            case 'js':
-                return 'javascript';
-            case 'json':
-                return 'json';
-            case 'html':
-            case 'htm':
-                return 'html';
-            case 'css':
-                return 'css';
-            case 'md':
-            case 'markdown':
-                return 'markdown';
-            case 'xml':
-                return 'xml';
-            case 'yml':
-            case 'yaml':
-                return 'yaml';
-            case 'ini':
-            case 'env':
-                return 'ini';
-            case 'php':
-                return 'php';
-            default:
-                return 'text';
-        }
-    }
-
     function isEditableFileMeta(file) {
         if (!file) {
             return false;
@@ -136,6 +107,34 @@
             body: JSON.stringify({ action, csrf_token: csrfToken, ...payload })
         });
         return response.json();
+    }
+
+    function debounce(fn, delay = 300) {
+        let timerId;
+        return function (...args) {
+            if (timerId) {
+                clearTimeout(timerId);
+            }
+            timerId = setTimeout(() => {
+                fn.apply(this, args);
+            }, delay);
+        };
+    }
+
+    function herbiePreviewFallback(content = '') {
+        return `<pre class="herbie-editor-fallback">${escapeHtml(content)}</pre>`;
+    }
+
+    async function requestHerbiePreview(content, extension) {
+        try {
+            const response = await fmRequest('render-text-preview', { content, extension });
+            if (response && response.status === 'success' && typeof response.html === 'string') {
+                return response.html;
+            }
+        } catch (error) {
+            console.error('Herbie preview error', error);
+        }
+        return herbiePreviewFallback(content);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -897,41 +896,80 @@
                     throw new Error(response.message || 'Dosya içeriği alınamadı.');
                 }
                 const content = typeof response.content === 'string' ? response.content : '';
-                const editorId = `fm-editor-${Date.now()}`;
-                let aceEditor = null;
                 const extension = fileExtension(target.filename || '');
+                const editorId = `fm-herbie-${Date.now()}`;
+                const previewId = `${editorId}-preview`;
+                const counterId = `${editorId}-counter`;
+                const refreshId = `${editorId}-refresh`;
+                const previewHtml = typeof response.preview === 'string' ? response.preview : herbiePreviewFallback(content);
                 const { value, isConfirmed } = await Swal.fire({
                     title: 'Metni Düzenle',
                     html: `
                         <div class="text-white-50 small mb-2">${escapeHtml(target.filename)}</div>
-                        <div id="${editorId}" class="fm-ace-editor"></div>
+                        <div class="herbie-editor-wrapper">
+                            <div class="herbie-editor-pane">
+                                <textarea id="${editorId}" class="form-control fm-herbie-textarea" rows="14" spellcheck="false"></textarea>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="text-white-50 small">${extension ? extension.toUpperCase() : 'Metin'} düzenleme</span>
+                                    <span id="${counterId}" class="text-white-50 small"></span>
+                                </div>
+                            </div>
+                            <div class="herbie-preview-pane">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-white-50 small">Herbie Önizleme</span>
+                                    <button type="button" class="btn btn-sm btn-outline-light" id="${refreshId}">Yenile</button>
+                                </div>
+                                <div id="${previewId}" class="fm-herbie-preview">${previewHtml}</div>
+                            </div>
+                        </div>
                     `,
                     focusConfirm: false,
-                    width: '60rem',
+                    width: '70rem',
                     showCancelButton: true,
                     confirmButtonText: 'Kaydet',
                     cancelButtonText: 'İptal',
                     didOpen: () => {
-                        if (window.ace) {
-                            aceEditor = window.ace.edit(editorId);
-                            aceEditor.setTheme('ace/theme/twilight');
-                            aceEditor.session.setMode(`ace/mode/${aceModeForExtension(extension)}`);
-                            aceEditor.setValue(content, -1);
-                            aceEditor.focus();
-                            aceEditor.resize();
-                        } else {
-                            const container = document.getElementById(editorId);
-                            if (container) {
-                                container.textContent = content;
-                            }
+                        const textarea = document.getElementById(editorId);
+                        const previewEl = document.getElementById(previewId);
+                        const counterEl = document.getElementById(counterId);
+                        const refreshBtn = document.getElementById(refreshId);
+                        if (!textarea) {
+                            return;
                         }
+                        textarea.value = content;
+                        textarea.dataset.lastPreviewSource = content;
+                        if (previewEl) {
+                            previewEl.innerHTML = previewHtml;
+                        }
+                        const updateCounter = () => {
+                            if (counterEl) {
+                                counterEl.textContent = `${textarea.value.length.toLocaleString('tr-TR')} karakter`;
+                            }
+                        };
+                        const debouncedPreview = debounce(async (force = false) => {
+                            const current = textarea.value;
+                            if (!force && current === textarea.dataset.lastPreviewSource) {
+                                return;
+                            }
+                            textarea.dataset.lastPreviewSource = current;
+                            const html = await requestHerbiePreview(current, extension);
+                            if (previewEl) {
+                                previewEl.innerHTML = html;
+                            }
+                        }, 400);
+                        textarea.addEventListener('input', () => {
+                            updateCounter();
+                            debouncedPreview();
+                        });
+                        if (refreshBtn) {
+                            refreshBtn.addEventListener('click', () => debouncedPreview(true));
+                        }
+                        updateCounter();
+                        textarea.focus();
                     },
                     preConfirm: () => {
-                        if (aceEditor) {
-                            return aceEditor.getValue();
-                        }
-                        const container = document.getElementById(editorId);
-                        return container ? container.textContent || '' : content;
+                        const textarea = document.getElementById(editorId);
+                        return textarea ? textarea.value : content;
                     }
                 });
                 if (!isConfirmed) {

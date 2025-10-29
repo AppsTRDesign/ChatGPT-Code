@@ -2,8 +2,7 @@
 require_once __DIR__ . '/../config.php';
 require_login_redirect();
 global $pageScripts;
-$pageScripts[] = '<script src="https://cdn.jsdelivr.net/npm/ace-builds@1.32.3/src-min-noconflict/ace.js"></script>';
-$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/file-manager.js?v=1.3.0"></script>';
+$pageScripts[] = '<script src="' . BASE_URL . '/assets/js/file-manager.js?v=1.4.0"></script>';
 include __DIR__ . '/../templates/header.php';
 include __DIR__ . '/nav.php';
 ?>
