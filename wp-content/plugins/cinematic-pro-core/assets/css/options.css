@@ -1,0 +1,19 @@
+.cinematic-pro-options {
+background: #fff;
+padding: 24px;
+border-radius: 12px;
+box-shadow: 0 15px 45px rgba(0, 0, 0, 0.05);
+}
+
+.cinematic-pro-options h1 {
+margin-bottom: 16px;
+}
+
+.cinematic-pro-options table.form-table th {
+width: 220px;
+padding-top: 18px;
+}
+
+.cinematic-pro-options .regular-select {
+min-width: 260px;
+}
