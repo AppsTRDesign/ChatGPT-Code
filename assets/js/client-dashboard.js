@@ -13,8 +13,11 @@
     const recentPrevButton = document.getElementById('clientSharePrev');
     const recentNextButton = document.getElementById('clientShareNext');
     const exportButtons = document.querySelectorAll('[data-share-export]');
+    const shareCard = document.getElementById('clientShareAnalyticsCard');
+    const shareDetails = document.getElementById('clientShareAnalyticsDetails');
     let recentPage = 1;
     const recentPerPage = 8;
+    let analyticsEnabled = false;
 
     const formatBytes = (bytes) => {
         if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -49,23 +52,38 @@
                 filesEl.textContent = usage.total_files ?? 0;
             }
             if (sizeEl) {
-                sizeEl.textContent = `${(Number(usage.total_size || 0) / 1024 / 1024).toFixed(2)} MB`;
+                sizeEl.textContent = formatBytes(Number(usage.total_size || 0));
             }
             if (packageEl) {
                 packageEl.textContent = pkg ? pkg.name : 'Seçilmedi';
+            }
+
+            const analyticsAllowed = pkg ? Number(pkg.share_analytics_enabled ?? 0) === 1 : false;
+            analyticsEnabled = analyticsAllowed;
+            if (shareCard) {
+                shareCard.classList.toggle('d-none', !analyticsAllowed);
+            }
+            if (shareDetails) {
+                shareDetails.classList.toggle('d-none', !analyticsAllowed);
+            }
+            if (analyticsAllowed && shareSectionReady) {
+                loadShareStats().catch((error) => {
+                    console.error(error);
+                    Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
+                });
             }
         } catch (error) {
             console.error(error);
         }
     };
 
-    const shareSectionReady = chartCanvas && rangeContainer && locationList && deviceList && tableBody;
+    const shareSectionReady = Boolean(chartCanvas && rangeContainer && locationList && deviceList && tableBody);
     let shareStats = { timeseries: {}, locations: [], devices: [], recent: { items: [], total: 0 } };
     let currentRange = 'daily';
     let chartInstance = null;
 
     const loadShareStats = async () => {
-        if (!shareSectionReady) {
+        if (!shareSectionReady || !analyticsEnabled) {
             return;
         }
         const response = await fetch(`${appConfig.baseUrl}/api/client.php`, {
@@ -83,6 +101,9 @@
     };
 
     const renderShare = () => {
+        if (!analyticsEnabled) {
+            return;
+        }
         renderChart();
         renderLocations();
         renderDevices();
@@ -90,7 +111,7 @@
     };
 
     const renderChart = () => {
-        if (!shareSectionReady || !window.Chart) {
+        if (!shareSectionReady || !window.Chart || !analyticsEnabled) {
             return;
         }
         const rows = shareStats.timeseries[currentRange] || [];
@@ -166,7 +187,7 @@
     };
 
     const renderLocations = () => {
-        if (!shareSectionReady) {
+        if (!shareSectionReady || !analyticsEnabled) {
             return;
         }
         locationList.innerHTML = '';
@@ -183,7 +204,7 @@
     };
 
     const renderDevices = () => {
-        if (!shareSectionReady) {
+        if (!shareSectionReady || !analyticsEnabled) {
             return;
         }
         deviceList.innerHTML = '';
@@ -218,7 +239,7 @@
     };
 
     const renderRecent = () => {
-        if (!shareSectionReady) {
+        if (!shareSectionReady || !analyticsEnabled) {
             return;
         }
         const items = getRecentItems();
@@ -289,6 +310,10 @@
     };
 
     const exportCsv = () => {
+        if (!analyticsEnabled) {
+            Swal.fire({ icon: 'info', title: 'Analitik pasif', text: 'Paylaşım analitiği paketinizde bulunmuyor.' });
+            return;
+        }
         const rows = shareStats.timeseries[currentRange] || [];
         if (!rows.length) {
             Swal.fire({ icon: 'info', title: 'Veri yok', text: 'Seçili aralık için kayıt bulunamadı.' });
@@ -306,6 +331,10 @@
     };
 
     const exportPdf = () => {
+        if (!analyticsEnabled) {
+            Swal.fire({ icon: 'info', title: 'Analitik pasif', text: 'Paylaşım analitiği paketinizde bulunmuyor.' });
+            return;
+        }
         const rows = shareStats.timeseries[currentRange] || [];
         if (!rows.length) {
             Swal.fire({ icon: 'info', title: 'Veri yok', text: 'Seçili aralık için kayıt bulunamadı.' });
@@ -335,6 +364,9 @@
         rangeContainer.addEventListener('click', (event) => {
             const button = event.target.closest('button[data-range]');
             if (!button) {
+                return;
+            }
+            if (!analyticsEnabled) {
                 return;
             }
             currentRange = button.dataset.range;
@@ -377,10 +409,4 @@
     }
 
     loadSummary().catch((error) => console.error(error));
-    if (shareSectionReady) {
-        loadShareStats().catch((error) => {
-            console.error(error);
-            Swal.fire({ icon: 'error', title: 'Hata', text: error.message });
-        });
-    }
 })();

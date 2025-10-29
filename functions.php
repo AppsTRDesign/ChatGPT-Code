@@ -2062,13 +2062,14 @@ function device_details(string $userAgent): array
 function log_file_access(PDO $pdo, array $file, ?array $user = null, ?string $shareToken = null): void
 {
     $settings = fetch_settings($pdo);
-    if (empty($settings['share_stats_enabled'])) {
+    $shareStatsEnabled = isset($settings['share_stats_enabled']) ? (int) $settings['share_stats_enabled'] : 1;
+    if ($shareStatsEnabled !== 1) {
         return;
     }
     $ownerId = isset($file['user_id']) ? (int) $file['user_id'] : null;
     if ($ownerId) {
         $package = package_for_user($pdo, $ownerId);
-        if ($package && empty($package['share_analytics_enabled'])) {
+        if ($package && array_key_exists('share_analytics_enabled', $package) && (int) $package['share_analytics_enabled'] !== 1) {
             return;
         }
     }
@@ -2085,23 +2086,27 @@ function log_file_access(PDO $pdo, array $file, ?array $user = null, ?string $sh
         $language = $primary ? substr(strtolower(trim($primary)), 0, 32) : null;
     }
 
-    $stmt = $pdo->prepare('INSERT INTO file_access_logs (file_id, user_id, share_token, ip_address, country, city, latitude, longitude, device_type, os, browser, platform, language)
-        VALUES (:file_id, :user_id, :share_token, :ip, :country, :city, :lat, :lon, :device_type, :os, :browser, :platform, :language)');
-    $stmt->execute([
-        ':file_id' => $file['id'],
-        ':user_id' => $user['id'] ?? null,
-        ':share_token' => $shareToken,
-        ':ip' => $ip,
-        ':country' => $geo['country'] ?? null,
-        ':city' => $geo['city'] ?? null,
-        ':lat' => $geo['lat'] ?? null,
-        ':lon' => $geo['lon'] ?? null,
-        ':device_type' => $device['device_type'] ?? null,
-        ':os' => $device['os'] ?? null,
-        ':browser' => $device['browser'] ?? null,
-        ':platform' => $device['platform'] ?? null,
-        ':language' => $language,
-    ]);
+    try {
+        $stmt = $pdo->prepare('INSERT INTO file_access_logs (file_id, user_id, share_token, ip_address, country, city, latitude, longitude, device_type, os, browser, platform, language)'
+            . ' VALUES (:file_id, :user_id, :share_token, :ip, :country, :city, :lat, :lon, :device_type, :os, :browser, :platform, :language)');
+        $stmt->execute([
+            ':file_id' => $file['id'],
+            ':user_id' => $user['id'] ?? null,
+            ':share_token' => $shareToken,
+            ':ip' => $ip,
+            ':country' => $geo['country'] ?? null,
+            ':city' => $geo['city'] ?? null,
+            ':lat' => $geo['lat'] ?? null,
+            ':lon' => $geo['lon'] ?? null,
+            ':device_type' => $device['device_type'] ?? null,
+            ':os' => $device['os'] ?? null,
+            ':browser' => $device['browser'] ?? null,
+            ':platform' => $device['platform'] ?? null,
+            ':language' => $language,
+        ]);
+    } catch (Throwable $e) {
+        error_log('Paylaşım analitiği kaydedilemedi: ' . $e->getMessage());
+    }
 }
 
 function apply_retention_policies(PDO $pdo): void

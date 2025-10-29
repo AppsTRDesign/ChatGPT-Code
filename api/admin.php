@@ -44,6 +44,50 @@ try {
                 ],
             ]);
             break;
+        case 'upload-geoip':
+            if (empty($_FILES['file'])) {
+                throw new RuntimeException('GeoIP dosyası bulunamadı.');
+            }
+            if (is_array($_FILES['file']['name'])) {
+                throw new RuntimeException('Lütfen tek bir GeoIP dosyası yükleyin.');
+            }
+            [$mime, , $extension] = validate_uploaded_file($_FILES['file'], null, ['mmdb', 'gz'], 100 * 1024 * 1024);
+            $originalName = strtolower((string) ($_FILES['file']['name'] ?? ''));
+            if ($extension === 'gz' && !str_ends_with($originalName, '.mmdb.gz')) {
+                throw new RuntimeException('Yalnızca .mmdb veya .mmdb.gz dosyalarına izin veriliyor.');
+            }
+            if ($extension !== 'mmdb' && $extension !== 'gz') {
+                throw new RuntimeException('Yalnızca GeoIP veritabanı dosyaları yüklenebilir.');
+            }
+            $geoDir = __DIR__ . '/../uploads/geo';
+            if (!is_dir($geoDir) && !mkdir($geoDir, 0775, true) && !is_dir($geoDir)) {
+                throw new RuntimeException('GeoIP dizini oluşturulamadı.');
+            }
+            $suffix = $extension === 'gz' && str_ends_with($originalName, '.mmdb.gz') ? '.mmdb.gz' : '.mmdb';
+            $filename = 'geoip_' . bin2hex(random_bytes(6)) . $suffix;
+            $targetPath = $geoDir . '/' . $filename;
+            if (!move_uploaded_file($_FILES['file']['tmp_name'], $targetPath)) {
+                throw new RuntimeException('GeoIP veritabanı kaydedilemedi.');
+            }
+            $realPath = realpath($targetPath) ?: $targetPath;
+            $settings = fetch_settings($pdo);
+            $oldPath = $settings['geoip_database_path'] ?? '';
+            if ($oldPath) {
+                $geoRoot = realpath($geoDir);
+                $oldReal = realpath($oldPath);
+                if ($geoRoot && $oldReal && str_starts_with($oldReal, $geoRoot) && $oldReal !== $realPath && is_file($oldReal)) {
+                    @unlink($oldReal);
+                }
+            }
+            $pdo->prepare('UPDATE settings SET geoip_database_path = :path LIMIT 1')->execute([':path' => $realPath]);
+            echo json_encode([
+                'status' => 'success',
+                'message' => 'GeoIP veritabanı yüklendi.',
+                'path' => $realPath,
+                'relative_path' => 'uploads/geo/' . $filename,
+                'mime' => $mime,
+            ]);
+            break;
         case 'list-users':
             $stmt = $pdo->query('SELECT u.*, p.name AS package_name FROM users u LEFT JOIN packages p ON p.id = u.package_id ORDER BY u.created_at DESC');
             $users = array_map(static function (array $user): array {
@@ -88,6 +132,7 @@ try {
                     'max_upload_size_mb' => $maxUploadBytes > 0 ? (int) ceil($maxUploadBytes / 1048576) : null,
                     'features' => $features,
                     'allowed_extensions' => $extensionList,
+                    'share_analytics_enabled' => isset($package['share_analytics_enabled']) ? (int) $package['share_analytics_enabled'] : 0,
                     'price' => (float) $package['price'],
                     'is_active' => (int) $package['is_active'],
                 ];
@@ -563,15 +608,16 @@ try {
                 ':price' => (float) ($payload['price'] ?? 0),
                 ':active' => !empty($payload['is_active']) ? 1 : 0,
                 ':allowed_extensions' => $allowedExtensionsJson,
+                ':share_analytics_enabled' => !empty($payload['share_analytics_enabled']) ? 1 : 0,
             ];
             if (strlen($data[':name']) < 3) {
                 throw new RuntimeException('Paket adı en az 3 karakter olmalı.');
             }
             if ($packageId) {
-                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_upload_size = :max_upload_size, max_concurrent_uploads = :uploads, features = :features, allowed_extensions = :allowed_extensions, price = :price, is_active = :active WHERE id = :id');
+                $stmt = $pdo->prepare('UPDATE packages SET name = :name, storage_limit = :storage, max_upload_size = :max_upload_size, max_concurrent_uploads = :uploads, features = :features, allowed_extensions = :allowed_extensions, share_analytics_enabled = :share_analytics_enabled, price = :price, is_active = :active WHERE id = :id');
                 $stmt->execute($data + [':id' => $packageId]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_upload_size, max_concurrent_uploads, features, allowed_extensions, price, is_active) VALUES (:name, :storage, :max_upload_size, :uploads, :features, :allowed_extensions, :price, :active)');
+                $stmt = $pdo->prepare('INSERT INTO packages (name, storage_limit, max_upload_size, max_concurrent_uploads, features, allowed_extensions, share_analytics_enabled, price, is_active) VALUES (:name, :storage, :max_upload_size, :uploads, :features, :allowed_extensions, :share_analytics_enabled, :price, :active)');
                 $stmt->execute($data);
                 $packageId = (int) $pdo->lastInsertId();
             }

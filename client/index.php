@@ -27,7 +27,7 @@ include __DIR__ . '/nav.php';
             </div>
         </div>
     </div>
-    <div class="card card-glass p-4 mt-5">
+    <div class="card card-glass p-4 mt-5" id="clientShareAnalyticsCard">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
             <div>
                 <h2 class="h5 mb-1">Paylaşım Analitiği</h2>
@@ -48,7 +48,7 @@ include __DIR__ . '/nav.php';
             <button type="button" class="btn btn-outline-light" data-share-export="pdf">PDF İndir</button>
         </div>
     </div>
-    <div class="row g-4 mt-1">
+    <div class="row g-4 mt-1" id="clientShareAnalyticsDetails">
         <div class="col-12 col-xl-6">
             <div class="card card-layer h-100">
                 <div class="card-body">

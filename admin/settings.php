@@ -151,7 +151,14 @@ include __DIR__ . '/nav.php';
                         <label class="form-check-label" for="shareStatsEnabled">Paylaşım istatistiklerini topla</label>
                     </div>
                     <label class="form-label">GeoIP Veritabanı Yolu</label>
-                    <input type="text" name="geoip_database_path" class="form-control" value="<?= sanitize($settings['geoip_database_path'] ?? '') ?>" placeholder="/path/to/GeoLite2-City.mmdb">
+                    <input type="text" name="geoip_database_path" class="form-control mb-3" value="<?= sanitize($settings['geoip_database_path'] ?? '') ?>" placeholder="<?= sanitize(__DIR__ . '/../uploads/geo/GeoLite2-City.mmdb') ?>">
+                    <div class="dropzone dz-theme" id="geoipDropzone" data-existing-name="Mevcut GeoIP" data-empty-text="Henüz GeoIP veritabanı seçilmedi.">
+                        <div class="dz-message">GeoIP (.mmdb) dosyanızı sürükleyin veya tıklayın.</div>
+                    </div>
+                    <div class="progress progress-glass mt-3 d-none" id="geoipProgressWrapper">
+                        <div class="progress-bar" id="geoipProgressBar" role="progressbar" style="width: 0%">0%</div>
+                    </div>
+                    <small class="text-white-50 d-block mt-2">Yeni bir GeoLite2/GeoIP veritabanı yüklediğinizde dosya otomatik olarak <code>uploads/geo</code> klasörüne taşınır ve yol alanına işlenir.</small>
                 </div>
             </div>
         </div>

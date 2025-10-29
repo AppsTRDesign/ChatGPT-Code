@@ -63,6 +63,100 @@
         }
     }
 
+    function initGeoipDropzone(selector) {
+        const element = document.querySelector(selector);
+        if (!element || typeof Dropzone === 'undefined') {
+            return null;
+        }
+
+        const pathInput = document.querySelector('input[name="geoip_database_path"]');
+        const progressWrapper = document.getElementById('geoipProgressWrapper');
+        const progressBar = document.getElementById('geoipProgressBar');
+
+        const showProgress = () => {
+            if (progressWrapper) {
+                progressWrapper.classList.remove('d-none');
+            }
+            if (progressBar) {
+                progressBar.classList.remove('bg-success', 'bg-danger');
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+            }
+        };
+
+        const hideProgress = () => {
+            if (progressWrapper) {
+                progressWrapper.classList.add('d-none');
+            }
+            if (progressBar) {
+                progressBar.classList.remove('bg-success', 'bg-danger');
+                progressBar.style.width = '0%';
+                progressBar.textContent = '0%';
+            }
+        };
+
+        const zone = new Dropzone(element, {
+            url: `${appConfig.baseUrl}/api/admin.php`,
+            method: 'POST',
+            paramName: 'file',
+            acceptedFiles: '.mmdb,.gz',
+            autoProcessQueue: true,
+            parallelUploads: 1,
+            addRemoveLinks: false,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+
+        zone.on('sending', (file, xhr, formData) => {
+            formData.append('action', 'upload-geoip');
+            formData.append('csrf_token', appConfig.csrfToken);
+            showProgress();
+        });
+
+        zone.on('uploadprogress', (file, progress) => {
+            if (!progressBar) {
+                return;
+            }
+            const value = Math.max(0, Math.min(100, Math.round(progress)));
+            progressBar.style.width = `${value}%`;
+            progressBar.textContent = `${value}%`;
+        });
+
+        zone.on('success', (file, response) => {
+            const data = typeof response === 'object' && response !== null ? response : {};
+            if (progressBar) {
+                progressBar.classList.add('bg-success');
+                progressBar.textContent = '100%';
+                progressBar.style.width = '100%';
+            }
+            if (data.path && pathInput) {
+                pathInput.value = data.path;
+                pathInput.dispatchEvent(new Event('change'));
+            }
+            Swal.fire({
+                icon: 'success',
+                title: 'GeoIP güncellendi',
+                text: data.message || 'GeoIP veritabanı başarıyla yüklendi.'
+            });
+        });
+
+        zone.on('error', (file, error) => {
+            const message = typeof error === 'string' ? error : (error?.message || 'GeoIP veritabanı yüklenemedi.');
+            if (progressBar) {
+                progressBar.classList.add('bg-danger');
+                progressBar.textContent = '0%';
+                progressBar.style.width = '0%';
+            }
+            Swal.fire({ icon: 'error', title: 'Hata', text: message });
+        });
+
+        zone.on('complete', () => {
+            setTimeout(hideProgress, 800);
+            zone.removeAllFiles(true);
+        });
+
+        return zone;
+    }
+
     function initDropzone(selector) {
         const element = document.querySelector(selector);
         if (!element || typeof Dropzone === 'undefined') {
@@ -214,6 +308,7 @@
             favicon: initDropzone('#faviconDropzone'),
             banner: initDropzone('#bannerDropzone')
         };
+        initGeoipDropzone('#geoipDropzone');
 
         window.saveSettings = () => saveSettings(zones);
     });

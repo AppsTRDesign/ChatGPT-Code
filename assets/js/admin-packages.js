@@ -17,6 +17,7 @@
     const modal = modalEl && bootstrapLib ? new bootstrapLib.Modal(modalEl) : null;
     const form = document.getElementById('packageForm');
     const activeSwitch = document.getElementById('packageActive');
+    const analyticsSwitch = document.getElementById('packageAnalytics');
     const extensionTextarea = document.getElementById('packageExtensions');
 
     let packages = [];
@@ -53,7 +54,7 @@
         if (!data.length) {
             const tr = document.createElement('tr');
             const td = document.createElement('td');
-            td.colSpan = 8;
+            td.colSpan = 9;
             td.className = 'text-center text-white-50';
             td.textContent = 'Paket bulunamadı.';
             tr.appendChild(td);
@@ -65,12 +66,16 @@
             tr.dataset.packageId = pkg.id;
             const storageLabel = pkg.storage_limit_mb ? `${pkg.storage_limit_mb} MB` : formatBytes(Number(pkg.storage_limit));
             const maxUploadLabel = pkg.max_upload_size_mb ? `${pkg.max_upload_size_mb} MB` : 'Sınırsız';
+            const analyticsBadge = Number(pkg.share_analytics_enabled)
+                ? '<span class="badge bg-success-subtle text-success">Aktif</span>'
+                : '<span class="badge bg-secondary-subtle text-secondary">Pasif</span>';
             tr.innerHTML = `
                 <td data-label="Ad">${escapeHtml(pkg.name)}</td>
                 <td data-label="Depolama (MB)">${storageLabel}</td>
                 <td data-label="Tek Dosya Limiti">${maxUploadLabel}</td>
                 <td data-label="Maks. Yükleme">${pkg.max_concurrent_uploads}</td>
                 <td data-label="İzinli Türler">${escapeHtml(summarizeExtensions(pkg.allowed_extensions))}</td>
+                <td data-label="Analitik">${analyticsBadge}</td>
                 <td data-label="Fiyat">${Number(pkg.price).toFixed(2)} ₺</td>
                 <td data-label="Durum"><span class="badge ${pkg.is_active ? 'bg-success' : 'bg-secondary'}">${pkg.is_active ? 'Aktif' : 'Pasif'}</span></td>
                 <td data-label="İşlemler" class="text-end">
@@ -94,7 +99,8 @@
                 summarizeExtensions(pkg.allowed_extensions),
                 pkg.price,
                 pkg.storage_limit_mb,
-                pkg.max_upload_size_mb ?? 'sınırsız'
+                pkg.max_upload_size_mb ?? 'sınırsız',
+                Number(pkg.share_analytics_enabled) ? 'analitik aktif' : 'analitik pasif'
             ].join(' ').toLowerCase();
             return tokens.includes(query);
         });
@@ -139,6 +145,9 @@
         if (activeSwitch) {
             activeSwitch.checked = pkg ? pkg.is_active === 1 : true;
         }
+        if (analyticsSwitch) {
+            analyticsSwitch.checked = pkg ? Number(pkg.share_analytics_enabled) === 1 : true;
+        }
         if (extensionTextarea) {
             extensionTextarea.value = (pkg?.allowed_extensions || []).join('\n');
         }
@@ -164,6 +173,7 @@
         formData.append('action', 'save-package');
         formData.append('csrf_token', appConfig.csrfToken);
         formData.append('is_active', activeSwitch?.checked ? 1 : 0);
+        formData.append('share_analytics_enabled', analyticsSwitch?.checked ? 1 : 0);
         const storageValue = Number(formData.get('storage_limit') || 0);
         formData.set('storage_limit', Number.isFinite(storageValue) ? storageValue : 0);
         const maxUploadValue = Number(formData.get('max_upload_size') || 0);

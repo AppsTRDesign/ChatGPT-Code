@@ -24,6 +24,7 @@ include __DIR__ . '/nav.php';
                         <th>Tek Dosya Limiti</th>
                         <th>Maks. Yükleme</th>
                         <th>İzinli Türler</th>
+                        <th>Analitik</th>
                         <th>Fiyat</th>
                         <th>Durum</th>
                         <th></th>
@@ -76,6 +77,10 @@ include __DIR__ . '/nav.php';
 png
 pdf"></textarea>
                         <small class="text-white-50">Her satıra bir uzantı yazın. Boş bırakılırsa genel ayarlardaki liste uygulanır.</small>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="packageAnalytics">
+                        <label class="form-check-label" for="packageAnalytics">Paylaşım analitiği aktif</label>
                     </div>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" role="switch" id="packageActive">

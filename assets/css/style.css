@@ -102,6 +102,7 @@ h6 {
     border: 1px dashed rgba(255, 255, 255, 0.35);
     background: rgba(255, 255, 255, 0.05);
     color: #f5f7ff;
+    cursor: pointer;
 }
 
 .fm-dropzone {
@@ -121,6 +122,20 @@ h6 {
 
 .dropzone.dz-theme .dz-message {
     color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+}
+
+.progress-glass {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    height: 0.75rem;
+}
+
+.progress-glass .progress-bar {
+    background: var(--accent);
+    border-radius: inherit;
+    font-size: 0.75rem;
+    line-height: 0.75rem;
 }
 
 .timeline {

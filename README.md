@@ -23,7 +23,7 @@ A PHP 8 file upload and storage platform built for AlmaLinux deployments. The sy
 - **Satın Alma & Dekont Yönetimi:** Banka transferleri için Dropzone destekli dekont yükleme, admin panelinde bekleyen/onaylanan/eksik ödeme takip kartları.
 - **Paylaşım Analitiği:** Client panelinde günlük/haftalık/aylık/yıllık grafikler, coğrafi ve cihaz kırılımları ile CSV/PDF dışa aktarma.
 - **Bildirim & Entegrasyonlar:** PHPMailer tabanlı SMTP/PHP mail seçimi, GeoIP2 ve DeviceDetector ile indirme istatistikleri ile Stripe ve Iyzico ödeme bildirim uç noktaları.
-- **GeoIP Dropzone:** Yönetim panelinden GeoIP veritabanını Dropzone ile yükleyip yolunu otomatik güncelleyin.
+- **GeoIP Dropzone:** Yönetim panelinden ilerleme çubuklu Dropzone ile GeoIP (.mmdb/.mmdb.gz) veritabanını `uploads/geo` klasörüne yükleyin, dosya yolu otomatik güncellensin.
 - **Saklama Politikaları:** Belirli gün sonunda arşivleme veya otomatik silme için zamanlayıcı fonksiyonları.
 - **Güvenlik:** CSRF koruması, MIME tipi doğrulaması, 50 MB varsayılan sınır, `uploads/.htaccess` ile doğrudan erişim kısıtlama.
 - **Veritabanı Otomasyonu:** PDO ile bağlantı, ilk kurulumda tablo ve örnek verilerin (admin hesabı, paketler, varsayılan ayarlar) oluşturulması.
@@ -49,6 +49,7 @@ A PHP 8 file upload and storage platform built for AlmaLinux deployments. The sy
    - Projeyi kök dizine yerleştirin (`public` alt klasörü kullanılmıyor).
    - Apache için `.htaccess` dosyasını etkinleştirin; Nginx kullanıyorsanız eşdeğer yönlendirme kurallarını ekleyin.
 7. **Dosya İzinleri:** `uploads/` klasörünün web sunucusu tarafından yazılabilir olduğundan emin olun.
+8. **GeoIP Veritabanı (Opsiyonel):** Admin &rarr; Genel Ayarlar &rarr; Analitik & Gerçek Zamanlı Takip kartındaki Dropzone alanından MaxMind GeoLite2 veritabanını yükleyin; işlem tamamlanınca `GeoIP Veritabanı Yolu` alanı otomatik doldurulur.
 
 ### Varsayılan Yönetici Bilgileri
 - E-posta: `admin@noasoft.org`

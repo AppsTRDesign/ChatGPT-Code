@@ -99,6 +99,7 @@ try {
                     'max_upload_size' => $maxUploadBytes,
                     'max_upload_size_mb' => $maxUploadBytes > 0 ? (int) ceil($maxUploadBytes / 1048576) : null,
                     'features' => $features,
+                    'share_analytics_enabled' => isset($pkg['share_analytics_enabled']) ? (int) $pkg['share_analytics_enabled'] : 0,
                 ];
             }, $stmt->fetchAll() ?: []);
             $activePackage = package_for_user($pdo, (int) current_user()['id']);
@@ -247,6 +248,13 @@ try {
 
         case 'share-analytics':
             $user = current_user();
+            $settings = fetch_settings($pdo);
+            $shareStatsEnabled = isset($settings['share_stats_enabled']) ? (int) $settings['share_stats_enabled'] : 1;
+            $package = package_for_user($pdo, (int) $user['id']);
+            $packageAllowsAnalytics = !$package || (int) ($package['share_analytics_enabled'] ?? 0) === 1;
+            if ($shareStatsEnabled !== 1 || !$packageAllowsAnalytics) {
+                throw new RuntimeException('Paylaşım analitiği mevcut paketinizde aktif değil.');
+            }
             $stats = share_statistics($pdo, (int) $user['id']);
             echo json_encode(['status' => 'success', 'data' => $stats]);
             break;
