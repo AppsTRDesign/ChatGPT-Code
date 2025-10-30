@@ -70,6 +70,17 @@ const formatCurrency = (amount = 0) => {
     return `${Number(amount || 0).toFixed(2)} ${(context.currency || 'TRY')}`;
 };
 
+const downloadBase64 = (base64, filename, mime = 'application/octet-stream') => {
+    if (!base64) return;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mime });
+    saveAs(blob, filename);
+};
+
 const renderOverview = () => {
     const totalOrders = state.orders.length;
     const revenue = state.orders.reduce((sum, order) => sum + Number(order.total_amount), 0);
@@ -261,94 +272,18 @@ const openOrderDetail = (order) => {
         didOpen: () => {
             document.getElementById('downloadCashReceipt').addEventListener('click', async () => {
                 try {
-                    const data = await fetchJSON('/dashboard/orders/receipt', {
+                    const payload = await fetchJSON('/dashboard/orders/receipt', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ order_number: order.order_number }),
                     });
-                    generateCashReceipt(data.restaurant, data.order);
+                    downloadBase64(payload.content, payload.filename, payload.mime);
                 } catch (error) {
                     Swal.fire('Hata', error.error || 'Adisyon hazırlanamadı', 'error');
                 }
             });
         }
     });
-};
-
-const generateCashReceipt = (restaurant, order) => {
-    const doc = new jspdf.jsPDF({ unit: 'mm', format: [80, 200] });
-    const line = (y) => doc.line(4, y, 76, y);
-    let y = 10;
-    doc.setFontSize(12);
-    doc.text(restaurant.name || 'Restoran', 40, y, { align: 'center' });
-    doc.setFontSize(9);
-    y += 5;
-    doc.text(restaurant.address ? restaurant.address : '', 40, y, { align: 'center' });
-    y += 8;
-    line(y);
-    y += 6;
-    doc.text(`Sipariş #: ${order.order_number}`, 6, y);
-    y += 5;
-    doc.text(`Masa: ${order.table_number}`, 6, y);
-    y += 5;
-    doc.text(`Durum: ${statusLabels[order.status]}`, 6, y);
-    y += 6;
-    line(y);
-    (order.items || []).forEach((item) => {
-        y += 5;
-        doc.text(`${item.quantity || 1} x ${item.name}`, 6, y);
-        doc.text(`${Number(item.price || 0).toFixed(2)}`, 74, y, { align: 'right' });
-    });
-    y += 8;
-    line(y);
-    y += 6;
-    doc.setFontSize(11);
-    doc.text(`TOPLAM: ${Number(order.total_amount).toFixed(2)} ${(order.currency || context.currency)}`, 40, y, { align: 'center' });
-    y += 8;
-    doc.setFontSize(8);
-    doc.text('NoaSoft QR Menü sistemi ile hazırlanmıştır.', 40, y, { align: 'center' });
-    doc.save(`adisyon-${order.order_number}.pdf`);
-};
-
-const generateOrdersPdf = (orders = [], restaurant = {}, range = {}) => {
-    const doc = new jspdf.jsPDF();
-    const title = `${restaurant.name || 'Restoran'} - Sipariş Raporu`;
-    doc.setFontSize(14);
-    doc.text(title, 14, 18);
-    doc.setFontSize(10);
-    if (range.from && range.to) {
-        doc.text(`Dönem: ${range.from} - ${range.to}`, 14, 26);
-    }
-    let y = 36;
-    doc.setFontSize(9);
-    doc.text('Sipariş', 14, y);
-    doc.text('Masa', 60, y);
-    doc.text('Durum', 96, y);
-    doc.text('Toplam', 132, y);
-    doc.text('Tarih', 186, y, { align: 'right' });
-    y += 6;
-
-    orders.forEach((order, index) => {
-        const orderNumber = order.order_number || order.id || `#${index + 1}`;
-        const status = statusLabels[order.status] || order.status || '-';
-        const total = `${Number(order.total_amount || 0).toFixed(2)} ${(order.currency || context.currency || 'TRY')}`;
-        const createdAt = (order.created_at || '').replace('T', ' ').slice(0, 19);
-
-        doc.text(String(orderNumber), 14, y);
-        doc.text(order.table_number || '-', 60, y);
-        doc.text(status, 96, y);
-        doc.text(total, 132, y, { align: 'right' });
-        doc.text(createdAt, 186, y, { align: 'right' });
-        y += 6;
-
-        if (y > 270 && index < orders.length - 1) {
-            doc.addPage();
-            y = 20;
-        }
-    });
-
-    const fileName = `siparis-raporu-${new Date().toISOString().slice(0, 10)}.pdf`;
-    doc.save(fileName);
 };
 
 const exportOrders = async (format = 'excel') => {
@@ -368,7 +303,7 @@ const exportOrders = async (format = 'excel') => {
         }
 
         if (format === 'pdf') {
-            generateOrdersPdf(response.orders, response.restaurant, response.range);
+            downloadBase64(response.content, response.filename, response.mime);
             return;
         }
 
@@ -905,6 +840,7 @@ const loadSettings = async () => {
 const renderSettings = () => {
     const settings = state.settings || {};
     const api = state.api || { key: '', base_url: context.baseUrl, socket_url: context.socketUrl, endpoints: [], table_links: [] };
+    const availableCurrencies = settings.available_currencies || api.available_currencies || [context.currency || 'TRY'];
     dashboardContent.innerHTML = `
         <form id="settingsForm" class="row g-4">
             <div class="col-lg-8">
@@ -929,7 +865,9 @@ const renderSettings = () => {
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Para Birimi</label>
-                            <input type="text" class="form-control" name="currency" value="${settings.currency || 'TRY'}">
+                            <select class="form-select" name="currency">
+                                ${availableCurrencies.map((code) => `<option value="${code}" ${settings.currency === code ? 'selected' : ''}>${code}</option>`).join('')}
+                            </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Saat Dilimi</label>
@@ -1005,6 +943,10 @@ const renderSettings = () => {
                                 </div>
                             `).join('') || '<div class="list-group-item text-muted">Tanımlı endpoint yok</div>'}
                         </div>
+                        <p class="fw-semibold mt-3 mb-2">Desteklenen Para Birimleri</p>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${availableCurrencies.map((code) => `<span class="badge bg-light text-dark border">${code}</span>`).join('')}
+                        </div>
                     </div>
                 </div>
                 <div class="category-block mt-4">
@@ -1039,14 +981,14 @@ const renderSettings = () => {
         const payload = Object.fromEntries(formData.entries());
         payload.supported_languages = payload.supported_languages.split(',').map((lang) => lang.trim()).filter(Boolean);
         try {
-            await fetchJSON('/dashboard/settings', {
+            const result = await fetchJSON('/dashboard/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
             context.currency = payload.currency || context.currency;
-            state.settings = { ...state.settings, ...payload };
-            toast('Ayarlar kaydedildi', 'success');
+            toast(result.message || 'Ayarlar kaydedildi', 'success');
+            await loadSettings();
         } catch (error) {
             Swal.fire('Hata', error.error || 'Ayarlar kaydedilemedi', 'error');
         }
@@ -1167,50 +1109,74 @@ const renderReports = (range) => {
 
     const ctx = document.getElementById('reportChart');
     const labels = state.report.map((row) => row.date);
-    const orders = state.report.map((row) => Number(row.order_count));
-    const totals = state.report.map((row) => Number(row.total));
+    const orders = state.report.map((row) => Number(row.order_count || 0));
+    const totals = state.report.map((row) => Number(row.total || 0));
+    const completedTotals = state.report.map((row) => Number(row.completed_total || 0));
+    const pendingRevenue = totals.map((total, index) => Math.max(total - completedTotals[index], 0));
 
     new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels,
             datasets: [
                 {
-                    label: 'Sipariş',
+                    label: 'Sipariş Adedi',
                     data: orders,
-                    borderColor: '#0ea5e9',
-                    tension: 0.4,
-                    fill: false,
+                    backgroundColor: '#0ea5e9',
+                    stack: 'count',
+                    yAxisID: 'y',
                 },
                 {
-                    label: 'Ciro',
-                    data: totals,
-                    borderColor: '#22c55e',
-                    tension: 0.4,
-                    fill: false,
+                    label: 'Tamamlanan Ciro',
+                    data: completedTotals,
+                    backgroundColor: '#22c55e',
+                    stack: 'revenue',
+                    yAxisID: 'y1',
+                },
+                {
+                    label: 'Bekleyen Ciro',
+                    data: pendingRevenue,
+                    backgroundColor: '#f59e0b',
+                    stack: 'revenue',
+                    yAxisID: 'y1',
                 },
             ],
         },
         options: {
+            responsive: true,
             plugins: { legend: { display: true } },
             scales: {
-                y: { beginAtZero: true },
+                x: { stacked: true },
+                y: {
+                    stacked: true,
+                    beginAtZero: true,
+                    title: { display: true, text: 'Sipariş Adedi' },
+                },
+                y1: {
+                    stacked: true,
+                    beginAtZero: true,
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: `Ciro (${context.currency || 'TRY'})` },
+                },
             },
         },
     });
 };
 
-const exportReportPdf = () => {
-    const doc = new jspdf.jsPDF();
-    doc.setFontSize(14);
-    doc.text('NoaSoft QR Menü - Rapor', 14, 20);
-    doc.setFontSize(10);
-    let y = 32;
-    state.report.forEach((row) => {
-        doc.text(`${row.date} - Sipariş: ${row.order_count} - Ciro: ${Number(row.total).toFixed(2)} ${context.currency}`, 14, y);
-        y += 8;
-    });
-    doc.save('rapor.pdf');
+const exportReportPdf = async () => {
+    try {
+        const rangeSelect = document.getElementById('reportRange');
+        const range = rangeSelect ? rangeSelect.value : 'month';
+        const payload = await fetchJSON('/dashboard/orders/export', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ range, format: 'pdf' }),
+        });
+        downloadBase64(payload.content, payload.filename, payload.mime);
+    } catch (error) {
+        Swal.fire('Hata', error.error || 'Rapor indirilemedi', 'error');
+    }
 };
 
 const updateClock = () => {

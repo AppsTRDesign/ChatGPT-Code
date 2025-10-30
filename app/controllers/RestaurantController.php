@@ -19,6 +19,22 @@ class RestaurantController extends BaseController
         }
     }
 
+    private function availableCurrencies(?array $restaurant = null): array
+    {
+        $settings = new Setting();
+        $currencies = $settings->get('currencies', []);
+        if (!is_array($currencies)) {
+            $currencies = [];
+        }
+        if ($restaurant && !in_array($restaurant['currency'] ?? 'TRY', $currencies, true)) {
+            $currencies[] = strtoupper($restaurant['currency']);
+        }
+        if (!$currencies) {
+            $currencies = ['TRY'];
+        }
+        return array_values(array_unique(array_map('strtoupper', $currencies)));
+    }
+
     public function categories()
     {
         $this->ensureRestaurant();
@@ -262,11 +278,20 @@ class RestaurantController extends BaseController
 
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $restaurant = $restaurantModel->find($restaurantId);
+            $restaurant['available_currencies'] = $this->availableCurrencies($restaurant);
             return Response::json(['settings' => $restaurant]);
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $data = $this->inputJson();
+            $restaurant = $restaurantModel->find($restaurantId);
+            $available = $this->availableCurrencies($restaurant);
+            if (!empty($data['currency'])) {
+                $data['currency'] = strtoupper($data['currency']);
+                if (!in_array($data['currency'], $available, true)) {
+                    return Response::json(['error' => 'Geçersiz para birimi seçimi'], 422);
+                }
+            }
             $restaurantModel->updateSettings($restaurantId, $data);
             return Response::json(['message' => 'Ayarlar kaydedildi']);
         }
@@ -371,12 +396,12 @@ class RestaurantController extends BaseController
                 'mime' => 'text/csv'
             ]);
         }
-        return Response::json([
-            'format' => 'pdf',
-            'orders' => $orders,
-            'restaurant' => $restaurant,
-            'range' => ['from' => $from, 'to' => $to]
-        ]);
+        try {
+            $payload = InvoiceGenerator::ordersReport($orders, $restaurant, ['from' => $from, 'to' => $to]);
+        } catch (Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 500);
+        }
+        return Response::json($payload);
     }
 
     public function receipt()
@@ -390,10 +415,12 @@ class RestaurantController extends BaseController
             return Response::json(['error' => 'Sipariş bulunamadı'], 404);
         }
         $restaurant = (new Restaurant())->find($restaurantId);
-        return Response::json([
-            'order' => $order,
-            'restaurant' => $restaurant
-        ]);
+        try {
+            $payload = InvoiceGenerator::cashReceipt($restaurant, $order);
+        } catch (Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 500);
+        }
+        return Response::json($payload);
     }
 
     private function handleUpload(array $file): string
@@ -477,6 +504,18 @@ class RestaurantController extends BaseController
                 'full_url' => $baseUrl . '/api/menu/order-status?slug=' . $slug . '&order_number={order_number}',
                 'description' => 'Sipariş durum geçmişini listeler.',
             ],
+            [
+                'method' => 'GET',
+                'path' => '/api/menu/currency?slug=' . $slug . '&to={currency}',
+                'full_url' => $baseUrl . '/api/menu/currency?slug=' . $slug . '&to={currency}',
+                'description' => 'Anlık döviz kuru hesaplar ve dönüş oranını verir.',
+            ],
+            [
+                'method' => 'POST',
+                'path' => '/api/menu/receipt?slug=' . $slug,
+                'full_url' => $baseUrl . '/api/menu/receipt?slug=' . $slug,
+                'description' => 'Sipariş ve masa token bilgisi ile PDF adisyonu üretir.',
+            ],
         ];
 
         return [
@@ -486,6 +525,7 @@ class RestaurantController extends BaseController
             'restaurant_slug' => $slug,
             'endpoints' => $endpoints,
             'table_links' => $tables,
+            'available_currencies' => $this->availableCurrencies($restaurant),
         ];
     }
 }

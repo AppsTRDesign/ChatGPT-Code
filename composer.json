@@ -1,0 +1,11 @@
+{
+    "name": "noasoft/qrmenu",
+    "description": "NoaSoft QR Menü üretim hazır sistemi",
+    "type": "project",
+    "require": {
+        "anvilco/html-pdf-invoice-template": "^1.0",
+        "mpdf/mpdf": "^8.1"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

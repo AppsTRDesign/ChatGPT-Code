@@ -34,4 +34,20 @@ return function (Router $router) {
         }
         return (new ApiController())->orderStatus($slug, $orderNumber);
     }, [ApiAuthMiddleware::class]);
+
+    $router->add('GET', '/api/menu/currency', function () {
+        $slug = $_GET['slug'] ?? null;
+        if (!$slug) {
+            return Response::json(['error' => 'Slug required'], 422);
+        }
+        return (new ApiController())->currencyRate($slug);
+    }, [ApiAuthMiddleware::class]);
+
+    $router->add('POST', '/api/menu/receipt', function () {
+        $slug = $_GET['slug'] ?? null;
+        if (!$slug) {
+            return Response::json(['error' => 'Slug required'], 422);
+        }
+        return (new ApiController())->receipt($slug);
+    }, [ApiAuthMiddleware::class]);
 };

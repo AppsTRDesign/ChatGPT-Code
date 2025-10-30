@@ -209,7 +209,8 @@ body {
     gap: 0.75rem;
 }
 
-.language-switch button {
+.language-switch button,
+.currency-switch button {
     border: none;
     background: rgba(255, 255, 255, 0.2);
     color: #fff;
@@ -220,7 +221,9 @@ body {
 }
 
 .language-switch button.active,
-.language-switch button:hover {
+.language-switch button:hover,
+.currency-switch button.active,
+.currency-switch button:hover {
     background: #fff;
     color: var(--emerald-600);
 }

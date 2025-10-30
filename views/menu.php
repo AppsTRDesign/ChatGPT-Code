@@ -23,6 +23,7 @@ $menuApiKey = $menuApiKey ?? '';
             <p class="lead text-white-50" id="restaurantDescription"></p>
             <div class="hero-actions">
                 <div class="language-switch" id="languageSwitcher"></div>
+                <div class="currency-switch" id="currencySwitcher"></div>
                 <button class="btn btn-light btn-sm" id="waiterCall"><i class="bi bi-bell me-1"></i>Garson Çağır</button>
             </div>
         </div>
@@ -57,7 +58,7 @@ $menuApiKey = $menuApiKey ?? '';
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 <script src="/public/js/menu.js"></script>
 <script src="/public/lang/tr.json" type="application/json" id="defaultLang"></script>
 </body>

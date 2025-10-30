@@ -6,6 +6,22 @@ class ApiController extends BaseController
         return $_SERVER['api_user'] ?? null;
     }
 
+    private function availableCurrencies(?array $restaurant = null): array
+    {
+        $settings = new Setting();
+        $currencies = $settings->get('currencies', []);
+        if (!is_array($currencies)) {
+            $currencies = [];
+        }
+        if ($restaurant && !in_array($restaurant['currency'] ?? 'TRY', $currencies, true)) {
+            $currencies[] = strtoupper($restaurant['currency']);
+        }
+        if (!$currencies) {
+            $currencies = ['TRY'];
+        }
+        return array_values(array_unique(array_map('strtoupper', $currencies)));
+    }
+
     public function menu(string $slug)
     {
         $restaurantModel = new Restaurant();
@@ -39,6 +55,7 @@ class ApiController extends BaseController
                 'token' => $restaurant['qr_token'],
             ] : null,
             'categories' => $categories,
+            'available_currencies' => $this->availableCurrencies($restaurant),
         ]);
     }
 
@@ -135,6 +152,61 @@ class ApiController extends BaseController
             'order' => $order,
             'timeline' => $timeline,
         ]);
+    }
+
+    public function currencyRate(string $slug)
+    {
+        $restaurantModel = new Restaurant();
+        $restaurant = $restaurantModel->findBySlug($slug);
+        if (!$restaurant || $restaurant['status'] !== 'active') {
+            return Response::json(['error' => 'Restoran bulunamadı'], 404);
+        }
+        $to = strtoupper($_GET['to'] ?? '');
+        if (!$to) {
+            return Response::json(['error' => 'Hedef para birimi belirtilmedi'], 422);
+        }
+        $allowed = $this->availableCurrencies($restaurant);
+        if (!in_array($to, $allowed, true)) {
+            return Response::json(['error' => 'Desteklenmeyen para birimi'], 422);
+        }
+        $amount = isset($_GET['amount']) ? (float)$_GET['amount'] : 1.0;
+        try {
+            $conversion = Currency::convert($restaurant['currency'], $to, $amount);
+        } catch (Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 502);
+        }
+        return Response::json([
+            'from' => $restaurant['currency'],
+            'to' => $to,
+            'rate' => $conversion['rate'],
+            'amount' => $conversion['amount'],
+        ]);
+    }
+
+    public function receipt(string $slug)
+    {
+        $data = $this->inputJson();
+        $token = $data['table_token'] ?? null;
+        $orderNumber = $data['order_number'] ?? null;
+        if (!$token || !$orderNumber) {
+            return Response::json(['error' => 'Masa veya sipariş bilgisi eksik'], 422);
+        }
+        $restaurantModel = new Restaurant();
+        $restaurant = $restaurantModel->findByTableToken($slug, $token);
+        if (!$restaurant || $restaurant['status'] !== 'active') {
+            return Response::json(['error' => 'Restoran bulunamadı'], 404);
+        }
+        $orderModel = new Order();
+        $order = $orderModel->findByNumber($restaurant['id'], $orderNumber);
+        if (!$order) {
+            return Response::json(['error' => 'Sipariş bulunamadı'], 404);
+        }
+        try {
+            $payload = InvoiceGenerator::customerReceipt($restaurant, $order);
+        } catch (Throwable $exception) {
+            return Response::json(['error' => $exception->getMessage()], 500);
+        }
+        return Response::json($payload);
     }
 
     private function generateOrderNumber(int $restaurantId): string

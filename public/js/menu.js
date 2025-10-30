@@ -14,6 +14,12 @@ const state = {
     table: tableToken ? { token: tableToken, name: tableName } : null,
     lang: 'tr',
     translations: {},
+    availableCurrencies: [],
+    pricing: {
+        base: 'TRY',
+        display: 'TRY',
+        rate: 1,
+    },
 };
 
 const socket = tableToken ? io('https://qrmenu.noasoft.org:4000', { auth: { tableToken } }) : null;
@@ -37,6 +43,17 @@ const playSound = (frequency = 880, duration = 0.4) => {
     }
 };
 
+const downloadBase64 = (base64, filename, mime = 'application/octet-stream') => {
+    if (!base64) return;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mime });
+    saveAs(blob, filename);
+};
+
 const fetchMenu = async () => {
     const params = new URLSearchParams();
     params.set('slug', slug);
@@ -53,6 +70,14 @@ const fetchMenu = async () => {
     state.table = data.table;
     state.categories = data.categories || [];
     state.filteredCategories = state.categories;
+    const baseCurrency = state.restaurant.currency || 'TRY';
+    const currencies = Array.from(new Set([baseCurrency, ...((data.available_currencies || []).map((code) => code.toUpperCase()))]));
+    state.availableCurrencies = currencies;
+    state.pricing = {
+        base: baseCurrency,
+        display: baseCurrency,
+        rate: 1,
+    };
     renderMenu();
 };
 
@@ -80,6 +105,49 @@ const renderLanguages = () => {
     }));
 };
 
+const renderCurrencies = () => {
+    const container = document.getElementById('currencySwitcher');
+    if (!container) return;
+    const currencies = state.availableCurrencies.length ? state.availableCurrencies : [state.pricing.base];
+    container.innerHTML = currencies.map((code) => `
+        <button class="btn btn-sm ${state.pricing.display === code ? 'active' : ''}" data-currency="${code}">${code}</button>
+    `).join('');
+    container.querySelectorAll('button').forEach((btn) => btn.addEventListener('click', async () => {
+        await changeCurrency(btn.dataset.currency);
+    }));
+};
+
+const changeCurrency = async (currency) => {
+    const code = (currency || '').toUpperCase();
+    if (!code || state.pricing.display === code) return;
+    if (code === state.pricing.base) {
+        state.pricing.display = code;
+        state.pricing.rate = 1;
+        renderMenu();
+        Swal.fire('Bilgi', 'Fiyatlar varsayılan para birimine döndürüldü.', 'info');
+        return;
+    }
+    try {
+        const params = new URLSearchParams();
+        params.set('slug', slug);
+        params.set('to', code);
+        const response = await fetch(`/api/menu/currency?${params.toString()}`, {
+            headers: { 'X-API-KEY': apiKey },
+        });
+        const text = await response.text();
+        const data = text ? JSON.parse(text) : {};
+        if (!response.ok) {
+            throw data;
+        }
+        state.pricing.display = code;
+        state.pricing.rate = Number(data.rate || 1);
+        renderMenu();
+        Swal.fire('Bilgi', `${code} para birimi uygulanmıştır.`, 'success');
+    } catch (error) {
+        Swal.fire('Hata', error.error || 'Kur bilgisi alınamadı', 'error');
+    }
+};
+
 const renderMenu = () => {
     document.getElementById('restaurantName').textContent = state.restaurant.name || 'Restoran';
     document.getElementById('restaurantDescription').textContent = state.restaurant.description || '';
@@ -88,9 +156,26 @@ const renderMenu = () => {
         badge.textContent = `${state.restaurant.qr_table_prefix || 'Masa'} ${state.table.name || ''}`;
     }
     renderLanguages();
+    renderCurrencies();
     renderFeatured();
     renderCategories();
     renderCart();
+};
+
+const convertAmount = (amount = 0, currency = state.pricing.base) => {
+    const source = (currency || state.pricing.base).toUpperCase();
+    if (state.pricing.display === source) {
+        return Number(amount || 0);
+    }
+    if (source !== state.pricing.base) {
+        return Number(amount || 0);
+    }
+    return Number(amount || 0) * Number(state.pricing.rate || 1);
+};
+
+const formatDisplayPrice = (amount = 0, currency = state.pricing.base) => {
+    const value = convertAmount(amount, currency);
+    return `${value.toFixed(2)} ${state.pricing.display}`;
 };
 
 const renderFeatured = () => {
@@ -102,7 +187,7 @@ const renderFeatured = () => {
             <h3 class="h6">${product.name}</h3>
             <p class="text-muted small">${product.description || ''}</p>
             <div class="d-flex justify-content-between align-items-center">
-                <span class="fw-semibold">${Number(product.price || 0).toFixed(2)} ${product.currency || state.restaurant.currency}</span>
+                <span class="fw-semibold">${formatDisplayPrice(product.price || 0, product.currency)}</span>
                 <button class="btn btn-sm btn-success" data-add="${product.id}">${t('add_to_cart') || 'Sepete Ekle'}</button>
             </div>
         </div>
@@ -131,7 +216,7 @@ const renderCategories = () => {
                             <div class="text-muted small">${product.description || ''}</div>
                         </div>
                         <div class="product-actions d-flex flex-column align-items-end">
-                            <span class="fw-semibold">${Number(product.price || 0).toFixed(2)} ${product.currency || state.restaurant.currency}</span>
+                            <span class="fw-semibold">${formatDisplayPrice(product.price || 0, product.currency)}</span>
                             <button class="btn btn-sm btn-success mt-2" data-add="${product.id}"><i class="bi bi-plus"></i></button>
                         </div>
                     </div>
@@ -149,7 +234,13 @@ const addToCart = (productId) => {
     if (existing) {
         existing.quantity += 1;
     } else {
-        state.cart.push({ id: product.id, name: product.name, price: Number(product.price || 0), quantity: 1 });
+        state.cart.push({
+            id: product.id,
+            name: product.name,
+            price: Number(product.price || 0),
+            quantity: 1,
+            currency: product.currency || state.pricing.base,
+        });
     }
     playSound(940, 0.2);
     renderCart();
@@ -164,7 +255,7 @@ const renderCart = () => {
             <div class="cart-item">
                 <div>
                     <div class="fw-semibold">${item.name}</div>
-                    <small class="text-muted">${item.quantity} x ${item.price.toFixed(2)}</small>
+                    <small class="text-muted">${item.quantity} x ${formatDisplayPrice(item.price, item.currency)}</small>
                 </div>
                 <div class="quantity" data-id="${item.id}">
                     <button type="button" data-action="decrease">-</button>
@@ -175,7 +266,7 @@ const renderCart = () => {
         `).join('');
     }
     const total = state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    document.getElementById('cartTotal').textContent = `${total.toFixed(2)} ${state.restaurant.currency || 'TRY'}`;
+    document.getElementById('cartTotal').textContent = formatDisplayPrice(total, state.pricing.base);
     const cartPanel = document.getElementById('cartPanel');
     cartPanel.querySelectorAll('.quantity button').forEach((btn) => btn.addEventListener('click', () => updateQuantity(btn.closest('.quantity').dataset.id, btn.dataset.action)));
     updateOrderStatusText();
@@ -334,40 +425,23 @@ const downloadReceipt = async () => {
     try {
         const params = new URLSearchParams();
         params.set('slug', slug);
-        params.set('order_number', state.orderNumber);
-        const response = await fetch(`/api/menu/order-status?${params.toString()}`, {
-            headers: { 'X-API-KEY': apiKey },
+        const response = await fetch(`/api/menu/receipt?${params.toString()}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': apiKey,
+            },
+            body: JSON.stringify({ order_number: state.orderNumber, table_token: tableToken }),
         });
         const text = await response.text();
         const data = text ? JSON.parse(text) : {};
         if (!response.ok) {
             throw data;
         }
-        generateCustomerReceipt(data.order);
+        downloadBase64(data.content, data.filename, data.mime);
     } catch (error) {
         Swal.fire('Hata', error.error || 'Adisyon hazırlanamadı', 'error');
     }
-};
-
-const generateCustomerReceipt = (order) => {
-    const doc = new jspdf.jsPDF();
-    doc.setFontSize(14);
-    doc.text(state.restaurant.name || 'Restoran', 105, 20, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`Masa: ${order.table_number}`, 20, 32);
-    doc.text(`Sipariş #: ${order.order_number}`, 20, 40);
-    doc.text(`Durum: ${order.status}`, 20, 48);
-    let y = 60;
-    (order.items || []).forEach((item) => {
-        doc.text(`${item.quantity || 1} x ${item.name}`, 20, y);
-        doc.text(`${Number(item.price || 0).toFixed(2)}`, 190, y, { align: 'right' });
-        y += 8;
-    });
-    y += 4;
-    doc.text(`Toplam: ${Number(order.total_amount).toFixed(2)} ${order.currency || state.restaurant.currency}`, 20, y);
-    y += 12;
-    doc.text('Afiyet olsun! NoaSoft QR Menü sistemi.', 105, y, { align: 'center' });
-    doc.save(`siparis-${order.order_number}.pdf`);
 };
 
 const initEvents = () => {

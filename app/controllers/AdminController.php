@@ -48,6 +48,16 @@ class AdminController extends BaseController
         }
 
         $data = $this->inputJson();
+        if (isset($data['currencies'])) {
+            if (is_string($data['currencies'])) {
+                $data['currencies'] = array_filter(array_map('trim', explode(',', $data['currencies'])));
+            }
+            if (is_array($data['currencies'])) {
+                $data['currencies'] = array_values(array_unique(array_map('strtoupper', $data['currencies'])));
+            } else {
+                unset($data['currencies']);
+            }
+        }
         $settings->updateMany($data);
         return Response::json(['message' => 'Settings saved']);
     }

@@ -53,16 +53,25 @@ const renderDashboard = async () => {
         <canvas id="planChart" class="mt-4"></canvas>
     `;
     const ctx = document.getElementById('planChart');
-    const planLabels = stats.plans.map(plan => plan.name);
-    const planData = stats.plans.map(plan => plan.restaurant_count || 0);
+    const colors = ['#1d4ed8', '#10b981', '#f59e0b', '#f97316', '#8b5cf6'];
+    const datasets = stats.plans.map((plan, index) => ({
+        label: plan.name,
+        data: [plan.restaurant_count || 0],
+        backgroundColor: colors[index % colors.length],
+        stack: 'plans'
+    }));
     new Chart(ctx, {
-        type: 'doughnut',
+        type: 'bar',
         data: {
-            labels: planLabels,
-            datasets: [{
-                data: planData,
-                backgroundColor: ['#1d4ed8', '#10b981', '#f59e0b']
-            }]
+            labels: ['Planlar'],
+            datasets
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true }
+            }
         }
     });
     } catch (error) {
@@ -145,6 +154,11 @@ const renderSettings = async () => {
                 <label class="form-label">Para Birimi</label>
                 <input type="text" class="form-control" name="currency" value="${settings.currency || 'TRY'}">
             </div>
+            <div class="col-12">
+                <label class="form-label">Desteklenen Para Birimleri</label>
+                <input type="text" class="form-control" name="currencies" value="${(settings.currencies || ['TRY']).join(', ')}">
+                <div class="form-text">Örnek: TRY, USD, EUR</div>
+            </div>
             <div class="col-md-12">
                 <label class="form-label">Logo URL</label>
                 <input type="text" class="form-control" name="logo" value="${settings.logo || ''}">
@@ -158,6 +172,9 @@ const renderSettings = async () => {
         document.getElementById('settingsForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = Object.fromEntries(new FormData(e.target));
+            if (payload.currencies) {
+                payload.currencies = payload.currencies.split(',').map((item) => item.trim().toUpperCase()).filter(Boolean);
+            }
             try {
                 const res = await fetch('/admin/settings', {
                     method: 'PUT',
