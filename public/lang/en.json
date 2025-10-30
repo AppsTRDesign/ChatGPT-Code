@@ -1,6 +1,5 @@
 {
-  "cart_total": "Total",
-  "submit_order": "Submit Order",
-  "table_number": "Table Number",
-  "note": "Note"
+    "language_changed": "Language updated",
+    "add_to_cart": "Add to Cart",
+    "cart_empty": "Your cart is empty"
 }

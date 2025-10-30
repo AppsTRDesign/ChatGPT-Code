@@ -16,6 +16,7 @@ class ApiAuthMiddleware
             http_response_code(403);
             return ['error' => 'Invalid API key'];
         }
+        $_SERVER['api_user'] = $user;
         return true;
     }
 }

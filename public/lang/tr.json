@@ -1,6 +1,5 @@
 {
-  "cart_total": "Toplam",
-  "submit_order": "Siparişi Gönder",
-  "table_number": "Masa Numarası",
-  "note": "Not"
+    "language_changed": "Dil güncellendi",
+    "add_to_cart": "Sepete Ekle",
+    "cart_empty": "Sepetiniz boş"
 }

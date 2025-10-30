@@ -1,157 +1,491 @@
 <?php
 class RestaurantController extends BaseController
 {
+    private function userId(): int
+    {
+        return (int)($_SESSION['user_id'] ?? 0);
+    }
+
+    private function restaurantId(): int
+    {
+        return (int)($_SESSION['restaurant_id'] ?? 0);
+    }
+
+    private function ensureRestaurant(): void
+    {
+        if (!$this->restaurantId()) {
+            Response::json(['error' => 'Restoran oturumu bulunamadı'], 401);
+            exit;
+        }
+    }
+
     public function categories()
     {
-        $restaurantId = $_SESSION['restaurant_id'];
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
         $categoryModel = new Category();
+
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             return Response::json(['categories' => $categoryModel->allByRestaurant($restaurantId)]);
         }
 
-        $data = $this->inputJson();
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $payload = $_POST ?: $this->inputJson();
+            $payload = Security::sanitize($payload);
+            $imageUrl = $payload['image_url'] ?? null;
+            if (!empty($_FILES['image'])) {
+                $imageUrl = $this->handleUpload($_FILES['image']);
+            }
             $categoryModel->create([
                 'restaurant_id' => $restaurantId,
-                'name' => $data['name'],
-                'description' => $data['description'] ?? '',
-                'sort_order' => $data['sort_order'] ?? 0,
+                'name' => $payload['name'],
+                'description' => $payload['description'] ?? '',
+                'image_url' => $imageUrl,
+                'sort_order' => $payload['sort_order'] ?? 0,
             ]);
-            return Response::json(['message' => 'Category created']);
+            return Response::json(['message' => 'Kategori oluşturuldu']);
         }
 
+        $data = $this->inputJson();
         if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-            $categoryModel->update((int)$data['id'], $data);
-            return Response::json(['message' => 'Category updated']);
+            $categoryModel->update((int)$data['id'], [
+                'name' => $data['name'],
+                'description' => $data['description'] ?? '',
+                'image_url' => $data['image_url'] ?? null,
+                'sort_order' => $data['sort_order'] ?? 0,
+            ]);
+            return Response::json(['message' => 'Kategori güncellendi']);
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             $categoryModel->delete((int)$data['id']);
-            return Response::json(['message' => 'Category deleted']);
+            return Response::json(['message' => 'Kategori silindi']);
         }
 
-        return Response::json(['error' => 'Unsupported method'], 405);
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
+    }
+
+    public function categoryUpload()
+    {
+        $this->ensureRestaurant();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_FILES['image'])) {
+            return Response::json(['error' => 'Dosya yüklenmedi'], 400);
+        }
+        try {
+            $url = $this->handleUpload($_FILES['image']);
+        } catch (Exception $e) {
+            return Response::json(['error' => $e->getMessage()], 422);
+        }
+        return Response::json(['message' => 'Yükleme başarılı', 'url' => $url]);
+    }
+
+    public function productUpload()
+    {
+        $this->ensureRestaurant();
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_FILES['image'])) {
+            return Response::json(['error' => 'Dosya yüklenmedi'], 400);
+        }
+        try {
+            $url = $this->handleUpload($_FILES['image']);
+        } catch (Exception $e) {
+            return Response::json(['error' => $e->getMessage()], 422);
+        }
+        return Response::json(['message' => 'Yükleme başarılı', 'url' => $url]);
     }
 
     public function products()
     {
-        $restaurantId = $_SESSION['restaurant_id'];
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
         $productModel = new Product();
+
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             return Response::json(['products' => $productModel->allByRestaurant($restaurantId)]);
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['image'])) {
-            $config = require __DIR__ . '/../config/config.php';
-            try {
-                $upload = FileUploader::uploadLocal($_FILES['image'], $config['upload']);
-            } catch (Exception $e) {
-                return Response::json(['error' => $e->getMessage()], 422);
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!empty($_FILES['image'])) {
+                $payload = $_POST;
+                $payload['image_url'] = $this->handleUpload($_FILES['image']);
+            } else {
+                $payload = $this->inputJson();
             }
-            $data = Security::sanitize($_POST);
-            $data['image_url'] = $upload['url'] ?? null;
-            $productModel->create(array_merge($data, ['restaurant_id' => $restaurantId]));
-            return Response::json(['message' => 'Product created', 'image_url' => $data['image_url']]);
+            $payload = Security::sanitize($payload);
+            $productModel->create(array_merge($payload, ['restaurant_id' => $restaurantId]));
+            return Response::json(['message' => 'Ürün eklendi']);
         }
 
         $data = $this->inputJson();
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $productModel->create(array_merge($data, ['restaurant_id' => $restaurantId]));
-            return Response::json(['message' => 'Product created']);
-        }
-
         if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $productModel->update((int)$data['id'], $data);
-            return Response::json(['message' => 'Product updated']);
+            return Response::json(['message' => 'Ürün güncellendi']);
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             $productModel->delete((int)$data['id']);
-            return Response::json(['message' => 'Product deleted']);
+            return Response::json(['message' => 'Ürün silindi']);
         }
 
-        return Response::json(['error' => 'Unsupported method'], 405);
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
     }
 
-    public function orders()
+    public function tables()
     {
-        $restaurantId = $_SESSION['restaurant_id'];
-        $orderModel = new Order();
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $tableModel = new RestaurantTable();
+
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            return Response::json(['orders' => $orderModel->allByRestaurant($restaurantId)]);
+            return Response::json(['tables' => $tableModel->allByRestaurant($restaurantId)]);
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $data = Security::sanitize($this->inputJson());
+            $slug = $this->slugify($data['slug'] ?? $data['name']);
+            $token = bin2hex(random_bytes(16));
+            $tableModel->create([
+                'restaurant_id' => $restaurantId,
+                'name' => $data['name'],
+                'slug' => $slug,
+                'qr_token' => $token,
+                'seats' => $data['seats'] ?? 4,
+            ]);
+            return Response::json(['message' => 'Masa oluşturuldu']);
         }
 
         $data = $this->inputJson();
         if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-            $orderModel->updateStatus((int)$data['order_id'], $data['status']);
-            SocketNotifier::notify([
-                'event' => 'order:update',
-                'restaurant_id' => $restaurantId,
-                'order_id' => $data['order_id'],
-                'status' => $data['status']
+            if (!empty($data['action']) && $data['action'] === 'status') {
+                $tableModel->updateStatus((int)$data['id'], $data['status']);
+                return Response::json(['message' => 'Masa durumu güncellendi']);
+            }
+            $tableModel->update((int)$data['id'], [
+                'name' => $data['name'],
+                'slug' => $this->slugify($data['slug'] ?? $data['name']),
+                'seats' => $data['seats'] ?? 4,
+                'status' => $data['status'] ?? 'vacant',
             ]);
-            return Response::json(['message' => 'Order updated']);
+            return Response::json(['message' => 'Masa güncellendi']);
         }
 
-        return Response::json(['error' => 'Unsupported method'], 405);
+        if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+            $tableModel->delete((int)$data['id']);
+            return Response::json(['message' => 'Masa silindi']);
+        }
+
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
     }
 
-    public function reports()
+    public function orders()
     {
-        $restaurantId = $_SESSION['restaurant_id'];
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
         $orderModel = new Order();
+        $tableModel = new RestaurantTable();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $status = $_GET['status'] ?? null;
+            $range = $_GET['range'] ?? null;
+            [$from, $to] = $this->rangeToDates($range);
+            $orders = $orderModel->allByRestaurant($restaurantId, [
+                'status' => $status,
+                'from' => $from,
+                'to' => $to,
+            ]);
+            $metrics = $orderModel->aggregateByStatus($restaurantId);
+            $tables = $tableModel->allByRestaurant($restaurantId);
+            return Response::json([
+                'orders' => $orders,
+                'metrics' => $metrics,
+                'tables' => $tables,
+            ]);
+        }
+
         $data = $this->inputJson();
-        $from = $data['from'] ?? date('Y-m-01 00:00:00');
-        $to = $data['to'] ?? date('Y-m-t 23:59:59');
-        $report = $orderModel->report($restaurantId, $from, $to);
-        return Response::json(['report' => $report]);
+        if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+            if (($data['action'] ?? '') === 'status') {
+                $orderModel->updateStatus((int)$data['order_id'], $data['status'], $data['note'] ?? null);
+                if (!empty($data['table_id'])) {
+                    if (in_array($data['status'], ['completed', 'cancelled'], true)) {
+                        $tableModel->updateStatus((int)$data['table_id'], 'vacant');
+                    } elseif ($data['status'] === 'pending' || $data['status'] === 'preparing') {
+                        $tableModel->updateStatus((int)$data['table_id'], 'occupied');
+                    }
+                }
+                $payload = [
+                    'event' => 'order:status',
+                    'restaurant_id' => $restaurantId,
+                    'order_id' => $data['order_id'],
+                    'status' => $data['status'],
+                    'table_token' => $data['table_token'] ?? null,
+                ];
+                SocketNotifier::notify($payload);
+                return Response::json(['message' => 'Sipariş durumu güncellendi']);
+            }
+
+            if (($data['action'] ?? '') === 'payment') {
+                $orderModel->markPaid((int)$data['order_id'], $data['method'] ?? 'cash');
+                return Response::json(['message' => 'Ödeme alındı']);
+            }
+        }
+
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
+    }
+
+    public function calls()
+    {
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $callModel = new WaiterCall();
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            return Response::json(['calls' => $callModel->listActive($restaurantId)]);
+        }
+        if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+            $data = $this->inputJson();
+            $callModel->updateStatus((int)$data['id'], $data['status']);
+            SocketNotifier::notify([
+                'event' => 'waiter:update',
+                'restaurant_id' => $restaurantId,
+                'call_id' => $data['id'],
+                'status' => $data['status'],
+            ]);
+            return Response::json(['message' => 'Garson çağrısı güncellendi']);
+        }
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
+    }
+
+    public function settings()
+    {
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $restaurantModel = new Restaurant();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $restaurant = $restaurantModel->find($restaurantId);
+            return Response::json(['settings' => $restaurant]);
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+            $data = $this->inputJson();
+            $restaurantModel->updateSettings($restaurantId, $data);
+            return Response::json(['message' => 'Ayarlar kaydedildi']);
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (!empty($_FILES['logo']) || !empty($_FILES['favicon'])) {
+                $branding = [];
+                if (!empty($_FILES['logo'])) {
+                    $branding['logo_url'] = $this->handleUpload($_FILES['logo']);
+                }
+                if (!empty($_FILES['favicon'])) {
+                    $branding['favicon_url'] = $this->handleUpload($_FILES['favicon']);
+                }
+                $restaurantModel->updateBranding($restaurantId, $branding);
+                return Response::json(['message' => 'Marka görselleri güncellendi', 'branding' => $branding]);
+            }
+        }
+
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
+    }
+
+    public function api()
+    {
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $userId = $this->userId();
+        if (!$userId) {
+            return Response::json(['error' => 'Yetkilendirme bulunamadı'], 403);
+        }
+
+        $userModel = new User();
+        $user = $userModel->find($userId);
+        if (!$user) {
+            return Response::json(['error' => 'Kullanıcı bulunamadı'], 404);
+        }
+
+        $apiKeyModel = new ApiKey();
+        if (empty($user['api_key'])) {
+            $user['api_key'] = $apiKeyModel->generateForUser($userId);
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $apiKey = $apiKeyModel->generateForUser($userId);
+            return Response::json(['api' => $this->buildApiPayload($restaurantId, $apiKey)]);
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            return Response::json(['api' => $this->buildApiPayload($restaurantId, $user['api_key'])]);
+        }
+
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
     }
 
     public function theme()
     {
-        $restaurantId = $_SESSION['restaurant_id'];
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $restaurantModel = new Restaurant();
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            $restaurant = (new Restaurant())->find($restaurantId);
+            $restaurant = $restaurantModel->find($restaurantId);
             return Response::json(['theme' => [
                 'theme' => $restaurant['theme'],
                 'primary_color' => $restaurant['primary_color'],
-                'slug' => $restaurant['slug']
+                'menu_layout' => $restaurant['menu_layout'],
             ]]);
         }
+        if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+            $data = $this->inputJson();
+            $restaurantModel->updateTheme($restaurantId, $data);
+            return Response::json(['message' => 'Tema güncellendi']);
+        }
+        return Response::json(['error' => 'Desteklenmeyen istek'], 405);
+    }
 
+    public function reports()
+    {
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $orderModel = new Order();
         $data = $this->inputJson();
-        $stmt = $this->db()->prepare('UPDATE restaurants SET theme = :theme, primary_color = :primary_color WHERE id = :id');
-        $stmt->execute([
-            'theme' => $data['theme'],
-            'primary_color' => $data['primary_color'],
-            'id' => $restaurantId
-        ]);
-        return Response::json(['message' => 'Theme updated']);
+        $range = $data['range'] ?? 'month';
+        [$from, $to] = $this->rangeToDates($range);
+        $report = $orderModel->report($restaurantId, $from, $to);
+        return Response::json(['report' => $report, 'from' => $from, 'to' => $to]);
     }
 
-    public function uploadProductImage()
+    public function export()
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_FILES['image'])) {
-            return Response::json(['error' => 'No file uploaded'], 400);
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $orderModel = new Order();
+        $data = $this->inputJson();
+        [$from, $to] = $this->rangeToDates($data['range'] ?? 'month');
+        $orders = $orderModel->allByRestaurant($restaurantId, ['from' => $from, 'to' => $to]);
+        $format = $data['format'] ?? 'pdf';
+        $restaurant = (new Restaurant())->find($restaurantId);
+        if ($format === 'excel') {
+            $content = ReportExporter::toCsv($orders, $restaurant['currency'] ?? 'TRY');
+            return Response::json([
+                'filename' => 'rapor-' . date('YmdHis') . '.csv',
+                'content' => base64_encode($content),
+                'mime' => 'text/csv'
+            ]);
         }
-
-        $config = require __DIR__ . '/../config/config.php';
-        try {
-            $upload = FileUploader::uploadLocal($_FILES['image'], $config['upload']);
-        } catch (Exception $e) {
-            return Response::json(['error' => $e->getMessage()], 422);
-        }
-
         return Response::json([
-            'message' => 'Upload successful',
-            'url' => $upload['url'],
-            'filename' => $upload['filename']
-        ], 201);
+            'format' => 'pdf',
+            'orders' => $orders,
+            'restaurant' => $restaurant,
+            'range' => ['from' => $from, 'to' => $to]
+        ]);
     }
 
-    private function db(): PDO
+    public function receipt()
     {
-        global $container;
-        return $container['db'];
+        $this->ensureRestaurant();
+        $restaurantId = $this->restaurantId();
+        $orderModel = new Order();
+        $data = $this->inputJson();
+        $order = $orderModel->findByNumber($restaurantId, $data['order_number']);
+        if (!$order) {
+            return Response::json(['error' => 'Sipariş bulunamadı'], 404);
+        }
+        $restaurant = (new Restaurant())->find($restaurantId);
+        return Response::json([
+            'order' => $order,
+            'restaurant' => $restaurant
+        ]);
+    }
+
+    private function handleUpload(array $file): string
+    {
+        $config = require __DIR__ . '/../config/config.php';
+        $upload = FileUploader::uploadLocal($file, $config['upload']);
+        return $upload['url'];
+    }
+
+    private function slugify(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/i', '-', $value);
+        return trim($value, '-') ?: uniqid('masa');
+    }
+
+    private function rangeToDates(?string $range): array
+    {
+        $now = new DateTimeImmutable('now');
+        switch ($range) {
+            case 'day':
+                $from = $now->setTime(0, 0)->format('Y-m-d H:i:s');
+                $to = $now->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+                break;
+            case 'week':
+                $from = $now->modify('monday this week')->setTime(0, 0)->format('Y-m-d H:i:s');
+                $to = $now->modify('sunday this week')->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+                break;
+            case 'year':
+                $from = $now->setDate((int)$now->format('Y'), 1, 1)->setTime(0, 0)->format('Y-m-d H:i:s');
+                $to = $now->setDate((int)$now->format('Y'), 12, 31)->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+                break;
+            default:
+                $from = $now->setDate((int)$now->format('Y'), (int)$now->format('m'), 1)->setTime(0, 0)->format('Y-m-d H:i:s');
+                $to = $now->setDate((int)$now->format('Y'), (int)$now->format('m'), (int)$now->format('t'))->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+        }
+        return [$from, $to];
+    }
+
+    private function buildApiPayload(int $restaurantId, string $apiKey): array
+    {
+        $config = require __DIR__ . '/../config/config.php';
+        $baseUrl = rtrim($config['base_url'], '/');
+        $restaurant = (new Restaurant())->find($restaurantId);
+        $slug = $restaurant['slug'] ?? '';
+
+        $tableModel = new RestaurantTable();
+        $tables = array_map(function ($table) use ($baseUrl, $slug) {
+            return [
+                'id' => (int)$table['id'],
+                'name' => $table['name'],
+                'slug' => $table['slug'],
+                'status' => $table['status'],
+                'token' => $table['qr_token'],
+                'url' => $baseUrl . '/menu/' . $slug . '/table/' . $table['slug'] . '?token=' . $table['qr_token'],
+            ];
+        }, $tableModel->allByRestaurant($restaurantId));
+
+        $endpoints = [
+            [
+                'method' => 'GET',
+                'path' => '/api/menu?slug=' . $slug . '&token={table_token}',
+                'full_url' => $baseUrl . '/api/menu?slug=' . $slug . '&token={table_token}',
+                'description' => 'Restoran menüsünü kategorileriyle birlikte döner.',
+            ],
+            [
+                'method' => 'POST',
+                'path' => '/api/menu/order',
+                'full_url' => $baseUrl . '/api/menu/order',
+                'description' => 'Sepet öğeleri ile yeni sipariş oluşturur.',
+            ],
+            [
+                'method' => 'POST',
+                'path' => '/api/menu/waiter-call',
+                'full_url' => $baseUrl . '/api/menu/waiter-call',
+                'description' => 'Belirli bir masadan garson çağrısı gönderir.',
+            ],
+            [
+                'method' => 'GET',
+                'path' => '/api/menu/order-status?slug=' . $slug . '&order_number={order_number}',
+                'full_url' => $baseUrl . '/api/menu/order-status?slug=' . $slug . '&order_number={order_number}',
+                'description' => 'Sipariş durum geçmişini listeler.',
+            ],
+        ];
+
+        return [
+            'key' => $apiKey,
+            'base_url' => $baseUrl,
+            'socket_url' => $config['api']['socket_client'],
+            'restaurant_slug' => $slug,
+            'endpoints' => $endpoints,
+            'table_links' => $tables,
+        ];
     }
 }

@@ -30,21 +30,28 @@ const io = new Server(server, {
     }
 });
 
-const roomName = (restaurantId) => `restaurant:${restaurantId}`;
+const restaurantRoom = (restaurantId) => `restaurant:${restaurantId}`;
+const tableRoom = (token) => `table:${token}`;
 
 io.on('connection', (socket) => {
-    const handshakeId = socket.handshake.auth?.restaurantId;
-    if (handshakeId) {
-        socket.join(roomName(handshakeId));
+    const handshake = socket.handshake.auth || {};
+    if (handshake.restaurantId) {
+        socket.join(restaurantRoom(handshake.restaurantId));
+    }
+    if (handshake.tableToken) {
+        socket.join(tableRoom(handshake.tableToken));
     }
 
     socket.on('registerRestaurant', ({ restaurantId }) => {
-        if (!restaurantId) return;
-        socket.join(roomName(restaurantId));
+        if (restaurantId) {
+            socket.join(restaurantRoom(restaurantId));
+        }
     });
 
-    socket.on('disconnect', () => {
-        // noop but reserved for future logging
+    socket.on('registerTable', ({ tableToken }) => {
+        if (tableToken) {
+            socket.join(tableRoom(tableToken));
+        }
     });
 });
 
@@ -57,9 +64,13 @@ app.post('/notify', (req, res) => {
     }
 
     if (payload.restaurant_id) {
-        io.to(roomName(payload.restaurant_id)).emit(payload.event, payload);
+        io.to(restaurantRoom(payload.restaurant_id)).emit(payload.event, payload);
     } else {
         io.emit(payload.event, payload);
+    }
+
+    if (payload.table_token) {
+        io.to(tableRoom(payload.table_token)).emit(payload.event, payload);
     }
 
     res.json({ success: true });

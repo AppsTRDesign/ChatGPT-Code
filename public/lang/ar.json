@@ -1,6 +1,5 @@
 {
-  "cart_total": "المجموع",
-  "submit_order": "إرسال الطلب",
-  "table_number": "رقم الطاولة",
-  "note": "ملاحظة"
+    "language_changed": "تم تحديث اللغة",
+    "add_to_cart": "أضف إلى السلة",
+    "cart_empty": "سلتك فارغة"
 }

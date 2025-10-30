@@ -1,6 +1,5 @@
 {
-  "cart_total": "Total",
-  "submit_order": "Envoyer la commande",
-  "table_number": "Numéro de table",
-  "note": "Note"
+    "language_changed": "Langue mise à jour",
+    "add_to_cart": "Ajouter au panier",
+    "cart_empty": "Votre panier est vide"
 }

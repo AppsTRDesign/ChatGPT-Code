@@ -55,6 +55,8 @@ class AuthController extends BaseController
                 'status' => 'active'
             ]);
 
+            (new ApiKey())->generateForUser($userId);
+
             $restaurantModel = new Restaurant();
             $restaurantId = $restaurantModel->create([
                 'name' => $data['restaurant_name'],

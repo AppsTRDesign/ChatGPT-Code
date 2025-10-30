@@ -9,6 +9,7 @@ require __DIR__ . '/app/utils/FileUploader.php';
 require __DIR__ . '/app/utils/SocketNotifier.php';
 require __DIR__ . '/app/utils/Localization.php';
 require __DIR__ . '/app/utils/DateHelper.php';
+require __DIR__ . '/app/utils/ReportExporter.php';
 
 $router = new Router();
 
@@ -36,8 +37,28 @@ if ($path === '/dashboard' || $path === '/dashboard/' || ($acceptsHtml && str_st
     exit;
 }
 
+if (preg_match('#^/menu/([A-Za-z0-9-]+)/table/([A-Za-z0-9-]+)$#', $path, $matches)) {
+    $slug = $matches[1];
+    $tableSlug = $matches[2];
+    $token = $_GET['token'] ?? '';
+    $restaurantModel = new Restaurant();
+    $restaurant = $restaurantModel->findBySlug($slug);
+    $menuApiKey = '';
+    $table = null;
+    if ($restaurant) {
+        $userModel = new User();
+        $owner = $userModel->find($restaurant['user_id']);
+        $menuApiKey = $owner['api_key'] ?? '';
+        $tableModel = new RestaurantTable();
+        $table = $tableModel->findBySlug($restaurant['id'], $tableSlug);
+    }
+    include __DIR__ . '/views/menu.php';
+    exit;
+}
+
 if (preg_match('#^/menu/([A-Za-z0-9-]+)$#', $path, $matches)) {
     $slug = $matches[1];
+    $token = $_GET['token'] ?? '';
     $restaurantModel = new Restaurant();
     $restaurant = $restaurantModel->findBySlug($slug);
     $menuApiKey = '';
@@ -46,6 +67,7 @@ if (preg_match('#^/menu/([A-Za-z0-9-]+)$#', $path, $matches)) {
         $owner = $userModel->find($restaurant['user_id']);
         $menuApiKey = $owner['api_key'] ?? '';
     }
+    $table = null;
     include __DIR__ . '/views/menu.php';
     exit;
 }
