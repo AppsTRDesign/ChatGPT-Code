@@ -1,0 +1,281 @@
+openapi: 3.0.3
+info:
+  title: Lisans Yönetim Sistemi API
+  version: 1.0.0
+  description: |
+    PHP 8.2 tabanlı lisans yönetim REST API'si. JSON HMAC ve JWT kimlik doğrulama destekler.
+servers:
+  - url: https://licenses.example.com
+paths:
+  /api/v1/licenses/issue:
+    post:
+      summary: Lisans oluştur
+      security:
+        - BearerAuth: []
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueLicenseRequest'
+      responses:
+        '200':
+          description: Başarılı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueLicenseResponse'
+  /api/v1/licenses/validate:
+    post:
+      summary: Lisans doğrula
+      security:
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateLicenseRequest'
+      responses:
+        '200':
+          description: Geçerli lisans
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseStatusResponse'
+        '206':
+          description: Grace sürecinde lisans
+        '409':
+          description: Koltuk limiti aşıldı
+        '451':
+          description: Kara liste
+  /api/v1/licenses/heartbeat:
+    post:
+      summary: Lisans heartbeat gönder
+      security:
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '200':
+          description: Kayıt edildi
+  /api/v1/licenses/revoke:
+    post:
+      summary: Lisansı iptal et
+      security:
+        - BearerAuth: []
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeRequest'
+      responses:
+        '200':
+          description: İptal edildi
+  /api/v1/licenses/refresh:
+    post:
+      summary: Lisans süresini uzat
+      security:
+        - BearerAuth: []
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Güncellendi
+  /api/v1/licenses/bind:
+    post:
+      summary: Lisansa binding ekle
+      security:
+        - BearerAuth: []
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindingRequest'
+      responses:
+        '200':
+          description: Binding listesi
+  /api/v1/licenses/unbind:
+    post:
+      summary: Binding kaldır
+      security:
+        - BearerAuth: []
+        - HmacAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindingRequest'
+      responses:
+        '200':
+          description: Binding listesi
+  /api/v1/licenses/{key}/status:
+    get:
+      summary: Lisans durumu al
+      security:
+        - BearerAuth: []
+        - HmacAuth: []
+      parameters:
+        - in: path
+          name: key
+          schema:
+            type: string
+          required: true
+          description: Lisans anahtarı
+      responses:
+        '200':
+          description: Lisans durumu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LicenseStatusResponse'
+  /api/v1/webhooks/test:
+    post:
+      summary: Webhook testi gönder
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookTestRequest'
+      responses:
+        '200':
+          description: Gönderildi
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    HmacAuth:
+      type: apiKey
+      in: header
+      name: X-Signature
+  schemas:
+    IssueLicenseRequest:
+      type: object
+      required: [product_code, type]
+      properties:
+        product_code:
+          type: string
+        type:
+          type: string
+          enum: [perpetual, subscription, trial]
+        seats:
+          type: integer
+          default: 1
+        expires_at:
+          type: string
+          format: date-time
+        grace_days:
+          type: integer
+        meta:
+          type: object
+    IssueLicenseResponse:
+      type: object
+      properties:
+        license_id:
+          type: integer
+        key_display:
+          type: string
+        masked_key:
+          type: string
+        offline_token:
+          type: string
+    ValidateLicenseRequest:
+      type: object
+      required: [product_code, key]
+      properties:
+        product_code:
+          type: string
+        key:
+          type: string
+        hwid:
+          type: string
+        domain:
+          type: string
+        ip:
+          type: string
+    HeartbeatRequest:
+      allOf:
+        - $ref: '#/components/schemas/ValidateLicenseRequest'
+        - type: object
+          properties:
+            usage_meta:
+              type: object
+    LicenseStatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        http_status:
+          type: integer
+        expires_at:
+          type: string
+        seats:
+          type: integer
+        bindings:
+          type: array
+          items:
+            type: object
+        policy:
+          type: object
+        server_time:
+          type: string
+    RevokeRequest:
+      type: object
+      properties:
+        license_id:
+          type: integer
+        key:
+          type: string
+        reason:
+          type: string
+    RefreshRequest:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+        extend_days:
+          type: integer
+        new_expires_at:
+          type: string
+          format: date-time
+    BindingRequest:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+        hwid:
+          type: string
+        domain:
+          type: string
+        ip:
+          type: string
+    WebhookTestRequest:
+      type: object
+      required: [product_code, event_type]
+      properties:
+        product_code:
+          type: string
+        event_type:
+          type: string

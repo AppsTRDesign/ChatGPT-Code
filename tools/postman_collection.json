@@ -1,0 +1,80 @@
+{
+  "info": {
+    "name": "Lisans API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Issue License",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/licenses/issue",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "licenses", "issue"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"product_code\": \"APPX\",\n  \"type\": \"perpetual\",\n  \"seats\": 3\n}"
+        }
+      }
+    },
+    {
+      "name": "Validate License",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Access-Key", "value": "{{access_key}}" },
+          { "key": "X-Signature", "value": "{{signature}}" },
+          { "key": "X-Timestamp", "value": "{{timestamp}}" },
+          { "key": "X-Nonce", "value": "{{nonce}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/licenses/validate",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "licenses", "validate"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"product_code\": \"APPX\",\n  \"key\": \"<LICENSE>\",\n  \"hwid\": \"device-1\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Heartbeat",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Access-Key", "value": "{{access_key}}" },
+          { "key": "X-Signature", "value": "{{signature}}" },
+          { "key": "X-Timestamp", "value": "{{timestamp}}" },
+          { "key": "X-Nonce", "value": "{{nonce}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/licenses/heartbeat",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "licenses", "heartbeat"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"product_code\": \"APPX\",\n  \"key\": \"<LICENSE>\",\n  \"hwid\": \"device-1\",\n  \"usage_meta\": {\n    \"version\": \"1.0.1\"\n  }\n}"
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "https://licenses.example.com" },
+    { "key": "jwt", "value": "" },
+    { "key": "access_key", "value": "" },
+    { "key": "secret", "value": "" },
+    { "key": "signature", "value": "" },
+    { "key": "timestamp", "value": "" },
+    { "key": "nonce", "value": "" }
+  ]
+}
