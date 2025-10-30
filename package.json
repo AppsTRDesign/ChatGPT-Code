@@ -1,0 +1,13 @@
+{
+  "name": "noasoft-qrmenu-socket",
+  "version": "1.0.0",
+  "description": "Socket.io server for QR Menu",
+  "main": "socket-server.js",
+  "scripts": {
+    "start": "node socket-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}
