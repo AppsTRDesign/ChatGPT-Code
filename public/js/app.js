@@ -2,9 +2,18 @@ const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
 
 const handleResponse = async (response) => {
-    const data = await response.json();
+    const text = await response.text();
+    let data = {};
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            console.error('JSON parse error', error, text);
+            throw { error: 'Sunucudan beklenmeyen cevap alındı.' };
+        }
+    }
     if (!response.ok) {
-        throw data;
+        throw data.error ? data : { error: 'İşlem başarısız' };
     }
     return data;
 };

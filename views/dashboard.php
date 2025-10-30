@@ -32,7 +32,7 @@ $restaurantId = $_SESSION['restaurant_id'] ?? null;
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
+<script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 <script>
     window.dashboardContext = {
         restaurantId: <?php echo json_encode($restaurantId); ?>,

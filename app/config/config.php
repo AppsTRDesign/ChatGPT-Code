@@ -13,8 +13,8 @@ return [
         'allowed_extensions' => ['jpg', 'jpeg', 'png', 'webp']
     ],
     'api' => [
-        'socket_server' => 'http://127.0.0.1:4000/notify',
-        'socket_client' => 'http://127.0.0.1:4000',
+        'socket_server' => 'https://qrmenu.noasoft.org:4000/notify',
+        'socket_client' => 'https://qrmenu.noasoft.org:4000',
         'qr_api' => 'https://qrcode.noasoft.org/api/v1/qr'
     ]
 ];

@@ -13,6 +13,7 @@ try {
     $pdo = new PDO($dsn, getenv('DB_USER') ?: 'root', getenv('DB_PASS') ?: '', $options);
 } catch (PDOException $e) {
     http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode(['error' => 'Database connection failed']);
     exit;
 }

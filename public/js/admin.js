@@ -1,10 +1,28 @@
 const adminContent = document.getElementById('adminContent');
 const adminLinks = document.querySelectorAll('#adminApp .nav-link');
 
+const parseJSONResponse = async (response) => {
+    const text = await response.text();
+    let data = {};
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            console.error('JSON parse error', error, text);
+            throw { error: 'Sunucudan beklenmeyen cevap alındı' };
+        }
+    }
+    if (!response.ok) {
+        throw data.error ? data : { error: 'İstek başarısız' };
+    }
+    return data;
+};
+
 const renderDashboard = async () => {
-    const res = await fetch('/admin/dashboard');
-    if (!res.ok) return;
-    const { stats } = await res.json();
+    try {
+        const res = await fetch('/admin/dashboard');
+        if (!res.ok) return;
+        const { stats } = await parseJSONResponse(res);
     adminContent.innerHTML = `
         <div class="row g-3">
             <div class="col-md-3">
@@ -47,11 +65,16 @@ const renderDashboard = async () => {
             }]
         }
     });
+    } catch (error) {
+        const message = error?.error || error?.message || 'Gösterge paneli yüklenemedi';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 const renderRestaurants = async () => {
-    const res = await fetch('/admin/restaurants');
-    const data = await res.json();
+    try {
+        const res = await fetch('/admin/restaurants');
+        const data = await parseJSONResponse(res);
     adminContent.innerHTML = `
         <h3>Restoranlar</h3>
         <div class="table-responsive">
@@ -74,32 +97,42 @@ const renderRestaurants = async () => {
         </div>
     `;
 
-    adminContent.querySelectorAll('button[data-action]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const action = btn.dataset.action;
-            const payload = { restaurant_id: btn.dataset.restaurant };
-            let url = '';
-            if (action === 'approve') {
-                payload.user_id = btn.dataset.user;
-                url = '/admin/restaurants/approve';
-            } else {
-                url = '/admin/restaurants/delete';
-            }
-            const res = await fetch(url, {
-                method: action === 'delete' ? 'DELETE' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+        adminContent.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                try {
+                    const action = btn.dataset.action;
+                    const payload = { restaurant_id: btn.dataset.restaurant };
+                    let url = '';
+                    if (action === 'approve') {
+                        payload.user_id = btn.dataset.user;
+                        url = '/admin/restaurants/approve';
+                    } else {
+                        url = '/admin/restaurants/delete';
+                    }
+                    const res = await fetch(url, {
+                        method: action === 'delete' ? 'DELETE' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await parseJSONResponse(res);
+                    Swal.fire('Bilgi', result.message, 'success');
+                    renderRestaurants();
+                } catch (error) {
+                    const message = error?.error || error?.message || 'İşlem başarısız';
+                    Swal.fire('Hata', message, 'error');
+                }
             });
-            const result = await res.json();
-            Swal.fire('Bilgi', result.message, 'success');
-            renderRestaurants();
         });
-    });
+    } catch (error) {
+        const message = error?.error || error?.message || 'Restoran listesi yüklenemedi';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 const renderSettings = async () => {
-    const res = await fetch('/admin/settings');
-    const data = await res.json();
+    try {
+        const res = await fetch('/admin/settings');
+        const data = await parseJSONResponse(res);
     const settings = Object.fromEntries(data.settings.map(item => [item.key, item.value]));
     adminContent.innerHTML = `
         <h3>Genel Ayarlar</h3>
@@ -122,17 +155,26 @@ const renderSettings = async () => {
         </form>
     `;
 
-    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const payload = Object.fromEntries(new FormData(e.target));
-        const res = await fetch('/admin/settings', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = Object.fromEntries(new FormData(e.target));
+            try {
+                const res = await fetch('/admin/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await parseJSONResponse(res);
+                Swal.fire('Bilgi', result.message, 'success');
+            } catch (error) {
+                const message = error?.error || error?.message || 'Ayarlar kaydedilemedi';
+                Swal.fire('Hata', message, 'error');
+            }
         });
-        const result = await res.json();
-        Swal.fire('Bilgi', result.message, 'success');
-    });
+    } catch (error) {
+        const message = error?.error || error?.message || 'Ayarlar yüklenemedi';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 adminLinks.forEach(link => {

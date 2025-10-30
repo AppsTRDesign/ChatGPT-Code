@@ -12,10 +12,21 @@ const t = (key) => {
     return translations[key] || key;
 };
 
+const parseJSONSafe = async (response) => {
+    const text = await response.text();
+    if (!text) return {};
+    try {
+        return JSON.parse(text);
+    } catch (error) {
+        console.error('JSON parse error', error, text);
+        throw { error: 'Sunucudan beklenmeyen cevap alındı' };
+    }
+};
+
 const loadTranslations = async (lang) => {
     const res = await fetch(`/public/lang/${lang}.json`);
     if (res.ok) {
-        window.translations = await res.json();
+        window.translations = await parseJSONSafe(res);
         currentLang = lang;
     }
 };
@@ -40,14 +51,15 @@ const renderCart = () => {
 };
 
 const fetchMenu = async () => {
-    const res = await fetch(`/api/menu?slug=${slug}`, {
-        headers: { 'X-API-KEY': menuApp?.dataset.apiKey || '' }
-    });
-    if (!res.ok) {
-        Swal.fire('Hata', 'Menü yüklenemedi', 'error');
-        return;
-    }
-    const data = await res.json();
+    try {
+        const res = await fetch(`/api/menu?slug=${slug}`, {
+            headers: { 'X-API-KEY': menuApp?.dataset.apiKey || '' }
+        });
+        if (!res.ok) {
+            Swal.fire('Hata', 'Menü yüklenemedi', 'error');
+            return;
+        }
+        const data = await parseJSONSafe(res);
     document.getElementById('restaurantName').textContent = data.restaurant.name;
     document.getElementById('restaurantDescription').textContent = data.restaurant.description || '';
     const menuCategories = document.getElementById('menuCategories');
@@ -101,6 +113,10 @@ const fetchMenu = async () => {
             renderCart();
         }
     });
+    } catch (error) {
+        const message = typeof error === 'object' && error.error ? error.error : 'Menü yüklenemedi';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 const submitOrder = async () => {
@@ -121,22 +137,27 @@ const submitOrder = async () => {
         total_amount: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
         locale: currentLang
     };
-    const res = await fetch('/api/menu/order', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-API-KEY': menuApp?.dataset.apiKey || ''
-        },
-        body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) {
-        Swal.fire('Hata', data.error || 'Sipariş gönderilemedi', 'error');
-        return;
+    try {
+        const res = await fetch('/api/menu/order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-KEY': menuApp?.dataset.apiKey || ''
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await parseJSONSafe(res);
+        if (!res.ok) {
+            Swal.fire('Hata', data.error || 'Sipariş gönderilemedi', 'error');
+            return;
+        }
+        Swal.fire('Teşekkürler', data.message, 'success');
+        cart = [];
+        renderCart();
+    } catch (error) {
+        const message = typeof error === 'object' && error.error ? error.error : 'Sipariş gönderilemedi';
+        Swal.fire('Hata', message, 'error');
     }
-    Swal.fire('Teşekkürler', data.message, 'success');
-    cart = [];
-    renderCart();
 };
 
 menuApp && loadTranslations('tr').then(() => fetchMenu());

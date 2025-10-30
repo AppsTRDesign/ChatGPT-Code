@@ -28,8 +28,17 @@ let currentPage = 'orders';
 
 const fetchJSON = async (url, options = {}) => {
     const res = await fetch(url, options);
-    const data = await res.json();
-    if (!res.ok) throw data;
+    const text = await res.text();
+    let data = {};
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            console.error('JSON parse error', error, text);
+            throw { error: 'Sunucudan beklenmeyen cevap alındı' };
+        }
+    }
+    if (!res.ok) throw (data && typeof data === 'object') ? data : { error: 'İşlem başarısız' };
     return data;
 };
 
@@ -40,7 +49,16 @@ const uploadProductImage = async (file) => {
         method: 'POST',
         body: formData
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data = {};
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            console.error('JSON parse error', error, text);
+            throw new Error('Sunucudan beklenmeyen cevap alındı');
+        }
+    }
     if (!res.ok) {
         throw new Error(data.error || 'Yükleme başarısız');
     }
@@ -48,8 +66,9 @@ const uploadProductImage = async (file) => {
 };
 
 const loadOrders = async () => {
-    const { orders } = await fetchJSON('/dashboard/orders');
-    dashboardContent.innerHTML = `
+    try {
+        const { orders } = await fetchJSON('/dashboard/orders');
+        dashboardContent.innerHTML = `
         <h3>Gelen Siparişler</h3>
         <div class="list-group">
             ${orders.map(order => `
@@ -73,25 +92,30 @@ const loadOrders = async () => {
         </div>
     `;
 
-    dashboardContent.querySelectorAll('button[data-action]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const payload = { order_id: btn.dataset.id, status: btn.dataset.action };
-            await fetchJSON('/dashboard/orders', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+        dashboardContent.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const payload = { order_id: btn.dataset.id, status: btn.dataset.action };
+                await fetchJSON('/dashboard/orders', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                loadOrders();
             });
-            loadOrders();
         });
-    });
+    } catch (error) {
+        const message = error?.error || error?.message || 'Siparişler alınamadı';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 const loadMenu = async () => {
-    const [categoriesRes, productsRes] = await Promise.all([
-        fetchJSON('/dashboard/categories'),
-        fetchJSON('/dashboard/products')
-    ]);
-    dashboardContent.innerHTML = `
+    try {
+        const [categoriesRes, productsRes] = await Promise.all([
+            fetchJSON('/dashboard/categories'),
+            fetchJSON('/dashboard/products')
+        ]);
+        dashboardContent.innerHTML = `
         <div class="row g-3">
             <div class="col-md-6">
                 <div class="card">
@@ -141,30 +165,34 @@ const loadMenu = async () => {
         </div>
     `;
 
-    document.getElementById('addCategory').addEventListener('click', () => openCategoryModal());
-    document.getElementById('addProduct').addEventListener('click', () => openProductModal(categoriesRes.categories));
+        document.getElementById('addCategory').addEventListener('click', () => openCategoryModal());
+        document.getElementById('addProduct').addEventListener('click', () => openProductModal(categoriesRes.categories));
 
-    dashboardContent.querySelectorAll('button[data-type="category"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const category = categoriesRes.categories.find(c => c.id == btn.dataset.id);
-            if (btn.dataset.action === 'edit') {
-                openCategoryModal(category);
-            } else {
-                confirmDelete('/dashboard/categories', { id: category.id });
-            }
+        dashboardContent.querySelectorAll('button[data-type="category"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const category = categoriesRes.categories.find(c => c.id == btn.dataset.id);
+                if (btn.dataset.action === 'edit') {
+                    openCategoryModal(category);
+                } else {
+                    confirmDelete('/dashboard/categories', { id: category.id });
+                }
+            });
         });
-    });
 
-    dashboardContent.querySelectorAll('button[data-type="product"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const product = productsRes.products.find(p => p.id == btn.dataset.id);
-            if (btn.dataset.action === 'edit') {
-                openProductModal(categoriesRes.categories, product);
-            } else {
-                confirmDelete('/dashboard/products', { id: product.id });
-            }
+        dashboardContent.querySelectorAll('button[data-type="product"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const product = productsRes.products.find(p => p.id == btn.dataset.id);
+                if (btn.dataset.action === 'edit') {
+                    openProductModal(categoriesRes.categories, product);
+                } else {
+                    confirmDelete('/dashboard/products', { id: product.id });
+                }
+            });
         });
-    });
+    } catch (error) {
+        const message = error?.error || error?.message || 'Menü yüklenemedi';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 const openCategoryModal = (category = {}) => {
@@ -180,11 +208,17 @@ const openCategoryModal = (category = {}) => {
                 description: document.getElementById('catDescription').value,
             };
             if (category.id) payload.id = category.id;
-            await fetchJSON('/dashboard/categories', {
-                method: category.id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            try {
+                await fetchJSON('/dashboard/categories', {
+                    method: category.id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (error) {
+                const message = error?.error || error?.message || 'İşlem başarısız';
+                Swal.showValidationMessage(message);
+                return false;
+            }
         }
     }).then(result => {
         if (result.isConfirmed) loadMenu();
@@ -336,47 +370,58 @@ const confirmDelete = async (url, payload) => {
         confirmButtonText: 'Evet'
     });
     if (result.isConfirmed) {
-        await fetchJSON(url, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        loadMenu();
+        try {
+            await fetchJSON(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            loadMenu();
+        } catch (error) {
+            const message = error?.error || error?.message || 'İşlem başarısız';
+            Swal.fire('Hata', message, 'error');
+        }
     }
 };
 
 const loadReport = async () => {
-    const { report } = await fetchJSON('/dashboard/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-    });
+    try {
+        const { report } = await fetchJSON('/dashboard/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
     dashboardContent.innerHTML = `
         <h3>Satış Raporu</h3>
         <canvas id="reportChart"></canvas>
     `;
     const ctx = document.getElementById('reportChart');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: report.map(r => r.date),
-            datasets: [{
-                label: 'Sipariş',
-                data: report.map(r => r.order_count),
-                borderColor: '#1d4ed8',
-                backgroundColor: 'rgba(29,78,216,0.3)'
-            }, {
-                label: 'Gelir',
-                data: report.map(r => r.total),
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16,185,129,0.3)'
-            }]
-        }
-    });
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: report.map(r => r.date),
+                datasets: [{
+                    label: 'Sipariş',
+                    data: report.map(r => r.order_count),
+                    borderColor: '#1d4ed8',
+                    backgroundColor: 'rgba(29,78,216,0.3)'
+                }, {
+                    label: 'Gelir',
+                    data: report.map(r => r.total),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16,185,129,0.3)'
+                }]
+            }
+        });
+    } catch (error) {
+        const message = error?.error || error?.message || 'Rapor yüklenemedi';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 const loadTheme = async () => {
-    const { theme } = await fetchJSON('/dashboard/theme');
+    try {
+        const { theme } = await fetchJSON('/dashboard/theme');
     dashboardContent.innerHTML = `
         <h3>Tema Ayarları</h3>
         <form id="themeForm" class="row g-3">
@@ -396,32 +441,46 @@ const loadTheme = async () => {
             </div>
         </form>
     `;
-    document.getElementById('themeForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const payload = Object.fromEntries(new FormData(e.target));
-        await fetchJSON('/dashboard/theme', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        document.getElementById('themeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = Object.fromEntries(new FormData(e.target));
+            try {
+                await fetchJSON('/dashboard/theme', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                Swal.fire('Başarılı', 'Tema güncellendi', 'success');
+            } catch (error) {
+                const message = error?.error || error?.message || 'Tema güncellenemedi';
+                Swal.fire('Hata', message, 'error');
+            }
         });
-        Swal.fire('Başarılı', 'Tema güncellendi', 'success');
-    });
+    } catch (error) {
+        const message = error?.error || error?.message || 'Tema bilgisi alınamadı';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 const loadQR = async () => {
-    const { theme } = await fetchJSON('/dashboard/theme');
-    const restaurantSlug = theme.slug;
-    const qrUrl = `https://qrcode.noasoft.org/api/v1/qr?token=ff47a9fc9403a50f45662cbef42cb6ca864b8237ff1838f176124ba1201631bf&type=url&url=${window.location.origin}/menu/${restaurantSlug}`;
-    dashboardContent.innerHTML = `
-        <h3>QR Kodunuz</h3>
-        <div class="text-center">
-            <img src="${qrUrl}" alt="QR Kod" class="img-fluid" style="max-width: 320px;" />
-            <div class="mt-3">
-                <a href="${qrUrl}" download="qr-menu.png" class="btn btn-primary">İndir</a>
-                <button class="btn btn-outline-secondary" onclick="window.print()">Yazdır</button>
+    try {
+        const { theme } = await fetchJSON('/dashboard/theme');
+        const restaurantSlug = theme.slug;
+        const qrUrl = `https://qrcode.noasoft.org/api/v1/qr?token=ff47a9fc9403a50f45662cbef42cb6ca864b8237ff1838f176124ba1201631bf&type=url&url=${window.location.origin}/menu/${restaurantSlug}`;
+        dashboardContent.innerHTML = `
+            <h3>QR Kodunuz</h3>
+            <div class="text-center">
+                <img src="${qrUrl}" alt="QR Kod" class="img-fluid" style="max-width: 320px;" />
+                <div class="mt-3">
+                    <a href="${qrUrl}" download="qr-menu.png" class="btn btn-primary">İndir</a>
+                    <button class="btn btn-outline-secondary" onclick="window.print()">Yazdır</button>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    } catch (error) {
+        const message = error?.error || error?.message || 'QR kod oluşturulamadı';
+        Swal.fire('Hata', message, 'error');
+    }
 };
 
 dashboardLinks.forEach(link => {

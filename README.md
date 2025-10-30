@@ -40,6 +40,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
    npm install
    npm run start
    ```
+   Sunucu Let's Encrypt sertifikaları Plesk dizininde tutulduğu için gerekli sertifika dosyaları varsayılan olarak `/usr/local/psa/var/certificates/scfgYrZUm` yolundan okunur. Farklı sertifika kullanıyorsanız `SSL_KEY_PATH`, `SSL_CERT_PATH`, `SSL_CA_PATH` ve isteğe bağlı `CORS_ORIGIN` ortam değişkenleriyle güncelleyin.
 7. Apache üzerinde `mod_rewrite` aktif olmalı ve `.htaccess` dosyası kullanılmalıdır.
 8. Admin kullanıcısı oluşturmak için veritabanına manuel kayıt ekleyin:
    ```sql
@@ -51,7 +52,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 
 ### Çalıştırma
 - Ana uygulama PHP-FPM/Apache üzerinden hizmet verir; giriş sayfası `/`, admin paneli `/admin`, restoran paneli `/dashboard`, müşteri menüsü `/menu/{restoran-slug}` adreslerindedir.
-- Socket.io sunucusu sipariş bildirimleri için `http://127.0.0.1:4000` adresini kullanır.
+- Socket.io sunucusu sipariş bildirimleri için `https://qrmenu.noasoft.org:4000` adresini kullanır ve istemci tarafında `<script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>` etiketiyle bağlanır.
 
 ### Güvenlik
 - Tüm girişler `Security::sanitize` ile temizlenir ve veritabanı işlemlerinde prepared statement kullanılır.
