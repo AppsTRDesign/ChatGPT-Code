@@ -5,6 +5,8 @@ const clockEl = document.getElementById('dashboardClock');
 const context = window.dashboardContext || {};
 const socket = context.socketUrl ? io(context.socketUrl, { auth: { restaurantId: String(context.restaurantId || '') } }) : null;
 
+let ordersHistoryTable = null;
+
 const state = {
     currentPage: 'overview',
     orders: [],
@@ -16,6 +18,8 @@ const state = {
     report: [],
     settings: null,
     api: null,
+    orderRange: 'month',
+    orderFilter: { from: '', to: '' },
 };
 
 const playTone = (frequency = 880, duration = 0.3) => {
@@ -66,8 +70,18 @@ const toast = (title, icon = 'info') => {
     });
 };
 
-const formatCurrency = (amount = 0) => {
-    return `${Number(amount || 0).toFixed(2)} ${(context.currency || 'TRY')}`;
+const formatCurrency = (amount = 0, currency = context.currency || 'TRY') => {
+    return `${Number(amount || 0).toFixed(2)} ${currency}`;
+};
+
+const formatDateTime = (value) => {
+    if (!value) return '';
+    const normalized = typeof value === 'string' ? value.replace(' ', 'T') : value;
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+    return date.toLocaleString('tr-TR');
 };
 
 const downloadBase64 = (base64, filename, mime = 'application/octet-stream') => {
@@ -136,16 +150,43 @@ const renderOrders = () => {
         status,
         orders: state.orders.filter((order) => order.status === status),
     }));
+    const statusColors = {
+        pending: 'bg-warning text-dark',
+        preparing: 'bg-info text-dark',
+        ready: 'bg-primary',
+        completed: 'bg-success',
+        cancelled: 'bg-danger',
+    };
+    const historyRows = state.orders.map((order) => {
+        const paymentStatus = order.payment_status === 'paid' ? 'Ödendi' : 'Beklemede';
+        const paymentBadge = order.payment_status === 'paid' ? 'bg-success' : 'bg-warning text-dark';
+        return `
+            <tr>
+                <td>#${order.order_number}</td>
+                <td>${order.table_number || '-'}</td>
+                <td><span class="badge ${statusColors[order.status] || 'bg-secondary'}">${statusLabels[order.status] || order.status}</span></td>
+                <td><span class="badge ${paymentBadge}">${paymentStatus}</span></td>
+                <td>${formatCurrency(order.total_amount, order.currency || context.currency || 'TRY')}</td>
+                <td>${formatDateTime(order.created_at)}</td>
+                <td class="text-nowrap">
+                    <button class="btn btn-sm btn-outline-primary me-1" data-history-detail="${order.id}"><i class="bi bi-eye"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary me-1" data-history-receipt="${order.order_number}"><i class="bi bi-printer"></i></button>
+                    ${order.payment_status === 'unpaid' ? `<button class="btn btn-sm btn-outline-success" data-history-payment="${order.id}" data-order-number="${order.order_number}"><i class="bi bi-cash"></i></button>` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
 
     dashboardContent.innerHTML = `
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h2 class="h5 mb-0">Gelen Siparişler</h2>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap align-items-center">
                 <select class="form-select form-select-sm" id="orderRange" style="width: 150px;">
-                    <option value="day">Günlük</option>
-                    <option value="week">Haftalık</option>
-                    <option value="month" selected>Aylık</option>
-                    <option value="year">Yıllık</option>
+                    <option value="day" ${state.orderRange === 'day' ? 'selected' : ''}>Günlük</option>
+                    <option value="week" ${state.orderRange === 'week' ? 'selected' : ''}>Haftalık</option>
+                    <option value="month" ${state.orderRange === 'month' ? 'selected' : ''}>Aylık</option>
+                    <option value="year" ${state.orderRange === 'year' ? 'selected' : ''}>Yıllık</option>
+                    <option value="custom" ${state.orderRange === 'custom' ? 'selected' : ''}>Özel</option>
                 </select>
                 <div class="btn-group" role="group">
                     <button class="btn btn-sm btn-outline-success" id="exportOrdersExcel" type="button"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel</button>
@@ -166,15 +207,137 @@ const renderOrders = () => {
                 </div>
             `).join('')}
         </div>
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h3 class="h6 mb-0">Sipariş Geçmişi</h3>
+                    <small class="text-muted">Arama, filtreleme ve dışa aktarma için tabloyu kullanın.</small>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <input type="date" class="form-control form-control-sm" id="orderFrom" value="${state.orderFilter.from || ''}">
+                    <input type="date" class="form-control form-control-sm" id="orderTo" value="${state.orderFilter.to || ''}">
+                    <button class="btn btn-sm btn-outline-primary" id="orderFilterBtn"><i class="bi bi-funnel"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary" id="orderResetBtn"><i class="bi bi-arrow-counterclockwise"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle" id="ordersHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>Sipariş</th>
+                                <th>Masa</th>
+                                <th>Durum</th>
+                                <th>Ödeme</th>
+                                <th>Toplam</th>
+                                <th>Tarih</th>
+                                <th>İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${historyRows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     `;
 
-    document.getElementById('orderRange').addEventListener('change', (e) => loadOrders(e.target.value));
+    const rangeSelect = document.getElementById('orderRange');
+    if (rangeSelect) {
+        rangeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                toast('Özel tarih aralığı için tarih alanlarını kullanın', 'info');
+                return;
+            }
+            loadOrders({ range: e.target.value });
+        });
+    }
+
+    const filterBtn = document.getElementById('orderFilterBtn');
+    const resetBtn = document.getElementById('orderResetBtn');
+    const fromInput = document.getElementById('orderFrom');
+    const toInput = document.getElementById('orderTo');
+    if (filterBtn && fromInput && toInput) {
+        filterBtn.addEventListener('click', () => {
+            const from = fromInput.value;
+            const to = toInput.value;
+            if (!from || !to) {
+                Swal.fire('Uyarı', 'Başlangıç ve bitiş tarihini seçiniz', 'warning');
+                return;
+            }
+            loadOrders({ from, to });
+        });
+    }
+    if (resetBtn && fromInput && toInput) {
+        resetBtn.addEventListener('click', () => {
+            fromInput.value = '';
+            toInput.value = '';
+            loadOrders({ range: 'month' });
+        });
+    }
+
     document.getElementById('exportOrdersExcel').addEventListener('click', () => exportOrders('excel'));
     document.getElementById('exportOrdersPdf').addEventListener('click', () => exportOrders('pdf'));
 
     dashboardContent.querySelectorAll('[data-action]').forEach((button) => {
         button.addEventListener('click', handleOrderAction);
     });
+
+    const historyTableEl = document.getElementById('ordersHistoryTable');
+    if (historyTableEl) {
+        if (window.simpleDatatables) {
+            if (ordersHistoryTable) {
+                ordersHistoryTable.destroy();
+            }
+            ordersHistoryTable = new simpleDatatables.DataTable(historyTableEl, {
+                perPage: 10,
+                labels: {
+                    placeholder: 'Ara...',
+                    perPage: '{select} kayıt',
+                    noRows: 'Kayıt bulunamadı',
+                    info: 'Gösterilen: {start}-{end} / {rows}',
+                },
+            });
+        }
+        historyTableEl.addEventListener('click', async (event) => {
+            const detailBtn = event.target.closest('[data-history-detail]');
+            if (detailBtn) {
+                const order = state.orders.find((o) => String(o.id) === String(detailBtn.dataset.historyDetail));
+                if (order) openOrderDetail(order);
+                return;
+            }
+            const receiptBtn = event.target.closest('[data-history-receipt]');
+            if (receiptBtn) {
+                try {
+                    const payload = await fetchJSON('/dashboard/orders/receipt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_number: receiptBtn.dataset.historyReceipt }),
+                    });
+                    downloadBase64(payload.content, payload.filename, payload.mime);
+                } catch (error) {
+                    Swal.fire('Hata', error.error || 'Adisyon oluşturulamadı', 'error');
+                }
+                return;
+            }
+            const paymentBtn = event.target.closest('[data-history-payment]');
+            if (paymentBtn) {
+                try {
+                    await fetchJSON('/dashboard/orders', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'payment', order_id: Number(paymentBtn.dataset.historyPayment), order_number: paymentBtn.dataset.orderNumber }),
+                    });
+                    toast('Ödeme alındı', 'success');
+                    await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
+                    await loadTables();
+                } catch (error) {
+                    Swal.fire('Hata', error.error || 'Ödeme tamamlanamadı', 'error');
+                }
+            }
+        });
+    }
 };
 
 const renderOrderCard = (order) => {
@@ -197,7 +360,7 @@ const renderOrderCard = (order) => {
                 ${items.map((item) => `<li class="d-flex justify-content-between"><span>${item.quantity || 1} x ${item.name}</span><strong>${Number(item.price || 0).toFixed(2)}</strong></li>`).join('')}
             </ul>
             <div class="d-flex justify-content-between align-items-center mt-3">
-                <span class="fw-semibold">${formatCurrency(order.total_amount)}</span>
+                <span class="fw-semibold">${formatCurrency(order.total_amount, order.currency || context.currency || 'TRY')}</span>
                 <div class="btn-group">
                     <button class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${order.id}"><i class="bi bi-eye"></i></button>
                     ${nextStatus ? `<button class="btn btn-sm btn-success" data-action="status" data-status="${nextStatus}" data-id="${order.id}" data-table-id="${order.table_id || ''}" data-table-token="${order.table_token || ''}">${statusLabels[nextStatus]}</button>` : ''}
@@ -233,7 +396,8 @@ const handleOrderAction = async (event) => {
             });
             toast('Sipariş güncellendi', 'success');
             playTone(status === 'cancelled' ? 420 : 900);
-            await loadOrders();
+            await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
+            await loadTables();
         } catch (error) {
             Swal.fire('Hata', error.error || 'Durum güncellenemedi', 'error');
         }
@@ -241,13 +405,15 @@ const handleOrderAction = async (event) => {
     }
     if (button.dataset.action === 'payment') {
         try {
+            const order = state.orders.find((o) => String(o.id) === String(orderId));
             await fetchJSON('/dashboard/orders', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'payment', order_id: orderId }),
+                body: JSON.stringify({ action: 'payment', order_id: orderId, order_number: order?.order_number }),
             });
             toast('Ödeme alındı', 'success');
-            await loadOrders();
+            await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
+            await loadTables();
         } catch (error) {
             Swal.fire('Hata', error.error || 'İşlem tamamlanamadı', 'error');
         }
@@ -261,7 +427,7 @@ const openOrderDetail = (order) => {
             <div class="text-start">
                 <p class="mb-1"><strong>Masa:</strong> ${order.table_number}</p>
                 <p class="mb-1"><strong>Durum:</strong> ${statusLabels[order.status]}</p>
-                <p class="mb-3"><strong>Toplam:</strong> ${formatCurrency(order.total_amount)}</p>
+                <p class="mb-3"><strong>Toplam:</strong> ${formatCurrency(order.total_amount, order.currency || context.currency || 'TRY')}</p>
                 <ul class="list-group small mb-3">
                     ${(order.items || []).map((item) => `<li class="list-group-item d-flex justify-content-between align-items-center">${item.quantity || 1} x ${item.name}<span>${Number(item.price || 0).toFixed(2)}</span></li>`).join('')}
                 </ul>
@@ -288,11 +454,17 @@ const openOrderDetail = (order) => {
 
 const exportOrders = async (format = 'excel') => {
     try {
-        const range = document.getElementById('orderRange').value;
+        const payload = { format };
+        if (state.orderRange === 'custom' && state.orderFilter.from && state.orderFilter.to) {
+            payload.from = state.orderFilter.from;
+            payload.to = state.orderFilter.to;
+        } else {
+            payload.range = state.orderRange || 'month';
+        }
         const response = await fetchJSON('/dashboard/orders/export', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ range, format }),
+            body: JSON.stringify(payload),
         });
 
         if (format === 'excel') {
@@ -313,11 +485,24 @@ const exportOrders = async (format = 'excel') => {
     }
 };
 
-const loadOrders = async (range = 'month') => {
+const loadOrders = async ({ range, from, to } = {}) => {
     try {
         const params = new URLSearchParams();
-        params.set('range', range);
-        const { orders, metrics, tables } = await fetchJSON(`/dashboard/orders?${params.toString()}`);
+        const allowedRanges = ['day', 'week', 'month', 'year'];
+        if (from && to) {
+            params.set('from', from);
+            params.set('to', to);
+            state.orderFilter = { from, to };
+            state.orderRange = 'custom';
+        } else {
+            const requestedRange = range || state.orderRange || 'month';
+            const effectiveRange = allowedRanges.includes(requestedRange) ? requestedRange : 'month';
+            params.set('range', effectiveRange);
+            state.orderRange = effectiveRange;
+            state.orderFilter = { from: '', to: '' };
+        }
+        const query = params.toString();
+        const { orders, metrics, tables } = await fetchJSON(`/dashboard/orders${query ? `?${query}` : ''}`);
         state.orders = orders;
         state.metrics = metrics;
         state.tables = tables;
@@ -357,18 +542,30 @@ const renderTables = () => {
 const renderTableCard = (table) => {
     const tableUrl = `${context.baseUrl}/menu/${context.restaurantSlug}/table/${table.slug}?token=${table.qr_token}`;
     const qrUrl = `${context.qrApi}?token=ff47a9fc9403a50f45662cbef42cb6ca864b8237ff1838f176124ba1201631bf&type=url&url=${encodeURIComponent(tableUrl)}`;
+    const openOrder = table.open_order || null;
     return `
         <div class="table-card">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h3 class="h6 mb-0">${table.name}</h3>
                 <span class="badge ${table.status === 'occupied' ? 'bg-danger' : 'bg-success'}">${table.status === 'occupied' ? 'Dolu' : 'Boş'}</span>
             </div>
-            <p class="text-muted small mb-3">${tableUrl}</p>
+            <p class="text-muted small mb-2">${tableUrl}</p>
             <div class="qr-frame mb-3">
                 <img src="${qrUrl}" alt="QR" class="img-fluid">
             </div>
-            <div class="d-flex gap-2">
+            ${openOrder ? `
+                <div class="table-order-summary">
+                    <div class="d-flex justify-content-between">
+                        <span>#${openOrder.order_number}</span>
+                        <strong>${formatCurrency(openOrder.total_amount, openOrder.currency || context.currency || 'TRY')}</strong>
+                    </div>
+                    <small class="text-muted">Durum: ${statusLabels[openOrder.status] || openOrder.status}</small>
+                </div>
+            ` : '<p class="text-muted small mb-3">Aktif sipariş bulunmuyor</p>'}
+            <div class="d-flex gap-2 flex-wrap">
                 <button class="btn btn-outline-primary btn-sm flex-grow-1" data-table-action="status" data-id="${table.id}" data-status="${table.status === 'occupied' ? 'vacant' : 'occupied'}">${table.status === 'occupied' ? 'Boş Olarak İşaretle' : 'Dolu Olarak İşaretle'}</button>
+                ${openOrder ? `<button class="btn btn-outline-success btn-sm" data-table-action="order" data-id="${table.id}" data-order-id="${openOrder.id}" data-order-number="${openOrder.order_number}"><i class="bi bi-eye"></i></button>` : ''}
+                ${openOrder ? `<button class="btn btn-outline-warning btn-sm" data-table-action="settle" data-id="${table.id}" data-order-id="${openOrder.id}" data-order-number="${openOrder.order_number}"><i class="bi bi-cash-stack"></i></button>` : ''}
                 <button class="btn btn-outline-secondary btn-sm" data-table-action="edit" data-id="${table.id}"><i class="bi bi-pencil"></i></button>
                 <button class="btn btn-outline-danger btn-sm" data-table-action="delete" data-id="${table.id}"><i class="bi bi-trash"></i></button>
             </div>
@@ -421,7 +618,7 @@ const openTableModal = (table = null) => {
 };
 
 const handleTableAction = async (event) => {
-    const { tableAction: action, id, status } = event.currentTarget.dataset;
+    const { tableAction: action, id, status, orderId, orderNumber } = event.currentTarget.dataset;
     const table = state.tables.find((t) => String(t.id) === String(id));
     if (action === 'edit') {
         openTableModal(table);
@@ -450,6 +647,27 @@ const handleTableAction = async (event) => {
         });
         return;
     }
+    if (action === 'order' && table?.open_order) {
+        openOrderDetail(table.open_order);
+        return;
+    }
+    if (action === 'settle' && orderId) {
+        try {
+            await fetchJSON('/dashboard/tables', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'settle', id, order_id: Number(orderId), order_number: orderNumber, method: 'cash' }),
+            });
+            toast('Masa hesabı kapatıldı', 'success');
+            await loadTables();
+            if (state.currentPage === 'orders') {
+                await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
+            }
+        } catch (error) {
+            Swal.fire('Hata', error.error || 'Hesap kapatılamadı', 'error');
+        }
+        return;
+    }
     if (action === 'status') {
         try {
             await fetchJSON('/dashboard/tables', {
@@ -459,6 +677,9 @@ const handleTableAction = async (event) => {
             });
             toast('Masa durumu güncellendi', 'success');
             await loadTables();
+            if (state.currentPage === 'orders') {
+                await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
+            }
         } catch (error) {
             Swal.fire('Hata', error.error || 'Durum değiştirilemedi', 'error');
         }
@@ -492,7 +713,7 @@ const renderMenuManager = () => {
                         ${state.categories.map((category) => `
                             <div class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="fw-semibold">${category.name}</div>
+                                    <div class="fw-semibold">${category.icon_class ? `<i class="${category.icon_class} me-2"></i>` : ''}${category.name}</div>
                                     <small class="text-muted">${category.description || ''}</small>
                                 </div>
                                 <div class="btn-group">
@@ -554,6 +775,7 @@ const renderProductRow = (product) => {
 
 const openCategoryModal = (category = null) => {
     let imageUrl = category?.image_url || '';
+    let iconClass = category?.icon_class || '';
     Swal.fire({
         title: category ? 'Kategori Düzenle' : 'Yeni Kategori',
         html: `
@@ -562,6 +784,15 @@ const openCategoryModal = (category = null) => {
                 <input type="text" id="categoryName" class="form-control" value="${category?.name || ''}">
                 <label class="form-label mt-2">Açıklama</label>
                 <textarea id="categoryDescription" class="form-control" rows="2">${category?.description || ''}</textarea>
+                <label class="form-label mt-2">İkon</label>
+                <input type="text" id="categoryIcon" class="form-control" value="${iconClass}" placeholder="Örn: bi bi-cup-hot" list="iconSuggestions">
+                <datalist id="iconSuggestions">
+                    <option value="bi bi-cup-hot"></option>
+                    <option value="bi bi-egg-fried"></option>
+                    <option value="bi bi-basket"></option>
+                    <option value="bi bi-ice-cream"></option>
+                    <option value="bi bi-cup-straw"></option>
+                </datalist>
                 <div class="upload-dropzone mt-3" id="categoryDropzone">
                     <i class="bi bi-cloud-arrow-up"></i>
                     <p class="mb-1">Resim sürükleyin veya tıklayın</p>
@@ -593,6 +824,7 @@ const openCategoryModal = (category = null) => {
         preConfirm: () => ({
             name: document.getElementById('categoryName').value,
             description: document.getElementById('categoryDescription').value,
+            icon_class: document.getElementById('categoryIcon').value,
             image_url: imageUrl,
         }),
     }).then(async (result) => {
@@ -1200,12 +1432,13 @@ dashboardLinks.forEach((link) => {
         link.classList.add('active');
         const page = link.dataset.page;
         state.currentPage = page;
+        document.querySelector('.dashboard-layout')?.classList.remove('sidebar-open');
         switch (page) {
             case 'overview':
                 renderOverview();
                 break;
             case 'orders':
-                await loadOrders();
+                await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
                 break;
             case 'tables':
                 await loadTables();
@@ -1234,17 +1467,19 @@ const initSocket = () => {
         playTone(980, 0.4);
         toast(`Masa ${payload.table_number} yeni sipariş verdi`, 'info');
         if (state.currentPage === 'orders' || state.currentPage === 'overview') {
-            await loadOrders();
-            renderOverview();
+            await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
         }
+        await loadTables();
+        renderOverview();
     });
     socket.on('order:status', async (payload) => {
         playTone(payload.status === 'ready' ? 1200 : 760);
         toast(`Sipariş #${payload.order_id} ${statusLabels[payload.status]}`, 'success');
         if (state.currentPage === 'orders' || state.currentPage === 'overview') {
-            await loadOrders();
-            renderOverview();
+            await loadOrders({ range: state.orderRange, from: state.orderFilter.from, to: state.orderFilter.to });
         }
+        await loadTables();
+        renderOverview();
     });
     socket.on('waiter:call', async (payload) => {
         playTone(600, 0.5);
@@ -1256,13 +1491,47 @@ const initSocket = () => {
         await loadCalls(state.currentPage === 'calls');
         if (state.currentPage === 'overview') renderOverview();
     });
+    socket.on('table:status', async () => {
+        await loadTables();
+        if (state.currentPage === 'overview') {
+            renderOverview();
+        }
+    });
+};
+
+const initSidebarToggle = () => {
+    const layout = document.querySelector('.dashboard-layout');
+    const sidebar = document.querySelector('.dashboard-sidebar');
+    const toggleBtn = document.getElementById('dashboardSidebarToggle');
+    if (!layout || !sidebar || !toggleBtn) return;
+    toggleBtn.addEventListener('click', () => {
+        layout.classList.toggle('sidebar-open');
+    });
+    document.addEventListener('click', (event) => {
+        if (!layout.classList.contains('sidebar-open')) return;
+        if (sidebar.contains(event.target) || toggleBtn.contains(event.target)) return;
+        layout.classList.remove('sidebar-open');
+    });
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 992) {
+            layout.classList.remove('sidebar-open');
+        }
+    });
 };
 
 const bootstrapDashboard = async () => {
     renderOverview();
-    await Promise.all([loadOrders(), loadTables(), loadCalls(), loadMenuManager(), loadSettings(), loadReports()]);
+    await Promise.all([
+        loadOrders({ range: 'month' }),
+        loadTables(),
+        loadCalls(),
+        loadMenuManager(),
+        loadSettings(),
+        loadReports(),
+    ]);
     renderOverview();
 };
 
 initSocket();
+initSidebarToggle();
 bootstrapDashboard();

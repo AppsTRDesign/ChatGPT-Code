@@ -14,6 +14,10 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - Restoran bazlı API anahtarı yönetimi ve masa linkleri için hazır entegrasyon dokümantasyonu
 - API anahtarı ile korunan REST servisleri, XSS/SQL Injection önlemleri
 - Müşteri tarafında anlık döviz kuru desteği ve çoklu para birimi görüntüleme
+- Kategori ve menü başlıkları için Bootstrap Icons tabanlı ikon desteği, görsel dropzone alanları
+- Masa kartlarında aktif sipariş tutarı, ödeme/hesap kapatma ve detay butonlarıyla canlı masa yönetimi
+- Simple-DataTables destekli sipariş geçmişi: arama, sayfalama, tarih filtresi, PDF / CSV dışa aktarma
+- Mobilde açılıp kapanabilir admin/restoran yan menüleri ve geliştirilmiş responsive tasarım
 - MVC dosya yapısı (controllers, models, routes, middlewares, utils, views, public)
 - .htaccess ile sef link yapısı ve `https://qrmenu.noasoft.org` kök dizinine kurulum
 
@@ -89,6 +93,13 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
     -d '{"order_number":"123-240101-AB12CD","table_token":"<masa-token>"}' \
     https://qrmenu.noasoft.org/api/menu/receipt?slug=williams-cafe
   ```
+
+## Socket.io Olayları
+- `order:new` → Restoran paneli yeni siparişi bildirir, ilgili masa da sesli uyarı alır.
+- `order:status` → Sipariş durum değişikliğini masa ve restoran tarafına iletir.
+- `table:status` → Masa doluluk değişikliklerini (sipariş, ödeme, manuel işaretleme) yayar.
+- `waiter:call` → Masadan gelen garson çağrısını restoran paneline iletir.
+- `waiter:update` → Garson çağrı güncellemelerini (tamamlandı vb.) senkronize eder.
 
 ## Para Birimi Yönetimi
 - Admin panelindeki **Genel Ayarlar** ekranından (`/admin > Ayarlar`) `Desteklenen Para Birimleri` alanına virgülle ayrılmış şekilde

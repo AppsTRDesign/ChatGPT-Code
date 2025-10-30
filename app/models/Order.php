@@ -115,4 +115,15 @@ class Order extends BaseModel
         }
         return $result;
     }
+
+    public function openByTable(int $restaurantId): array
+    {
+        $stmt = $this->db->prepare('SELECT o.*, t.name AS table_name, t.qr_token AS table_token, t.id AS table_id FROM orders o INNER JOIN restaurant_tables t ON t.id = o.table_id WHERE o.restaurant_id = :restaurant_id AND o.payment_status = "unpaid" AND o.status IN ("pending","preparing","ready","completed") ORDER BY o.created_at DESC');
+        $stmt->execute(['restaurant_id' => $restaurantId]);
+        $orders = $stmt->fetchAll();
+        foreach ($orders as &$order) {
+            $order['items'] = json_decode($order['items'], true) ?: [];
+        }
+        return $orders;
+    }
 }

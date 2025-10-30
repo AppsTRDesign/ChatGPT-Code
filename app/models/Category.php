@@ -29,11 +29,12 @@ class Category extends BaseModel
 
     public function create(array $data)
     {
-        $stmt = $this->db->prepare('INSERT INTO categories (restaurant_id, name, description, image_url, sort_order) VALUES (:restaurant_id, :name, :description, :image_url, :sort_order)');
+        $stmt = $this->db->prepare('INSERT INTO categories (restaurant_id, name, description, icon_class, image_url, sort_order) VALUES (:restaurant_id, :name, :description, :icon_class, :image_url, :sort_order)');
         $stmt->execute([
             'restaurant_id' => $data['restaurant_id'],
             'name' => $data['name'],
             'description' => $data['description'] ?? '',
+            'icon_class' => $data['icon_class'] ?? null,
             'image_url' => $data['image_url'] ?? null,
             'sort_order' => $data['sort_order'] ?? 0,
         ]);
@@ -42,11 +43,12 @@ class Category extends BaseModel
 
     public function update(int $id, array $data)
     {
-        $stmt = $this->db->prepare('UPDATE categories SET name = :name, description = :description, image_url = :image_url, sort_order = :sort_order WHERE id = :id');
+        $stmt = $this->db->prepare('UPDATE categories SET name = :name, description = :description, icon_class = :icon_class, image_url = :image_url, sort_order = :sort_order WHERE id = :id');
         return $stmt->execute([
             'id' => $id,
             'name' => $data['name'],
             'description' => $data['description'] ?? '',
+            'icon_class' => $data['icon_class'] ?? null,
             'image_url' => $data['image_url'] ?? null,
             'sort_order' => $data['sort_order'] ?? 0,
         ]);

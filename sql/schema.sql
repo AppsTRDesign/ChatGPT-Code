@@ -65,6 +65,7 @@ CREATE TABLE categories (
     restaurant_id INT NOT NULL,
     name VARCHAR(150) NOT NULL,
     description TEXT,
+    icon_class VARCHAR(120),
     image_url VARCHAR(255),
     sort_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -15,6 +15,20 @@ class RestaurantTable extends BaseModel
         return $stmt->fetch();
     }
 
+    public function slugExists(int $restaurantId, string $slug, ?int $exceptId = null): bool
+    {
+        $query = 'SELECT id FROM restaurant_tables WHERE restaurant_id = :restaurant_id AND slug = :slug';
+        $params = ['restaurant_id' => $restaurantId, 'slug' => $slug];
+        if ($exceptId) {
+            $query .= ' AND id != :id';
+            $params['id'] = $exceptId;
+        }
+        $query .= ' LIMIT 1';
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        return (bool)$stmt->fetch();
+    }
+
     public function create(array $data)
     {
         $stmt = $this->db->prepare('INSERT INTO restaurant_tables (restaurant_id, name, slug, qr_token, seats, status) VALUES (:restaurant_id, :name, :slug, :qr_token, :seats, :status)');
@@ -57,6 +71,13 @@ class RestaurantTable extends BaseModel
     {
         $stmt = $this->db->prepare('SELECT * FROM restaurant_tables WHERE qr_token = :token LIMIT 1');
         $stmt->execute(['token' => $token]);
+        return $stmt->fetch();
+    }
+
+    public function find(int $id)
+    {
+        $stmt = $this->db->prepare('SELECT * FROM restaurant_tables WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $id]);
         return $stmt->fetch();
     }
 }

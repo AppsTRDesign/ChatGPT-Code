@@ -308,9 +308,16 @@ class InvoiceGenerator
                 'margin_right' => $marginRight,
                 'margin_top' => $marginTop,
                 'margin_bottom' => $marginBottom,
+                'default_font' => 'dejavusans',
             ];
+            if (function_exists('mb_internal_encoding')) {
+                mb_internal_encoding('UTF-8');
+            }
             $mpdf = new Mpdf\Mpdf($config);
-            $mpdf->WriteHTML($html);
+            $mpdf->autoScriptToLang = true;
+            $mpdf->autoLangToFont = true;
+            $mpdf->SetDefaultFont('dejavusans');
+            $mpdf->WriteHTML(mb_convert_encoding($html, 'UTF-8', 'UTF-8'));
             $pdf = $mpdf->Output('', 'S');
             return [
                 'filename' => $filename,

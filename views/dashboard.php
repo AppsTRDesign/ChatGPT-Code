@@ -15,6 +15,7 @@ if ($restaurantId) {
     <title>Restoran Paneli - NoaSoft QR Menü</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2/dist/style.css" rel="stylesheet">
     <link href="/public/css/styles.css" rel="stylesheet">
 </head>
 <body class="dashboard-body">
@@ -37,9 +38,12 @@ if ($restaurantId) {
     </nav>
     <main class="dashboard-main">
         <header class="dashboard-topbar">
-            <div>
-                <h1 class="h4 mb-1">Merhaba, <?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></h1>
-                <p class="text-muted mb-0">Masalarınızı, siparişlerinizi ve menünüzü tek panelden yönetin.</p>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-outline-light d-lg-none" id="dashboardSidebarToggle" type="button"><i class="bi bi-list"></i></button>
+                <div>
+                    <h1 class="h4 mb-1">Merhaba, <?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></h1>
+                    <p class="text-muted mb-0">Masalarınızı, siparişlerinizi ve menünüzü tek panelden yönetin.</p>
+                </div>
             </div>
             <div class="topbar-badges">
                 <span class="badge rounded-pill bg-light text-dark"><i class="bi bi-clock-history me-1"></i><span id="dashboardClock"></span></span>
@@ -55,6 +59,7 @@ if ($restaurantId) {
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2" ></script>
 <script>
     window.dashboardContext = {
         restaurantId: <?= json_encode($restaurantId) ?>,

@@ -95,6 +95,13 @@ class ApiController extends BaseController
         ]);
 
         (new RestaurantTable())->updateStatus((int)$restaurant['table_id'], 'occupied');
+        SocketNotifier::notify([
+            'event' => 'table:status',
+            'restaurant_id' => $restaurant['id'],
+            'table_id' => (int)$restaurant['table_id'],
+            'status' => 'occupied',
+            'table_token' => $restaurant['qr_token'] ?? null,
+        ]);
 
         SocketNotifier::notify([
             'event' => 'order:new',
@@ -125,6 +132,14 @@ class ApiController extends BaseController
             'restaurant_id' => $restaurant['id'],
             'table_id' => $restaurant['table_id'],
             'table_number' => $restaurant['table_name'],
+        ]);
+        (new RestaurantTable())->updateStatus((int)$restaurant['table_id'], 'occupied');
+        SocketNotifier::notify([
+            'event' => 'table:status',
+            'restaurant_id' => $restaurant['id'],
+            'table_id' => (int)$restaurant['table_id'],
+            'status' => 'occupied',
+            'table_token' => $restaurant['qr_token'] ?? null,
         ]);
         SocketNotifier::notify([
             'event' => 'waiter:call',

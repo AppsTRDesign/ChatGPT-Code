@@ -56,6 +56,7 @@ class RestaurantController extends BaseController
                 'restaurant_id' => $restaurantId,
                 'name' => $payload['name'],
                 'description' => $payload['description'] ?? '',
+                'icon_class' => $payload['icon_class'] ?? null,
                 'image_url' => $imageUrl,
                 'sort_order' => $payload['sort_order'] ?? 0,
             ]);
@@ -67,6 +68,7 @@ class RestaurantController extends BaseController
             $categoryModel->update((int)$data['id'], [
                 'name' => $data['name'],
                 'description' => $data['description'] ?? '',
+                'icon_class' => $data['icon_class'] ?? null,
                 'image_url' => $data['image_url'] ?? null,
                 'sort_order' => $data['sort_order'] ?? 0,
             ]);
@@ -150,37 +152,129 @@ class RestaurantController extends BaseController
         $this->ensureRestaurant();
         $restaurantId = $this->restaurantId();
         $tableModel = new RestaurantTable();
+        $orderModel = new Order();
 
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-            return Response::json(['tables' => $tableModel->allByRestaurant($restaurantId)]);
+            $tables = $tableModel->allByRestaurant($restaurantId);
+            $openOrders = $orderModel->openByTable($restaurantId);
+            $indexed = [];
+            foreach ($openOrders as $order) {
+                $tableId = (int)($order['table_id'] ?? 0);
+                if ($tableId && !isset($indexed[$tableId])) {
+                    $indexed[$tableId] = $order;
+                }
+            }
+            $tables = array_map(function ($table) use ($indexed) {
+                $table['open_order'] = $indexed[(int)$table['id']] ?? null;
+                if ($table['open_order']) {
+                    $table['open_order_total'] = (float)($table['open_order']['total_amount'] ?? 0);
+                }
+                return $table;
+            }, $tables);
+            return Response::json(['tables' => $tables]);
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = Security::sanitize($this->inputJson());
-            $slug = $this->slugify($data['slug'] ?? $data['name']);
+            $errors = Validator::required($data, ['name']);
+            if ($errors) {
+                return Response::json(['error' => 'Zorunlu alanlar eksik', 'errors' => $errors], 422);
+            }
+            $name = trim((string)$data['name']);
+            $slug = $this->slugify($data['slug'] ?? $name);
+            if ($tableModel->slugExists($restaurantId, $slug)) {
+                return Response::json(['error' => 'Bu kısa ad başka bir masa tarafından kullanılıyor'], 409);
+            }
             $token = bin2hex(random_bytes(16));
-            $tableModel->create([
-                'restaurant_id' => $restaurantId,
-                'name' => $data['name'],
-                'slug' => $slug,
-                'qr_token' => $token,
-                'seats' => $data['seats'] ?? 4,
-            ]);
-            return Response::json(['message' => 'Masa oluşturuldu']);
+            $seats = isset($data['seats']) ? max(1, (int)$data['seats']) : 4;
+            $status = $data['status'] === 'occupied' ? 'occupied' : 'vacant';
+            try {
+                $tableId = $tableModel->create([
+                    'restaurant_id' => $restaurantId,
+                    'name' => $name,
+                    'slug' => $slug,
+                    'qr_token' => $token,
+                    'seats' => $seats,
+                    'status' => $status,
+                ]);
+            } catch (Throwable $exception) {
+                return Response::json(['error' => 'Masa oluşturulamadı'], 500);
+            }
+            return Response::json(['message' => 'Masa oluşturuldu', 'id' => $tableId]);
         }
 
         $data = $this->inputJson();
         if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             if (!empty($data['action']) && $data['action'] === 'status') {
-                $tableModel->updateStatus((int)$data['id'], $data['status']);
+                $table = $tableModel->find((int)$data['id']);
+                if (!$table || (int)$table['restaurant_id'] !== $restaurantId) {
+                    return Response::json(['error' => 'Masa bulunamadı'], 404);
+                }
+                $status = $data['status'] === 'occupied' ? 'occupied' : 'vacant';
+                $tableModel->updateStatus((int)$data['id'], $status);
+                SocketNotifier::notify([
+                    'event' => 'table:status',
+                    'restaurant_id' => $restaurantId,
+                    'table_id' => (int)$data['id'],
+                    'status' => $status,
+                    'table_token' => $table['qr_token'] ?? null,
+                ]);
                 return Response::json(['message' => 'Masa durumu güncellendi']);
             }
-            $tableModel->update((int)$data['id'], [
-                'name' => $data['name'],
-                'slug' => $this->slugify($data['slug'] ?? $data['name']),
-                'seats' => $data['seats'] ?? 4,
-                'status' => $data['status'] ?? 'vacant',
-            ]);
+            if (!empty($data['action']) && $data['action'] === 'settle') {
+                $orderId = (int)($data['order_id'] ?? 0);
+                if (!$orderId) {
+                    return Response::json(['error' => 'Sipariş bulunamadı'], 422);
+                }
+                $order = $orderModel->findByNumber($restaurantId, $data['order_number'] ?? '');
+                if (!$order || (int)$order['id'] !== $orderId) {
+                    return Response::json(['error' => 'Sipariş bulunamadı'], 404);
+                }
+                $orderModel->markPaid($orderId, $data['method'] ?? 'cash');
+                if ($order['status'] !== 'completed') {
+                    $orderModel->updateStatus($orderId, 'completed', 'Masa panelinden kapatıldı');
+                }
+                if (!empty($order['table_id'])) {
+                    $tableModel->updateStatus((int)$order['table_id'], 'vacant');
+                }
+                SocketNotifier::notify([
+                    'event' => 'order:status',
+                    'restaurant_id' => $restaurantId,
+                    'order_id' => $orderId,
+                    'status' => 'completed',
+                    'table_token' => $order['qr_token'] ?? null,
+                ]);
+                if (!empty($order['table_id'])) {
+                    SocketNotifier::notify([
+                        'event' => 'table:status',
+                        'restaurant_id' => $restaurantId,
+                        'table_id' => (int)$order['table_id'],
+                        'status' => 'vacant',
+                        'table_token' => $order['qr_token'] ?? null,
+                    ]);
+                }
+                return Response::json(['message' => 'Masa hesabı kapatıldı']);
+            }
+            $name = trim((string)($data['name'] ?? ''));
+            if ($name === '') {
+                return Response::json(['error' => 'Masa adı boş olamaz'], 422);
+            }
+            $slug = $this->slugify($data['slug'] ?? $name);
+            if ($tableModel->slugExists($restaurantId, $slug, (int)$data['id'])) {
+                return Response::json(['error' => 'Bu kısa ad başka bir masa tarafından kullanılıyor'], 409);
+            }
+            $seats = isset($data['seats']) ? max(1, (int)$data['seats']) : 4;
+            $status = $data['status'] === 'occupied' ? 'occupied' : 'vacant';
+            try {
+                $tableModel->update((int)$data['id'], [
+                    'name' => $name,
+                    'slug' => $slug,
+                    'seats' => $seats,
+                    'status' => $status,
+                ]);
+            } catch (Throwable $exception) {
+                return Response::json(['error' => 'Masa güncellenemedi'], 500);
+            }
             return Response::json(['message' => 'Masa güncellendi']);
         }
 
@@ -202,11 +296,18 @@ class RestaurantController extends BaseController
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $status = $_GET['status'] ?? null;
             $range = $_GET['range'] ?? null;
-            [$from, $to] = $this->rangeToDates($range);
+            $from = $_GET['from'] ?? null;
+            $to = $_GET['to'] ?? null;
+            if ($from && $to) {
+                $fromDate = $from;
+                $toDate = $to;
+            } else {
+                [$fromDate, $toDate] = $this->rangeToDates($range);
+            }
             $orders = $orderModel->allByRestaurant($restaurantId, [
                 'status' => $status,
-                'from' => $from,
-                'to' => $to,
+                'from' => $fromDate,
+                'to' => $toDate,
             ]);
             $metrics = $orderModel->aggregateByStatus($restaurantId);
             $tables = $tableModel->allByRestaurant($restaurantId);
@@ -222,10 +323,22 @@ class RestaurantController extends BaseController
             if (($data['action'] ?? '') === 'status') {
                 $orderModel->updateStatus((int)$data['order_id'], $data['status'], $data['note'] ?? null);
                 if (!empty($data['table_id'])) {
-                    if (in_array($data['status'], ['completed', 'cancelled'], true)) {
+                    if ($data['status'] === 'cancelled') {
                         $tableModel->updateStatus((int)$data['table_id'], 'vacant');
-                    } elseif ($data['status'] === 'pending' || $data['status'] === 'preparing') {
+                        SocketNotifier::notify([
+                            'event' => 'table:status',
+                            'restaurant_id' => $restaurantId,
+                            'table_id' => (int)$data['table_id'],
+                            'status' => 'vacant',
+                        ]);
+                    } elseif (in_array($data['status'], ['pending', 'preparing', 'ready', 'completed'], true)) {
                         $tableModel->updateStatus((int)$data['table_id'], 'occupied');
+                        SocketNotifier::notify([
+                            'event' => 'table:status',
+                            'restaurant_id' => $restaurantId,
+                            'table_id' => (int)$data['table_id'],
+                            'status' => 'occupied',
+                        ]);
                     }
                 }
                 $payload = [
@@ -240,7 +353,30 @@ class RestaurantController extends BaseController
             }
 
             if (($data['action'] ?? '') === 'payment') {
+                $order = $orderModel->findByNumber($restaurantId, $data['order_number'] ?? '');
+                if (!$order || (int)$order['id'] !== (int)$data['order_id']) {
+                    return Response::json(['error' => 'Sipariş bulunamadı'], 404);
+                }
                 $orderModel->markPaid((int)$data['order_id'], $data['method'] ?? 'cash');
+                if (!empty($order['table_id'])) {
+                    $tableModel->updateStatus((int)$order['table_id'], 'vacant');
+                }
+                SocketNotifier::notify([
+                    'event' => 'order:status',
+                    'restaurant_id' => $restaurantId,
+                    'order_id' => (int)$order['id'],
+                    'status' => $order['status'] ?? 'completed',
+                    'table_token' => $order['qr_token'] ?? null,
+                ]);
+                if (!empty($order['table_id'])) {
+                    SocketNotifier::notify([
+                        'event' => 'table:status',
+                        'restaurant_id' => $restaurantId,
+                        'table_id' => (int)$order['table_id'],
+                        'status' => 'vacant',
+                        'table_token' => $order['qr_token'] ?? null,
+                    ]);
+                }
                 return Response::json(['message' => 'Ödeme alındı']);
             }
         }
@@ -384,7 +520,12 @@ class RestaurantController extends BaseController
         $restaurantId = $this->restaurantId();
         $orderModel = new Order();
         $data = $this->inputJson();
-        [$from, $to] = $this->rangeToDates($data['range'] ?? 'month');
+        if (!empty($data['from']) && !empty($data['to'])) {
+            $from = $data['from'];
+            $to = $data['to'];
+        } else {
+            [$from, $to] = $this->rangeToDates($data['range'] ?? 'month');
+        }
         $orders = $orderModel->allByRestaurant($restaurantId, ['from' => $from, 'to' => $to]);
         $format = $data['format'] ?? 'pdf';
         $restaurant = (new Restaurant())->find($restaurantId);

@@ -194,12 +194,35 @@ const renderSettings = async () => {
     }
 };
 
+const initAdminSidebarToggle = () => {
+    const layout = document.getElementById('adminApp');
+    const sidebar = document.querySelector('.admin-sidebar');
+    const toggleBtn = document.getElementById('adminSidebarToggle');
+    if (!layout || !sidebar || !toggleBtn) return;
+    toggleBtn.addEventListener('click', () => {
+        layout.classList.toggle('sidebar-open');
+    });
+    document.addEventListener('click', (event) => {
+        if (!layout.classList.contains('sidebar-open')) return;
+        if (sidebar.contains(event.target) || toggleBtn.contains(event.target)) return;
+        layout.classList.remove('sidebar-open');
+    });
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 992) {
+            layout.classList.remove('sidebar-open');
+        }
+    });
+};
+
+initAdminSidebarToggle();
+
 adminLinks.forEach(link => {
     link.addEventListener('click', (e) => {
         e.preventDefault();
         adminLinks.forEach(l => l.classList.remove('active'));
         link.classList.add('active');
         const page = link.dataset.page;
+        document.getElementById('adminApp')?.classList.remove('sidebar-open');
         if (page === 'dashboard') renderDashboard();
         if (page === 'restaurants') renderRestaurants();
         if (page === 'settings') renderSettings();

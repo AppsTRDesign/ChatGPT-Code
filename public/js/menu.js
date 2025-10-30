@@ -24,6 +24,14 @@ const state = {
 
 const socket = tableToken ? io('https://qrmenu.noasoft.org:4000', { auth: { tableToken } }) : null;
 
+const withApiHeaders = (headers = {}) => {
+    const result = { ...headers };
+    if (apiKey) {
+        result['X-API-KEY'] = apiKey;
+    }
+    return result;
+};
+
 const playSound = (frequency = 880, duration = 0.4) => {
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -59,7 +67,7 @@ const fetchMenu = async () => {
     params.set('slug', slug);
     if (tableToken) params.set('token', tableToken);
     const response = await fetch(`/api/menu?${params.toString()}`, {
-        headers: { 'X-API-KEY': apiKey },
+        headers: withApiHeaders(),
     });
     const text = await response.text();
     const data = text ? JSON.parse(text) : {};
@@ -132,7 +140,7 @@ const changeCurrency = async (currency) => {
         params.set('slug', slug);
         params.set('to', code);
         const response = await fetch(`/api/menu/currency?${params.toString()}`, {
-            headers: { 'X-API-KEY': apiKey },
+            headers: withApiHeaders(),
         });
         const text = await response.text();
         const data = text ? JSON.parse(text) : {};
@@ -202,7 +210,7 @@ const renderCategories = () => {
         <div class="category-block">
             <div class="category-header">
                 <div>
-                    <h3 class="h5 mb-1">${category.name}</h3>
+                    <h3 class="h5 mb-1">${category.icon_class ? `<span class="category-icon"><i class="${category.icon_class}"></i></span>` : ''}${category.name}</h3>
                     <p class="text-muted small mb-0">${category.description || ''}</p>
                 </div>
                 ${category.image_url ? `<img src="${category.image_url}" alt="${category.name}">` : ''}
@@ -305,10 +313,7 @@ const submitOrder = async () => {
     try {
         const response = await fetch('/api/menu/order', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-KEY': apiKey,
-            },
+            headers: withApiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload),
         });
         const text = await response.text();
@@ -402,10 +407,7 @@ const callWaiter = async () => {
     try {
         const response = await fetch('/api/menu/waiter-call', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-KEY': apiKey,
-            },
+            headers: withApiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ slug, table_token: tableToken }),
         });
         const text = await response.text();
@@ -427,10 +429,7 @@ const downloadReceipt = async () => {
         params.set('slug', slug);
         const response = await fetch(`/api/menu/receipt?${params.toString()}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-KEY': apiKey,
-            },
+            headers: withApiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ order_number: state.orderNumber, table_token: tableToken }),
         });
         const text = await response.text();
