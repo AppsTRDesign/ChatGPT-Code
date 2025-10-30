@@ -1,5 +1,26 @@
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
+const appConfig = window.appConfig || {};
+
+const resolveUrl = (path = '') => {
+    if (!path) return appConfig.baseUrl || window.location.origin;
+    if (/^https?:/i.test(path)) {
+        return path;
+    }
+    const normalizedBase = (appConfig.baseUrl || window.location.origin || '').replace(/\/$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${normalizedBase}${normalizedPath}`;
+};
+
+const apiFetch = (path, options = {}) => {
+    const finalOptions = { ...options };
+    finalOptions.credentials = options.credentials || 'include';
+    finalOptions.headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(options.headers || {}),
+    };
+    return fetch(resolveUrl(path), finalOptions);
+};
 
 const handleResponse = async (response) => {
     const text = await response.text();
@@ -22,7 +43,7 @@ loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(loginForm));
     try {
-        const response = await fetch('/auth/login', {
+        const response = await apiFetch('/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -44,7 +65,7 @@ registerForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const payload = Object.fromEntries(new FormData(registerForm));
     try {
-        const response = await fetch('/auth/register', {
+        const response = await apiFetch('/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)

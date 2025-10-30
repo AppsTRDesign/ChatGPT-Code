@@ -3,6 +3,28 @@ const dashboardLinks = document.querySelectorAll('#dashboardApp .nav-link');
 const logoutBtn = document.getElementById('logoutBtn');
 const clockEl = document.getElementById('dashboardClock');
 const context = window.dashboardContext || {};
+const baseUrl = (context.baseUrl || window.appConfig?.baseUrl || window.location.origin || '').replace(/\/$/, '');
+const resolveUrl = (path = '') => {
+    if (!path) {
+        return baseUrl || window.location.origin;
+    }
+    if (/^https?:/i.test(path)) {
+        return path;
+    }
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${baseUrl}${normalizedPath}`;
+};
+
+const apiFetch = (path, options = {}) => {
+    const finalOptions = { ...options };
+    finalOptions.credentials = options.credentials || 'include';
+    finalOptions.headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(options.headers || {}),
+    };
+    return fetch(resolveUrl(path), finalOptions);
+};
+
 const socket = context.socketUrl ? io(context.socketUrl, { auth: { restaurantId: String(context.restaurantId || '') } }) : null;
 
 let ordersHistoryTable = null;
@@ -42,7 +64,7 @@ const playTone = (frequency = 880, duration = 0.3) => {
 };
 
 const fetchJSON = async (url, options = {}) => {
-    const response = await fetch(url, options);
+    const response = await apiFetch(url, options);
     const text = await response.text();
     let data = {};
     if (text) {

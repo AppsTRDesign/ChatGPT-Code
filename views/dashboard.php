@@ -61,6 +61,10 @@ if ($restaurantId) {
 <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/simple-datatables@7.1.2" ></script>
 <script>
+    window.appConfig = Object.assign({}, window.appConfig || {}, {
+        baseUrl: <?= json_encode(rtrim($config['base_url'] ?? '', '/')) ?>,
+        socketClient: <?= json_encode($config['api']['socket_client'] ?? '') ?>
+    });
     window.dashboardContext = {
         restaurantId: <?= json_encode($restaurantId) ?>,
         restaurantSlug: <?= json_encode($restaurant['slug'] ?? '') ?>,

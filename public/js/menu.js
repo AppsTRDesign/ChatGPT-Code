@@ -4,6 +4,30 @@ const apiKey = menuApp?.dataset.apiKey || '';
 const tableToken = menuApp?.dataset.tableToken || '';
 const tableName = menuApp?.dataset.tableName || '';
 
+const menuContext = window.menuContext || {};
+const menuBaseUrl = (menuContext.baseUrl || window.location.origin || '').replace(/\/$/, '');
+
+const resolveUrl = (path = '') => {
+    if (!path) {
+        return menuBaseUrl || window.location.origin;
+    }
+    if (/^https?:/i.test(path)) {
+        return path;
+    }
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${menuBaseUrl}${normalizedPath}`;
+};
+
+const apiFetch = (path, options = {}) => {
+    const finalOptions = { ...options };
+    finalOptions.credentials = options.credentials || 'include';
+    finalOptions.headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(options.headers || {}),
+    };
+    return fetch(resolveUrl(path), finalOptions);
+};
+
 const state = {
     restaurant: {},
     categories: [],
@@ -22,7 +46,7 @@ const state = {
     },
 };
 
-const socket = tableToken ? io('https://qrmenu.noasoft.org:4000', { auth: { tableToken } }) : null;
+const socket = tableToken ? io(menuContext.socketClient || 'https://qrmenu.noasoft.org:4000', { auth: { tableToken } }) : null;
 
 const withApiHeaders = (headers = {}) => {
     const result = { ...headers };
@@ -66,7 +90,7 @@ const fetchMenu = async () => {
     const params = new URLSearchParams();
     params.set('slug', slug);
     if (tableToken) params.set('token', tableToken);
-    const response = await fetch(`/api/menu?${params.toString()}`, {
+    const response = await apiFetch(`/api/menu?${params.toString()}`, {
         headers: withApiHeaders(),
     });
     const text = await response.text();
@@ -92,7 +116,7 @@ const fetchMenu = async () => {
 const t = (key) => state.translations[key] || key;
 
 const loadTranslations = async (lang) => {
-    const response = await fetch(`/public/lang/${lang}.json`);
+    const response = await apiFetch(`/public/lang/${lang}.json`, { credentials: 'omit' });
     if (response.ok) {
         state.translations = await response.json();
         state.lang = lang;
@@ -139,7 +163,7 @@ const changeCurrency = async (currency) => {
         const params = new URLSearchParams();
         params.set('slug', slug);
         params.set('to', code);
-        const response = await fetch(`/api/menu/currency?${params.toString()}`, {
+        const response = await apiFetch(`/api/menu/currency?${params.toString()}`, {
             headers: withApiHeaders(),
         });
         const text = await response.text();
@@ -311,7 +335,7 @@ const submitOrder = async () => {
         locale: state.lang,
     };
     try {
-        const response = await fetch('/api/menu/order', {
+        const response = await apiFetch('/api/menu/order', {
             method: 'POST',
             headers: withApiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload),
@@ -405,7 +429,7 @@ const callWaiter = async () => {
         return;
     }
     try {
-        const response = await fetch('/api/menu/waiter-call', {
+        const response = await apiFetch('/api/menu/waiter-call', {
             method: 'POST',
             headers: withApiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ slug, table_token: tableToken }),
@@ -427,7 +451,7 @@ const downloadReceipt = async () => {
     try {
         const params = new URLSearchParams();
         params.set('slug', slug);
-        const response = await fetch(`/api/menu/receipt?${params.toString()}`, {
+        const response = await apiFetch(`/api/menu/receipt?${params.toString()}`, {
             method: 'POST',
             headers: withApiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ order_number: state.orderNumber, table_token: tableToken }),

@@ -1,5 +1,26 @@
 const adminContent = document.getElementById('adminContent');
 const adminLinks = document.querySelectorAll('#adminApp .nav-link');
+const adminConfig = window.appConfig || {};
+
+const resolveUrl = (path = '') => {
+    if (!path) return adminConfig.baseUrl || window.location.origin;
+    if (/^https?:/i.test(path)) {
+        return path;
+    }
+    const normalizedBase = (adminConfig.baseUrl || window.location.origin || '').replace(/\/$/, '');
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${normalizedBase}${normalizedPath}`;
+};
+
+const apiFetch = (path, options = {}) => {
+    const finalOptions = { ...options };
+    finalOptions.credentials = options.credentials || 'include';
+    finalOptions.headers = {
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(options.headers || {}),
+    };
+    return fetch(resolveUrl(path), finalOptions);
+};
 
 const parseJSONResponse = async (response) => {
     const text = await response.text();
@@ -20,7 +41,7 @@ const parseJSONResponse = async (response) => {
 
 const renderDashboard = async () => {
     try {
-        const res = await fetch('/admin/dashboard');
+        const res = await apiFetch('/admin/dashboard');
         if (!res.ok) return;
         const { stats } = await parseJSONResponse(res);
     adminContent.innerHTML = `
@@ -82,7 +103,7 @@ const renderDashboard = async () => {
 
 const renderRestaurants = async () => {
     try {
-        const res = await fetch('/admin/restaurants');
+        const res = await apiFetch('/admin/restaurants');
         const data = await parseJSONResponse(res);
     adminContent.innerHTML = `
         <h3>Restoranlar</h3>
@@ -118,7 +139,7 @@ const renderRestaurants = async () => {
                     } else {
                         url = '/admin/restaurants/delete';
                     }
-                    const res = await fetch(url, {
+                    const res = await apiFetch(url, {
                         method: action === 'delete' ? 'DELETE' : 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -140,7 +161,7 @@ const renderRestaurants = async () => {
 
 const renderSettings = async () => {
     try {
-        const res = await fetch('/admin/settings');
+        const res = await apiFetch('/admin/settings');
         const data = await parseJSONResponse(res);
     const settings = Object.fromEntries(data.settings.map(item => [item.key, item.value]));
     adminContent.innerHTML = `
@@ -176,7 +197,7 @@ const renderSettings = async () => {
                 payload.currencies = payload.currencies.split(',').map((item) => item.trim().toUpperCase()).filter(Boolean);
             }
             try {
-                const res = await fetch('/admin/settings', {
+                const res = await apiFetch('/admin/settings', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -230,7 +251,7 @@ adminLinks.forEach(link => {
 });
 
 document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-    await fetch('/auth/logout', { method: 'POST' });
+    await apiFetch('/auth/logout', { method: 'POST' });
     window.location.href = '/';
 });
 

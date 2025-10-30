@@ -1,3 +1,4 @@
+<?php $config = require __DIR__ . '/../app/config/config.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,6 +73,12 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    window.appConfig = Object.assign({}, window.appConfig || {}, {
+        baseUrl: <?= json_encode(rtrim($config['base_url'] ?? '', '/')) ?>,
+        socketClient: <?= json_encode($config['api']['socket_client'] ?? '') ?>
+    });
+</script>
 <script src="/public/js/app.js"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 <?php
+$config = require __DIR__ . '/../app/config/config.php';
 $slug = $slug ?? '';
 $tableToken = $token ?? ($table['qr_token'] ?? '');
 $tableName = $table['name'] ?? '';
@@ -59,6 +60,13 @@ $menuApiKey = $menuApiKey ?? '';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<script>
+    window.menuContext = Object.assign({}, window.menuContext || {}, {
+        baseUrl: <?= json_encode(rtrim($config['base_url'] ?? '', '/')) ?>,
+        socketClient: <?= json_encode($config['api']['socket_client'] ?? '') ?>,
+        qrApi: <?= json_encode($config['api']['qr_api'] ?? '') ?>
+    });
+</script>
 <script src="/public/js/menu.js"></script>
 <script src="/public/lang/tr.json" type="application/json" id="defaultLang"></script>
 </body>
