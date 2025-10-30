@@ -22,6 +22,7 @@ return [
     'api' => [
         'socket_server' => 'https://qrmenu.noasoft.org:4000/notify',
         'socket_client' => 'https://qrmenu.noasoft.org:4000',
-        'qr_api' => 'https://qrcode.noasoft.org/api/v1/qr'
+        'qr_api' => 'https://qrcode.noasoft.org/api/v1/qr',
+        'qr_default_token' => 'ff47a9fc9403a50f45662cbef42cb6ca864b8237ff1838f176124ba1201631bf'
     ]
 ];

@@ -1,9 +1,25 @@
 <?php
 class RestaurantController extends BaseController
 {
+    private ?array $restaurantCache = null;
+
     private function userId(): int
     {
         return (int)($_SESSION['user_id'] ?? 0);
+    }
+
+    private function currentRestaurant(): ?array
+    {
+        if ($this->restaurantCache !== null) {
+            return $this->restaurantCache;
+        }
+        $restaurantId = $this->restaurantId();
+        if (!$restaurantId) {
+            return null;
+        }
+        $restaurantModel = new Restaurant();
+        $this->restaurantCache = $restaurantModel->find($restaurantId);
+        return $this->restaurantCache;
     }
 
     private function restaurantId(): int
@@ -153,6 +169,10 @@ class RestaurantController extends BaseController
         $restaurantId = $this->restaurantId();
         $tableModel = new RestaurantTable();
         $orderModel = new Order();
+        $restaurant = $this->currentRestaurant();
+        if (!$restaurant) {
+            return Response::json(['error' => 'Restoran bilgisi bulunamadı'], 404);
+        }
 
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $tables = $tableModel->allByRestaurant($restaurantId);
@@ -171,7 +191,14 @@ class RestaurantController extends BaseController
                 }
                 return $table;
             }, $tables);
-            return Response::json(['tables' => $tables]);
+            $tables = array_map(function ($table) use ($restaurant) {
+                $table['qr'] = $this->buildTableQr($restaurant, $table);
+                return $table;
+            }, $tables);
+            return Response::json([
+                'tables' => $tables,
+                'qr_settings' => $this->buildQrDefaults($restaurant),
+            ]);
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -200,7 +227,11 @@ class RestaurantController extends BaseController
             } catch (Throwable $exception) {
                 return Response::json(['error' => 'Masa oluşturulamadı'], 500);
             }
-            return Response::json(['message' => 'Masa oluşturuldu', 'id' => $tableId]);
+            $table = $tableModel->find((int)$tableId);
+            if ($table) {
+                $table['qr'] = $this->buildTableQr($restaurant, $table);
+            }
+            return Response::json(['message' => 'Masa oluşturuldu', 'id' => $tableId, 'table' => $table]);
         }
 
         $data = $this->inputJson();
@@ -415,6 +446,7 @@ class RestaurantController extends BaseController
         if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $restaurant = $restaurantModel->find($restaurantId);
             $restaurant['available_currencies'] = $this->availableCurrencies($restaurant);
+            $restaurant['qr_settings'] = $this->buildQrDefaults($restaurant);
             return Response::json(['settings' => $restaurant]);
         }
 
@@ -428,12 +460,25 @@ class RestaurantController extends BaseController
                     return Response::json(['error' => 'Geçersiz para birimi seçimi'], 422);
                 }
             }
+            if (isset($data['qr_width'])) {
+                $data['qr_width'] = (int)$data['qr_width'];
+            }
+            if (isset($data['qr_height'])) {
+                $data['qr_height'] = (int)$data['qr_height'];
+            }
+            if (isset($data['qr_transparent'])) {
+                $data['qr_transparent'] = filter_var($data['qr_transparent'], FILTER_VALIDATE_BOOLEAN);
+            }
+            if (isset($data['supported_languages']) && is_array($data['supported_languages'])) {
+                $data['supported_languages'] = array_values(array_unique(array_filter($data['supported_languages'])));
+            }
             $restaurantModel->updateSettings($restaurantId, $data);
+            $this->restaurantCache = null;
             return Response::json(['message' => 'Ayarlar kaydedildi']);
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            if (!empty($_FILES['logo']) || !empty($_FILES['favicon'])) {
+            if (!empty($_FILES['logo']) || !empty($_FILES['favicon']) || !empty($_FILES['qr_logo'])) {
                 $branding = [];
                 if (!empty($_FILES['logo'])) {
                     $branding['logo_url'] = $this->handleUpload($_FILES['logo']);
@@ -441,7 +486,11 @@ class RestaurantController extends BaseController
                 if (!empty($_FILES['favicon'])) {
                     $branding['favicon_url'] = $this->handleUpload($_FILES['favicon']);
                 }
+                if (!empty($_FILES['qr_logo'])) {
+                    $branding['qr_logo_url'] = $this->handleUpload($_FILES['qr_logo']);
+                }
                 $restaurantModel->updateBranding($restaurantId, $branding);
+                $this->restaurantCache = null;
                 return Response::json(['message' => 'Marka görselleri güncellendi', 'branding' => $branding]);
             }
         }
@@ -571,9 +620,87 @@ class RestaurantController extends BaseController
         return $upload['url'];
     }
 
+    private function buildQrDefaults(array $restaurant): array
+    {
+        $config = require __DIR__ . '/../config/config.php';
+        $defaults = [
+            'token' => trim((string)($restaurant['qr_token'] ?? '')),
+            'color' => strtoupper((string)($restaurant['qr_color'] ?? '#000000')),
+            'background' => strtoupper((string)($restaurant['qr_background'] ?? '#FFFFFF')),
+            'width' => (int)($restaurant['qr_width'] ?? 420),
+            'height' => (int)($restaurant['qr_height'] ?? 420),
+            'transparent' => !empty($restaurant['qr_transparent']),
+            'format' => strtolower((string)($restaurant['qr_format'] ?? 'png')),
+            'logo_url' => $restaurant['qr_logo_url'] ?? ($restaurant['logo_url'] ?? null),
+        ];
+        if ($defaults['token'] === '' && !empty($config['api']['qr_default_token'])) {
+            $defaults['token'] = $config['api']['qr_default_token'];
+        }
+        if (!in_array($defaults['format'], ['png', 'svg', 'jpg'], true)) {
+            $defaults['format'] = 'png';
+        }
+        $defaults['width'] = max(120, min($defaults['width'], 1000));
+        $defaults['height'] = max(120, min($defaults['height'], 1000));
+        $defaults['color'] = $this->ensureColor($defaults['color'], '#000000');
+        $defaults['background'] = $this->ensureColor($defaults['background'], '#FFFFFF');
+        return $defaults;
+    }
+
+    private function ensureColor(string $value, string $fallback): string
+    {
+        if (!preg_match('/^#?[0-9A-F]{3,6}$/i', $value)) {
+            return strtoupper($fallback);
+        }
+        $value = strtoupper($value);
+        return $value[0] === '#' ? $value : '#' . $value;
+    }
+
+    private function buildTableQr(array $restaurant, array $table): array
+    {
+        $config = require __DIR__ . '/../config/config.php';
+        $defaults = $this->buildQrDefaults($restaurant);
+        $baseUrl = rtrim($config['base_url'], '/');
+        $qrApi = rtrim($config['api']['qr_api'], '/');
+        $menuUrl = $baseUrl . '/menu/' . $restaurant['slug'] . '/table/' . $table['slug'] . '?token=' . $table['qr_token'];
+        $query = [
+            'token' => $defaults['token'],
+            'type' => 'url',
+            'url' => $menuUrl,
+            'color' => ltrim($defaults['color'], '#'),
+            'background' => ltrim($defaults['background'], '#'),
+            'width' => $defaults['width'],
+            'height' => $defaults['height'],
+            'background_transparent' => $defaults['transparent'] ? 'true' : 'false',
+            'format' => $defaults['format'],
+        ];
+        if (!empty($defaults['logo_url'])) {
+            $query['logo_url'] = $defaults['logo_url'];
+        }
+        $qrImage = $qrApi . '/?';
+        $qrImage .= http_build_query($query);
+        return [
+            'url' => $menuUrl,
+            'image' => $qrImage,
+            'settings' => $defaults,
+        ];
+    }
+
     private function slugify(string $value): string
     {
-        $value = strtolower(trim($value));
+        $map = [
+            'ş' => 's', 'Ş' => 's',
+            'ı' => 'i', 'İ' => 'i',
+            'ç' => 'c', 'Ç' => 'c',
+            'ö' => 'o', 'Ö' => 'o',
+            'ü' => 'u', 'Ü' => 'u',
+            'ğ' => 'g', 'Ğ' => 'g',
+        ];
+        $value = strtr(trim($value), $map);
+        $transliterated = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if ($transliterated !== false) {
+            $value = $transliterated;
+        }
+        $value = strtolower($value);
         $value = preg_replace('/[^a-z0-9]+/i', '-', $value);
         return trim($value, '-') ?: uniqid('masa');
     }
@@ -609,14 +736,16 @@ class RestaurantController extends BaseController
         $slug = $restaurant['slug'] ?? '';
 
         $tableModel = new RestaurantTable();
-        $tables = array_map(function ($table) use ($baseUrl, $slug) {
+        $tables = array_map(function ($table) use ($restaurant) {
+            $qr = $this->buildTableQr($restaurant, $table);
             return [
                 'id' => (int)$table['id'],
                 'name' => $table['name'],
                 'slug' => $table['slug'],
                 'status' => $table['status'],
                 'token' => $table['qr_token'],
-                'url' => $baseUrl . '/menu/' . $slug . '/table/' . $table['slug'] . '?token=' . $table['qr_token'],
+                'url' => $qr['url'],
+                'qr_image' => $qr['image'],
             ];
         }, $tableModel->allByRestaurant($restaurantId));
 
@@ -667,6 +796,7 @@ class RestaurantController extends BaseController
             'endpoints' => $endpoints,
             'table_links' => $tables,
             'available_currencies' => $this->availableCurrencies($restaurant),
+            'qr_defaults' => $this->buildQrDefaults($restaurant),
         ];
     }
 }

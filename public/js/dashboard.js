@@ -145,6 +145,19 @@ const statusLabels = {
 
 const statusColumns = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
 
+const categoryIconLibrary = [
+    'bi bi-cup-hot',
+    'bi bi-egg-fried',
+    'bi bi-basket',
+    'bi bi-ice-cream',
+    'bi bi-cup-straw',
+    'bi bi-pizza',
+    'bi bi-sunrise',
+    'bi bi-bag-heart',
+    'bi bi-emoji-smile',
+    'bi bi-stars',
+];
+
 const renderOrders = () => {
     const grouped = statusColumns.map((status) => ({
         status,
@@ -514,9 +527,18 @@ const loadOrders = async ({ range, from, to } = {}) => {
 
 const loadTables = async () => {
     try {
-        const { tables } = await fetchJSON('/dashboard/tables');
+        const { tables, qr_settings: qrSettings } = await fetchJSON('/dashboard/tables');
         state.tables = tables;
+        if (qrSettings) {
+            state.settings = state.settings || {};
+            state.settings.qr_settings = qrSettings;
+            state.api = state.api || {};
+            state.api.qr_defaults = qrSettings;
+        }
         renderTables();
+        if (state.currentPage === 'settings') {
+            renderSettings();
+        }
     } catch (error) {
         Swal.fire('Hata', error.error || 'Masalar alınamadı', 'error');
     }
@@ -540,8 +562,11 @@ const renderTables = () => {
 };
 
 const renderTableCard = (table) => {
-    const tableUrl = `${context.baseUrl}/menu/${context.restaurantSlug}/table/${table.slug}?token=${table.qr_token}`;
-    const qrUrl = `${context.qrApi}?token=ff47a9fc9403a50f45662cbef42cb6ca864b8237ff1838f176124ba1201631bf&type=url&url=${encodeURIComponent(tableUrl)}`;
+    const qrData = table.qr || {
+        url: `${context.baseUrl}/menu/${context.restaurantSlug}/table/${table.slug}?token=${table.qr_token}`,
+        image: `${context.qrApi}?token=&type=url&url=${encodeURIComponent(`${context.baseUrl}/menu/${context.restaurantSlug}/table/${table.slug}?token=${table.qr_token}`)}`,
+        settings: state.settings?.qr_settings || {},
+    };
     const openOrder = table.open_order || null;
     return `
         <div class="table-card">
@@ -549,9 +574,9 @@ const renderTableCard = (table) => {
                 <h3 class="h6 mb-0">${table.name}</h3>
                 <span class="badge ${table.status === 'occupied' ? 'bg-danger' : 'bg-success'}">${table.status === 'occupied' ? 'Dolu' : 'Boş'}</span>
             </div>
-            <p class="text-muted small mb-2">${tableUrl}</p>
+            <p class="text-muted small mb-2">${qrData.url}</p>
             <div class="qr-frame mb-3">
-                <img src="${qrUrl}" alt="QR" class="img-fluid">
+                <img src="${qrData.image}" alt="QR" class="img-fluid">
             </div>
             ${openOrder ? `
                 <div class="table-order-summary">
@@ -776,6 +801,7 @@ const renderProductRow = (product) => {
 const openCategoryModal = (category = null) => {
     let imageUrl = category?.image_url || '';
     let iconClass = category?.icon_class || '';
+    const iconOptions = categoryIconLibrary.map((icon) => `<option value="${icon}"></option>`).join('');
     Swal.fire({
         title: category ? 'Kategori Düzenle' : 'Yeni Kategori',
         html: `
@@ -785,14 +811,11 @@ const openCategoryModal = (category = null) => {
                 <label class="form-label mt-2">Açıklama</label>
                 <textarea id="categoryDescription" class="form-control" rows="2">${category?.description || ''}</textarea>
                 <label class="form-label mt-2">İkon</label>
-                <input type="text" id="categoryIcon" class="form-control" value="${iconClass}" placeholder="Örn: bi bi-cup-hot" list="iconSuggestions">
-                <datalist id="iconSuggestions">
-                    <option value="bi bi-cup-hot"></option>
-                    <option value="bi bi-egg-fried"></option>
-                    <option value="bi bi-basket"></option>
-                    <option value="bi bi-ice-cream"></option>
-                    <option value="bi bi-cup-straw"></option>
-                </datalist>
+                <div class="input-group">
+                    <span class="input-group-text"><i id="categoryIconPreview" class="${iconClass || 'bi bi-tag'}"></i></span>
+                    <input type="text" id="categoryIcon" class="form-control" value="${iconClass}" placeholder="Örn: bi bi-cup-hot" list="iconSuggestions">
+                </div>
+                <datalist id="iconSuggestions">${iconOptions}</datalist>
                 <div class="upload-dropzone mt-3" id="categoryDropzone">
                     <i class="bi bi-cloud-arrow-up"></i>
                     <p class="mb-1">Resim sürükleyin veya tıklayın</p>
@@ -803,24 +826,36 @@ const openCategoryModal = (category = null) => {
         `,
         showCancelButton: true,
         confirmButtonText: category ? 'Güncelle' : 'Kaydet',
-        didOpen: () => initDropzone('categoryDropzone', 'categoryImage', async (file) => {
-            const formData = new FormData();
-            formData.append('image', file);
-            const upload = await fetchJSON('/dashboard/categories/upload', {
-                method: 'POST',
-                body: formData,
+        didOpen: () => {
+            initDropzone('categoryDropzone', 'categoryImage', async (file) => {
+                const formData = new FormData();
+                formData.append('image', file);
+                const upload = await fetchJSON('/dashboard/categories/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+                imageUrl = upload.url;
+                const preview = document.getElementById('categoryPreview');
+                if (preview) {
+                    preview.src = upload.url;
+                } else {
+                    const img = document.createElement('img');
+                    img.src = upload.url;
+                    img.className = 'img-fluid rounded mt-2';
+                    document.getElementById('categoryDropzone').appendChild(img);
+                }
             });
-            imageUrl = upload.url;
-            const preview = document.getElementById('categoryPreview');
-            if (preview) {
-                preview.src = upload.url;
-            } else {
-                const img = document.createElement('img');
-                img.src = upload.url;
-                img.className = 'img-fluid rounded mt-2';
-                document.getElementById('categoryDropzone').appendChild(img);
+            const input = document.getElementById('categoryIcon');
+            const previewIcon = document.getElementById('categoryIconPreview');
+            if (input && previewIcon) {
+                const updatePreview = () => {
+                    const value = input.value.trim();
+                    previewIcon.className = value ? value : 'bi bi-tag';
+                };
+                input.addEventListener('input', updatePreview);
+                updatePreview();
             }
-        }),
+        },
         preConfirm: () => ({
             name: document.getElementById('categoryName').value,
             description: document.getElementById('categoryDescription').value,
@@ -1073,6 +1108,10 @@ const renderSettings = () => {
     const settings = state.settings || {};
     const api = state.api || { key: '', base_url: context.baseUrl, socket_url: context.socketUrl, endpoints: [], table_links: [] };
     const availableCurrencies = settings.available_currencies || api.available_currencies || [context.currency || 'TRY'];
+    const qrSettings = settings.qr_settings || {};
+    const sampleTable = Array.isArray(state.tables) ? state.tables.find((table) => table?.qr?.image) : null;
+    const sampleQrImage = sampleTable?.qr?.image || '';
+    const sampleQrUrl = sampleTable?.qr?.url || '';
     dashboardContent.innerHTML = `
         <form id="settingsForm" class="row g-4">
             <div class="col-lg-8">
@@ -1131,6 +1170,48 @@ const renderSettings = () => {
                         </div>
                     </div>
                 </div>
+                <div class="category-block mt-4">
+                    <h3 class="h6 mb-3">QR Ayarları</h3>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">QR Token</label>
+                            <input type="text" class="form-control" name="qr_token" value="${qrSettings.token || ''}" placeholder="API tarafından verilen token">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Format</label>
+                            <select class="form-select" name="qr_format">
+                                ${['png','svg','jpg'].map((format) => `<option value="${format}" ${qrSettings.format === format ? 'selected' : ''}>${format.toUpperCase()}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Arka Plan Şeffaf</label>
+                            <div class="form-check form-switch mt-1">
+                                <input class="form-check-input" type="checkbox" name="qr_transparent" value="1" ${qrSettings.transparent ? 'checked' : ''}>
+                                <label class="form-check-label">Şeffaf arka plan</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Genişlik (px)</label>
+                            <input type="number" class="form-control" name="qr_width" min="120" max="1000" value="${qrSettings.width || 420}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Yükseklik (px)</label>
+                            <input type="number" class="form-control" name="qr_height" min="120" max="1000" value="${qrSettings.height || 420}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Ön Plan Rengi</label>
+                            <input type="color" class="form-control form-control-color" name="qr_color" value="${qrSettings.color || '#000000'}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Arka Plan Rengi</label>
+                            <input type="color" class="form-control form-control-color" name="qr_background" value="${qrSettings.background || '#FFFFFF'}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">QR Örneği</label>
+                            ${sampleQrImage ? `<div class="qr-preview"><img src="${sampleQrImage}" alt="QR" class="img-fluid rounded"><p class="small text-muted mt-2">${sampleQrUrl}</p></div>` : '<p class="text-muted small">Masalar oluşturulduğunda örnek QR burada görüntülenecektir.</p>'}
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="col-lg-4">
                 <div class="category-block">
@@ -1146,6 +1227,12 @@ const renderSettings = () => {
                         <p class="mb-1">Favicon yükleyin</p>
                         ${settings.favicon_url ? `<img src="${settings.favicon_url}" class="img-fluid rounded mt-2" id="faviconPreview">` : '<small class="text-muted">32x32 ikon</small>'}
                         <input type="file" id="faviconInput" class="d-none" accept="image/*">
+                    </div>
+                    <div class="upload-dropzone mt-3" id="qrLogoDropzone">
+                        <i class="bi bi-qr-code"></i>
+                        <p class="mb-1">QR Logo Yükleyin</p>
+                        ${(qrSettings.logo_url || settings.qr_logo_url) ? `<img src="${qrSettings.logo_url || settings.qr_logo_url}" class="img-fluid rounded mt-2" id="qrLogoPreview">` : '<small class="text-muted">Opsiyonel - QR merkezine logo ekler</small>'}
+                        <input type="file" id="qrLogoInput" class="d-none" accept="image/*">
                     </div>
                     <button class="btn btn-success w-100 mt-3" type="submit">Kaydet</button>
                 </div>
@@ -1179,6 +1266,16 @@ const renderSettings = () => {
                         <div class="d-flex flex-wrap gap-2">
                             ${availableCurrencies.map((code) => `<span class="badge bg-light text-dark border">${code}</span>`).join('')}
                         </div>
+                        ${api.qr_defaults ? `
+                            <p class="fw-semibold mt-3 mb-1">QR Varsayılanları</p>
+                            <div class="qr-defaults small text-muted">
+                                <div><strong>Token:</strong> ${api.qr_defaults.token || '-'}</div>
+                                <div><strong>Format:</strong> ${(api.qr_defaults.format || 'png').toUpperCase()}</div>
+                                <div><strong>Boyut:</strong> ${api.qr_defaults.width}x${api.qr_defaults.height}</div>
+                                <div><strong>Renk:</strong> ${api.qr_defaults.color}</div>
+                                <div><strong>Arka Plan:</strong> ${api.qr_defaults.transparent ? 'Şeffaf' : api.qr_defaults.background}</div>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
                 <div class="category-block mt-4">
@@ -1206,12 +1303,19 @@ const renderSettings = () => {
 
     initDropzone('logoDropzone', 'logoInput', (file) => uploadBrandAsset('logo', file));
     initDropzone('faviconDropzone', 'faviconInput', (file) => uploadBrandAsset('favicon', file));
+    initDropzone('qrLogoDropzone', 'qrLogoInput', (file) => uploadBrandAsset('qr_logo', file));
 
     document.getElementById('settingsForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);
-        const payload = Object.fromEntries(formData.entries());
-        payload.supported_languages = payload.supported_languages.split(',').map((lang) => lang.trim()).filter(Boolean);
+        const raw = Object.fromEntries(formData.entries());
+        raw.supported_languages = (raw.supported_languages || '').split(',').map((lang) => lang.trim()).filter(Boolean);
+        raw.qr_transparent = formData.get('qr_transparent') === '1' || formData.get('qr_transparent') === 'on' || formData.get('qr_transparent') === 'true';
+        raw.qr_width = Number(raw.qr_width || 420);
+        raw.qr_height = Number(raw.qr_height || 420);
+        raw.qr_color = raw.qr_color || '#000000';
+        raw.qr_background = raw.qr_background || '#FFFFFF';
+        const payload = raw;
         try {
             const result = await fetchJSON('/dashboard/settings', {
                 method: 'PUT',
@@ -1282,6 +1386,7 @@ const uploadBrandAsset = async (type, file) => {
     const formData = new FormData();
     if (type === 'logo') formData.append('logo', file);
     if (type === 'favicon') formData.append('favicon', file);
+    if (type === 'qr_logo') formData.append('qr_logo', file);
     try {
         const { branding } = await fetchJSON('/dashboard/settings', {
             method: 'POST',
@@ -1294,6 +1399,12 @@ const uploadBrandAsset = async (type, file) => {
         if (branding?.favicon_url) {
             const preview = document.getElementById('faviconPreview');
             if (preview) preview.src = branding.favicon_url;
+        }
+        if (branding?.qr_logo_url) {
+            const preview = document.getElementById('qrLogoPreview');
+            if (preview) {
+                preview.src = branding.qr_logo_url;
+            }
         }
         toast('Görseller güncellendi', 'success');
         await loadSettings();

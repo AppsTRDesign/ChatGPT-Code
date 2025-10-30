@@ -9,6 +9,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - Masa bazlı sipariş akışı, sepet yönetimi ve çok dillilik
 - Socket.io ile gerçek zamanlı sipariş, garson çağrısı ve durum bildirimleri (masa ve restoran bazlı)
 - Dropzone tarzı yerel dosya yükleme (kategori, ürün, logo, favicon)
+- Restoran ayarlarında NoaSoft QR API token, renk/boyut/format ve QR logo yönetimi; masalara otomatik parametreli QR linkleri
 - Chart.js ile gruplanmış yığılmış grafikler, MPDF + Anvilco HTML PDF Invoice Template ile kurumsal PDF çıktıları ve Excel (CSV) dışa aktarma
 - Garson çağrı yönetimi, masa doluluk takibi ve yazar kasa uyumlu adisyon şablonları
 - Restoran bazlı API anahtarı yönetimi ve masa linkleri için hazır entegrasyon dokümantasyonu
