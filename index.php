@@ -19,18 +19,19 @@ $webRoutes($router);
 $apiRoutes($router);
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$acceptsHtml = isset($_SERVER['HTTP_ACCEPT']) && stripos($_SERVER['HTTP_ACCEPT'], 'text/html') !== false;
 
 if ($path === '/' || $path === '/index.php') {
     include __DIR__ . '/views/app.php';
     exit;
 }
 
-if (str_starts_with($path, '/admin')) {
+if ($path === '/admin' || $path === '/admin/' || ($acceptsHtml && str_starts_with($path, '/admin'))) {
     include __DIR__ . '/views/admin.php';
     exit;
 }
 
-if (str_starts_with($path, '/dashboard')) {
+if ($path === '/dashboard' || $path === '/dashboard/' || ($acceptsHtml && str_starts_with($path, '/dashboard'))) {
     include __DIR__ . '/views/dashboard.php';
     exit;
 }
