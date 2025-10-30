@@ -20,7 +20,8 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - PHP 8+
 - MySQL 8+
 - Composer (opsiyonel)
-- Node.js 18+
+- Node.js 16.20.2
+- npm 8.19.4
 
 ### Adımlar
 1. Depoyu sunucunuzun `https://qrmenu.noasoft.org` kök dizinine klonlayın.
@@ -34,7 +35,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
    ```
 4. `app/config/config.php` dosyasındaki `jwt_secret` değerini güncelleyin ve `upload` bölümünde yerel klasör yolunu ihtiyaçlarınıza göre düzenleyin.
 5. `public/uploads` klasörünün yazılabilir olduğundan emin olun (varsayılan yapılandırma bu dizini kullanır).
-6. Socket sunucusunu ayağa kaldırmak için:
+6. Socket sunucusunu (Node.js 16.20.2 / npm 8.19.4) ayağa kaldırmak için:
    ```bash
    npm install
    npm run start
