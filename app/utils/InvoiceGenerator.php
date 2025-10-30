@@ -1,5 +1,9 @@
 <?php
 
+use Dompdf\Dompdf;
+use Dompdf\Options;
+use Mpdf\Mpdf;
+
 class InvoiceGenerator
 {
     public static function customerReceipt(array $restaurant, array $order): array
@@ -299,37 +303,74 @@ class InvoiceGenerator
         $marginRight = $options['margin_right'] ?? 10;
         $marginTop = $options['margin_top'] ?? 16;
         $marginBottom = $options['margin_bottom'] ?? 16;
-        if (class_exists('Mpdf\\Mpdf')) {
-            $config = [
-                'mode' => 'utf-8',
-                'format' => $format,
-                'tempDir' => sys_get_temp_dir(),
-                'margin_left' => $marginLeft,
-                'margin_right' => $marginRight,
-                'margin_top' => $marginTop,
-                'margin_bottom' => $marginBottom,
-                'default_font' => 'dejavusans',
-            ];
-            if (function_exists('mb_internal_encoding')) {
-                mb_internal_encoding('UTF-8');
+        if (class_exists(Mpdf::class)) {
+            try {
+                $config = [
+                    'mode' => 'utf-8',
+                    'format' => $format,
+                    'tempDir' => sys_get_temp_dir(),
+                    'margin_left' => $marginLeft,
+                    'margin_right' => $marginRight,
+                    'margin_top' => $marginTop,
+                    'margin_bottom' => $marginBottom,
+                    'default_font' => 'dejavusans',
+                ];
+                if (function_exists('mb_internal_encoding')) {
+                    mb_internal_encoding('UTF-8');
+                }
+                $mpdf = new Mpdf($config);
+                $mpdf->autoScriptToLang = true;
+                $mpdf->autoLangToFont = true;
+                $mpdf->SetDefaultFont('dejavusans');
+                $mpdf->WriteHTML(mb_convert_encoding($html, 'UTF-8', 'UTF-8'));
+                $pdf = $mpdf->Output('', 'S');
+                return [
+                    'filename' => $filename,
+                    'content' => base64_encode($pdf),
+                    'mime' => 'application/pdf',
+                ];
+            } catch (\Throwable $exception) {
+                self::reportRendererFailure('mpdf', $exception);
             }
-            $mpdf = new Mpdf\Mpdf($config);
-            $mpdf->autoScriptToLang = true;
-            $mpdf->autoLangToFont = true;
-            $mpdf->SetDefaultFont('dejavusans');
-            $mpdf->WriteHTML(mb_convert_encoding($html, 'UTF-8', 'UTF-8'));
-            $pdf = $mpdf->Output('', 'S');
-            return [
-                'filename' => $filename,
-                'content' => base64_encode($pdf),
-                'mime' => 'application/pdf',
-            ];
         }
+
+        if (class_exists(Dompdf::class)) {
+            try {
+                $options = new Options();
+                $options->set('defaultFont', 'DejaVu Sans');
+                $options->set('isRemoteEnabled', true);
+                $dompdf = new Dompdf($options);
+                $dompdf->loadHtml(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+                $dompdf->setPaper($format);
+                $dompdf->render();
+                $pdf = $dompdf->output();
+                return [
+                    'filename' => $filename,
+                    'content' => base64_encode($pdf),
+                    'mime' => 'application/pdf',
+                ];
+            } catch (\Throwable $exception) {
+                self::reportRendererFailure('dompdf', $exception);
+            }
+        }
+
         return [
             'filename' => $filename,
             'content' => base64_encode($html),
             'mime' => 'text/html',
         ];
+    }
+
+    private static function reportRendererFailure(string $driver, \Throwable $exception): void
+    {
+        if (class_exists('Symfony\\Component\\VarDumper\\VarDumper')) {
+            \Symfony\Component\VarDumper\VarDumper::dump([
+                'driver' => $driver,
+                'message' => $exception->getMessage(),
+            ]);
+        } elseif (ini_get('display_errors')) {
+            error_log(sprintf('[InvoiceGenerator] %s renderer failed: %s', $driver, $exception->getMessage()));
+        }
     }
 
     private static function escape($value): string

@@ -4,7 +4,9 @@
     "type": "project",
     "require": {
         "anvilco/html-pdf-invoice-template": "^1.0",
-        "mpdf/mpdf": "^8.1"
+        "dompdf/dompdf": "^2.0",
+        "mpdf/mpdf": "^8.1",
+        "symfony/var-dumper": "^6.3"
     },
     "minimum-stability": "stable",
     "prefer-stable": true

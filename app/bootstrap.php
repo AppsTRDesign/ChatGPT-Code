@@ -57,7 +57,11 @@ set_exception_handler(function (Throwable $exception) use ($config, $expectsJson
     } else {
         header('Content-Type: text/html; charset=utf-8');
         if ($config['debug']) {
-            echo '<pre>' . htmlspecialchars((string)$exception, ENT_QUOTES, 'UTF-8') . '</pre>';
+            if (class_exists('Symfony\\Component\\VarDumper\\VarDumper')) {
+                \Symfony\Component\VarDumper\VarDumper::dump($exception);
+            } else {
+                echo '<pre>' . htmlspecialchars((string)$exception, ENT_QUOTES, 'UTF-8') . '</pre>';
+            }
         } else {
             echo '<h1>Sunucu hatası</h1>';
         }
@@ -77,7 +81,13 @@ register_shutdown_function(function () use ($config, $expectsJson) {
             ]);
         } else {
             header('Content-Type: text/html; charset=utf-8');
-            echo $config['debug'] ? '<pre>' . htmlspecialchars(print_r($error, true), ENT_QUOTES, 'UTF-8') . '</pre>' : '<h1>Sunucu hatası</h1>';
+            if ($config['debug'] && class_exists('Symfony\\Component\\VarDumper\\VarDumper')) {
+                \Symfony\Component\VarDumper\VarDumper::dump($error);
+            } elseif ($config['debug']) {
+                echo '<pre>' . htmlspecialchars(print_r($error, true), ENT_QUOTES, 'UTF-8') . '</pre>';
+            } else {
+                echo '<h1>Sunucu hatası</h1>';
+            }
         }
     }
 });

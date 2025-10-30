@@ -10,7 +10,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - Socket.io ile gerçek zamanlı sipariş, garson çağrısı ve durum bildirimleri (masa ve restoran bazlı)
 - Dropzone tarzı yerel dosya yükleme (kategori, ürün, logo, favicon)
 - Restoran ayarlarında NoaSoft QR API token, renk/boyut/format ve QR logo yönetimi; masalara otomatik parametreli QR linkleri
-- Chart.js ile gruplanmış yığılmış grafikler, MPDF + Anvilco HTML PDF Invoice Template ile kurumsal PDF çıktıları ve Excel (CSV) dışa aktarma
+- Chart.js ile gruplanmış yığılmış grafikler, MPDF/Dompdf + Anvilco HTML PDF Invoice Template ile kurumsal PDF çıktıları ve Excel (CSV) dışa aktarma
 - Garson çağrı yönetimi, masa doluluk takibi ve yazar kasa uyumlu adisyon şablonları
 - Restoran bazlı API anahtarı yönetimi ve masa linkleri için hazır entegrasyon dokümantasyonu
 - API anahtarı ile korunan REST servisleri, XSS/SQL Injection önlemleri
@@ -19,6 +19,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - Masa kartlarında aktif sipariş tutarı, ödeme/hesap kapatma ve detay butonlarıyla canlı masa yönetimi
 - Simple-DataTables destekli sipariş geçmişi: arama, sayfalama, tarih filtresi, PDF / CSV dışa aktarma
 - Mobilde açılıp kapanabilir admin/restoran yan menüleri ve geliştirilmiş responsive tasarım
+- Symfony VarDumper ile debug modunda detaylı hata çıktıları
 - MVC dosya yapısı (controllers, models, routes, middlewares, utils, views, public)
 - .htaccess ile sef link yapısı ve `https://qrmenu.noasoft.org` kök dizinine kurulum
 
@@ -43,7 +44,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 ### Adımlar
 1. Depoyu sunucunuzun `https://qrmenu.noasoft.org` kök dizinine klonlayın.
 2. `sql/schema.sql` dosyasını MySQL veritabanınıza uygulayın.
-3. PHP bağımlılıklarını yüklemek için proje kökünde `composer install` çalıştırın. Bu adım Anvilco HTML PDF Invoice Template ve MPDF kütüphanelerini sisteme kazandırır.
+3. PHP bağımlılıklarını yüklemek için proje kökünde `composer install` çalıştırın. Bu adım Anvilco HTML PDF Invoice Template, MPDF, Dompdf ve Symfony VarDumper kütüphanelerini sisteme kazandırır.
 4. `app/config/config.php` içerisinde veritabanı erişim bilgileri, yükleme dizini ve API uçları tanımlıdır. Gerektiğinde güncelleyin.
 5. `public/uploads` klasörünün yazılabilir olduğundan emin olun (dropzone yüklemeleri bu dizine yapılır).
 6. Node tarafında Socket.IO sunucusunu kurmak için:
@@ -52,13 +53,22 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
    npm run start
    ```
    Sertifikalar varsayılan olarak `/usr/local/psa/var/certificates/scfgYrZUm` yolundan okunur. Farklı bir sertifika kullanacaksanız `socket-server.js` içindeki yol değerlerini güncelleyin.
-7. Admin kullanıcısı oluşturmak için veritabanına bir kayıt ekleyin:
-   ```sql
-   INSERT INTO users (name, email, password, role, status)
-   VALUES ('Admin', 'admin@qrmenu.com', '$2y$10$hashedpassword', 'admin', 'active');
-   ```
-   `hashedpassword` için `password_hash('admin123', PASSWORD_BCRYPT)` çıktısını kullanabilirsiniz.
-8. Yeni restoran kullanıcısı oluşturulduğunda ilgili restoran, plan ve API anahtarı otomatik atanır.
+7. Yeni restoran kullanıcısı oluşturulduğunda ilgili restoran, plan ve API anahtarı otomatik atanır.
+
+### Hazır Örnek Veriler ve Giriş Bilgileri
+`sql/schema.sql` dosyası aşağıdaki örnek verileri içerir:
+
+| Rol | E-posta | Parola | Açıklama |
+| --- | --- | --- | --- |
+| Admin | `admin@noasoft.org` | `Admin123!` | Sistem yöneticisi hesabı |
+| Restoran Sahibi | `owner@efonur.com` | `Restaurant123!` | "Ef Onur" restoranı ile ilişkilidir |
+
+- Restoran slug: `ef-onur`
+- Masa bağlantısı örneği: `https://qrmenu.noasoft.org/menu/ef-onur/table/masa-1?token=efonur-table-1`
+- Restoran API anahtarı: `rk_live_demo_f1d4596a6c2c48cbb3c1b7ef3dd7ad68`
+- Varsayılan QR ayarları ve logo yolları restoran kaydında hazırdır; dropzone alanlarından güncelleyebilirsiniz.
+
+Ek kullanıcılar veya restoranlar oluşturmak için panel üzerindeki kayıt akışını ya da manuel SQL eklemelerini kullanabilirsiniz.
 
 ### Çalıştırma
 - Uygulama URL'leri:
@@ -117,7 +127,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - **Masa Yönetimi:** Her masa için benzersiz link ve QR kod; dolu/boş takibi.
 - **Sipariş Akışı:** Sipariş durumu (beklemede, hazırlanıyor, hazır, tamamlandı, iptal) ve ödeme yönetimi.
 - **Garson Çağrısı:** Masadan tek tıkla garson çağırma ve panelde bildirim.
-- **Adisyon PDF'leri:** Hem müşteriler hem de restoranlar için Anvilco HTML PDF Invoice Template + MPDF ile sunucu tarafında üretilen, logo destekli adisyonlar.
+- **Adisyon PDF'leri:** Hem müşteriler hem de restoranlar için Anvilco HTML PDF Invoice Template + MPDF/Dompdf ile sunucu tarafında üretilen, logo destekli adisyonlar.
 - **Çok Dillilik:** TR, EN, AR, FR desteği ve yeni diller için JSON dosyaları.
 - **Döviz Desteği:** Admin panelinde tanımlanan tüm para birimlerini müşterilere sunma ve Google/Forbes kaynaklı anlık kur hesaplama.
 - **Dropzone Yükleme:** Kategori görselleri, ürün resimleri, logo ve favicon dosyaları için lokal dropzone alanları.
@@ -126,7 +136,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - Yeni çeviri anahtarları için `public/lang` altındaki JSON dosyalarını güncelleyin.
 - Ek API uçları `app/routes/api.php`, panel uçları `app/routes/web.php` içerisinde tanımlanmalıdır.
 - `RestaurantController` içerisinde masa, sipariş, rapor ve ayarlar ile ilgili REST işlemleri bulunur.
-- PDF çıktıları MPDF ile sunucu tarafında üretilir, Excel için CSV tabanlı dışa aktarma kullanılır.
+- PDF çıktıları MPDF öncelikli, Dompdf yedekli şekilde sunucu tarafında üretilir; Excel için CSV tabanlı dışa aktarma kullanılır.
 
 ## Test
 - PHP sözdizimi kontrolü: `find app -name '*.php' -print0 | xargs -0 -n1 php -l`
