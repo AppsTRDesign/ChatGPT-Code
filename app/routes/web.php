@@ -20,6 +20,7 @@ return function (Router $router) {
     $router->add('POST', '/dashboard/products', [new RestaurantController(), 'products'], [AuthMiddleware::class]);
     $router->add('PUT', '/dashboard/products', [new RestaurantController(), 'products'], [AuthMiddleware::class]);
     $router->add('DELETE', '/dashboard/products', [new RestaurantController(), 'products'], [AuthMiddleware::class]);
+    $router->add('POST', '/dashboard/products/upload', [new RestaurantController(), 'uploadProductImage'], [AuthMiddleware::class]);
 
     $router->add('GET', '/dashboard/orders', [new RestaurantController(), 'orders'], [AuthMiddleware::class]);
     $router->add('PUT', '/dashboard/orders', [new RestaurantController(), 'orders'], [AuthMiddleware::class]);

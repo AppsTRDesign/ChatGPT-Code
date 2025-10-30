@@ -8,7 +8,7 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
 - Restoranlara özel dinamik QR kod üretimi (NoaSoft QR API kullanımı)
 - SweetAlert bildirimleri, Chart.js istatistik grafikleri
 - Socket.io ile gerçek zamanlı sipariş bildirimleri
-- Cloudinary destekli resim yükleme servisi
+- Dropzone tarzı yerel depolama kullanan resim yükleme servisi
 - Çoklu dil desteği (TR, EN, AR, FR)
 - XSS ve SQL Injection'a karşı korumalı prepared statement yapısı
 - MVC yapısı (controllers, models, routes, middlewares, utils, views, public)
@@ -32,20 +32,21 @@ Modern web teknolojileriyle geliştirilmiş, PHP 8 ve MySQL üzerinde çalışan
    export DB_USER=db_user
    export DB_PASS=db_pass
    ```
-4. `app/config/config.php` dosyasındaki `jwt_secret` ve Cloudinary bilgilerini doldurun.
-5. Socket sunucusunu ayağa kaldırmak için:
+4. `app/config/config.php` dosyasındaki `jwt_secret` değerini güncelleyin ve `upload` bölümünde yerel klasör yolunu ihtiyaçlarınıza göre düzenleyin.
+5. `public/uploads` klasörünün yazılabilir olduğundan emin olun (varsayılan yapılandırma bu dizini kullanır).
+6. Socket sunucusunu ayağa kaldırmak için:
    ```bash
    npm install
    npm run start
    ```
-6. Apache üzerinde `mod_rewrite` aktif olmalı ve `.htaccess` dosyası kullanılmalıdır.
-7. Admin kullanıcısı oluşturmak için veritabanına manuel kayıt ekleyin:
+7. Apache üzerinde `mod_rewrite` aktif olmalı ve `.htaccess` dosyası kullanılmalıdır.
+8. Admin kullanıcısı oluşturmak için veritabanına manuel kayıt ekleyin:
    ```sql
    INSERT INTO users (name, email, password, role, status) VALUES ('Admin', 'admin@qrmenu.com', '$2y$10$hashedpassword', 'admin', 'active');
    ```
    `password_hash('admin123', PASSWORD_BCRYPT)` çıktısını kullanabilirsiniz.
-8. Restoran kullanıcısı kaydı sonrası otomatik olarak restoran ve plan bilgisi oluşturulur.
-9. REST API erişimi için kullanıcıya `api_key` üretmek üzere `ApiKey` modelindeki `generateForUser` metodu kullanılmalıdır.
+9. Restoran kullanıcısı kaydı sonrası otomatik olarak restoran ve plan bilgisi oluşturulur.
+10. REST API erişimi için kullanıcıya `api_key` üretmek üzere `ApiKey` modelindeki `generateForUser` metodu kullanılmalıdır.
 
 ### Çalıştırma
 - Ana uygulama PHP-FPM/Apache üzerinden hizmet verir; giriş sayfası `/`, admin paneli `/admin`, restoran paneli `/dashboard`, müşteri menüsü `/menu/{restoran-slug}` adreslerindedir.

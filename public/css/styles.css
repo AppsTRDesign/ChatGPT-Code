@@ -39,3 +39,26 @@ body {
     font-size: 0.8rem;
     border-radius: 999px;
 }
+
+.upload-dropzone {
+    border: 2px dashed rgba(13, 110, 253, 0.45);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    text-align: center;
+    background: rgba(13, 110, 253, 0.05);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.upload-dropzone i {
+    font-size: 2rem;
+    color: rgba(13, 110, 253, 0.85);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.upload-dropzone.is-dragover {
+    background: rgba(13, 110, 253, 0.12);
+    border-color: rgba(13, 110, 253, 0.75);
+    transform: scale(1.01);
+}

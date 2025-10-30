@@ -1,29 +1,40 @@
 <?php
 class FileUploader
 {
-    public static function uploadToCloudinary(array $file, array $config)
+    public static function uploadLocal(array $file, array $config): array
     {
-        if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
             throw new Exception('Invalid file upload');
         }
 
-        $payload = [
-            'file' => new CURLFile($file['tmp_name'], mime_content_type($file['tmp_name']), $file['name']),
-            'upload_preset' => $config['preset'],
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $config['cloudinary_url']);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($ch);
-
-        if ($response === false) {
-            throw new Exception('Cloud upload failed: ' . curl_error($ch));
+        $allowed = $config['allowed_extensions'] ?? [];
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if ($allowed && !in_array($extension, $allowed, true)) {
+            throw new Exception('Unsupported file type');
         }
-        curl_close($ch);
 
-        return json_decode($response, true);
+        $maxSize = $config['max_size'] ?? (3 * 1024 * 1024);
+        if (($file['size'] ?? 0) > $maxSize) {
+            throw new Exception('File size exceeds limit');
+        }
+
+        $directory = rtrim($config['directory'] ?? sys_get_temp_dir(), '/');
+        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+            throw new Exception('Upload directory is not writable');
+        }
+
+        $filename = uniqid('upload_', true) . '.' . $extension;
+        $targetPath = $directory . '/' . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+            throw new Exception('Failed to move uploaded file');
+        }
+
+        $baseUrl = rtrim($config['base_url'] ?? '', '/');
+        return [
+            'filename' => $filename,
+            'path' => $targetPath,
+            'url' => $baseUrl ? $baseUrl . '/' . $filename : $filename
+        ];
     }
 }

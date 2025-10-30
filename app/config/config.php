@@ -7,13 +7,14 @@ return [
     'debug' => false,
     'jwt_secret' => 'change_this_secret_in_production',
     'upload' => [
-        'cloudinary_url' => 'https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload',
-        'api_key' => 'CLOUDINARY_API_KEY',
-        'api_secret' => 'CLOUDINARY_API_SECRET',
-        'preset' => 'unsigned_preset'
+        'directory' => __DIR__ . '/../../public/uploads',
+        'base_url' => '/public/uploads',
+        'max_size' => 3 * 1024 * 1024,
+        'allowed_extensions' => ['jpg', 'jpeg', 'png', 'webp']
     ],
     'api' => [
         'socket_server' => 'http://127.0.0.1:4000/notify',
+        'socket_client' => 'http://127.0.0.1:4000',
         'qr_api' => 'https://qrcode.noasoft.org/api/v1/qr'
     ]
 ];

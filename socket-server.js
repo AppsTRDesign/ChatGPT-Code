@@ -10,14 +10,38 @@ const io = new Server(server, {
     cors: { origin: '*' }
 });
 
-io.on('connection', () => console.log('Client connected'));
+const roomName = (restaurantId) => `restaurant:${restaurantId}`;
+
+io.on('connection', (socket) => {
+    const handshakeId = socket.handshake.auth?.restaurantId;
+    if (handshakeId) {
+        socket.join(roomName(handshakeId));
+    }
+
+    socket.on('registerRestaurant', ({ restaurantId }) => {
+        if (!restaurantId) return;
+        socket.join(roomName(restaurantId));
+    });
+
+    socket.on('disconnect', () => {
+        // noop but reserved for future logging
+    });
+});
+
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.post('/notify', (req, res) => {
     const payload = req.body;
     if (!payload || !payload.event) {
         return res.status(400).json({ error: 'Invalid payload' });
     }
-    io.emit(payload.event, payload);
+
+    if (payload.restaurant_id) {
+        io.to(roomName(payload.restaurant_id)).emit(payload.event, payload);
+    } else {
+        io.emit(payload.event, payload);
+    }
+
     res.json({ success: true });
 });
 

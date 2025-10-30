@@ -1,16 +1,28 @@
 const dashboardContent = document.getElementById('dashboardContent');
 const dashboardLinks = document.querySelectorAll('#dashboardApp .nav-link');
-const socket = io('http://127.0.0.1:4000');
+const dashboardContext = window.dashboardContext || {};
+const socketUrl = dashboardContext.socketUrl || '';
+const socketRestaurantId = dashboardContext.restaurantId ? String(dashboardContext.restaurantId) : '';
+const socket = socketUrl ? io(socketUrl, { auth: { restaurantId: socketRestaurantId } }) : null;
 
-socket.on('connect', () => console.log('Socket connected'));
-socket.on('order:new', (payload) => {
-    Swal.fire('Yeni Sipariş', `Masa ${payload.table_number} sipariş verdi`, 'info');
-    if (currentPage === 'orders') loadOrders();
-});
-socket.on('order:update', (payload) => {
-    Swal.fire('Sipariş Güncellendi', `Sipariş #${payload.order_id} ${payload.status}`, 'info');
-    if (currentPage === 'orders') loadOrders();
-});
+if (socket) {
+    socket.on('connect', () => {
+        console.log('Socket connected');
+        if (socketRestaurantId) {
+            socket.emit('registerRestaurant', { restaurantId: socketRestaurantId });
+        }
+    });
+    socket.on('order:new', (payload) => {
+        if (socketRestaurantId && String(payload.restaurant_id) !== socketRestaurantId) return;
+        Swal.fire('Yeni Sipariş', `Masa ${payload.table_number} sipariş verdi`, 'info');
+        if (currentPage === 'orders') loadOrders();
+    });
+    socket.on('order:update', (payload) => {
+        if (socketRestaurantId && String(payload.restaurant_id) !== socketRestaurantId) return;
+        Swal.fire('Sipariş Güncellendi', `Sipariş #${payload.order_id} ${payload.status}`, 'info');
+        if (currentPage === 'orders') loadOrders();
+    });
+}
 
 let currentPage = 'orders';
 
@@ -18,6 +30,20 @@ const fetchJSON = async (url, options = {}) => {
     const res = await fetch(url, options);
     const data = await res.json();
     if (!res.ok) throw data;
+    return data;
+};
+
+const uploadProductImage = async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch('/dashboard/products/upload', {
+        method: 'POST',
+        body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || 'Yükleme başarısız');
+    }
     return data;
 };
 
@@ -166,6 +192,8 @@ const openCategoryModal = (category = {}) => {
 };
 
 const openProductModal = (categories, product = {}) => {
+    let selectedFile = null;
+    let previewUrl = null;
     Swal.fire({
         title: product.id ? 'Ürünü Güncelle' : 'Ürün Ekle',
         html: `
@@ -175,20 +203,125 @@ const openProductModal = (categories, product = {}) => {
             <select id="productCategory" class="swal2-select">
                 ${categories.map(cat => `<option value="${cat.id}" ${product.category_id == cat.id ? 'selected' : ''}>${cat.name}</option>`).join('')}
             </select>
+            <div class="upload-dropzone mt-3" id="productDropzone">
+                <input type="file" accept="image/*" id="productFileInput" class="d-none" />
+                <div id="productDropzoneText">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <p class="mb-0">Görseli buraya sürükleyin veya tıklayın</p>
+                </div>
+                <img id="productPreview" class="img-fluid rounded mt-2 d-none" alt="Önizleme" />
+            </div>
         `,
-        preConfirm: async () => {
-            const payload = {
-                name: document.getElementById('productName').value,
-                description: document.getElementById('productDescription').value,
-                price: document.getElementById('productPrice').value,
-                category_id: document.getElementById('productCategory').value,
+        focusConfirm: false,
+        didOpen: () => {
+            const popup = Swal.getPopup();
+            const dropzone = popup.querySelector('#productDropzone');
+            const fileInput = popup.querySelector('#productFileInput');
+            const preview = popup.querySelector('#productPreview');
+            const text = popup.querySelector('#productDropzoneText');
+
+            const updatePreview = (url) => {
+                if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl);
+                    previewUrl = null;
+                }
+                if (url) {
+                    preview.src = url;
+                    preview.classList.remove('d-none');
+                    text.classList.add('d-none');
+                    previewUrl = url;
+                } else {
+                    preview.src = '';
+                    preview.classList.add('d-none');
+                    text.classList.remove('d-none');
+                }
             };
-            if (product.id) payload.id = product.id;
-            await fetchJSON('/dashboard/products', {
-                method: product.id ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+
+            const handleFiles = (files) => {
+                if (!files || !files.length) return;
+                const file = files[0];
+                if (!file.type.startsWith('image/')) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Lütfen bir görsel dosyası seçin',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2500,
+                        timerProgressBar: true
+                    });
+                    return;
+                }
+                selectedFile = file;
+                updatePreview(URL.createObjectURL(file));
+            };
+
+            if (product.image_url) {
+                preview.src = product.image_url;
+                preview.classList.remove('d-none');
+                text.classList.add('d-none');
+            }
+
+            dropzone.addEventListener('click', () => fileInput.click());
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('is-dragover');
             });
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('is-dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+            fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        },
+        willClose: () => {
+            if (previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+                previewUrl = null;
+            }
+        },
+        preConfirm: async () => {
+            const name = document.getElementById('productName').value.trim();
+            const description = document.getElementById('productDescription').value.trim();
+            const price = document.getElementById('productPrice').value;
+            const categoryId = document.getElementById('productCategory').value;
+
+            if (!name || !price) {
+                Swal.showValidationMessage('Ad ve fiyat zorunludur');
+                return false;
+            }
+
+            const payload = {
+                name,
+                description,
+                price,
+                category_id: categoryId,
+                image_url: product.image_url || null
+            };
+
+            if (selectedFile) {
+                try {
+                    const upload = await uploadProductImage(selectedFile);
+                    payload.image_url = upload.url;
+                } catch (error) {
+                    Swal.showValidationMessage(error.message || 'Yükleme başarısız');
+                    return false;
+                }
+            }
+
+            if (product.id) payload.id = product.id;
+            try {
+                await fetchJSON('/dashboard/products', {
+                    method: product.id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (error) {
+                const message = error?.error || error?.message || 'İşlem başarısız';
+                Swal.showValidationMessage(message);
+                return false;
+            }
         }
     }).then(result => {
         if (result.isConfirmed) loadMenu();

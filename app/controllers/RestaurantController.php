@@ -41,13 +41,17 @@ class RestaurantController extends BaseController
             return Response::json(['products' => $productModel->allByRestaurant($restaurantId)]);
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['image'])) {
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['image'])) {
             $config = require __DIR__ . '/../config/config.php';
-            $upload = FileUploader::uploadToCloudinary($_FILES['image'], $config['upload']);
+            try {
+                $upload = FileUploader::uploadLocal($_FILES['image'], $config['upload']);
+            } catch (Exception $e) {
+                return Response::json(['error' => $e->getMessage()], 422);
+            }
             $data = Security::sanitize($_POST);
-            $data['image_url'] = $upload['secure_url'] ?? null;
+            $data['image_url'] = $upload['url'] ?? null;
             $productModel->create(array_merge($data, ['restaurant_id' => $restaurantId]));
-            return Response::json(['message' => 'Product created']);
+            return Response::json(['message' => 'Product created', 'image_url' => $data['image_url']]);
         }
 
         $data = $this->inputJson();
@@ -123,6 +127,26 @@ class RestaurantController extends BaseController
             'id' => $restaurantId
         ]);
         return Response::json(['message' => 'Theme updated']);
+    }
+
+    public function uploadProductImage()
+    {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_FILES['image'])) {
+            return Response::json(['error' => 'No file uploaded'], 400);
+        }
+
+        $config = require __DIR__ . '/../config/config.php';
+        try {
+            $upload = FileUploader::uploadLocal($_FILES['image'], $config['upload']);
+        } catch (Exception $e) {
+            return Response::json(['error' => $e->getMessage()], 422);
+        }
+
+        return Response::json([
+            'message' => 'Upload successful',
+            'url' => $upload['url'],
+            'filename' => $upload['filename']
+        ], 201);
     }
 
     private function db(): PDO

@@ -1,3 +1,7 @@
+<?php
+$config = require __DIR__ . '/../app/config/config.php';
+$restaurantId = $_SESSION['restaurant_id'] ?? null;
+?>
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -29,6 +33,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4/dist/socket.io.min.js"></script>
+<script>
+    window.dashboardContext = {
+        restaurantId: <?php echo json_encode($restaurantId); ?>,
+        socketUrl: <?php echo json_encode($config['api']['socket_client']); ?>
+    };
+</script>
 <script src="/public/js/dashboard.js"></script>
 </body>
 </html>
