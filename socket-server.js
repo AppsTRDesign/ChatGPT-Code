@@ -6,21 +6,17 @@ const { Server } = require('socket.io');
 const app = express();
 app.use(express.json());
 
-const certificatePath = process.env.SSL_CERT_PATH || '/usr/local/psa/var/certificates/scfgYrZUm';
+const certificatePath = '/usr/local/psa/var/certificates/scfgYrZUm';
 
-const readCredential = (envKey, fallback) => {
-    const filePath = process.env[envKey] || fallback;
-    if (!fs.existsSync(filePath)) {
-        console.error(`SSL credential not found for ${envKey || 'default'} at ${filePath}`);
-        process.exit(1);
-    }
-    return fs.readFileSync(filePath);
-};
+if (!fs.existsSync(certificatePath)) {
+    console.error(`SSL credential not found at ${certificatePath}`);
+    process.exit(1);
+}
 
 const tlsOptions = {
-    key: readCredential('SSL_KEY_PATH', certificatePath),
-    cert: readCredential('SSL_CERT_PATH', certificatePath),
-    ca: readCredential('SSL_CA_PATH', certificatePath),
+    key: fs.readFileSync(certificatePath),
+    cert: fs.readFileSync(certificatePath),
+    ca: fs.readFileSync(certificatePath),
     requestCert: false,
     rejectUnauthorized: false,
 };
@@ -28,7 +24,7 @@ const tlsOptions = {
 const server = https.createServer(tlsOptions, app);
 const io = new Server(server, {
     cors: {
-        origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['https://qrmenu.noasoft.org'],
+        origin: ['https://qrmenu.noasoft.org'],
         methods: ['GET', 'POST', 'PUT', 'DELETE'],
         credentials: true,
     }
@@ -69,5 +65,5 @@ app.post('/notify', (req, res) => {
     res.json({ success: true });
 });
 
-const PORT = process.env.SOCKET_PORT || 4000;
+const PORT = 4000;
 server.listen(PORT, () => console.log(`Socket server running on ${PORT}`));

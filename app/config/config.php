@@ -5,6 +5,13 @@ return [
     'timezone' => 'Europe/Istanbul',
     'env' => 'production',
     'debug' => false,
+    'database' => [
+        'host' => 'localhost',
+        'name' => 'qrmenu',
+        'user' => 'qrmenu_user',
+        'pass' => 'qrmenu_pass',
+        'charset' => 'utf8mb4',
+    ],
     'jwt_secret' => 'change_this_secret_in_production',
     'upload' => [
         'directory' => __DIR__ . '/../../public/uploads',
