@@ -33,6 +33,8 @@ try {
         $statement->execute([$restaurantId, $tableId]);
         $id = (int)$db->lastInsertId();
 
+        $db->prepare('UPDATE tables SET status = "occupied", updated_at = NOW() WHERE id = ? AND restaurant_id = ?')->execute([$tableId, $restaurantId]);
+
         Response::json([
             'success' => true,
             'call' => fetchCall($db, $id),

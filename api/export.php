@@ -30,7 +30,7 @@ if ($orderId > 0) {
 
 $statement = $db->prepare("SELECT DATE(created_at) AS period,
         COUNT(*) AS orders,
-        SUM(CASE WHEN status = 'Tamamlandı' THEN total ELSE 0 END) AS completed_revenue,
+        SUM(CASE WHEN status IN ('Ödeme Alındı', 'Tamamlandı') THEN total ELSE 0 END) AS completed_revenue,
         SUM(CASE WHEN status IN ('Beklemede','Hazırlanıyor') THEN total ELSE 0 END) AS pending_revenue
     FROM orders
     WHERE restaurant_id = :restaurant AND created_at BETWEEN :start AND :end

@@ -11,7 +11,7 @@ $db = Database::connection();
 
 $summary = [
     'total_orders' => (int)$db->query("SELECT COUNT(*) FROM orders WHERE restaurant_id = {$restaurantId}")->fetchColumn(),
-    'revenue' => (float)$db->query("SELECT IFNULL(SUM(total), 0) FROM orders WHERE restaurant_id = {$restaurantId} AND status = 'Tamamlandı'")->fetchColumn(),
+    'revenue' => (float)$db->query("SELECT IFNULL(SUM(total), 0) FROM orders WHERE restaurant_id = {$restaurantId} AND status IN ('Ödeme Alındı', 'Tamamlandı')")->fetchColumn(),
     'active_tables' => (int)$db->query("SELECT COUNT(*) FROM tables WHERE restaurant_id = {$restaurantId} AND status = 'occupied'")->fetchColumn(),
     'waiter_calls' => (int)$db->query("SELECT COUNT(*) FROM waiter_calls WHERE restaurant_id = {$restaurantId} AND status != 'completed'")->fetchColumn(),
 ];
@@ -52,7 +52,7 @@ function buildChartData(PDO $db, int $restaurantId, string $period): array
     }
 
     $query = $db->prepare("SELECT {$select} AS bucket,
-        SUM(CASE WHEN status = 'Tamamlandı' THEN 1 ELSE 0 END) AS completed,
+        SUM(CASE WHEN status IN ('Ödeme Alındı', 'Tamamlandı') THEN 1 ELSE 0 END) AS completed,
         SUM(CASE WHEN status IN ('Beklemede','Hazırlanıyor') THEN 1 ELSE 0 END) AS pending
         FROM orders
         WHERE restaurant_id = :restaurant AND created_at >= :start

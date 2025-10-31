@@ -10,8 +10,16 @@ class QrService
     {
         $config = Config::get('qr_api');
         $logo = $settings['logo'] ?? '';
-        if ($logo && str_starts_with($logo, '/')) {
-            $logo = rtrim(BASE_URL, '/') . $logo;
+        if ($logo && !preg_match('/^https?:\/\//i', $logo)) {
+            if (str_starts_with($logo, '/')) {
+                $logo = ltrim($logo, '/');
+            }
+            $logo = rtrim(BASE_URL, '/') . '/' . $logo;
+        }
+
+        $transparent = $settings['transparent'] ?? false;
+        if (is_string($transparent)) {
+            $transparent = filter_var($transparent, FILTER_VALIDATE_BOOLEAN);
         }
 
         $query = http_build_query([
@@ -23,7 +31,7 @@ class QrService
             'color' => ltrim($settings['color'] ?? '#000000', '#'),
             'background' => ltrim($settings['background'] ?? '#ffffff', '#'),
             'format' => $settings['format'] ?? 'png',
-            'background_transparent' => !empty($settings['transparent']) ? 'true' : 'false',
+            'background_transparent' => $transparent ? 'true' : 'false',
             'logo' => $logo,
         ]);
 

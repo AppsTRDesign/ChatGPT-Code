@@ -70,27 +70,27 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             <?php endif; ?>
         </div>
         <nav class="dashboard__nav">
-            <button type="button" class="dashboard__link active" data-section="dashboard">
+            <a href="#section-dashboard" class="dashboard__link active" data-section="dashboard">
                 <?= htmlspecialchars(Language::get('app.dashboard')) ?>
-            </button>
-            <button type="button" class="dashboard__link" data-section="orders">
+            </a>
+            <a href="#section-orders" class="dashboard__link" data-section="orders">
                 <?= htmlspecialchars(Language::get('app.orders')) ?>
-            </button>
-            <button type="button" class="dashboard__link" data-section="tables">
+            </a>
+            <a href="#section-tables" class="dashboard__link" data-section="tables">
                 <?= htmlspecialchars(Language::get('app.tables')) ?>
-            </button>
-            <button type="button" class="dashboard__link" data-section="waiter">
+            </a>
+            <a href="#section-waiter" class="dashboard__link" data-section="waiter">
                 <?= htmlspecialchars(Language::get('dashboard.waiter_calls')) ?>
-            </button>
-            <button type="button" class="dashboard__link" data-section="menu">
+            </a>
+            <a href="#section-menu" class="dashboard__link" data-section="menu">
                 <?= htmlspecialchars(Language::get('menu.manager', 'Menü Yönetimi')) ?>
-            </button>
-            <button type="button" class="dashboard__link" data-section="reports">
+            </a>
+            <a href="#section-reports" class="dashboard__link" data-section="reports">
                 <?= htmlspecialchars(Language::get('app.reports')) ?>
-            </button>
-            <button type="button" class="dashboard__link" data-section="settings">
+            </a>
+            <a href="#section-settings" class="dashboard__link" data-section="settings">
                 <?= htmlspecialchars(Language::get('app.settings')) ?>
-            </button>
+            </a>
         </nav>
         <div class="dashboard__user">
             <div>
@@ -159,7 +159,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
                             <button class="btn btn-sm btn-outline-secondary" data-status="Beklemede">Beklemede</button>
                             <button class="btn btn-sm btn-outline-secondary" data-status="Hazırlanıyor">Hazırlanıyor</button>
                             <button class="btn btn-sm btn-outline-secondary" data-status="Hazırlandı">Hazırlandı</button>
-                            <button class="btn btn-sm btn-outline-secondary" data-status="Tamamlandı">Tamamlandı</button>
+                            <button class="btn btn-sm btn-outline-secondary" data-status="Ödeme Alındı">Ödeme Alındı</button>
                             <button class="btn btn-sm btn-outline-secondary" data-status="İptal">İptal</button>
                         </div>
                         <input type="search" id="orderSearch" class="form-control form-control-sm" placeholder="Sipariş veya masa ara">
@@ -330,7 +330,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
                         <div class="col-md-4">
                             <label class="form-label">QR Logo</label>
                             <input type="text" name="qr_logo" id="qrLogoInput" class="form-control" value="<?= htmlspecialchars($branding['qr_logo'] ?? '') ?>" readonly>
-                            <div class="dropzone mt-2 dz-dashed" data-dropzone data-target="#qrLogoInput" data-preview="#qrLogoPreview" data-placeholder="QR logo yükleyin"></div>
+                            <div class="dropzone mt-2 dz-dashed" data-dropzone data-target="#qrLogoInput" data-preview="#qrLogoPreview" data-placeholder="QR logo yükleyin" data-absolute="true"></div>
                             <div class="preview-box">
                                 <img src="<?= htmlspecialchars($branding['qr_logo'] ?? '') ?>" alt="QR Logo" id="qrLogoPreview">
                             </div>
@@ -625,6 +625,13 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
         </div>
     </div>
 </div>
+
+<audio id="audioOrderAdmin" preload="auto">
+    <source src="assets/vendor/sounds/order.mp3" type="audio/mpeg">
+</audio>
+<audio id="audioNotifyAdmin" preload="auto">
+    <source src="assets/vendor/sounds/notification.mp3" type="audio/mpeg">
+</audio>
 
 <script>
     window.APP_STATE = {

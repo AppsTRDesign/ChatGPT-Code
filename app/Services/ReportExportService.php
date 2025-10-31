@@ -22,11 +22,17 @@ class ReportExportService
 
     public function renderThermal(string $html): string
     {
+        $tmpDir = STORAGE_PATH . '/tmp';
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
             'format' => [80, 200],
             'default_font_size' => 10,
             'default_font' => 'dejavusans',
+            'tempDir' => $tmpDir,
         ]);
         $mpdf->WriteHTML($html);
         return $mpdf->Output('', 'S');

@@ -19,19 +19,25 @@ class SettingsService
     public function all(): array
     {
         $restaurant = $this->fetchRestaurant();
+        $branding = [
+            'logo' => $this->mediaUrl($restaurant['logo'] ?? null),
+            'favicon' => $this->mediaUrl($restaurant['favicon'] ?? null),
+            'qr_logo' => $this->mediaUrl($restaurant['qr_logo'] ?? null),
+        ];
+
+        $restaurant['logo'] = $branding['logo'];
+        $restaurant['favicon'] = $branding['favicon'];
+        $restaurant['qr_logo'] = $branding['qr_logo'];
+
         $qr = $this->getSection('qr');
-        if (!empty($restaurant['qr_logo'])) {
-            $qr['logo'] = $restaurant['qr_logo'];
+        if (!empty($branding['qr_logo'])) {
+            $qr['logo'] = $branding['qr_logo'];
         }
 
         return [
             'restaurant' => $restaurant,
             'qr' => $qr,
-            'branding' => [
-                'logo' => $restaurant['logo'] ?? null,
-                'favicon' => $restaurant['favicon'] ?? null,
-                'qr_logo' => $restaurant['qr_logo'] ?? null,
-            ],
+            'branding' => $branding,
             'currencies' => $this->currencies(),
             'languages' => $this->languages(),
         ];
@@ -145,9 +151,9 @@ class SettingsService
     {
         $statement = $this->db->prepare('UPDATE restaurants SET logo = ?, favicon = ?, qr_logo = ?, updated_at = NOW() WHERE id = ?');
         $statement->execute([
-            $data['logo'] ?? null,
-            $data['favicon'] ?? null,
-            $data['qr_logo'] ?? null,
+            $this->normalizeMedia($data['logo'] ?? null),
+            $this->normalizeMedia($data['favicon'] ?? null),
+            $this->normalizeQrLogo($data['qr_logo'] ?? null),
             $this->restaurantId,
         ]);
     }
@@ -169,5 +175,59 @@ class SettingsService
             $section,
             json_encode($payload, JSON_UNESCAPED_UNICODE),
         ]);
+    }
+
+    private function normalizeMedia(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, BASE_URL)) {
+            $value = substr($value, strlen(BASE_URL));
+        }
+
+        return ltrim($value, '/');
+    }
+
+    private function normalizeQrLogo(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (!preg_match('/^https?:\/\//i', $value)) {
+            $value = rtrim(BASE_URL, '/') . '/' . ltrim($this->normalizeMedia($value) ?? '', '/');
+        }
+
+        return $value;
+    }
+
+    private function mediaUrl(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+
+        if (preg_match('/^https?:\/\//i', $value)) {
+            return $value;
+        }
+
+        $value = ltrim($value, '/');
+        if ($value === '') {
+            return null;
+        }
+
+        return rtrim(BASE_URL, '/') . '/' . $value;
     }
 }

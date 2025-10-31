@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     restaurant_id INT UNSIGNED NOT NULL,
     table_id INT UNSIGNED NOT NULL,
-    status ENUM('Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Tamamlandı', 'İptal') DEFAULT 'Beklemede',
+    status ENUM('Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Ödeme Alındı', 'İptal') DEFAULT 'Beklemede',
     total DECIMAL(10,2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -193,7 +193,7 @@ ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);
 
 INSERT INTO orders (id, restaurant_id, table_id, status, total, created_at) VALUES
 (101, 1, 1, 'Hazırlandı', 258.40, NOW() - INTERVAL 1 DAY),
-(102, 1, 2, 'Tamamlandı', 180.00, NOW() - INTERVAL 2 DAY),
+(102, 1, 2, 'Ödeme Alındı', 180.00, NOW() - INTERVAL 2 DAY),
 (103, 1, 3, 'Beklemede', 95.00, NOW())
 ON DUPLICATE KEY UPDATE status = VALUES(status), total = VALUES(total);
 

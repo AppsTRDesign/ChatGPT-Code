@@ -64,6 +64,8 @@ try {
     $orderStmt->execute([$restaurantId, $tableId, $total]);
     $orderId = (int)$db->lastInsertId();
 
+    $db->prepare('UPDATE tables SET status = "occupied", updated_at = NOW() WHERE id = ? AND restaurant_id = ?')->execute([$tableId, $restaurantId]);
+
     $itemStmt = $db->prepare('INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price) VALUES (?, ?, ?, ?, ?)');
     foreach ($preparedItems as $preparedItem) {
         $itemStmt->execute([

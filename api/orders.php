@@ -23,6 +23,18 @@ try {
 
         $order = fetchOrder($db, $orderId, $currency);
 
+        if (!empty($order['table_id'])) {
+            if (in_array($status, ['Ödeme Alındı', 'İptal'], true)) {
+                $active = $db->prepare("SELECT COUNT(*) FROM orders WHERE restaurant_id = ? AND table_id = ? AND status NOT IN ('Ödeme Alındı', 'İptal')");
+                $active->execute([$restaurantId, $order['table_id']]);
+                if ((int)$active->fetchColumn() === 0) {
+                    $db->prepare('UPDATE tables SET status = "available", updated_at = NOW() WHERE restaurant_id = ? AND id = ?')->execute([$restaurantId, $order['table_id']]);
+                }
+            } else {
+                $db->prepare('UPDATE tables SET status = "occupied", updated_at = NOW() WHERE restaurant_id = ? AND id = ?')->execute([$restaurantId, $order['table_id']]);
+            }
+        }
+
         Response::json([
             'success' => true,
             'order' => $order,
@@ -80,6 +92,10 @@ function fetchOrder(\PDO $db, int $orderId, string $currency): array
     $order = $statement->fetch();
     if (!$order) {
         return [];
+    }
+
+    if ($order['status'] === 'Tamamlandı') {
+        $order['status'] = 'Ödeme Alındı';
     }
 
     $itemsStatement = $db->prepare('SELECT oi.id, p.name, oi.quantity, oi.unit_price, pv.name AS variant_name FROM order_items oi INNER JOIN products p ON p.id = oi.product_id LEFT JOIN product_variants pv ON pv.id = oi.variant_id WHERE oi.order_id = ?');

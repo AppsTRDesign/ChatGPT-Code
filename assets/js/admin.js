@@ -22,10 +22,13 @@ const AdminApp = (() => {
     };
 
     const ICON_LIBRARY = [
-        'bx-coffee', 'bx-bowl-hot', 'bx-cake', 'bx-dish', 'bx-pizza', 'bx-baguette', 'bx-beer', 'bx-baguette', 'bx-bowl-rice',
+        'bx-coffee', 'bx-bowl-hot', 'bx-cake', 'bx-dish', 'bx-pizza', 'bx-baguette', 'bx-beer', 'bx-bowl-rice',
         'bx-dots-horizontal', 'bx-cube-alt', 'bx-water', 'bx-ice-cream', 'bx-restaurant', 'bx-food-menu', 'bx-sushi', 'bx-lemon',
-        'bx-doughnut', 'bx-bone', 'bx-burger', 'bx-cheese', 'bx-cupcake', 'bx-wine', 'bx-fridge'
+        'bx-doughnut', 'bx-bone', 'bx-burger', 'bx-cheese', 'bx-cupcake', 'bx-wine', 'bx-fridge', 'bx-hot', 'bx-bowl',
+        'bx-chilli', 'bx-bread', 'bx-croissant', 'bx-cocktail', 'bx-knife', 'bx-raspberry', 'bx-shrimp', 'bx-taco'
     ];
+
+    const ORDER_STATUSES = ['Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Ödeme Alındı', 'İptal'];
 
     const selectors = {
         sections: document.querySelectorAll('.section'),
@@ -73,6 +76,8 @@ const AdminApp = (() => {
         deleteTableButton: document.querySelector('#deleteTableButton'),
         orderModal: document.querySelector('#orderModal'),
         orderModalContent: document.querySelector('#orderModalContent'),
+        audioOrder: document.querySelector('#audioOrderAdmin'),
+        audioNotify: document.querySelector('#audioNotifyAdmin'),
     };
 
     const toast = Swal.mixin({
@@ -105,6 +110,12 @@ const AdminApp = (() => {
             .replace(/^-+|-+$/g, '');
     };
 
+    const playAudio = (audioElement) => {
+        if (!audioElement) return;
+        audioElement.currentTime = 0;
+        audioElement.play().catch(() => {});
+    };
+
     const switchSection = (section) => {
         selectors.sections.forEach((element) => {
             element.classList.toggle('d-none', element.id !== `section-${section}`);
@@ -113,7 +124,8 @@ const AdminApp = (() => {
 
     const bindNavigation = () => {
         selectors.navButtons.forEach((button) => {
-            button.addEventListener('click', () => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
                 selectors.navButtons.forEach((item) => item.classList.remove('active'));
                 button.classList.add('active');
                 switchSection(button.dataset.section);
@@ -211,7 +223,7 @@ const AdminApp = (() => {
                     </div>
                     <div class="d-flex flex-wrap gap-2 justify-content-end">
                         <select class="form-select form-select-sm" data-order-status="${order.id}">
-                            ${['Beklemede','Hazırlanıyor','Hazırlandı','Tamamlandı','İptal'].map((status) => `<option value="${status}" ${order.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+                            ${ORDER_STATUSES.map((status) => `<option value="${status}" ${order.status === status ? 'selected' : ''}>${status}</option>`).join('')}
                         </select>
                         <button class="btn btn-sm btn-outline-secondary" data-order-detail="${order.id}">Detay</button>
                         <button class="btn btn-sm btn-outline-primary" data-order-export="pdf" data-order="${order.id}">Adisyon</button>
@@ -246,7 +258,9 @@ const AdminApp = (() => {
         });
         toast.fire({ icon: 'success', title: data.message });
         await fetchOrders();
-        socket.emit('order:update', { order: orderId, status, table: data.order?.table || '' });
+        await fetchTables();
+        await fetchDashboard();
+        socket.emit('order:update', { order: orderId, status, table: data.order?.table || '', table_id: data.order?.table_id || null });
     };
 
     const openOrderModal = (orderId) => {
@@ -371,7 +385,8 @@ const AdminApp = (() => {
         });
         toast.fire({ icon: 'success', title: data.message });
         await fetchWaiterCalls();
-        socket.emit('waiter:update', { table: data.call?.table || '', status: data.call?.status_label || status });
+        await fetchTables();
+        socket.emit('waiter:update', { table: data.call?.table || '', status: data.call?.status_label || status, table_id: data.call?.table_id || null });
     };
 
     const renderCategories = () => {
@@ -664,12 +679,13 @@ const AdminApp = (() => {
                 }
                 const target = document.querySelector(element.dataset.target);
                 if (target) {
-                    target.value = response.path;
+                    const useAbsolute = element.dataset.absolute === 'true';
+                    target.value = useAbsolute ? response.url : response.path;
                 }
                 if (element.dataset.preview) {
                     const preview = document.querySelector(element.dataset.preview);
                     if (preview) {
-                        preview.src = response.path;
+                        preview.src = response.url || response.path;
                     }
                 }
                 toast.fire({ icon: 'success', title: 'Dosya yüklendi.' });
@@ -997,6 +1013,33 @@ const AdminApp = (() => {
         });
     };
 
+    const bindSocket = () => {
+        socket.on('order:update', async (payload) => {
+            const title = payload.table ? `${payload.table} - ${payload.status}` : `Sipariş ${payload.status}`;
+            toast.fire({ icon: 'info', title });
+            playAudio(selectors.audioOrder);
+            await fetchOrders();
+            await fetchTables();
+            await fetchDashboard();
+        });
+
+        socket.on('waiter:call', async (payload) => {
+            const title = payload.table ? `${payload.table} garson istiyor.` : 'Yeni garson çağrısı';
+            toast.fire({ icon: 'warning', title });
+            playAudio(selectors.audioNotify);
+            await fetchWaiterCalls();
+            await fetchTables();
+            await fetchDashboard();
+        });
+
+        socket.on('waiter:update', async (payload) => {
+            toast.fire({ icon: 'info', title: `Garson durumu: ${payload.status}` });
+            playAudio(selectors.audioNotify);
+            await fetchWaiterCalls();
+            await fetchDashboard();
+        });
+    };
+
     const init = async () => {
         bindNavigation();
         initDropzones();
@@ -1014,6 +1057,7 @@ const AdminApp = (() => {
         initLanguagesTable();
         initCurrenciesTable();
         initReportsTable();
+        bindSocket();
 
         await Promise.all([
             fetchDashboard(),

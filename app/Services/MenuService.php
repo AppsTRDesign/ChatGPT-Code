@@ -20,7 +20,13 @@ class MenuService
     {
         $statement = $this->db->prepare('SELECT id, name, icon, image FROM categories WHERE restaurant_id = ? ORDER BY name');
         $statement->execute([$this->restaurantId]);
-        return $statement->fetchAll() ?: [];
+        $categories = $statement->fetchAll() ?: [];
+
+        return array_map(function ($category) {
+            $category['icon'] = $this->cleanIcon($category['icon'] ?? null);
+            $category['image'] = $this->mediaUrl($category['image'] ?? null);
+            return $category;
+        }, $categories);
     }
 
     public function saveCategory(array $payload): array
@@ -31,12 +37,15 @@ class MenuService
             throw new \InvalidArgumentException('Kategori adı zorunludur.');
         }
 
+        $icon = $this->storeIcon($payload['icon'] ?? null);
+        $image = $this->normalizeMedia($payload['image'] ?? null);
+
         if ($id > 0) {
             $statement = $this->db->prepare('UPDATE categories SET name = ?, icon = ?, image = ?, updated_at = NOW() WHERE id = ? AND restaurant_id = ?');
             $statement->execute([
                 $name,
-                $payload['icon'] ?? null,
-                $payload['image'] ?? null,
+                $icon,
+                $image,
                 $id,
                 $this->restaurantId,
             ]);
@@ -45,8 +54,8 @@ class MenuService
             $statement->execute([
                 $this->restaurantId,
                 $name,
-                $payload['icon'] ?? null,
-                $payload['image'] ?? null,
+                $icon,
+                $image,
             ]);
             $id = (int)$this->db->lastInsertId();
         }
@@ -58,7 +67,15 @@ class MenuService
     {
         $statement = $this->db->prepare('SELECT id, name, icon, image FROM categories WHERE restaurant_id = ? AND id = ?');
         $statement->execute([$this->restaurantId, $id]);
-        return $statement->fetch() ?: [];
+        $category = $statement->fetch() ?: [];
+        if (!$category) {
+            return [];
+        }
+
+        $category['icon'] = $this->cleanIcon($category['icon'] ?? null);
+        $category['image'] = $this->mediaUrl($category['image'] ?? null);
+
+        return $category;
     }
 
     public function deleteCategory(int $id): void
@@ -75,6 +92,7 @@ class MenuService
 
         foreach ($products as &$product) {
             $product['price'] = (float)$product['price'];
+            $product['image'] = $this->mediaUrl($product['image'] ?? null);
             $product['variants'] = $this->variants((int)$product['id']);
         }
 
@@ -90,6 +108,7 @@ class MenuService
             return [];
         }
         $product['price'] = (float)$product['price'];
+        $product['image'] = $this->mediaUrl($product['image'] ?? null);
         $product['variants'] = $this->variants($id);
         return $product;
     }
@@ -112,6 +131,8 @@ class MenuService
             throw new \InvalidArgumentException('Fiyat sıfırdan büyük olmalıdır.');
         }
 
+        $image = $this->normalizeMedia($payload['image'] ?? null);
+
         if ($id > 0) {
             $statement = $this->db->prepare('UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, image = ?, updated_at = NOW() WHERE id = ? AND restaurant_id = ?');
             $statement->execute([
@@ -119,7 +140,7 @@ class MenuService
                 $name,
                 $payload['description'] ?? null,
                 $price,
-                $payload['image'] ?? null,
+                $image,
                 $id,
                 $this->restaurantId,
             ]);
@@ -131,7 +152,7 @@ class MenuService
                 $name,
                 $payload['description'] ?? null,
                 $price,
-                $payload['image'] ?? null,
+                $image,
             ]);
             $id = (int)$this->db->lastInsertId();
         }
@@ -191,5 +212,67 @@ class MenuService
                 $statement->execute(array_merge([$productId], array_values($deleteIds)));
             }
         }
+    }
+
+    private function normalizeMedia(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        if (str_starts_with($value, BASE_URL)) {
+            $value = substr($value, strlen(BASE_URL));
+        }
+        return ltrim($value, '/');
+    }
+
+    private function mediaUrl(?string $value): ?string
+    {
+        if (!$value) {
+            return null;
+        }
+        if (preg_match('/^https?:\/\//i', $value)) {
+            return $value;
+        }
+        $value = ltrim($value, '/');
+        if ($value === '') {
+            return null;
+        }
+        return rtrim(BASE_URL, '/') . '/' . $value;
+    }
+
+    private function storeIcon(?string $icon): ?string
+    {
+        if (!$icon) {
+            return null;
+        }
+        $icon = trim($icon);
+        if ($icon === '') {
+            return null;
+        }
+        $icon = str_replace('bx ', '', $icon);
+        if (str_starts_with($icon, 'bx-')) {
+            return $icon;
+        }
+        if (str_starts_with($icon, 'bx')) {
+            return 'bx-' . substr($icon, 2);
+        }
+        return str_starts_with($icon, '-') ? 'bx' . $icon : 'bx-' . ltrim($icon, '-');
+    }
+
+    private function cleanIcon(?string $icon): ?string
+    {
+        if (!$icon) {
+            return null;
+        }
+        $icon = trim($icon);
+        if ($icon === '') {
+            return null;
+        }
+        $icon = str_replace('bx ', '', $icon);
+        return str_starts_with($icon, 'bx-') ? $icon : ('bx-' . ltrim($icon, '-'));
     }
 }

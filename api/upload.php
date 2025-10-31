@@ -17,10 +17,13 @@ if (!empty($_FILES['file'])) {
     $destination = $uploadPath . '/' . $filename;
 
     if (move_uploaded_file($file['tmp_name'], $destination)) {
-        $publicPath = str_replace(__DIR__ . '/..', '', $destination);
+        $relativePath = 'storage/uploads/' . $filename;
+        $publicUrl = rtrim(BASE_URL, '/') . '/' . ltrim($relativePath, '/');
+
         Response::json([
             'success' => true,
-            'path' => $publicPath,
+            'path' => $relativePath,
+            'url' => $publicUrl,
             'message' => 'Dosya başarıyla yüklendi.',
         ]);
     }

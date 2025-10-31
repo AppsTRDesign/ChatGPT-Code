@@ -97,7 +97,7 @@ function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $cur
     $table['status_label'] = $table['status'] === 'occupied' ? 'Dolu' : 'Boş';
     $table['qr_code_url'] = $table['qr_code_url'] ?: tableQrUrl($qrService, $qrConfig, (int)$table['id']);
 
-    $ordersStatement = $db->prepare("SELECT id, status, total, DATE_FORMAT(created_at, '%H:%i') AS created_at FROM orders WHERE table_id = ? AND restaurant_id = ? AND status NOT IN ('Tamamlandı', 'İptal') ORDER BY created_at DESC");
+    $ordersStatement = $db->prepare("SELECT id, status, total, DATE_FORMAT(created_at, '%H:%i') AS created_at FROM orders WHERE table_id = ? AND restaurant_id = ? AND status NOT IN ('Ödeme Alındı', 'Tamamlandı', 'İptal') ORDER BY created_at DESC");
     $ordersStatement->execute([$tableId, $restaurantId]);
     $table['active_orders'] = array_map(static function ($order) use ($currency) {
         $order['total'] = (float)$order['total'];

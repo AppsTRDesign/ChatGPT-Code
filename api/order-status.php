@@ -32,6 +32,9 @@ $orders = array_map(static function ($order) use ($db, $currency) {
     $order['items'] = $itemsStatement->fetchAll() ?: [];
     $order['total'] = (float)$order['total'];
     $order['total_formatted'] = number_format($order['total'], 2, ',', '.') . ' ' . $currency;
+    if ($order['status'] === 'Tamamlandı') {
+        $order['status'] = 'Ödeme Alındı';
+    }
     return $order;
 }, $statement->fetchAll() ?: []);
 

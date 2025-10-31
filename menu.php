@@ -103,7 +103,7 @@ $currentCurrency = $_GET['currency'] ?? $defaultCurrency;
     <div id="cartSummary"><span>0 ürün</span><strong>0.00 <?= htmlspecialchars($currentCurrency) ?></strong></div>
 </button>
 
-<button id="callWaiter" class="cart-floating" style="right:24px;left:auto;bottom:96px;background:#fbbc05;">
+<button id="callWaiter" class="cart-floating call-floating">
     <?= htmlspecialchars(Language::get('menu.call_waiter')) ?>
 </button>
 

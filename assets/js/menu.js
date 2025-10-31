@@ -107,7 +107,9 @@ const MenuApp = (() => {
             button.className = `category-card ${Number(state.selectedCategory) === Number(category.id) ? 'active' : ''}`;
             const iconHtml = category.image
                 ? `<img src="${category.image}" alt="${category.name}" loading="lazy">`
-                : `<span class="badge">${category.icon || '🍽️'}</span>`;
+                : category.icon
+                    ? `<span class="badge"><i class="bx ${category.icon}"></i></span>`
+                    : '<span class="badge">🍽️</span>';
             button.innerHTML = `${iconHtml}<strong>${category.name}</strong>`;
             button.addEventListener('click', () => {
                 state.selectedCategory = Number(category.id);
@@ -318,7 +320,7 @@ const MenuApp = (() => {
             clearCart();
             toggleCart(false);
             playAudio(elements.audioOrder);
-            socket.emit('order:new', { table: state.tableName || `Masa ${state.tableId}` });
+            socket.emit('order:new', { table: state.tableName || `Masa ${state.tableId}`, table_id: state.tableId });
             await refreshOrderStatus();
         } catch (error) {
             toast.fire({ icon: 'error', title: error.message });
@@ -342,6 +344,7 @@ const MenuApp = (() => {
         state.orders.forEach((order) => {
             const card = document.createElement('div');
             card.className = 'order-track-card';
+            const totalAmount = `${convertPrice(order.total)} ${state.currency}`;
             card.innerHTML = `
                     <div class="order-track-card__head">
                         <div>
@@ -359,7 +362,7 @@ const MenuApp = (() => {
                     `).join('')}
                 </ul>
                 <div class="order-track-card__footer">
-                    <strong>${order.total_formatted}</strong>
+                    <strong>${totalAmount}</strong>
                 </div>
             `;
             elements.orderStatusList.appendChild(card);
@@ -394,6 +397,7 @@ const MenuApp = (() => {
             renderProducts();
             updateCartSummary();
             renderCart();
+            renderOrderStatus();
             const params = new URLSearchParams(window.location.search);
             params.set('currency', state.currency);
             window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
@@ -417,7 +421,7 @@ const MenuApp = (() => {
                     body: JSON.stringify({ table_id: state.tableId }),
                 });
                 toast.fire({ icon: 'success', title: 'Garson çağrısı iletildi.' });
-                socket.emit('waiter:call', { table: state.tableName || `Masa ${state.tableId}` });
+                socket.emit('waiter:call', { table: state.tableName || `Masa ${state.tableId}`, table_id: state.tableId });
                 playAudio(elements.audioNotify);
             } catch (error) {
                 toast.fire({ icon: 'error', title: error.message });
@@ -491,14 +495,39 @@ const MenuApp = (() => {
         elements.refreshOrders?.addEventListener('click', refreshOrderStatus);
     };
 
+    const sameTable = (payload = {}) => {
+        if (!state.tableId) {
+            return false;
+        }
+        if (payload.table_id) {
+            return Number(payload.table_id) === Number(state.tableId);
+        }
+        if (state.tableName) {
+            return payload.table === state.tableName || payload.table === `Masa ${state.tableId}`;
+        }
+        return true;
+    };
+
     const bindSocket = () => {
-        socket.on('waiter:update', (payload) => {
+        socket.on('waiter:update', async (payload) => {
+            if (!sameTable(payload)) {
+                return;
+            }
             toast.fire({ icon: 'info', title: `Garson durumu: ${payload.status}` });
+            playAudio(elements.audioNotify);
+            await refreshOrderStatus();
+        });
+
+        socket.on('waiter:call', (payload) => {
+            if (!sameTable(payload)) {
+                return;
+            }
+            toast.fire({ icon: 'info', title: 'Garson çağrınız iletildi.' });
             playAudio(elements.audioNotify);
         });
 
         socket.on('order:update', async (payload) => {
-            if (payload.table && state.tableName && payload.table !== state.tableName) {
+            if (!sameTable(payload)) {
                 return;
             }
             toast.fire({ icon: 'info', title: `Sipariş ${payload.status}` });
