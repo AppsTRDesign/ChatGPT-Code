@@ -2,38 +2,36 @@
 
 require_once __DIR__ . '/../bootstrap.php';
 
+use Core\Database;
 use Core\Response;
 
+$restaurantId = 1;
 $status = $_GET['status'] ?? 'all';
+$db = Database::connection();
 
-$orders = [
-    [
-        'id' => 101,
-        'table' => 'A1',
-        'status' => 'Beklemede',
-        'total' => 245.50,
-        'items' => [
-            ['name' => 'Latte', 'qty' => 2, 'price' => 45.5],
-            ['name' => 'Cheesecake', 'qty' => 1, 'price' => 55.0],
-        ],
-        'created_at' => '2024-05-28 18:22:00',
-    ],
-    [
-        'id' => 102,
-        'table' => 'B3',
-        'status' => 'Hazırlanıyor',
-        'total' => 132.00,
-        'items' => [
-            ['name' => 'Mocha', 'qty' => 1, 'price' => 32.0],
-            ['name' => 'Tiramisu', 'qty' => 2, 'price' => 50.0],
-        ],
-        'created_at' => '2024-05-28 18:30:00',
-    ],
-];
+$currency = $db->query("SELECT currency FROM restaurants WHERE id = {$restaurantId}")->fetchColumn() ?: 'TRY';
+
+$sql = "SELECT o.id, t.name AS table_name, o.status, o.total, DATE_FORMAT(o.created_at, '%d.%m.%Y %H:%i') AS created_at
+        FROM orders o
+        INNER JOIN tables t ON t.id = o.table_id
+        WHERE o.restaurant_id = :restaurant";
+$params = [':restaurant' => $restaurantId];
 
 if ($status !== 'all') {
-    $orders = array_values(array_filter($orders, static fn($order) => $order['status'] === $status));
+    $sql .= ' AND o.status = :status';
+    $params[':status'] = $status;
 }
+
+$sql .= ' ORDER BY o.created_at DESC LIMIT 200';
+
+$statement = $db->prepare($sql);
+$statement->execute($params);
+$orders = array_map(static function ($order) use ($currency) {
+    $order['table'] = $order['table_name'];
+    $order['total_formatted'] = number_format((float)$order['total'], 2, ',', '.') . ' ' . $currency;
+    unset($order['table_name']);
+    return $order;
+}, $statement->fetchAll() ?: []);
 
 Response::json([
     'orders' => $orders,

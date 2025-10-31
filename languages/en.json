@@ -12,12 +12,14 @@
     "total_orders": "Total Orders",
     "revenue": "Total Revenue",
     "active_tables": "Active Tables",
-    "waiter_calls": "Waiter Calls"
+    "waiter_calls": "Waiter Calls",
+    "orders_chart": "Orders Trend"
   },
   "menu": {
     "call_waiter": "Call Waiter",
     "add_to_cart": "Add to Cart",
     "currency": "Currency",
-    "language": "Language"
+    "language": "Language",
+    "search": "Search menu"
   }
 }

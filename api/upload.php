@@ -21,11 +21,12 @@ if (!empty($_FILES['file'])) {
         Response::json([
             'success' => true,
             'path' => $publicPath,
+            'message' => 'Dosya başarıyla yüklendi.',
         ]);
     }
 }
 
 Response::json([
     'success' => false,
-    'message' => 'File upload failed',
+    'message' => 'Dosya yüklenirken sorun oluştu.',
 ], 400);

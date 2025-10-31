@@ -4,6 +4,7 @@ return [
     'app_name' => 'NoaSoft QR Menü',
     'timezone' => 'Europe/Istanbul',
     'locale' => 'tr',
+    'base_url' => 'https://qrmenu.noasoft.org',
     'db' => [
         'driver' => 'mysql',
         'host' => 'localhost',

@@ -8,7 +8,7 @@ use Core\Response;
 
 $tableUrl = $_GET['table_url'] ?? '';
 if (!$tableUrl) {
-    Response::json(['error' => 'table_url parameter is required'], 422);
+    Response::json(['error' => 'table_url parametresi gerekli'], 422);
 }
 
 $settingsService = new SettingsService();

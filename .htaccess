@@ -1,0 +1,14 @@
+RewriteEngine On
+RewriteBase /
+
+# Statik içerik ve yüklemeleri doğrudan sun
+RewriteCond %{REQUEST_URI} ^/(assets|storage|node|vendor|languages|database)/ [NC]
+RewriteRule ^ - [L]
+
+# Mevcut dosya veya klasörleri atla
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Diğer tüm istekleri ana kontrolcüye yönlendir
+RewriteRule ^ index.php [L,QSA]

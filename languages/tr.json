@@ -12,12 +12,14 @@
     "total_orders": "Toplam Sipariş",
     "revenue": "Toplam Ciro",
     "active_tables": "Aktif Masalar",
-    "waiter_calls": "Garson Çağrıları"
+    "waiter_calls": "Garson Çağrıları",
+    "orders_chart": "Sipariş Eğilimleri"
   },
   "menu": {
     "call_waiter": "Garson Çağır",
     "add_to_cart": "Sepete Ekle",
     "currency": "Para Birimi",
-    "language": "Dil"
+    "language": "Dil",
+    "search": "Menüde ara"
   }
 }
