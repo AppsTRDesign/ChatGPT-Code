@@ -12,23 +12,30 @@ try {
     if ($method === 'GET') {
         Response::json([
             'currencies' => $service->currencies(),
+            'default' => $service->currentCurrency(),
         ]);
     }
 
     if ($method === 'POST') {
         $payload = json_decode(file_get_contents('php://input'), true) ?? [];
-        if (($payload['action'] ?? '') === 'default') {
-            $currencies = $service->setDefaultCurrency($payload['code']);
-            Response::json([
-                'currencies' => $currencies,
-                'message' => 'Varsayılan para birimi güncellendi.',
-            ]);
-        }
-
         $currencies = $service->addCurrency($payload);
         Response::json([
             'currencies' => $currencies,
             'message' => 'Para birimi kaydedildi.',
+        ]);
+    }
+
+    if ($method === 'PATCH') {
+        $payload = json_decode(file_get_contents('php://input'), true) ?? [];
+        $code = $payload['code'] ?? '';
+        if ($code === '') {
+            throw new InvalidArgumentException('Para birimi kodu zorunludur.');
+        }
+
+        $currencies = $service->setDefaultCurrency($code);
+        Response::json([
+            'currencies' => $currencies,
+            'message' => 'Varsayılan para birimi güncellendi.',
         ]);
     }
 

@@ -7,6 +7,7 @@ const AdminApp = (() => {
         period: 'weekly',
         settings: window.APP_STATE?.settings || {},
         qrPreview: window.APP_STATE?.qrPreview || '',
+        currentSection: window.APP_STATE?.currentSection || 'dashboard',
         orders: [],
         orderStatus: 'all',
         orderSearch: '',
@@ -20,6 +21,13 @@ const AdminApp = (() => {
         productSearch: '',
         productCategory: 'all',
     };
+
+    const escapeHtml = (value = '') => String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     const ICON_LIBRARY = [
         'bx-coffee', 'bx-bowl-hot', 'bx-cake', 'bx-dish', 'bx-pizza', 'bx-baguette', 'bx-beer', 'bx-bowl-rice',
@@ -35,6 +43,7 @@ const AdminApp = (() => {
         navButtons: document.querySelectorAll('.dashboard__link'),
         summaryCards: document.querySelectorAll('[data-summary]'),
         chartCanvas: document.querySelector('#ordersChart'),
+        chartPeriodButtons: document.querySelectorAll('[data-report]'),
         orderStatusFilters: document.querySelectorAll('#orderStatusFilters button'),
         orderSearch: document.querySelector('#orderSearch'),
         ordersContainer: document.querySelector('#ordersContainer'),
@@ -70,6 +79,7 @@ const AdminApp = (() => {
         currencyModal: document.querySelector('#currencyModal'),
         currencyForm: document.querySelector('#currencyForm'),
         saveCurrency: document.querySelector('#saveCurrency'),
+        currencyBadges: document.querySelector('#currencyBadges'),
         tableModal: document.querySelector('#tableModal'),
         tableForm: document.querySelector('#tableForm'),
         saveTable: document.querySelector('#saveTable'),
@@ -78,6 +88,9 @@ const AdminApp = (() => {
         orderModalContent: document.querySelector('#orderModalContent'),
         audioOrder: document.querySelector('#audioOrderAdmin'),
         audioNotify: document.querySelector('#audioNotifyAdmin'),
+        notificationsForm: document.querySelector('#notificationsForm'),
+        orderSoundPreview: document.querySelector('#orderSoundPreview'),
+        waiterSoundPreview: document.querySelector('#waiterSoundPreview'),
     };
 
     const toast = Swal.mixin({
@@ -116,20 +129,42 @@ const AdminApp = (() => {
         audioElement.play().catch(() => {});
     };
 
-    const switchSection = (section) => {
+    const detectSectionFromLocation = () => {
+        const sectionPaths = window.APP_STATE?.sectionPaths || {};
+        const currentPath = window.location.pathname.replace(/\/+$/, '') || '/panel';
+        const match = Object.entries(sectionPaths).find(([, path]) => path === currentPath);
+        return match ? match[0] : 'dashboard';
+    };
+
+    const switchSection = (section, push = false) => {
+        if (!section) return;
+        state.currentSection = section;
         selectors.sections.forEach((element) => {
             element.classList.toggle('d-none', element.id !== `section-${section}`);
         });
+        selectors.navButtons.forEach((item) => {
+            item.classList.toggle('active', item.dataset.section === section);
+        });
+        if (push) {
+            const targetLink = [...selectors.navButtons].find((item) => item.dataset.section === section);
+            const targetUrl = targetLink?.dataset.url || targetLink?.getAttribute('href');
+            if (targetUrl) {
+                window.history.pushState({ section }, '', targetUrl);
+            }
+        }
     };
 
     const bindNavigation = () => {
         selectors.navButtons.forEach((button) => {
             button.addEventListener('click', (event) => {
                 event.preventDefault();
-                selectors.navButtons.forEach((item) => item.classList.remove('active'));
-                button.classList.add('active');
-                switchSection(button.dataset.section);
+                switchSection(button.dataset.section, true);
             });
+        });
+
+        window.addEventListener('popstate', (event) => {
+            const section = event.state?.section || detectSectionFromLocation();
+            switchSection(section, false);
         });
     };
 
@@ -663,11 +698,12 @@ const AdminApp = (() => {
 
     const initDropzones = () => {
         document.querySelectorAll('[data-dropzone]').forEach((element) => {
+            const acceptedFiles = element.dataset.accept || 'image/*';
             const dz = new Dropzone(element, {
                 url: 'api/upload.php',
                 paramName: 'file',
                 maxFiles: 1,
-                acceptedFiles: 'image/*',
+                acceptedFiles,
                 addRemoveLinks: true,
                 dictDefaultMessage: element.dataset.placeholder || 'Dosyayı buraya bırakın',
             });
@@ -686,6 +722,13 @@ const AdminApp = (() => {
                     const preview = document.querySelector(element.dataset.preview);
                     if (preview) {
                         preview.src = response.url || response.path;
+                    }
+                }
+                if (element.dataset.audio) {
+                    const audio = document.querySelector(element.dataset.audio);
+                    if (audio) {
+                        audio.src = response.url || response.path;
+                        audio.load?.();
                     }
                 }
                 toast.fire({ icon: 'success', title: 'Dosya yüklendi.' });
@@ -723,10 +766,13 @@ const AdminApp = (() => {
         state.settings = data.settings || {};
         state.qrPreview = data.qr_preview || state.qrPreview;
         updateBrandingPreviews();
+        updateAudioSources();
         if (selectors.qrPreviewImage && state.qrPreview) {
             selectors.qrPreviewImage.src = state.qrPreview;
         }
         populateDefaultLanguage();
+        populateTimezones();
+        updateCurrencyBadges();
     };
 
     const updateBrandingPreviews = () => {
@@ -737,6 +783,34 @@ const AdminApp = (() => {
         if (logoPreview) logoPreview.src = branding.logo || '';
         if (faviconPreview) faviconPreview.src = branding.favicon || '';
         if (qrLogoPreview) qrLogoPreview.src = branding.qr_logo || '';
+    };
+
+    const updateAudioSources = () => {
+        const notifications = state.settings?.notifications || window.APP_STATE?.notifications || {};
+        if (selectors.audioOrder) {
+            selectors.audioOrder.src = notifications.order_sound || selectors.audioOrder.src;
+            selectors.audioOrder.load?.();
+        }
+        if (selectors.audioNotify) {
+            selectors.audioNotify.src = notifications.waiter_sound || selectors.audioNotify.src;
+            selectors.audioNotify.load?.();
+        }
+        if (selectors.orderSoundPreview) {
+            selectors.orderSoundPreview.src = notifications.order_sound || '';
+            selectors.orderSoundPreview.load?.();
+        }
+        if (selectors.waiterSoundPreview) {
+            selectors.waiterSoundPreview.src = notifications.waiter_sound || '';
+            selectors.waiterSoundPreview.load?.();
+        }
+        const orderInput = document.querySelector('#orderSoundInput');
+        const waiterInput = document.querySelector('#waiterSoundInput');
+        if (orderInput) {
+            orderInput.value = notifications.order_sound || '';
+        }
+        if (waiterInput) {
+            waiterInput.value = notifications.waiter_sound || '';
+        }
     };
 
     const populateDefaultLanguage = () => {
@@ -751,6 +825,30 @@ const AdminApp = (() => {
                 select.value = state.settings.restaurant.language;
             }
         }
+    };
+
+    const populateTimezones = () => {
+        const select = document.querySelector('#timezoneSelect');
+        if (!select) return;
+        const timezones = state.settings?.timezones || window.APP_STATE?.timezones || [];
+        const selected = state.settings?.restaurant?.timezone || select.value || 'Europe/Istanbul';
+        select.innerHTML = timezones.map((timezone) => `<option value="${timezone}">${timezone}</option>`).join('');
+        select.value = selected;
+    };
+
+    const updateCurrencyBadges = () => {
+        if (!selectors.currencyBadges) return;
+        const currencies = state.settings?.currencies || [];
+        if (!currencies.length) {
+            selectors.currencyBadges.innerHTML = '<span class="badge bg-secondary">Para birimi ekleyin</span>';
+            return;
+        }
+        selectors.currencyBadges.innerHTML = currencies
+            .map((currency) => {
+                const badgeClass = Number(currency.is_default) === 1 ? 'bg-success' : 'bg-secondary';
+                return `<span class="badge rounded-pill ${badgeClass} me-2 mb-2">${escapeHtml(currency.code)} &mdash; ${escapeHtml(currency.name || currency.code)}</span>`;
+            })
+            .join('');
     };
 
     const bindOrderActions = () => {
@@ -865,6 +963,17 @@ const AdminApp = (() => {
         });
     };
 
+    const bindChartControls = () => {
+        Array.from(selectors.chartPeriodButtons || []).forEach((button) => {
+            button.addEventListener('click', async () => {
+                Array.from(selectors.chartPeriodButtons || []).forEach((item) => item.classList.remove('active'));
+                button.classList.add('active');
+                state.period = button.dataset.report || 'weekly';
+                await fetchDashboard();
+            });
+        });
+    };
+
     const renderPagination = (container, totalPages, currentPage, onPage) => {
         if (!container) return;
         container.innerHTML = '';
@@ -883,6 +992,7 @@ const AdminApp = (() => {
         handleSettingsSubmit(selectors.generalSettingsForm, (formData) => ({ restaurant: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.brandingForm, (formData) => ({ branding: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.qrForm, (formData) => ({ qr: Object.fromEntries(formData.entries()) }), reloadSettings);
+        handleSettingsSubmit(selectors.notificationsForm, (formData) => ({ notifications: Object.fromEntries(formData.entries()) }), reloadSettings);
     };
 
     const bindAuth = () => {
@@ -958,41 +1068,242 @@ const AdminApp = (() => {
         $('#reportsTable').DataTable().ajax.reload();
     };
 
+    const openLanguageModal = async (code = '') => {
+        if (!selectors.languageForm) return;
+        selectors.languageForm.reset();
+        const codeInput = selectors.languageForm.querySelector('[name="code"]');
+        const labelInput = selectors.languageForm.querySelector('[name="label"]');
+        const translationsInput = selectors.languageForm.querySelector('[name="translations"]');
+        if (codeInput) {
+            codeInput.readOnly = Boolean(code);
+            codeInput.value = code || '';
+        }
+        if (labelInput) {
+            const languageMeta = (state.settings?.languages || []).find((language) => language.code === code);
+            labelInput.value = languageMeta?.label || '';
+        }
+        if (translationsInput) {
+            translationsInput.value = JSON.stringify({}, null, 2);
+        }
+
+        if (code) {
+            const data = await fetchJSON(`api/languages.php?code=${code}`);
+            if (translationsInput) {
+                translationsInput.value = JSON.stringify(data.translations || {}, null, 2);
+            }
+        }
+
+        bootstrap.Modal.getOrCreateInstance(selectors.languageModal).show();
+    };
+
+    const setDefaultLanguage = async (code) => {
+        const response = await fetchJSON('api/languages.php', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+        });
+        toast.fire({ icon: 'success', title: response.message || 'Varsayılan dil güncellendi.' });
+        await reloadSettings();
+        $('#languagesTable').DataTable().ajax.reload(null, false);
+    };
+
+    const deleteLanguage = async (code) => {
+        const confirmResult = await Swal.fire({
+            title: 'Dil silinsin mi?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sil',
+            cancelButtonText: 'Vazgeç',
+        });
+        if (!confirmResult.isConfirmed) return;
+        const response = await fetchJSON(`api/languages.php?code=${code}`, { method: 'DELETE' });
+        toast.fire({ icon: 'success', title: response.message || 'Dil silindi.' });
+        await reloadSettings();
+        $('#languagesTable').DataTable().ajax.reload(null, false);
+    };
+
     const bindLanguageModal = () => {
-        selectors.saveLanguage?.addEventListener('click', async () => {
-            const formData = new FormData(selectors.languageForm);
-            const payload = Object.fromEntries(formData.entries());
-            const response = await fetchJSON('api/languages.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+        document.querySelectorAll('[data-bs-target="#languageModal"]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                openLanguageModal();
             });
-            toast.fire({ icon: 'success', title: response.message || 'Dil kaydedildi.' });
-            state.settings = state.settings || {};
-            state.settings.languages = response.languages || [];
-            await reloadSettings();
-            bootstrap.Modal.getInstance(selectors.languageModal)?.hide();
-            $('#languagesTable').DataTable().ajax.reload();
+        });
+
+        selectors.saveLanguage?.addEventListener('click', async () => {
+            try {
+                const formData = new FormData(selectors.languageForm);
+                const payload = Object.fromEntries(formData.entries());
+                payload.code = (payload.code || '').toLowerCase();
+                payload.label = payload.label || payload.code.toUpperCase();
+                let translations;
+                try {
+                    translations = JSON.parse(payload.translations || '{}');
+                } catch (error) {
+                    toast.fire({ icon: 'error', title: 'Geçerli bir JSON içeriği girin.' });
+                    return;
+                }
+                payload.translations = translations;
+                const response = await fetchJSON('api/languages.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                toast.fire({ icon: 'success', title: response.message || 'Dil kaydedildi.' });
+                await reloadSettings();
+                bootstrap.Modal.getInstance(selectors.languageModal)?.hide();
+                $('#languagesTable').DataTable().ajax.reload(null, false);
+            } catch (error) {
+                toast.fire({ icon: 'error', title: error.message });
+            }
         });
     };
 
+    const initLanguagesTable = () => {
+        const table = $('#languagesTable');
+        if (!table.length) return;
+        table.DataTable({
+            ajax: {
+                url: 'api/languages.php',
+                dataSrc: 'languages',
+            },
+            destroy: true,
+            responsive: true,
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
+            columns: [
+                { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
+                { data: 'label', title: 'Dil Adı' },
+                {
+                    data: 'is_default',
+                    title: 'Varsayılan',
+                    render: (value) => (Number(value) === 1 ? 'Evet' : 'Hayır'),
+                },
+                {
+                    data: null,
+                    title: 'İşlemler',
+                    orderable: false,
+                    render: (data, type, row) => {
+                        const disabled = Number(row.is_default) === 1 ? 'disabled' : '';
+                        return `
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" data-language-edit data-code="${row.code}">Düzenle</button>
+                                <button type="button" class="btn btn-outline-success" data-language-default data-code="${row.code}" ${disabled}>Varsayılan</button>
+                                <button type="button" class="btn btn-outline-danger" data-language-delete data-code="${row.code}" ${disabled}>Sil</button>
+                            </div>
+                        `;
+                    },
+                },
+            ],
+        });
+
+        table.on('click', '[data-language-edit]', (event) => {
+            const { code } = event.currentTarget.dataset;
+            if (code) {
+                openLanguageModal(code);
+            }
+        });
+
+        table.on('click', '[data-language-default]', async (event) => {
+            const { code } = event.currentTarget.dataset;
+            if (code) {
+                await setDefaultLanguage(code);
+            }
+        });
+
+        table.on('click', '[data-language-delete]', async (event) => {
+            const { code } = event.currentTarget.dataset;
+            if (code) {
+                await deleteLanguage(code);
+            }
+        });
+    };
+
+    const openCurrencyModal = (currency = null) => {
+        if (!selectors.currencyForm) return;
+        selectors.currencyForm.reset();
+        const codeInput = selectors.currencyForm.querySelector('[name="code"]');
+        const nameInput = selectors.currencyForm.querySelector('[name="name"]');
+        const symbolInput = selectors.currencyForm.querySelector('[name="symbol"]');
+        const defaultSelect = selectors.currencyForm.querySelector('[name="is_default"]');
+        if (currency) {
+            if (codeInput) {
+                codeInput.value = currency.code || '';
+                codeInput.readOnly = true;
+            }
+            if (nameInput) nameInput.value = currency.name || '';
+            if (symbolInput) symbolInput.value = currency.symbol || '';
+            if (defaultSelect) defaultSelect.value = Number(currency.is_default) === 1 ? '1' : '0';
+        } else {
+            if (codeInput) {
+                codeInput.value = '';
+                codeInput.readOnly = false;
+            }
+            if (defaultSelect) defaultSelect.value = '0';
+        }
+        bootstrap.Modal.getOrCreateInstance(selectors.currencyModal).show();
+    };
+
+    const setDefaultCurrency = async (code) => {
+        const response = await fetchJSON('api/currencies.php', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+        });
+        toast.fire({ icon: 'success', title: response.message || 'Varsayılan para birimi güncellendi.' });
+        await reloadSettings();
+        $('#currenciesTable').DataTable().ajax.reload(null, false);
+    };
+
+    const deleteCurrency = async (id) => {
+        const confirmResult = await Swal.fire({
+            title: 'Para birimi silinsin mi?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sil',
+            cancelButtonText: 'Vazgeç',
+        });
+        if (!confirmResult.isConfirmed) return;
+        const response = await fetchJSON(`api/currencies.php?id=${id}`, { method: 'DELETE' });
+        toast.fire({ icon: 'success', title: response.message || 'Para birimi silindi.' });
+        await reloadSettings();
+        $('#currenciesTable').DataTable().ajax.reload(null, false);
+    };
+
     const bindCurrencyModal = () => {
-        selectors.saveCurrency?.addEventListener('click', async () => {
-            const formData = new FormData(selectors.currencyForm);
-            const payload = Object.fromEntries(formData.entries());
-            const response = await fetchJSON('api/currencies.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+        document.querySelectorAll('[data-bs-target="#currencyModal"]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                openCurrencyModal();
             });
-            toast.fire({ icon: 'success', title: response.message || 'Para birimi kaydedildi.' });
-            bootstrap.Modal.getInstance(selectors.currencyModal)?.hide();
-            $('#currenciesTable').DataTable().ajax.reload();
+        });
+
+        selectors.saveCurrency?.addEventListener('click', async () => {
+            try {
+                const formData = new FormData(selectors.currencyForm);
+                const payload = Object.fromEntries(formData.entries());
+                payload.code = (payload.code || '').toUpperCase();
+                payload.symbol = payload.symbol || '';
+                payload.name = payload.name || payload.code;
+                payload.is_default = Number(payload.is_default || 0);
+                const response = await fetchJSON('api/currencies.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                toast.fire({ icon: 'success', title: response.message || 'Para birimi kaydedildi.' });
+                await reloadSettings();
+                bootstrap.Modal.getInstance(selectors.currencyModal)?.hide();
+                $('#currenciesTable').DataTable().ajax.reload(null, false);
+            } catch (error) {
+                toast.fire({ icon: 'error', title: error.message });
+            }
         });
     };
 
     const initCurrenciesTable = () => {
-        $('#currenciesTable').DataTable({
+        const table = $('#currenciesTable');
+        if (!table.length) return;
+        table.DataTable({
             ajax: {
                 url: 'api/currencies.php',
                 dataSrc: 'currencies',
@@ -1001,7 +1312,7 @@ const AdminApp = (() => {
             responsive: true,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
             columns: [
-                { data: 'code', title: 'Kod' },
+                { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
                 { data: 'name', title: 'Ad' },
                 { data: 'symbol', title: 'Sembol' },
                 {
@@ -1009,7 +1320,46 @@ const AdminApp = (() => {
                     title: 'Varsayılan',
                     render: (value) => (Number(value) === 1 ? 'Evet' : 'Hayır'),
                 },
+                {
+                    data: null,
+                    title: 'İşlemler',
+                    orderable: false,
+                    render: (data, type, row) => {
+                        const disabled = Number(row.is_default) === 1 ? 'disabled' : '';
+                        return `
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-primary" data-currency-edit data-code="${row.code}" data-name="${escapeHtml(row.name || '')}" data-symbol="${escapeHtml(row.symbol || '')}" data-default="${row.is_default}" data-id="${row.id}">Düzenle</button>
+                                <button type="button" class="btn btn-outline-success" data-currency-default data-code="${row.code}" ${disabled}>Varsayılan</button>
+                                <button type="button" class="btn btn-outline-danger" data-currency-delete data-id="${row.id}" ${disabled}>Sil</button>
+                            </div>
+                        `;
+                    },
+                },
             ],
+        });
+
+        table.on('click', '[data-currency-edit]', (event) => {
+            const button = event.currentTarget;
+            openCurrencyModal({
+                code: button.dataset.code || '',
+                name: button.dataset.name || '',
+                symbol: button.dataset.symbol || '',
+                is_default: button.dataset.default || 0,
+            });
+        });
+
+        table.on('click', '[data-currency-default]', async (event) => {
+            const { code } = event.currentTarget.dataset;
+            if (code) {
+                await setDefaultCurrency(code);
+            }
+        });
+
+        table.on('click', '[data-currency-delete]', async (event) => {
+            const { id } = event.currentTarget.dataset;
+            if (id) {
+                await deleteCurrency(id);
+            }
         });
     };
 
@@ -1041,7 +1391,11 @@ const AdminApp = (() => {
     };
 
     const init = async () => {
+        state.currentSection = detectSectionFromLocation();
+        switchSection(state.currentSection);
+        window.history.replaceState({ section: state.currentSection }, '', window.location.pathname);
         bindNavigation();
+        bindChartControls();
         initDropzones();
         bindFilters();
         bindOrderActions();
@@ -1050,6 +1404,10 @@ const AdminApp = (() => {
         bindMenuManagement();
         bindSettingsForms();
         populateDefaultLanguage();
+        populateTimezones();
+        updateBrandingPreviews();
+        updateAudioSources();
+        updateCurrencyBadges();
         bindAuth();
         bindExportButtons();
         bindLanguageModal();

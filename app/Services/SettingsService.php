@@ -7,6 +7,8 @@ use PDO;
 
 class SettingsService
 {
+    private const DEFAULT_ORDER_SOUND = 'assets/vendor/sounds/order.mp3';
+    private const DEFAULT_WAITER_SOUND = 'assets/vendor/sounds/notification.mp3';
     private PDO $db;
     private int $restaurantId;
 
@@ -40,6 +42,8 @@ class SettingsService
             'branding' => $branding,
             'currencies' => $this->currencies(),
             'languages' => $this->languages(),
+            'notifications' => $this->notifications(),
+            'timezones' => $this->timezones(),
         ];
     }
 
@@ -57,6 +61,10 @@ class SettingsService
             $this->updateBranding($data['branding']);
         }
 
+        if (!empty($data['notifications'])) {
+            $this->updateNotifications($data['notifications']);
+        }
+
         return $this->all();
     }
 
@@ -64,7 +72,15 @@ class SettingsService
     {
         $query = $this->db->prepare('SELECT id, code, symbol, name, is_default FROM restaurant_currencies WHERE restaurant_id = ? ORDER BY is_default DESC, name ASC');
         $query->execute([$this->restaurantId]);
-        return $query->fetchAll() ?: [];
+        $currencies = $query->fetchAll() ?: [];
+
+        return array_map(function ($currency) {
+            $currency['code'] = strtoupper($currency['code']);
+            $currency['symbol'] = $currency['symbol'] ?? '';
+            $currency['name'] = $currency['name'] ?? $currency['code'];
+            $currency['is_default'] = (int)($currency['is_default'] ?? 0);
+            return $currency;
+        }, $currencies);
     }
 
     public function addCurrency(array $currency): array
@@ -81,6 +97,10 @@ class SettingsService
             $currency['name'] ?? strtoupper($currency['code']),
             !empty($currency['is_default']) ? 1 : 0,
         ]);
+
+        if (!empty($currency['is_default'])) {
+            $this->setDefaultCurrency($currency['code']);
+        }
 
         return $this->currencies();
     }
@@ -99,14 +119,25 @@ class SettingsService
         $statement = $this->db->prepare('UPDATE restaurant_currencies SET is_default = 1 WHERE restaurant_id = ? AND code = ?');
         $statement->execute([$this->restaurantId, strtoupper($code)]);
 
+        $this->db->prepare('UPDATE restaurants SET currency = ?, updated_at = NOW() WHERE id = ?')->execute([
+            strtoupper($code),
+            $this->restaurantId,
+        ]);
+
         return $this->currencies();
     }
 
     public function languages(): array
     {
-        $statement = $this->db->prepare('SELECT code, label FROM restaurant_languages WHERE restaurant_id = ? ORDER BY label');
-        $statement->execute([$this->restaurantId]);
-        return $statement->fetchAll() ?: [];
+        $statement = $this->db->prepare('SELECT code, label, CASE WHEN code = (SELECT language FROM restaurants WHERE id = ?) THEN 1 ELSE 0 END AS is_default FROM restaurant_languages WHERE restaurant_id = ? ORDER BY label');
+        $statement->execute([$this->restaurantId, $this->restaurantId]);
+        $languages = $statement->fetchAll() ?: [];
+
+        return array_map(static function ($language) {
+            $language['code'] = strtolower($language['code']);
+            $language['is_default'] = (int)($language['is_default'] ?? 0);
+            return $language;
+        }, $languages);
     }
 
     public function saveLanguageMeta(string $code, string $label): array
@@ -115,6 +146,73 @@ class SettingsService
         $statement->execute([$this->restaurantId, strtolower($code), $label]);
 
         return $this->languages();
+    }
+
+    public function deleteLanguage(string $code): array
+    {
+        $code = strtolower($code);
+        $statement = $this->db->prepare('DELETE FROM restaurant_languages WHERE restaurant_id = ? AND code = ?');
+        $statement->execute([$this->restaurantId, $code]);
+
+        if ($this->currentLanguage() === $code) {
+            $fallback = $this->db->prepare('SELECT code FROM restaurant_languages WHERE restaurant_id = ? ORDER BY label LIMIT 1');
+            $fallback->execute([$this->restaurantId]);
+            $newDefault = $fallback->fetchColumn() ?: 'tr';
+            $this->setDefaultLanguage($newDefault);
+        }
+
+        return $this->languages();
+    }
+
+    public function setDefaultLanguage(string $code): array
+    {
+        $code = strtolower($code);
+        $this->db->prepare('UPDATE restaurants SET language = ?, updated_at = NOW() WHERE id = ?')->execute([
+            $code,
+            $this->restaurantId,
+        ]);
+
+        return $this->languages();
+    }
+
+    public function currentLanguage(): string
+    {
+        $statement = $this->db->prepare('SELECT language FROM restaurants WHERE id = ?');
+        $statement->execute([$this->restaurantId]);
+        return $statement->fetchColumn() ?: 'tr';
+    }
+
+    public function currentCurrency(): string
+    {
+        $statement = $this->db->prepare('SELECT currency FROM restaurants WHERE id = ?');
+        $statement->execute([$this->restaurantId]);
+        return $statement->fetchColumn() ?: 'TRY';
+    }
+
+    public function timezones(): array
+    {
+        return [
+            'Europe/Istanbul',
+            'Europe/London',
+            'Europe/Berlin',
+            'Europe/Paris',
+            'Europe/Amsterdam',
+            'Europe/Madrid',
+            'Europe/Rome',
+            'Europe/Athens',
+            'Europe/Moscow',
+            'Asia/Dubai',
+            'Asia/Tokyo',
+            'Asia/Singapore',
+            'Asia/Shanghai',
+            'Asia/Karachi',
+            'Asia/Kolkata',
+            'Africa/Cairo',
+            'America/New_York',
+            'America/Chicago',
+            'America/Los_Angeles',
+            'Australia/Sydney',
+        ];
     }
 
     private function fetchRestaurant(): array
@@ -158,6 +256,16 @@ class SettingsService
         ]);
     }
 
+    private function updateNotifications(array $data): void
+    {
+        $payload = [
+            'order_sound' => $this->normalizeMedia($data['order_sound'] ?? null) ?: self::DEFAULT_ORDER_SOUND,
+            'waiter_sound' => $this->normalizeMedia($data['waiter_sound'] ?? null) ?: self::DEFAULT_WAITER_SOUND,
+        ];
+
+        $this->saveSection('notifications', $payload);
+    }
+
     private function getSection(string $section): array
     {
         $statement = $this->db->prepare('SELECT payload FROM restaurant_settings WHERE restaurant_id = ? AND section = ?');
@@ -175,6 +283,18 @@ class SettingsService
             $section,
             json_encode($payload, JSON_UNESCAPED_UNICODE),
         ]);
+    }
+
+    private function notifications(): array
+    {
+        $section = $this->getSection('notifications');
+        $order = $section['order_sound'] ?? self::DEFAULT_ORDER_SOUND;
+        $waiter = $section['waiter_sound'] ?? self::DEFAULT_WAITER_SOUND;
+
+        return [
+            'order_sound' => $this->mediaUrl($order),
+            'waiter_sound' => $this->mediaUrl($waiter),
+        ];
     }
 
     private function normalizeMedia(?string $value): ?string

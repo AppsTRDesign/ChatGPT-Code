@@ -11,6 +11,7 @@ $restaurant = $settings['restaurant'] ?? [];
 $branding = $settings['branding'] ?? [];
 $languages = $settings['languages'] ?? [];
 $currencies = $settings['currencies'] ?? [];
+$notifications = $settings['notifications'] ?? [];
 
 $tableId = isset($_GET['table']) ? (int)$_GET['table'] : 0;
 $tableName = null;
@@ -22,17 +23,24 @@ if ($tableId > 0) {
 }
 
 $defaultLanguage = $_GET['lang'] ?? ($restaurant['language'] ?? 'tr');
+$defaultLanguage = strtolower($defaultLanguage);
 Language::load($defaultLanguage);
 
-$defaultCurrency = $restaurant['currency'] ?? 'TRY';
+$defaultCurrency = strtoupper($restaurant['currency'] ?? 'TRY');
 foreach ($currencies as $currency) {
     if (!empty($currency['is_default'])) {
-        $defaultCurrency = $currency['code'];
+        $defaultCurrency = strtoupper($currency['code']);
         break;
     }
 }
 
-$currentCurrency = $_GET['currency'] ?? $defaultCurrency;
+$currentCurrency = strtoupper($_GET['currency'] ?? $defaultCurrency);
+
+$orderSound = $notifications['order_sound'] ?? (rtrim(BASE_URL, '/') . '/assets/vendor/sounds/order.mp3');
+$waiterSound = $notifications['waiter_sound'] ?? (rtrim(BASE_URL, '/') . '/assets/vendor/sounds/notification.mp3');
+$friendlyPath = $tableId > 0
+    ? '/menu/' . $tableId . '/' . $defaultLanguage . '/' . $currentCurrency
+    : '/menu';
 
 ?>
 <!DOCTYPE html>
@@ -53,7 +61,7 @@ $currentCurrency = $_GET['currency'] ?? $defaultCurrency;
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 </head>
-<body data-base-currency="<?= htmlspecialchars($defaultCurrency) ?>" data-current-currency="<?= htmlspecialchars($currentCurrency) ?>" data-table-id="<?= htmlspecialchars((string)$tableId) ?>">
+<body data-base-currency="<?= htmlspecialchars($defaultCurrency) ?>" data-current-currency="<?= htmlspecialchars($currentCurrency) ?>" data-current-language="<?= htmlspecialchars($defaultLanguage) ?>" data-table-id="<?= htmlspecialchars((string)$tableId) ?>">
 <header class="menu-hero" style="--theme-color: <?= htmlspecialchars($restaurant['theme_color'] ?? '#0f9d58') ?>;">
     <div class="greeting">
         <div class="d-flex align-items-center gap-3">
@@ -145,12 +153,8 @@ $currentCurrency = $_GET['currency'] ?? $defaultCurrency;
     </div>
 </div>
 
-<audio id="audioOrder" preload="auto">
-    <source src="assets/vendor/sounds/order.mp3" type="audio/mpeg">
-</audio>
-<audio id="audioNotify" preload="auto">
-    <source src="assets/vendor/sounds/notification.mp3" type="audio/mpeg">
-</audio>
+<audio id="audioOrder" preload="auto" src="<?= htmlspecialchars($orderSound) ?>"></audio>
+<audio id="audioNotify" preload="auto" src="<?= htmlspecialchars($waiterSound) ?>"></audio>
 
 <script>
     window.MENU_STATE = {
@@ -159,7 +163,10 @@ $currentCurrency = $_GET['currency'] ?? $defaultCurrency;
         currencies: <?= json_encode(array_column($currencies, 'code'), JSON_UNESCAPED_UNICODE) ?>,
         addToCartText: <?= json_encode(Language::get('menu.add_to_cart', 'Sepete Ekle'), JSON_UNESCAPED_UNICODE) ?>,
         tableId: <?= json_encode($tableId, JSON_UNESCAPED_UNICODE) ?>,
-        tableName: <?= json_encode($tableName, JSON_UNESCAPED_UNICODE) ?>
+        tableName: <?= json_encode($tableName, JSON_UNESCAPED_UNICODE) ?>,
+        orderSound: <?= json_encode($orderSound, JSON_UNESCAPED_UNICODE) ?>,
+        waiterSound: <?= json_encode($waiterSound, JSON_UNESCAPED_UNICODE) ?>,
+        basePath: <?= json_encode($friendlyPath, JSON_UNESCAPED_UNICODE) ?>
     };
     document.documentElement.style.setProperty('--theme-color', <?= json_encode($restaurant['theme_color'] ?? '#0f9d58', JSON_UNESCAPED_UNICODE) ?>);
 </script>

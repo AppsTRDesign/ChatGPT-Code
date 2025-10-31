@@ -55,4 +55,12 @@ class LanguageService
         $merged = array_replace_recursive($existing, $translations);
         $this->save($code, $merged);
     }
+
+    public function delete(string $code): void
+    {
+        $path = $this->directory . '/' . $code . '.json';
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
 }

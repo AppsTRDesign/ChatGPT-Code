@@ -212,6 +212,18 @@ a:hover {
   object-fit: contain;
 }
 
+.currency-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.currency-badges .badge {
+  font-size: 0.75rem;
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
 .card-stack {
   display: grid;
   gap: 16px;

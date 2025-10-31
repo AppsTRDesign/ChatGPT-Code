@@ -23,7 +23,7 @@ try {
             $qrLogo = rtrim(BASE_URL, '/') . $qrLogo;
         }
         $qrService = new QrService();
-        $qrPreview = $qrService->generateUrl(BASE_URL . '/menu.php', array_merge($qrSettings, ['logo' => $qrLogo]));
+        $qrPreview = $qrService->generateUrl(BASE_URL . '/menu', array_merge($qrSettings, ['logo' => $qrLogo]));
 
         Response::json([
             'settings' => $settings,

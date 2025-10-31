@@ -13,7 +13,15 @@ $settingsService = new SettingsService($restaurantId);
 $settings = $settingsService->all();
 $qrConfig = $settings['qr'] ?? [];
 $qrConfig['logo'] = $settings['branding']['qr_logo'] ?? ($qrConfig['logo'] ?? null);
-$currency = $db->query("SELECT currency FROM restaurants WHERE id = {$restaurantId}")->fetchColumn() ?: 'TRY';
+$defaultLanguage = $settingsService->currentLanguage();
+$defaultCurrency = $settingsService->currentCurrency();
+$currencyList = $settings['currencies'] ?? [];
+foreach ($currencyList as $currencyRow) {
+    if (!empty($currencyRow['is_default'])) {
+        $defaultCurrency = $currencyRow['code'];
+        break;
+    }
+}
 $qrService = new QrService();
 
 try {
@@ -36,13 +44,13 @@ try {
                 $id = (int)$db->lastInsertId();
             }
 
-            $qrUrl = tableQrUrl($qrService, $qrConfig, $id);
+            $qrUrl = tableQrUrl($qrService, $qrConfig, $id, $defaultLanguage, $defaultCurrency);
             $db->prepare('UPDATE tables SET qr_code_url = ? WHERE id = ?')->execute([$qrUrl, $id]);
 
             Response::json([
                 'success' => true,
-                'table' => fetchTable($db, $qrService, $qrConfig, $currency, $restaurantId, $id),
-                'tables' => fetchTables($db, $qrService, $qrConfig, $currency, $restaurantId),
+                'table' => fetchTable($db, $qrService, $qrConfig, $defaultLanguage, $defaultCurrency, $restaurantId, $id),
+                'tables' => fetchTables($db, $qrService, $qrConfig, $defaultLanguage, $defaultCurrency, $restaurantId),
                 'message' => 'Masa kaydedildi.',
             ]);
             break;
@@ -56,13 +64,13 @@ try {
             $statement->execute([$restaurantId, $id]);
             Response::json([
                 'success' => true,
-                'tables' => fetchTables($db, $qrService, $qrConfig, $currency, $restaurantId),
+                'tables' => fetchTables($db, $qrService, $qrConfig, $defaultLanguage, $defaultCurrency, $restaurantId),
                 'message' => 'Masa silindi.',
             ]);
             break;
         default:
             Response::json([
-                'tables' => fetchTables($db, $qrService, $qrConfig, $currency, $restaurantId),
+                'tables' => fetchTables($db, $qrService, $qrConfig, $defaultLanguage, $defaultCurrency, $restaurantId),
             ]);
     }
 } catch (Throwable $exception) {
@@ -72,18 +80,18 @@ try {
     ], 400);
 }
 
-function fetchTables(\PDO $db, QrService $qrService, array $qrConfig, string $currency, int $restaurantId): array
+function fetchTables(\PDO $db, QrService $qrService, array $qrConfig, string $language, string $currency, int $restaurantId): array
 {
     $statement = $db->prepare('SELECT id FROM tables WHERE restaurant_id = ? ORDER BY name');
     $statement->execute([$restaurantId]);
     $tables = [];
     foreach ($statement->fetchAll() ?: [] as $row) {
-        $tables[] = fetchTable($db, $qrService, $qrConfig, $currency, $restaurantId, (int)$row['id']);
+        $tables[] = fetchTable($db, $qrService, $qrConfig, $language, $currency, $restaurantId, (int)$row['id']);
     }
     return $tables;
 }
 
-function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $currency, int $restaurantId, int $tableId): array
+function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $language, string $currency, int $restaurantId, int $tableId): array
 {
     $statement = $db->prepare('SELECT id, name, status, qr_code_url FROM tables WHERE id = ?');
     $statement->execute([$tableId]);
@@ -92,10 +100,14 @@ function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $cur
         return [];
     }
 
-    $tableUrl = BASE_URL . '/menu.php?table=' . $table['id'];
+    $tableUrl = tableMenuUrl((int)$table['id'], $language, $currency);
     $table['qr_url'] = $tableUrl;
     $table['status_label'] = $table['status'] === 'occupied' ? 'Dolu' : 'Boş';
-    $table['qr_code_url'] = $table['qr_code_url'] ?: tableQrUrl($qrService, $qrConfig, (int)$table['id']);
+    $freshQr = tableQrUrl($qrService, $qrConfig, (int)$table['id'], $language, $currency);
+    if (($table['qr_code_url'] ?? '') !== $freshQr) {
+        $db->prepare('UPDATE tables SET qr_code_url = ? WHERE id = ?')->execute([$freshQr, $table['id']]);
+    }
+    $table['qr_code_url'] = $freshQr;
 
     $ordersStatement = $db->prepare("SELECT id, status, total, DATE_FORMAT(created_at, '%H:%i') AS created_at FROM orders WHERE table_id = ? AND restaurant_id = ? AND status NOT IN ('Ödeme Alındı', 'Tamamlandı', 'İptal') ORDER BY created_at DESC");
     $ordersStatement->execute([$tableId, $restaurantId]);
@@ -108,8 +120,16 @@ function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $cur
     return $table;
 }
 
-function tableQrUrl(QrService $qrService, array $qrConfig, int $tableId): string
+function tableQrUrl(QrService $qrService, array $qrConfig, int $tableId, string $language, string $currency): string
 {
-    $url = BASE_URL . '/menu.php?table=' . $tableId;
+    $url = tableMenuUrl($tableId, $language, $currency);
     return $qrService->generateUrl($url, $qrConfig);
+}
+
+function tableMenuUrl(int $tableId, string $language, string $currency): string
+{
+    $language = strtolower($language ?: 'tr');
+    $currency = strtoupper($currency ?: 'TRY');
+
+    return rtrim(BASE_URL, '/') . '/menu/' . $tableId . '/' . $language . '/' . $currency;
 }

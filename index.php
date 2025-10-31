@@ -19,15 +19,37 @@ $settingsService = new SettingsService();
 $settings = $settingsService->all();
 $restaurant = $settings['restaurant'] ?? [];
 $branding = $settings['branding'] ?? [];
+$notifications = $settings['notifications'] ?? [];
+$timezones = $settings['timezones'] ?? $settingsService->timezones();
 $defaultLanguage = $restaurant['language'] ?? 'tr';
 Language::load($defaultLanguage);
+
+$allowedSections = ['dashboard', 'orders', 'tables', 'waiter', 'menu', 'reports', 'settings'];
+$currentSection = $_GET['section'] ?? 'dashboard';
+if (!in_array($currentSection, $allowedSections, true)) {
+    $currentSection = 'dashboard';
+}
+
+$sectionPaths = [
+    'dashboard' => '/panel',
+    'orders' => '/panel/orders',
+    'tables' => '/panel/tables',
+    'waiter' => '/panel/waiter-calls',
+    'menu' => '/panel/menu',
+    'reports' => '/panel/reports',
+    'settings' => '/panel/settings',
+];
 
 $qrSettings = $settings['qr'] ?? [];
 $qrLogo = $branding['qr_logo'] ?? ($qrSettings['logo'] ?? null);
 if ($qrLogo && str_starts_with($qrLogo, '/')) {
     $qrLogo = rtrim(BASE_URL, '/') . $qrLogo;
 }
-$qrPreview = (new QrService())->generateUrl(BASE_URL . '/menu.php', array_merge($qrSettings, ['logo' => $qrLogo]));
+$qrPreview = (new QrService())->generateUrl(BASE_URL . '/menu', array_merge($qrSettings, ['logo' => $qrLogo]));
+
+$orderSound = $notifications['order_sound'] ?? (rtrim(BASE_URL, '/') . '/assets/vendor/sounds/order.mp3');
+$waiterSound = $notifications['waiter_sound'] ?? (rtrim(BASE_URL, '/') . '/assets/vendor/sounds/notification.mp3');
+$selectedTimezone = $restaurant['timezone'] ?? 'Europe/Istanbul';
 
 $reportStart = (new DateTimeImmutable('-6 days'))->format('Y-m-d');
 $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
@@ -70,25 +92,25 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             <?php endif; ?>
         </div>
         <nav class="dashboard__nav">
-            <a href="#section-dashboard" class="dashboard__link active" data-section="dashboard">
+            <a href="<?= htmlspecialchars($sectionPaths['dashboard']) ?>" class="dashboard__link <?= $currentSection === 'dashboard' ? 'active' : '' ?>" data-section="dashboard" data-url="<?= htmlspecialchars($sectionPaths['dashboard']) ?>">
                 <?= htmlspecialchars(Language::get('app.dashboard')) ?>
             </a>
-            <a href="#section-orders" class="dashboard__link" data-section="orders">
+            <a href="<?= htmlspecialchars($sectionPaths['orders']) ?>" class="dashboard__link <?= $currentSection === 'orders' ? 'active' : '' ?>" data-section="orders" data-url="<?= htmlspecialchars($sectionPaths['orders']) ?>">
                 <?= htmlspecialchars(Language::get('app.orders')) ?>
             </a>
-            <a href="#section-tables" class="dashboard__link" data-section="tables">
+            <a href="<?= htmlspecialchars($sectionPaths['tables']) ?>" class="dashboard__link <?= $currentSection === 'tables' ? 'active' : '' ?>" data-section="tables" data-url="<?= htmlspecialchars($sectionPaths['tables']) ?>">
                 <?= htmlspecialchars(Language::get('app.tables')) ?>
             </a>
-            <a href="#section-waiter" class="dashboard__link" data-section="waiter">
+            <a href="<?= htmlspecialchars($sectionPaths['waiter']) ?>" class="dashboard__link <?= $currentSection === 'waiter' ? 'active' : '' ?>" data-section="waiter" data-url="<?= htmlspecialchars($sectionPaths['waiter']) ?>">
                 <?= htmlspecialchars(Language::get('dashboard.waiter_calls')) ?>
             </a>
-            <a href="#section-menu" class="dashboard__link" data-section="menu">
+            <a href="<?= htmlspecialchars($sectionPaths['menu']) ?>" class="dashboard__link <?= $currentSection === 'menu' ? 'active' : '' ?>" data-section="menu" data-url="<?= htmlspecialchars($sectionPaths['menu']) ?>">
                 <?= htmlspecialchars(Language::get('menu.manager', 'Menü Yönetimi')) ?>
             </a>
-            <a href="#section-reports" class="dashboard__link" data-section="reports">
+            <a href="<?= htmlspecialchars($sectionPaths['reports']) ?>" class="dashboard__link <?= $currentSection === 'reports' ? 'active' : '' ?>" data-section="reports" data-url="<?= htmlspecialchars($sectionPaths['reports']) ?>">
                 <?= htmlspecialchars(Language::get('app.reports')) ?>
             </a>
-            <a href="#section-settings" class="dashboard__link" data-section="settings">
+            <a href="<?= htmlspecialchars($sectionPaths['settings']) ?>" class="dashboard__link <?= $currentSection === 'settings' ? 'active' : '' ?>" data-section="settings" data-url="<?= htmlspecialchars($sectionPaths['settings']) ?>">
                 <?= htmlspecialchars(Language::get('app.settings')) ?>
             </a>
         </nav>
@@ -101,7 +123,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
         </div>
     </aside>
     <main class="dashboard__content">
-        <section class="section" id="section-dashboard">
+        <section class="section<?= $currentSection === 'dashboard' ? '' : ' d-none' ?>" id="section-dashboard">
             <div class="row g-3 mb-4" id="summaryCards">
                 <div class="col-6 col-md-3">
                     <div class="summary-card" data-summary="total_orders">
@@ -146,7 +168,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             </div>
         </section>
 
-        <section class="section d-none" id="section-orders">
+        <section class="section<?= $currentSection === 'orders' ? '' : ' d-none' ?>" id="section-orders">
             <div class="card">
                 <div class="card-header flex-column flex-lg-row d-flex gap-3 align-items-lg-center justify-content-between">
                     <div>
@@ -172,7 +194,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             </div>
         </section>
 
-        <section class="section d-none" id="section-tables">
+        <section class="section<?= $currentSection === 'tables' ? '' : ' d-none' ?>" id="section-tables">
             <div class="card">
                 <div class="card-header flex-column flex-lg-row d-flex gap-3 align-items-lg-center justify-content-between">
                     <div>
@@ -190,7 +212,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             </div>
         </section>
 
-        <section class="section d-none" id="section-waiter">
+        <section class="section<?= $currentSection === 'waiter' ? '' : ' d-none' ?>" id="section-waiter">
             <div class="card">
                 <div class="card-header flex-column flex-lg-row d-flex gap-3 align-items-lg-center justify-content-between">
                     <div>
@@ -205,7 +227,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             </div>
         </section>
 
-        <section class="section d-none" id="section-menu">
+        <section class="section<?= $currentSection === 'menu' ? '' : ' d-none' ?>" id="section-menu">
             <div class="row g-3">
                 <div class="col-12 col-xl-4">
                     <div class="card h-100">
@@ -242,7 +264,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             </div>
         </section>
 
-        <section class="section d-none" id="section-reports">
+        <section class="section<?= $currentSection === 'reports' ? '' : ' d-none' ?>" id="section-reports">
             <div class="card">
                 <div class="card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
                     <h2 class="h5 mb-0">Raporlar</h2>
@@ -259,7 +281,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             </div>
         </section>
 
-        <section class="section d-none" id="section-settings">
+        <section class="section<?= $currentSection === 'settings' ? '' : ' d-none' ?>" id="section-settings">
             <div class="card mb-4">
                 <div class="card-header">
                     <h2 class="h5 mb-0">Genel Ayarlar</h2>
@@ -288,7 +310,11 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Saat Dilimi</label>
-                            <input type="text" name="timezone" class="form-control" value="<?= htmlspecialchars($restaurant['timezone'] ?? 'Europe/Istanbul') ?>">
+                            <select name="timezone" id="timezoneSelect" class="form-select">
+                                <?php foreach ($timezones as $timezone): ?>
+                                    <option value="<?= htmlspecialchars($timezone) ?>" <?= $timezone === $selectedTimezone ? 'selected' : '' ?>><?= htmlspecialchars($timezone) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Varsayılan Dil</label>
@@ -398,6 +424,31 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
             </div>
 
             <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Bildirim Sesleri</h2>
+                </div>
+                <div class="card-body">
+                    <form id="notificationsForm" class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Sipariş Bildirim Sesi</label>
+                            <input type="text" name="order_sound" id="orderSoundInput" class="form-control" value="<?= htmlspecialchars($notifications['order_sound'] ?? '') ?>" readonly>
+                            <div class="dropzone mt-2 dz-dashed" data-dropzone data-target="#orderSoundInput" data-audio="#orderSoundPreview" data-accept="audio/*" data-placeholder="Ses dosyasını buraya bırakın"></div>
+                            <audio id="orderSoundPreview" class="w-100 mt-2" controls src="<?= htmlspecialchars($orderSound) ?>"></audio>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Garson Bildirim Sesi</label>
+                            <input type="text" name="waiter_sound" id="waiterSoundInput" class="form-control" value="<?= htmlspecialchars($notifications['waiter_sound'] ?? '') ?>" readonly>
+                            <div class="dropzone mt-2 dz-dashed" data-dropzone data-target="#waiterSoundInput" data-audio="#waiterSoundPreview" data-accept="audio/*" data-placeholder="Ses dosyasını buraya bırakın"></div>
+                            <audio id="waiterSoundPreview" class="w-100 mt-2" controls src="<?= htmlspecialchars($waiterSound) ?>"></audio>
+                        </div>
+                        <div class="col-12 text-end">
+                            <button class="btn btn-success" type="submit">Kaydet</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-4">
                 <div class="card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
                     <h2 class="h5 mb-0">Dil Yönetimi</h2>
                     <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#languageModal">Yeni Dil</button>
@@ -413,6 +464,13 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
                     <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#currencyModal">Para Birimi Ekle</button>
                 </div>
                 <div class="card-body">
+                    <div class="currency-badges mb-3" id="currencyBadges">
+                        <?php foreach (($settings['currencies'] ?? []) as $currency): ?>
+                            <span class="badge rounded-pill <?= !empty($currency['is_default']) ? 'bg-success' : 'bg-secondary' ?> me-2 mb-2">
+                                <?= htmlspecialchars($currency['code']) ?> &mdash; <?= htmlspecialchars($currency['name'] ?? $currency['code']) ?>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
                     <table id="currenciesTable" class="table table-striped table-hover w-100"></table>
                 </div>
             </div>
@@ -626,17 +684,17 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
     </div>
 </div>
 
-<audio id="audioOrderAdmin" preload="auto">
-    <source src="assets/vendor/sounds/order.mp3" type="audio/mpeg">
-</audio>
-<audio id="audioNotifyAdmin" preload="auto">
-    <source src="assets/vendor/sounds/notification.mp3" type="audio/mpeg">
-</audio>
+<audio id="audioOrderAdmin" preload="auto" src="<?= htmlspecialchars($orderSound) ?>"></audio>
+<audio id="audioNotifyAdmin" preload="auto" src="<?= htmlspecialchars($waiterSound) ?>"></audio>
 
 <script>
     window.APP_STATE = {
         settings: <?= json_encode($settings, JSON_UNESCAPED_UNICODE) ?>,
-        qrPreview: <?= json_encode($qrPreview, JSON_UNESCAPED_UNICODE) ?>
+        qrPreview: <?= json_encode($qrPreview, JSON_UNESCAPED_UNICODE) ?>,
+        currentSection: <?= json_encode($currentSection, JSON_UNESCAPED_UNICODE) ?>,
+        sectionPaths: <?= json_encode($sectionPaths, JSON_UNESCAPED_UNICODE) ?>,
+        notifications: <?= json_encode($notifications, JSON_UNESCAPED_UNICODE) ?>,
+        timezones: <?= json_encode($timezones, JSON_UNESCAPED_UNICODE) ?>
     };
 </script>
 <script src="assets/js/admin.js"></script>

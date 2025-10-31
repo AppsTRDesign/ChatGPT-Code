@@ -4,8 +4,9 @@ const MenuApp = (() => {
         products: [],
         selectedCategory: null,
         cart: [],
-        baseCurrency: document.body.dataset.baseCurrency || 'TRY',
-        currency: document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY',
+        baseCurrency: (document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
+        currency: (document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
+        language: document.body.dataset.currentLanguage || (window.MENU_STATE?.languages?.[0] || 'tr'),
         exchangeRate: 1,
         tableId: Number(document.body.dataset.tableId || 0),
         tableName: window.MENU_STATE?.tableName || '',
@@ -62,6 +63,36 @@ const MenuApp = (() => {
             throw new Error(data.message || 'İşlem gerçekleştirilemedi.');
         }
         return data;
+    };
+
+    const isFriendlyPath = () => window.location.pathname.startsWith('/menu');
+
+    const updateMenuLocation = (lang, currency, replace = true) => {
+        const targetLang = (lang || state.language || 'tr').toLowerCase();
+        const targetCurrency = (currency || state.currency || state.baseCurrency).toUpperCase();
+
+        if (isFriendlyPath() && state.tableId) {
+            const newPath = `/menu/${state.tableId}/${targetLang}/${targetCurrency}`;
+            if (replace) {
+                window.history.replaceState({}, '', newPath);
+            } else {
+                window.location.href = newPath;
+            }
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        if (state.tableId) {
+            params.set('table', state.tableId);
+        }
+        params.set('lang', targetLang);
+        params.set('currency', targetCurrency);
+        const newUrl = `${window.location.pathname}?${params.toString()}`;
+        if (replace) {
+            window.history.replaceState({}, '', newUrl);
+        } else {
+            window.location.href = newUrl;
+        }
     };
 
     const convertPrice = (price) => (price * state.exchangeRate).toFixed(2);
@@ -369,6 +400,17 @@ const MenuApp = (() => {
         });
     };
 
+    const applyAudioSources = () => {
+        if (elements.audioOrder && window.MENU_STATE?.orderSound) {
+            elements.audioOrder.src = window.MENU_STATE.orderSound;
+            elements.audioOrder.load?.();
+        }
+        if (elements.audioNotify && window.MENU_STATE?.waiterSound) {
+            elements.audioNotify.src = window.MENU_STATE.waiterSound;
+            elements.audioNotify.load?.();
+        }
+    };
+
     const playAudio = (audioElement) => {
         if (!audioElement) return;
         audioElement.currentTime = 0;
@@ -392,21 +434,18 @@ const MenuApp = (() => {
 
     const bindEvents = () => {
         elements.currencySelect?.addEventListener('change', async (event) => {
-            state.currency = event.target.value;
+            state.currency = event.target.value.toUpperCase();
             await updateExchangeRate();
             renderProducts();
             updateCartSummary();
             renderCart();
             renderOrderStatus();
-            const params = new URLSearchParams(window.location.search);
-            params.set('currency', state.currency);
-            window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+            updateMenuLocation(state.language, state.currency, true);
         });
 
         elements.languageSelect?.addEventListener('change', (event) => {
-            const params = new URLSearchParams(window.location.search);
-            params.set('lang', event.target.value);
-            window.location.search = params.toString();
+            state.language = event.target.value.toLowerCase();
+            updateMenuLocation(state.language, state.currency, false);
         });
 
         elements.waiterButton?.addEventListener('click', async () => {
@@ -538,6 +577,8 @@ const MenuApp = (() => {
 
     const init = async () => {
         window.translationAddToCart = window.MENU_STATE?.addToCartText || 'Sepete Ekle';
+        state.language = elements.languageSelect?.value || state.language;
+        applyAudioSources();
         await updateExchangeRate();
         await loadMenu();
         await refreshOrderStatus();

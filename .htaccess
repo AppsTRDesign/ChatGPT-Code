@@ -10,5 +10,14 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
+# SEO uyumlu panel ve menü yönlendirmeleri
+RewriteRule ^panel/?$ index.php [L,QSA]
+RewriteRule ^panel/([a-z-]+)/?$ index.php?section=$1 [L,QSA]
+RewriteRule ^menu/([0-9]+)/([a-z]{2})/([A-Z]{3})/?$ menu.php?table=$1&lang=$2&currency=$3 [L,QSA]
+RewriteRule ^menu/([0-9]+)/([a-z]{2})/?$ menu.php?table=$1&lang=$2 [L,QSA]
+RewriteRule ^menu/([0-9]+)/?$ menu.php?table=$1 [L,QSA]
+RewriteRule ^menu/?$ menu.php [L,QSA]
+RewriteRule ^login/?$ login.php [L,QSA]
+
 # Diğer tüm istekleri ana kontrolcüye yönlendir
 RewriteRule ^ index.php [L,QSA]
