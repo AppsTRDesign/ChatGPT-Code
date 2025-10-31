@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../bootstrap.php';
 
+use App\Services\QrService;
 use App\Services\SettingsService;
 use Core\Config;
 use Core\Response;
@@ -17,17 +18,12 @@ try {
         $languages = $service->languages();
         $languageCodes = Language::available();
         $qrSettings = $settings['qr'] ?? [];
-        $qrPreview = Config::get('qr_api')['base_url'] . '?' . http_build_query([
-            'token' => $qrSettings['token'] ?? '',
-            'type' => 'url',
-            'url' => BASE_URL . '/menu.php',
-            'width' => $qrSettings['width'] ?? 400,
-            'height' => $qrSettings['height'] ?? 400,
-            'color' => $qrSettings['color'] ?? '#000000',
-            'background' => $qrSettings['background'] ?? '#ffffff',
-            'format' => $qrSettings['format'] ?? 'png',
-            'background_transparent' => !empty($qrSettings['transparent']) ? 'true' : 'false',
-        ]);
+        $qrLogo = $settings['branding']['qr_logo'] ?? ($qrSettings['logo'] ?? null);
+        if ($qrLogo && str_starts_with($qrLogo, '/')) {
+            $qrLogo = rtrim(BASE_URL, '/') . $qrLogo;
+        }
+        $qrService = new QrService();
+        $qrPreview = $qrService->generateUrl(BASE_URL . '/menu.php', array_merge($qrSettings, ['logo' => $qrLogo]));
 
         Response::json([
             'settings' => $settings,

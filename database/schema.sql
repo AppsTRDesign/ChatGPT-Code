@@ -62,6 +62,16 @@ CREATE TABLE IF NOT EXISTS products (
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS product_variants (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    product_id INT UNSIGNED NOT NULL,
+    name VARCHAR(120) NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS orders (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     restaurant_id INT UNSIGNED NOT NULL,
@@ -78,11 +88,13 @@ CREATE TABLE IF NOT EXISTS order_items (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     order_id INT UNSIGNED NOT NULL,
     product_id INT UNSIGNED NOT NULL,
+    variant_id INT UNSIGNED NULL,
     quantity INT NOT NULL DEFAULT 1,
     unit_price DECIMAL(10,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS waiter_calls (
@@ -172,18 +184,25 @@ INSERT INTO products (id, restaurant_id, category_id, name, description, price, 
 (3, 1, 1, 'Limonata', 'Taze sıkılmış limonata', 49.90, 'assets/vendor/demo/coffee-1.png')
 ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);
 
+INSERT INTO product_variants (id, product_id, name, price) VALUES
+(1, 1, 'Standart', 89.00),
+(2, 1, 'Büyük', 109.00),
+(3, 2, 'Dilim', 129.50),
+(4, 3, 'Standart', 49.90)
+ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);
+
 INSERT INTO orders (id, restaurant_id, table_id, status, total, created_at) VALUES
 (101, 1, 1, 'Hazırlandı', 258.40, NOW() - INTERVAL 1 DAY),
 (102, 1, 2, 'Tamamlandı', 180.00, NOW() - INTERVAL 2 DAY),
 (103, 1, 3, 'Beklemede', 95.00, NOW())
 ON DUPLICATE KEY UPDATE status = VALUES(status), total = VALUES(total);
 
-INSERT INTO order_items (id, order_id, product_id, quantity, unit_price) VALUES
-(1, 101, 1, 2, 89.00),
-(2, 101, 2, 1, 129.50),
-(3, 102, 3, 2, 49.90),
-(4, 103, 1, 1, 89.00)
-ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), unit_price = VALUES(unit_price);
+INSERT INTO order_items (id, order_id, product_id, variant_id, quantity, unit_price) VALUES
+(1, 101, 1, 1, 2, 89.00),
+(2, 101, 2, 3, 1, 129.50),
+(3, 102, 3, 4, 2, 49.90),
+(4, 103, 1, 1, 1, 89.00)
+ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), unit_price = VALUES(unit_price), variant_id = VALUES(variant_id);
 
 INSERT INTO waiter_calls (id, restaurant_id, table_id, status, created_at) VALUES
 (1, 1, 1, 'on_the_way', NOW() - INTERVAL 15 MINUTE),

@@ -2,10 +2,17 @@ const MenuApp = (() => {
     const state = {
         categories: [],
         products: [],
+        selectedCategory: null,
         cart: [],
         baseCurrency: document.body.dataset.baseCurrency || 'TRY',
         currency: document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY',
         exchangeRate: 1,
+        tableId: Number(document.body.dataset.tableId || 0),
+        tableName: window.MENU_STATE?.tableName || '',
+        orders: [],
+        overlayProduct: null,
+        overlayVariant: null,
+        overlayQuantity: 1,
     };
 
     const elements = {
@@ -17,6 +24,26 @@ const MenuApp = (() => {
         waiterButton: document.querySelector('#callWaiter'),
         cartButton: document.querySelector('#cartButton'),
         searchInput: document.querySelector('#searchMenu'),
+        cartDrawer: document.querySelector('#cartDrawer'),
+        cartBackdrop: document.querySelector('#cartBackdrop'),
+        closeCart: document.querySelector('#closeCart'),
+        cartItems: document.querySelector('#cartItems'),
+        cartTotal: document.querySelector('#cartTotal'),
+        clearCart: document.querySelector('#clearCart'),
+        submitOrder: document.querySelector('#submitOrder'),
+        productOverlay: document.querySelector('#productOverlay'),
+        overlayProductName: document.querySelector('#overlayProductName'),
+        overlayProductDescription: document.querySelector('#overlayProductDescription'),
+        overlayVariants: document.querySelector('#overlayVariants'),
+        qtyDecrease: document.querySelector('#qtyDecrease'),
+        qtyIncrease: document.querySelector('#qtyIncrease'),
+        qtyValue: document.querySelector('#qtyValue'),
+        addToCartButton: document.querySelector('#addToCartButton'),
+        closeProductOverlay: document.querySelector('#closeProductOverlay'),
+        orderStatusList: document.querySelector('#orderStatusList'),
+        refreshOrders: document.querySelector('#refreshOrders'),
+        audioOrder: document.querySelector('#audioOrder'),
+        audioNotify: document.querySelector('#audioNotify'),
     };
 
     const socket = io('https://qrmenu.noasoft.org:4000');
@@ -28,9 +55,31 @@ const MenuApp = (() => {
         timer: 3200,
     });
 
-    const loadMenu = async () => {
-        const response = await fetch('api/menu.php');
+    const fetchJSON = async (url, options = {}) => {
+        const response = await fetch(url, options);
         const data = await response.json();
+        if (data.error) {
+            throw new Error(data.message || 'İşlem gerçekleştirilemedi.');
+        }
+        return data;
+    };
+
+    const convertPrice = (price) => (price * state.exchangeRate).toFixed(2);
+
+    const statusToClass = (status = '') => {
+        return status
+            .toString()
+            .replace(/İ/g, 'i')
+            .replace(/ı/g, 'i')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    };
+
+    const loadMenu = async () => {
+        const data = await fetchJSON('api/menu.php');
         state.categories = data.categories || [];
         state.products = data.products || [];
         renderCategories();
@@ -41,28 +90,46 @@ const MenuApp = (() => {
     const renderCategories = () => {
         if (!elements.categories) return;
         elements.categories.innerHTML = '';
+        const allButton = document.createElement('button');
+        allButton.type = 'button';
+        allButton.className = `category-card ${state.selectedCategory === null ? 'active' : ''}`;
+        allButton.innerHTML = '<span class="badge">🍽️</span><strong>Tümü</strong>';
+        allButton.addEventListener('click', () => {
+            state.selectedCategory = null;
+            renderCategories();
+            renderProducts();
+        });
+        elements.categories.appendChild(allButton);
+
         state.categories.forEach((category) => {
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.className = 'category-card';
-            card.innerHTML = `
-                <span class="badge">${category.icon || '🍽️'}</span>
-                <strong>${category.name}</strong>
-            `;
-            card.addEventListener('click', () => renderProducts(category.id));
-            elements.categories.appendChild(card);
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `category-card ${Number(state.selectedCategory) === Number(category.id) ? 'active' : ''}`;
+            const iconHtml = category.image
+                ? `<img src="${category.image}" alt="${category.name}" loading="lazy">`
+                : `<span class="badge">${category.icon || '🍽️'}</span>`;
+            button.innerHTML = `${iconHtml}<strong>${category.name}</strong>`;
+            button.addEventListener('click', () => {
+                state.selectedCategory = Number(category.id);
+                renderCategories();
+                renderProducts();
+            });
+            elements.categories.appendChild(button);
         });
     };
 
-    const renderProducts = (categoryId = null) => {
+    const renderProducts = () => {
         if (!elements.products) return;
         elements.products.innerHTML = '';
-        const products = categoryId
-            ? state.products.filter((product) => Number(product.category_id) === Number(categoryId))
-            : state.products;
-
-        products
-            .filter(filterBySearch)
+        const query = elements.searchInput?.value.trim().toLowerCase() || '';
+        state.products
+            .filter((product) => {
+                if (state.selectedCategory && Number(product.category_id) !== Number(state.selectedCategory)) {
+                    return false;
+                }
+                if (!query) return true;
+                return product.name.toLowerCase().includes(query) || (product.description || '').toLowerCase().includes(query);
+            })
             .forEach((product) => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
@@ -75,46 +142,235 @@ const MenuApp = (() => {
                     </div>
                     <button type="button" data-product="${product.id}">
                         <span>+</span>
-                        <span>${window.translationAddToCart || 'Sepete Ekle'}</span>
+                        <span>${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</span>
                     </button>
                 `;
-                card.querySelector('button').addEventListener('click', () => addToCart(product));
+                card.querySelector('button').addEventListener('click', () => openProductOverlay(product));
                 elements.products.appendChild(card);
             });
     };
 
-    const filterBySearch = (product) => {
-        if (!elements.searchInput) return true;
-        const query = elements.searchInput.value.trim().toLowerCase();
-        if (!query) return true;
-        return (
-            product.name.toLowerCase().includes(query) ||
-            (product.description || '').toLowerCase().includes(query)
-        );
+    const openProductOverlay = (product) => {
+        state.overlayProduct = product;
+        state.overlayVariant = null;
+        state.overlayQuantity = 1;
+        if (!elements.productOverlay) {
+            addToCart(product, null, 1);
+            return;
+        }
+        elements.overlayProductName.textContent = product.name;
+        elements.overlayProductDescription.textContent = product.description || '';
+        elements.qtyValue.textContent = '1';
+        renderOverlayVariants(product);
+        elements.productOverlay.classList.remove('d-none');
+        elements.cartBackdrop?.classList.remove('d-none');
     };
 
-    const addToCart = (product) => {
-        const existing = state.cart.find((item) => item.id === product.id);
+    const closeProductOverlay = () => {
+        elements.productOverlay?.classList.add('d-none');
+        if (elements.cartDrawer?.classList.contains('d-none')) {
+            elements.cartBackdrop?.classList.add('d-none');
+        }
+    };
+
+    const renderOverlayVariants = (product) => {
+        if (!elements.overlayVariants) return;
+        elements.overlayVariants.innerHTML = '';
+        const variants = product.variants && product.variants.length ? product.variants : [{ id: null, name: 'Standart', price: product.price }];
+        variants.forEach((variant, index) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `overlay-variant ${index === 0 ? 'active' : ''}`;
+            button.innerHTML = `
+                <span>${variant.name}</span>
+                <strong>${convertPrice(variant.price)} ${state.currency}</strong>
+            `;
+            button.addEventListener('click', () => {
+                state.overlayVariant = variant;
+                elements.overlayVariants.querySelectorAll('.overlay-variant').forEach((item) => item.classList.remove('active'));
+                button.classList.add('active');
+            });
+            elements.overlayVariants.appendChild(button);
+            if (index === 0) {
+                state.overlayVariant = variant;
+            }
+        });
+        updateOverlayButton();
+    };
+
+    const updateOverlayButton = () => {
+        if (!elements.addToCartButton || !state.overlayVariant) return;
+        const total = state.overlayVariant.price * state.overlayQuantity;
+        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${convertPrice(total)} ${state.currency}`;
+    };
+
+    const changeOverlayQuantity = (delta) => {
+        state.overlayQuantity = Math.max(1, state.overlayQuantity + delta);
+        elements.qtyValue.textContent = state.overlayQuantity;
+    };
+
+    const addToCart = (product, variant = null, quantity = 1) => {
+        const variantId = variant?.id || null;
+        const variantName = variant?.name || null;
+        const unitPrice = variant?.price || product.price;
+        const key = `${product.id}-${variantId || 'base'}`;
+        const existing = state.cart.find((item) => item.key === key);
         if (existing) {
-            existing.qty += 1;
+            existing.qty += quantity;
         } else {
-            state.cart.push({ ...product, qty: 1 });
+            state.cart.push({
+                key,
+                id: product.id,
+                variantId,
+                name: product.name,
+                variantName,
+                price: Number(unitPrice),
+                qty: quantity,
+                image: product.image || '',
+            });
         }
         updateCartSummary();
+        renderCart();
         toast.fire({ icon: 'success', title: `${product.name} sepete eklendi.` });
     };
 
     const updateCartSummary = () => {
         if (!elements.cartSummary) return;
         const totalQty = state.cart.reduce((total, item) => total + item.qty, 0);
-        const totalAmount = state.cart.reduce((total, item) => total + Number(item.price) * item.qty, 0);
+        const totalAmount = state.cart.reduce((total, item) => total + item.qty * item.price, 0);
         elements.cartSummary.innerHTML = `
             <span>${totalQty} ürün</span>
             <strong>${convertPrice(totalAmount)} ${state.currency}</strong>
         `;
+        if (elements.cartTotal) {
+            elements.cartTotal.textContent = `${convertPrice(totalAmount)} ${state.currency}`;
+        }
     };
 
-    const convertPrice = (price) => (price * state.exchangeRate).toFixed(2);
+    const renderCart = () => {
+        if (!elements.cartItems) return;
+        elements.cartItems.innerHTML = '';
+        if (!state.cart.length) {
+            elements.cartItems.innerHTML = '<p class="text-muted">Sepetiniz boş.</p>';
+            return;
+        }
+        state.cart.forEach((item) => {
+            const row = document.createElement('div');
+            row.className = 'cart-item';
+            row.innerHTML = `
+                <div>
+                    <strong>${item.name}</strong>
+                    ${item.variantName ? `<small>${item.variantName}</small>` : ''}
+                </div>
+                <div class="cart-item__actions">
+                    <div class="quantity-picker">
+                        <button type="button" data-qty-minus="${item.key}">-</button>
+                        <span>${item.qty}</span>
+                        <button type="button" data-qty-plus="${item.key}">+</button>
+                    </div>
+                    <div class="cart-item__price">
+                        <span>${convertPrice(item.price)} ${state.currency}</span>
+                        <strong>${convertPrice(item.price * item.qty)} ${state.currency}</strong>
+                    </div>
+                    <button type="button" class="btn btn-link text-danger p-0" data-remove="${item.key}">Sil</button>
+                </div>
+            `;
+            elements.cartItems.appendChild(row);
+        });
+    };
+
+    const toggleCart = (show) => {
+        if (!elements.cartDrawer || !elements.cartBackdrop) return;
+        elements.cartDrawer.classList.toggle('d-none', !show);
+        elements.cartBackdrop.classList.toggle('d-none', !show && elements.productOverlay?.classList.contains('d-none'));
+    };
+
+    const clearCart = () => {
+        state.cart = [];
+        renderCart();
+        updateCartSummary();
+    };
+
+    const submitOrder = async () => {
+        if (!state.cart.length) {
+            toast.fire({ icon: 'info', title: 'Sepetiniz boş.' });
+            return;
+        }
+        if (!state.tableId) {
+            toast.fire({ icon: 'error', title: 'Masa bilgisi eksik.' });
+            return;
+        }
+        const payload = {
+            table_id: state.tableId,
+            items: state.cart.map((item) => ({
+                product_id: item.id,
+                variant_id: item.variantId,
+                quantity: item.qty,
+            })),
+        };
+        try {
+            const response = await fetchJSON('api/order-create.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            toast.fire({ icon: 'success', title: response.message || 'Siparişiniz alındı.' });
+            clearCart();
+            toggleCart(false);
+            playAudio(elements.audioOrder);
+            socket.emit('order:new', { table: state.tableName || `Masa ${state.tableId}` });
+            await refreshOrderStatus();
+        } catch (error) {
+            toast.fire({ icon: 'error', title: error.message });
+        }
+    };
+
+    const refreshOrderStatus = async () => {
+        if (!state.tableId || !elements.orderStatusList) return;
+        const data = await fetchJSON(`api/order-status.php?table_id=${state.tableId}`);
+        state.orders = data.orders || [];
+        renderOrderStatus();
+    };
+
+    const renderOrderStatus = () => {
+        if (!elements.orderStatusList) return;
+        elements.orderStatusList.innerHTML = '';
+        if (!state.orders.length) {
+            elements.orderStatusList.innerHTML = '<p class="text-muted">Henüz siparişiniz bulunmuyor.</p>';
+            return;
+        }
+        state.orders.forEach((order) => {
+            const card = document.createElement('div');
+            card.className = 'order-track-card';
+            card.innerHTML = `
+                    <div class="order-track-card__head">
+                        <div>
+                            <h3>#${order.id}</h3>
+                            <small>${order.created_at}</small>
+                        </div>
+                    <span class="badge status-${statusToClass(order.status)}">${order.status}</span>
+                </div>
+                <ul class="order-track-card__items">
+                    ${(order.items || []).map((item) => `
+                        <li>
+                            <span>${item.name}${item.variant_name ? ` <small>${item.variant_name}</small>` : ''}</span>
+                            <span>${item.quantity}</span>
+                        </li>
+                    `).join('')}
+                </ul>
+                <div class="order-track-card__footer">
+                    <strong>${order.total_formatted}</strong>
+                </div>
+            `;
+            elements.orderStatusList.appendChild(card);
+        });
+    };
+
+    const playAudio = (audioElement) => {
+        if (!audioElement) return;
+        audioElement.currentTime = 0;
+        audioElement.play().catch(() => {});
+    };
 
     const updateExchangeRate = async () => {
         if (state.currency === state.baseCurrency) {
@@ -122,8 +378,7 @@ const MenuApp = (() => {
             return;
         }
         try {
-            const response = await fetch(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`);
-            const data = await response.json();
+            const data = await fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`);
             const rate = parseFloat(String(data.primary).replace(/,/g, ''));
             state.exchangeRate = Number.isNaN(rate) ? 1 : rate;
         } catch (error) {
@@ -138,6 +393,7 @@ const MenuApp = (() => {
             await updateExchangeRate();
             renderProducts();
             updateCartSummary();
+            renderCart();
             const params = new URLSearchParams(window.location.search);
             params.set('currency', state.currency);
             window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
@@ -149,31 +405,115 @@ const MenuApp = (() => {
             window.location.search = params.toString();
         });
 
-        elements.waiterButton?.addEventListener('click', () => {
-            socket.emit('waiter:call', { table: new URLSearchParams(window.location.search).get('table') || 'GENEL' });
-            toast.fire({ icon: 'success', title: 'Garson çağrıldı.' });
+        elements.waiterButton?.addEventListener('click', async () => {
+            if (!state.tableId) {
+                toast.fire({ icon: 'error', title: 'Masa bilgisi bulunamadı.' });
+                return;
+            }
+            try {
+                await fetchJSON('api/waiter-calls.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ table_id: state.tableId }),
+                });
+                toast.fire({ icon: 'success', title: 'Garson çağrısı iletildi.' });
+                socket.emit('waiter:call', { table: state.tableName || `Masa ${state.tableId}` });
+                playAudio(elements.audioNotify);
+            } catch (error) {
+                toast.fire({ icon: 'error', title: error.message });
+            }
         });
 
-        socket.on('waiter:update', (payload) => {
-            const audio = new Audio('assets/vendor/sounds/notification.mp3');
-            audio.play();
-            toast.fire({ icon: 'info', title: `Garson durumu: ${payload.status}` });
+        elements.cartButton?.addEventListener('click', () => toggleCart(true));
+        elements.cartBackdrop?.addEventListener('click', () => {
+            toggleCart(false);
+            closeProductOverlay();
+        });
+        elements.closeCart?.addEventListener('click', () => toggleCart(false));
+        elements.clearCart?.addEventListener('click', clearCart);
+        elements.submitOrder?.addEventListener('click', submitOrder);
+        elements.cartItems?.addEventListener('click', (event) => {
+            const minus = event.target.closest('[data-qty-minus]');
+            const plus = event.target.closest('[data-qty-plus]');
+            const remove = event.target.closest('[data-remove]');
+            if (minus) {
+                const item = state.cart.find((entry) => entry.key === minus.dataset.qtyMinus);
+                if (item) {
+                    item.qty = Math.max(1, item.qty - 1);
+                    renderCart();
+                    updateCartSummary();
+                }
+            }
+            if (plus) {
+                const item = state.cart.find((entry) => entry.key === plus.dataset.qtyPlus);
+                if (item) {
+                    item.qty += 1;
+                    renderCart();
+                    updateCartSummary();
+                }
+            }
+            if (remove) {
+                state.cart = state.cart.filter((entry) => entry.key !== remove.dataset.remove);
+                renderCart();
+                updateCartSummary();
+            }
         });
 
-        socket.on('order:update', (payload) => {
-            const audio = new Audio('assets/vendor/sounds/order.mp3');
-            audio.play();
-            toast.fire({ icon: 'info', title: `Sipariş ${payload.status}` });
+        elements.closeProductOverlay?.addEventListener('click', closeProductOverlay);
+        elements.qtyDecrease?.addEventListener('click', () => {
+            changeOverlayQuantity(-1);
+            updateOverlayButton();
+        });
+        elements.qtyIncrease?.addEventListener('click', () => {
+            changeOverlayQuantity(1);
+            updateOverlayButton();
+        });
+        elements.addToCartButton?.addEventListener('click', () => {
+            if (!state.overlayProduct || !state.overlayVariant) return;
+            addToCart(state.overlayProduct, state.overlayVariant, state.overlayQuantity);
+            closeProductOverlay();
+        });
+
+        elements.overlayVariants?.addEventListener('click', (event) => {
+            const button = event.target.closest('.overlay-variant');
+            if (!button || !state.overlayProduct) return;
+            const index = Array.from(elements.overlayVariants.children).indexOf(button);
+            const variants = state.overlayProduct.variants && state.overlayProduct.variants.length
+                ? state.overlayProduct.variants
+                : [{ id: null, name: 'Standart', price: state.overlayProduct.price }];
+            state.overlayVariant = variants[index];
+            elements.overlayVariants.querySelectorAll('.overlay-variant').forEach((item) => item.classList.remove('active'));
+            button.classList.add('active');
+            updateOverlayButton();
         });
 
         elements.searchInput?.addEventListener('input', () => renderProducts());
+        elements.refreshOrders?.addEventListener('click', refreshOrderStatus);
+    };
+
+    const bindSocket = () => {
+        socket.on('waiter:update', (payload) => {
+            toast.fire({ icon: 'info', title: `Garson durumu: ${payload.status}` });
+            playAudio(elements.audioNotify);
+        });
+
+        socket.on('order:update', async (payload) => {
+            if (payload.table && state.tableName && payload.table !== state.tableName) {
+                return;
+            }
+            toast.fire({ icon: 'info', title: `Sipariş ${payload.status}` });
+            playAudio(elements.audioOrder);
+            await refreshOrderStatus();
+        });
     };
 
     const init = async () => {
         window.translationAddToCart = window.MENU_STATE?.addToCartText || 'Sepete Ekle';
         await updateExchangeRate();
         await loadMenu();
+        await refreshOrderStatus();
         bindEvents();
+        bindSocket();
     };
 
     return { init };
