@@ -1,0 +1,16 @@
+{
+  "name": "qr-menu-realtime",
+  "version": "1.0.0",
+  "description": "Socket.IO based real-time layer for the QR menu platform",
+  "main": "node/socket/server.js",
+  "scripts": {
+    "start": "node node/socket/server.js"
+  },
+  "dependencies": {
+    "socket.io": "4.7.5"
+  },
+  "engines": {
+    "node": "16.20.x",
+    "npm": "8.x"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "app": {
+    "title": "QR Menu Management",
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "reports": "Reports",
+    "settings": "Settings",
+    "tables": "Tables",
+    "menu": "Menu"
+  },
+  "dashboard": {
+    "total_orders": "Total Orders",
+    "revenue": "Total Revenue",
+    "active_tables": "Active Tables",
+    "waiter_calls": "Waiter Calls"
+  },
+  "menu": {
+    "call_waiter": "Call Waiter",
+    "add_to_cart": "Add to Cart",
+    "currency": "Currency",
+    "language": "Language"
+  }
+}

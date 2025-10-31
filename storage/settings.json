@@ -1,0 +1,22 @@
+{
+  "restaurant": {
+    "name": "Demo Restaurant",
+    "phone": "+90 212 000 0000",
+    "description": "Modern QR menü deneyimi",
+    "address": "İstanbul",
+    "currency": "TRY",
+    "timezone": "Europe/Istanbul",
+    "language": "tr",
+    "theme_color": "#0f9d58"
+  },
+  "qr": {
+    "token": "",
+    "width": 400,
+    "height": 400,
+    "format": "png",
+    "transparent": false,
+    "color": "#000000",
+    "background": "#ffffff",
+    "logo": ""
+  }
+}
