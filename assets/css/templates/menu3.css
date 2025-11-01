@@ -32,6 +32,40 @@ body.template-menu3 .menu-controls__waiter:focus {
     filter: brightness(0.98);
 }
 
+body.template-menu3 .form-control,
+body.template-menu3 .form-select,
+body.template-menu3 input,
+body.template-menu3 textarea,
+body.template-menu3 select {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(108, 91, 123, 0.25);
+    color: #2c2233;
+    box-shadow: 0 18px 45px rgba(108, 91, 123, 0.16);
+}
+
+body.template-menu3 .form-control:focus,
+body.template-menu3 .form-select:focus,
+body.template-menu3 input:focus,
+body.template-menu3 textarea:focus,
+body.template-menu3 select:focus {
+    border-color: rgba(246, 114, 128, 0.5);
+    box-shadow: 0 0 0 0.2rem rgba(246, 114, 128, 0.18);
+}
+
+body.template-menu3 .quantity-picker {
+    background: rgba(248, 220, 224, 0.9);
+    border: 1px solid rgba(108, 91, 123, 0.28);
+    box-shadow: 0 18px 45px rgba(108, 91, 123, 0.18);
+}
+
+body.template-menu3 .quantity-picker button {
+    color: #f67280;
+}
+
+body.template-menu3 .quantity-picker span {
+    color: #2c2233;
+}
+
 body.template-menu3 .greeting h2 {
     color: #6c5b7b;
 }

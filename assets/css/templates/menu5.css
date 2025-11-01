@@ -35,6 +35,40 @@ body.template-menu5 .menu-controls__waiter:focus {
     filter: brightness(1.05);
 }
 
+body.template-menu5 .form-control,
+body.template-menu5 .form-select,
+body.template-menu5 input,
+body.template-menu5 textarea,
+body.template-menu5 select {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 106, 136, 0.22);
+    color: #2b1d25;
+    box-shadow: 0 18px 45px rgba(255, 106, 136, 0.18);
+}
+
+body.template-menu5 .form-control:focus,
+body.template-menu5 .form-select:focus,
+body.template-menu5 input:focus,
+body.template-menu5 textarea:focus,
+body.template-menu5 select:focus {
+    border-color: rgba(255, 106, 136, 0.45);
+    box-shadow: 0 0 0 0.2rem rgba(255, 106, 136, 0.18);
+}
+
+body.template-menu5 .quantity-picker {
+    background: rgba(255, 221, 228, 0.92);
+    border: 1px solid rgba(255, 106, 136, 0.25);
+    box-shadow: 0 20px 50px rgba(255, 106, 136, 0.2);
+}
+
+body.template-menu5 .quantity-picker button {
+    color: #ff6a88;
+}
+
+body.template-menu5 .quantity-picker span {
+    color: #2b1d25;
+}
+
 body.template-menu5 .menu-block {
     background: rgba(255, 255, 255, 0.92);
     border-radius: 28px;
