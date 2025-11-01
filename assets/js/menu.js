@@ -172,19 +172,12 @@ const MenuApp = (() => {
     const convertPrice = (price) => {
         const amount = Number(price) || 0;
         const key = `${state.baseCurrency}_${state.currency}`;
-        if (state.currency === state.baseCurrency) {
-            return amount.toFixed(2);
-        }
 
-        if (cachedRates[key] && cachedRates[key] !== 'loading') {
+        if (state.currency === state.baseCurrency) return amount.toFixed(2);
+
+        if (cachedRates[key]) {
             return (amount * cachedRates[key]).toFixed(2);
         }
-
-        if (cachedRates[key] === 'loading') {
-            return amount.toFixed(2);
-        }
-
-        cachedRates[key] = 'loading';
 
         fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`)
             .then((data) => {
@@ -193,47 +186,14 @@ const MenuApp = (() => {
                     parseNumeric(data.rate) ??
                     parseNumeric(data.primary) ??
                     parseNumeric(data.amount);
-                if (rate && rate > 0) {
+                if (rate) {
                     cachedRates[key] = rate;
                     refreshPriceViews();
-                } else {
-                    delete cachedRates[key];
                 }
             })
-            .catch((error) => {
-                console.error('Kur çevrim hatası', error);
-                delete cachedRates[key];
-            });
+            .catch((e) => console.error('Kur çevrim hatası', e));
 
         return amount.toFixed(2);
-    };
-
-    const getCurrencyMeta = (code) => {
-        const meta = state.currencyMeta?.[code];
-        if (meta) {
-            return meta;
-        }
-        return {};
-    };
-
-    const getCurrencySymbol = (code = state.currency) => {
-        const meta = getCurrencyMeta(code);
-        const symbol = (meta.symbol || '').trim();
-        return symbol !== '' ? symbol : code;
-    };
-
-    const renderPrice = (value, code = state.currency) => {
-        const converted = convertPrice(value);
-        const numeric = parseNumeric(converted);
-        const amount = numeric !== null ? numeric.toFixed(2) : '0.00';
-        const symbol = (getCurrencySymbol(code) || '').trim();
-
-        if (symbol && !/^[A-Za-z]{3,}$/.test(symbol)) {
-            return `${symbol}${amount}`;
-        }
-
-        const suffix = symbol || code;
-        return `${amount} ${suffix}`;
     };
 
     const statusToClass = (status = '') => {
@@ -314,6 +274,7 @@ const MenuApp = (() => {
             const headline = item.headline || product.name || '';
             const tagline = item.tagline || product.description || '';
             const badge = item.badge || '';
+            const priceText = `${convertPrice(product.price)} ${state.currency}`;
             const card = document.createElement('article');
             card.className = 'daily-card';
             card.innerHTML = `
@@ -325,7 +286,7 @@ const MenuApp = (() => {
                     <h3>${escapeHtml(headline)}</h3>
                     ${tagline ? `<p>${escapeHtml(tagline)}</p>` : ''}
                     <div class="daily-card__footer">
-                        <strong>${renderPrice(product.price)}</strong>
+                        <strong>${priceText}</strong>
                         <button type="button" data-daily-add="${product.id}">${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</button>
                     </div>
                 </div>
@@ -355,12 +316,13 @@ const MenuApp = (() => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
                 const productImage = resolveAsset(product.image, 'assets/vendor/demo/coffee-1.png');
+                const priceText = `${convertPrice(product.price)} ${state.currency}`;
                 card.innerHTML = `
                     <img src="${productImage}" alt="${product.name}" loading="lazy" />
                     <div class="product-card__body">
                         <h3>${product.name}</h3>
                         ${product.description ? `<p>${product.description}</p>` : ''}
-                        <div class="product-card__price">${renderPrice(product.price)}</div>
+                        <div class="product-card__price">${priceText}</div>
                     </div>
                     <button type="button" class="product-card__action" data-product="${product.id}">
                         <i class="bx bx-cart-add"></i>
@@ -406,9 +368,10 @@ const MenuApp = (() => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `overlay-variant ${index === 0 ? 'active' : ''}`;
+            const priceLabel = `${convertPrice(variant.price)} ${state.currency}`;
             button.innerHTML = `
                 <span>${variant.name}</span>
-                <strong>${renderPrice(variant.price)}</strong>
+                <strong>${priceLabel}</strong>
             `;
             button.addEventListener('click', () => {
                 state.overlayVariant = variant;
@@ -426,7 +389,7 @@ const MenuApp = (() => {
     const updateOverlayButton = () => {
         if (!elements.addToCartButton || !state.overlayVariant) return;
         const total = state.overlayVariant.price * state.overlayQuantity;
-        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${renderPrice(total)}`;
+        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${convertPrice(total)} ${state.currency}`;
     };
 
     const changeOverlayQuantity = (delta) => {
@@ -463,12 +426,13 @@ const MenuApp = (() => {
         if (!elements.cartSummary) return;
         const totalQty = state.cart.reduce((total, item) => total + item.qty, 0);
         const totalAmount = state.cart.reduce((total, item) => total + item.qty * item.price, 0);
+        const convertedTotal = convertPrice(totalAmount);
         elements.cartSummary.innerHTML = `
             <span>${totalQty} ürün</span>
-            <strong>${renderPrice(totalAmount)}</strong>
+            <strong>${convertedTotal} ${state.currency}</strong>
         `;
         if (elements.cartTotal) {
-            elements.cartTotal.textContent = `${renderPrice(totalAmount)}`;
+            elements.cartTotal.textContent = `${convertedTotal} ${state.currency}`;
         }
     };
 
@@ -494,8 +458,8 @@ const MenuApp = (() => {
                         <button type="button" data-qty-plus="${item.key}">+</button>
                     </div>
                     <div class="cart-item__price">
-                        <span>${renderPrice(item.price)}</span>
-                        <strong>${renderPrice(item.price * item.qty)}</strong>
+                        <span>${convertPrice(item.price)} ${state.currency}</span>
+                        <strong>${convertPrice(item.price * item.qty)} ${state.currency}</strong>
                     </div>
                     <button type="button" class="btn btn-link text-danger p-0" data-remove="${item.key}">Sil</button>
                 </div>
@@ -593,7 +557,7 @@ const MenuApp = (() => {
         state.orders.forEach((order) => {
             const card = document.createElement('div');
             card.className = 'order-track-card';
-            const totalAmount = renderPrice(order.total);
+            const totalAmount = `${convertPrice(order.total)} ${state.currency}`;
             card.innerHTML = `
                     <div class="order-track-card__head">
                         <div>

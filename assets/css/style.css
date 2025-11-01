@@ -858,8 +858,9 @@ a:hover {
 }
 
 @media (max-width: 1024px) {
-  .contact-content {
-    grid-template-columns: 1fr;
+  .contact-content .contact-details,
+  .contact-content .contact-form {
+    height: auto;
   }
 }
 
@@ -868,21 +869,9 @@ a:hover {
     padding: 20px;
   }
 
-  .contact-content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 20px;
-  }
-
-  .contact-form,
-  .contact-details {
-    width: 100%;
-  }
-
-  .contact-details {
-    order: -1;
-    margin-bottom: 0;
+  .contact-content .contact-details,
+  .contact-content .contact-form {
+    height: auto;
   }
 }
 
@@ -898,7 +887,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 48px 16px;
+  padding: 16px;
   background: linear-gradient(135deg, rgba(15, 157, 88, 0.18), rgba(52, 168, 83, 0.3));
 }
 
@@ -1550,10 +1539,13 @@ a:hover {
 }
 
 .contact-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
-  gap: 24px;
-  align-items: flex-start;
+  --bs-gutter-x: 1.5rem;
+  --bs-gutter-y: 1.5rem;
+}
+
+.contact-content .contact-details,
+.contact-content .contact-form {
+  height: 100%;
 }
 
 .contact-details {

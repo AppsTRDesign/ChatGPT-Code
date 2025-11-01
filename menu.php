@@ -68,10 +68,7 @@ foreach ($currencies as $currency) {
         'name' => $currency['name'] ?? '',
     ];
 }
-$currentSymbol = $currencyMeta[$currentCurrency]['symbol'] ?? '';
-if ($currentSymbol === '') {
-    $currentSymbol = $currentCurrency;
-}
+$currentCurrencyCode = strtoupper($currentCurrency);
 $contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettings['from_email'] ?? ''));
 ?>
 <!DOCTYPE html>
@@ -185,62 +182,66 @@ $contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettin
                 <p class="text-muted">Öneri, talep ve sorularınız için bize ulaşın</p>
             </div>
         </div>
-        <div class="contact-content">
-            <div class="contact-details">
-                <div class="contact-details__item">
-                    <i class="bx bx-store"></i>
-                    <div>
-                        <strong><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></strong>
-                        <?php if (!empty($restaurant['description'])): ?>
-                            <p class="mb-0 text-muted"><?= htmlspecialchars($restaurant['description']) ?></p>
-                        <?php endif; ?>
+        <div class="row g-4 contact-content">
+            <div class="col-12 col-md-6 col-lg-5 d-flex">
+                <div class="contact-details w-100">
+                    <div class="contact-details__item">
+                        <i class="bx bx-store"></i>
+                        <div>
+                            <strong><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></strong>
+                            <?php if (!empty($restaurant['description'])): ?>
+                                <p class="mb-0 text-muted"><?= htmlspecialchars($restaurant['description']) ?></p>
+                            <?php endif; ?>
+                        </div>
                     </div>
+                    <?php if (!empty($restaurant['phone'])): ?>
+                        <div class="contact-details__item">
+                            <i class="bx bx-phone"></i>
+                            <div>
+                                <strong>Telefon</strong>
+                                <a href="tel:<?= htmlspecialchars($restaurant['phone']) ?>"><?= htmlspecialchars($restaurant['phone']) ?></a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($restaurant['address'])): ?>
+                        <div class="contact-details__item">
+                            <i class="bx bx-map"></i>
+                            <div>
+                                <strong>Adres</strong>
+                                <p class="mb-0"><?= htmlspecialchars($restaurant['address']) ?></p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($contactEmail !== ''): ?>
+                        <div class="contact-details__item">
+                            <i class="bx bx-envelope"></i>
+                            <div>
+                                <strong>E-posta</strong>
+                                <a href="mailto:<?= htmlspecialchars($contactEmail) ?>"><?= htmlspecialchars($contactEmail) ?></a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
-                <?php if (!empty($restaurant['phone'])): ?>
-                    <div class="contact-details__item">
-                        <i class="bx bx-phone"></i>
-                        <div>
-                            <strong>Telefon</strong>
-                            <a href="tel:<?= htmlspecialchars($restaurant['phone']) ?>"><?= htmlspecialchars($restaurant['phone']) ?></a>
-                        </div>
-                    </div>
-                <?php endif; ?>
-                <?php if (!empty($restaurant['address'])): ?>
-                    <div class="contact-details__item">
-                        <i class="bx bx-map"></i>
-                        <div>
-                            <strong>Adres</strong>
-                            <p class="mb-0"><?= htmlspecialchars($restaurant['address']) ?></p>
-                        </div>
-                    </div>
-                <?php endif; ?>
-                <?php if ($contactEmail !== ''): ?>
-                    <div class="contact-details__item">
-                        <i class="bx bx-envelope"></i>
-                        <div>
-                            <strong>E-posta</strong>
-                            <a href="mailto:<?= htmlspecialchars($contactEmail) ?>"><?= htmlspecialchars($contactEmail) ?></a>
-                        </div>
-                    </div>
-                <?php endif; ?>
             </div>
-            <form id="contactForm" class="contact-form">
-                <h3 class="contact-form__title">Mesaj Gönder</h3>
-                <div class="mb-3">
-                    <label class="form-label">Adınız Soyadınız</label>
-                    <input type="text" name="name" class="form-control" placeholder="Adınız" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">E-posta</label>
-                    <input type="email" name="email" class="form-control" placeholder="ornek@mail.com" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Mesajınız</label>
-                    <textarea name="message" class="form-control" rows="4" placeholder="Mesajınızı buraya yazın" required></textarea>
-                </div>
-                <div id="contactFeedback" class="contact-feedback" role="status"></div>
-                <button type="submit" class="btn btn-primary w-100">Gönder</button>
-            </form>
+            <div class="col-12 col-md-6 col-lg-7 d-flex">
+                <form id="contactForm" class="contact-form w-100">
+                    <h3 class="contact-form__title">Mesaj Gönder</h3>
+                    <div class="mb-3">
+                        <label class="form-label">Adınız Soyadınız</label>
+                        <input type="text" name="name" class="form-control" placeholder="Adınız" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">E-posta</label>
+                        <input type="email" name="email" class="form-control" placeholder="ornek@mail.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mesajınız</label>
+                        <textarea name="message" class="form-control" rows="4" placeholder="Mesajınızı buraya yazın" required></textarea>
+                    </div>
+                    <div id="contactFeedback" class="contact-feedback" role="status"></div>
+                    <button type="submit" class="btn btn-primary w-100">Gönder</button>
+                </form>
+            </div>
         </div>
     </section>
 </main>
@@ -274,7 +275,7 @@ $contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettin
 
 <button class="cart-floating" id="cartButton">
     <span><?= htmlspecialchars(Language::get('app.orders')) ?></span>
-    <div id="cartSummary"><span>0 ürün</span><strong><?= htmlspecialchars($currentSymbol) ?> 0.00</strong></div>
+    <div id="cartSummary"><span>0 ürün</span><strong><?= htmlspecialchars($currentCurrencyCode) ?> 0.00</strong></div>
 </button>
 
 <div class="cart-backdrop d-none" id="cartBackdrop"></div>
@@ -287,7 +288,7 @@ $contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettin
     <div class="cart-drawer__footer">
         <div>
             <span>Toplam</span>
-            <strong id="cartTotal"><?= htmlspecialchars($currentSymbol) ?> 0.00</strong>
+            <strong id="cartTotal"><?= htmlspecialchars($currentCurrencyCode) ?> 0.00</strong>
         </div>
         <div class="d-flex gap-2">
             <button type="button" class="btn btn-outline-secondary" id="clearCart">Temizle</button>
