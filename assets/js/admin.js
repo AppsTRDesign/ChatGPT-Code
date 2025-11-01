@@ -1072,24 +1072,6 @@ const AdminApp = (() => {
         });
     };
 
-    const initLanguagesTable = () => {
-        const table = $('#languagesTable');
-        if (!table.length) return;
-        table.DataTable({
-            ajax: {
-                url: withBase('api/languages.php'),
-                dataSrc: 'languages',
-            },
-            destroy: true,
-            responsive: true,
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
-            columns: [
-                { data: 'code', title: 'Kod' },
-                { data: 'label', title: 'Dil Adı' },
-            ],
-        });
-    };
-
     const initReportsTable = () => {
         const table = $('#reportsTable');
         if (!table.length) return;
@@ -1230,7 +1212,7 @@ const AdminApp = (() => {
         if (!table.length) return;
         table.DataTable({
             ajax: {
-                url: 'api/languages.php',
+                url: withBase('api/languages.php'),
                 dataSrc: 'languages',
             },
             destroy: true,
