@@ -479,8 +479,15 @@ const MenuApp = (() => {
         }
         try {
             const data = await fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`);
-            const rate = parseFloat(String(data.primary).replace(/,/g, ''));
-            state.exchangeRate = Number.isNaN(rate) ? 1 : rate;
+            const parseRate = (value) => {
+                if (value === undefined || value === null) {
+                    return null;
+                }
+                const numeric = parseFloat(String(value).replace(/,/g, ''));
+                return Number.isNaN(numeric) || numeric <= 0 ? null : numeric;
+            };
+            const rate = parseRate(data.rate) ?? parseRate(data.primary) ?? parseRate(data.secondary);
+            state.exchangeRate = rate ?? 1;
         } catch (error) {
             console.error('Kur çevrim hatası', error);
             state.exchangeRate = 1;
