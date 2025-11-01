@@ -249,30 +249,37 @@ class MenuService
         if (!$icon) {
             return null;
         }
+
         $icon = trim($icon);
         if ($icon === '') {
             return null;
         }
-        $icon = str_replace('bx ', '', $icon);
-        if (str_starts_with($icon, 'bx-')) {
-            return $icon;
-        }
-        if (str_starts_with($icon, 'bx')) {
-            return 'bx-' . substr($icon, 2);
-        }
-        return str_starts_with($icon, '-') ? 'bx' . $icon : 'bx-' . ltrim($icon, '-');
+
+        $icon = preg_replace('/[^a-z0-9\s\-_:]/i', '', $icon);
+        $icon = preg_replace('/\s+/', ' ', $icon);
+
+        return $icon === '' ? null : $icon;
     }
 
     private function cleanIcon(?string $icon): ?string
     {
+        $icon = $this->storeIcon($icon);
         if (!$icon) {
             return null;
         }
-        $icon = trim($icon);
-        if ($icon === '') {
-            return null;
+
+        if (str_contains($icon, ' ')) {
+            return $icon;
         }
-        $icon = str_replace('bx ', '', $icon);
-        return str_starts_with($icon, 'bx-') ? $icon : ('bx-' . ltrim($icon, '-'));
+
+        if (str_starts_with($icon, 'bx-')) {
+            return 'bx ' . $icon;
+        }
+
+        if (str_starts_with($icon, 'fa-')) {
+            return 'fa-solid ' . $icon;
+        }
+
+        return $icon;
     }
 }

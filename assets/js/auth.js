@@ -1,3 +1,11 @@
+const baseUrl = (window.APP_BASE_URL || window.location.origin).replace(/\/+$/, '');
+const withBase = (path = '') => {
+    if (!path) return baseUrl;
+    if (/^https?:\/\//i.test(path)) return path;
+    const cleaned = String(path).replace(/^\/+/, '');
+    return `${baseUrl}/${cleaned}`;
+};
+
 const loginForm = document.querySelector('#loginForm');
 const forgotPasswordButton = document.querySelector('#forgotPassword');
 
@@ -15,7 +23,7 @@ if (loginForm) {
         const payload = Object.fromEntries(formData.entries());
 
         try {
-            const response = await fetch('api/auth.php', {
+            const response = await fetch(withBase('api/auth.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -31,7 +39,7 @@ if (loginForm) {
 
             toast.fire({ icon: 'success', title: result.message });
             setTimeout(() => {
-                window.location.href = 'index.php';
+                window.location.href = withBase('panel');
             }, 800);
         } catch (error) {
             toast.fire({ icon: 'error', title: error.message });
@@ -56,7 +64,7 @@ if (forgotPasswordButton) {
         }
 
         try {
-            const response = await fetch('api/auth.php', {
+            const response = await fetch(withBase('api/auth.php'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'reset', email }),

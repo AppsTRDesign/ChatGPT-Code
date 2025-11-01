@@ -32,7 +32,7 @@ try {
         $variantId = !empty($item['variant_id']) ? (int)$item['variant_id'] : null;
         $quantity = max(1, (int)($item['quantity'] ?? 1));
 
-        $productStmt = $db->prepare('SELECT id, price FROM products WHERE id = ? AND restaurant_id = ?');
+        $productStmt = $db->prepare('SELECT id, price, name FROM products WHERE id = ? AND restaurant_id = ?');
         $productStmt->execute([$productId, $restaurantId]);
         $product = $productStmt->fetch();
         if (!$product) {
@@ -40,12 +40,15 @@ try {
         }
 
         $unitPrice = (float)$product['price'];
+        $productName = $product['name'];
+        $variantName = null;
         if ($variantId) {
-            $variantStmt = $db->prepare('SELECT id, price FROM product_variants WHERE id = ? AND product_id = ?');
+            $variantStmt = $db->prepare('SELECT id, price, name FROM product_variants WHERE id = ? AND product_id = ?');
             $variantStmt->execute([$variantId, $productId]);
             $variant = $variantStmt->fetch();
             if ($variant) {
                 $unitPrice = (float)$variant['price'];
+                $variantName = $variant['name'];
             }
         }
 
@@ -54,7 +57,9 @@ try {
 
         $preparedItems[] = [
             'product_id' => $productId,
+            'product_name' => $productName,
             'variant_id' => $variantId,
+            'variant_name' => $variantName,
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
         ];
@@ -76,6 +81,29 @@ try {
             $preparedItem['unit_price'],
         ]);
     }
+
+    $sessionStmt = $db->prepare('INSERT INTO table_order_sessions (restaurant_id, table_id, order_id, status, payload) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status), payload = VALUES(payload), updated_at = NOW()');
+    $sessionPayload = [
+        'status' => 'Beklemede',
+        'total' => $total,
+        'items' => array_map(static function ($item) {
+            return [
+                'product_id' => $item['product_id'],
+                'name' => $item['product_name'],
+                'variant_id' => $item['variant_id'],
+                'variant_name' => $item['variant_name'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+            ];
+        }, $preparedItems),
+    ];
+    $sessionStmt->execute([
+        $restaurantId,
+        $tableId,
+        $orderId,
+        'Beklemede',
+        json_encode($sessionPayload, JSON_UNESCAPED_UNICODE),
+    ]);
 
     $db->commit();
 

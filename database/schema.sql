@@ -108,6 +108,22 @@ CREATE TABLE IF NOT EXISTS waiter_calls (
     FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS table_order_sessions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    restaurant_id INT UNSIGNED NOT NULL,
+    table_id INT UNSIGNED NOT NULL,
+    order_id INT UNSIGNED NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Beklemede',
+    payload JSON NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY table_order_unique (restaurant_id, order_id),
+    INDEX idx_table_lookup (restaurant_id, table_id),
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
+    FOREIGN KEY (table_id) REFERENCES tables(id) ON DELETE CASCADE,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS restaurant_currencies (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     restaurant_id INT UNSIGNED NOT NULL,

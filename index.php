@@ -53,6 +53,9 @@ $selectedTimezone = $restaurant['timezone'] ?? 'Europe/Istanbul';
 
 $reportStart = (new DateTimeImmutable('-6 days'))->format('Y-m-d');
 $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
+
+$baseUrl = rtrim(BASE_URL, '/');
+$asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($defaultLanguage) ?>">
@@ -71,8 +74,9 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-borderless/borderless.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/v/bs5/dt-2.0.3/r-3.0.1/datatables.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-M9d1RChESyqCCpt5TR1+t0NenE2no0RvrRZtGJPD7W82dManIeZDV4SSQdlqzTeWY5Avzk3l3pNGdisM8z7jkQ==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars($asset('assets/css/style.css')) ?>">
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.datatables.net/v/bs5/dt-2.0.3/r-3.0.1/datatables.min.js"></script>
@@ -81,7 +85,7 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js"></script>
     <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 </head>
-<body>
+<body data-base-url="<?= htmlspecialchars($baseUrl) ?>">
 <div class="dashboard" data-theme-color="<?= htmlspecialchars($restaurant['theme_color'] ?? '#0f9d58') ?>">
     <aside class="dashboard__sidebar">
         <div class="dashboard__brand">
@@ -688,15 +692,17 @@ $reportEnd = (new DateTimeImmutable('now'))->format('Y-m-d');
 <audio id="audioNotifyAdmin" preload="auto" src="<?= htmlspecialchars($waiterSound) ?>"></audio>
 
 <script>
+    window.APP_BASE_URL = <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>;
     window.APP_STATE = {
         settings: <?= json_encode($settings, JSON_UNESCAPED_UNICODE) ?>,
         qrPreview: <?= json_encode($qrPreview, JSON_UNESCAPED_UNICODE) ?>,
         currentSection: <?= json_encode($currentSection, JSON_UNESCAPED_UNICODE) ?>,
         sectionPaths: <?= json_encode($sectionPaths, JSON_UNESCAPED_UNICODE) ?>,
         notifications: <?= json_encode($notifications, JSON_UNESCAPED_UNICODE) ?>,
-        timezones: <?= json_encode($timezones, JSON_UNESCAPED_UNICODE) ?>
+        timezones: <?= json_encode($timezones, JSON_UNESCAPED_UNICODE) ?>,
+        baseUrl: <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>
     };
 </script>
-<script src="assets/js/admin.js"></script>
+<script src="<?= htmlspecialchars($asset('assets/js/admin.js')) ?>"></script>
 </body>
 </html>

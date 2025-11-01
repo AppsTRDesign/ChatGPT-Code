@@ -42,6 +42,8 @@ $friendlyPath = $tableId > 0
     ? '/menu/' . $tableId . '/' . $defaultLanguage . '/' . $currentCurrency
     : '/menu';
 
+$baseUrl = rtrim(BASE_URL, '/');
+$asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($defaultLanguage) ?>">
@@ -57,11 +59,12 @@ $friendlyPath = $tableId > 0
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-borderless/borderless.css">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-M9d1RChESyqCCpt5TR1+t0NenE2no0RvrRZtGJPD7W82dManIeZDV4SSQdlqzTeWY5Avzk3l3pNGdisM8z7jkQ==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="<?= htmlspecialchars($asset('assets/css/style.css')) ?>">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 </head>
-<body data-base-currency="<?= htmlspecialchars($defaultCurrency) ?>" data-current-currency="<?= htmlspecialchars($currentCurrency) ?>" data-current-language="<?= htmlspecialchars($defaultLanguage) ?>" data-table-id="<?= htmlspecialchars((string)$tableId) ?>">
+<body data-base-url="<?= htmlspecialchars($baseUrl) ?>" data-base-currency="<?= htmlspecialchars($defaultCurrency) ?>" data-current-currency="<?= htmlspecialchars($currentCurrency) ?>" data-current-language="<?= htmlspecialchars($defaultLanguage) ?>" data-table-id="<?= htmlspecialchars((string)$tableId) ?>">
 <header class="menu-hero" style="--theme-color: <?= htmlspecialchars($restaurant['theme_color'] ?? '#0f9d58') ?>;">
     <div class="greeting">
         <div class="d-flex align-items-center gap-3">
@@ -76,17 +79,20 @@ $friendlyPath = $tableId > 0
                 <?php endif; ?>
             </div>
         </div>
-        <div style="display:flex;gap:12px;align-items:center;">
-            <select id="languageSelect" class="form-select" style="border-radius:999px;padding:12px 18px;min-width:120px;">
+        <div class="menu-controls">
+            <select id="languageSelect" class="form-select">
                 <?php foreach ($languages as $language): ?>
                     <option value="<?= htmlspecialchars($language['code']) ?>" <?= $language['code'] === $defaultLanguage ? 'selected' : '' ?>><?= htmlspecialchars(strtoupper($language['code'])) ?></option>
                 <?php endforeach; ?>
             </select>
-            <select id="currencySelect" class="form-select" style="border-radius:999px;padding:12px 18px;min-width:120px;">
+            <select id="currencySelect" class="form-select">
                 <?php foreach ($currencies as $currency): ?>
                     <option value="<?= htmlspecialchars($currency['code']) ?>" <?= $currency['code'] === $currentCurrency ? 'selected' : '' ?>><?= htmlspecialchars($currency['code']) ?></option>
                 <?php endforeach; ?>
             </select>
+            <button type="button" id="callWaiter" class="menu-controls__waiter">
+                <?= htmlspecialchars(Language::get('menu.call_waiter')) ?>
+            </button>
         </div>
     </div>
     <div class="search">
@@ -109,10 +115,6 @@ $friendlyPath = $tableId > 0
 <button class="cart-floating" id="cartButton">
     <span><?= htmlspecialchars(Language::get('app.orders')) ?></span>
     <div id="cartSummary"><span>0 ürün</span><strong>0.00 <?= htmlspecialchars($currentCurrency) ?></strong></div>
-</button>
-
-<button id="callWaiter" class="cart-floating call-floating">
-    <?= htmlspecialchars(Language::get('menu.call_waiter')) ?>
 </button>
 
 <div class="cart-backdrop d-none" id="cartBackdrop"></div>
@@ -166,10 +168,11 @@ $friendlyPath = $tableId > 0
         tableName: <?= json_encode($tableName, JSON_UNESCAPED_UNICODE) ?>,
         orderSound: <?= json_encode($orderSound, JSON_UNESCAPED_UNICODE) ?>,
         waiterSound: <?= json_encode($waiterSound, JSON_UNESCAPED_UNICODE) ?>,
-        basePath: <?= json_encode($friendlyPath, JSON_UNESCAPED_UNICODE) ?>
+        basePath: <?= json_encode($friendlyPath, JSON_UNESCAPED_UNICODE) ?>,
+        baseUrl: <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>
     };
     document.documentElement.style.setProperty('--theme-color', <?= json_encode($restaurant['theme_color'] ?? '#0f9d58', JSON_UNESCAPED_UNICODE) ?>);
 </script>
-<script src="assets/js/menu.js"></script>
+<script src="<?= htmlspecialchars($asset('assets/js/menu.js')) ?>"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ class QrService
     public function generateUrl(string $tableUrl, array $settings): string
     {
         $config = Config::get('qr_api');
-        $logo = $settings['logo'] ?? '';
+        $logo = $settings['logo_url'] ?? ($settings['logo'] ?? '');
         if ($logo && !preg_match('/^https?:\/\//i', $logo)) {
             if (str_starts_with($logo, '/')) {
                 $logo = ltrim($logo, '/');
@@ -32,7 +32,7 @@ class QrService
             'background' => ltrim($settings['background'] ?? '#ffffff', '#'),
             'format' => $settings['format'] ?? 'png',
             'background_transparent' => $transparent ? 'true' : 'false',
-            'logo' => $logo,
+            'logo_url' => $logo,
         ]);
 
         return $config['base_url'] . '?' . $query;

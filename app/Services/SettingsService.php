@@ -33,7 +33,10 @@ class SettingsService
 
         $qr = $this->getSection('qr');
         if (!empty($branding['qr_logo'])) {
+            $qr['logo_url'] = $branding['qr_logo'];
             $qr['logo'] = $branding['qr_logo'];
+        } elseif (!empty($qr['logo']) && empty($qr['logo_url'])) {
+            $qr['logo_url'] = $this->mediaUrl($qr['logo']);
         }
 
         return [

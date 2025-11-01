@@ -108,6 +108,11 @@ function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $lan
         $db->prepare('UPDATE tables SET qr_code_url = ? WHERE id = ?')->execute([$freshQr, $table['id']]);
     }
     $table['qr_code_url'] = $freshQr;
+    $table['qr_download_url'] = rtrim(BASE_URL, '/') . '/api/qr-download.php?' . http_build_query([
+        'table_id' => $table['id'],
+        'lang' => $language,
+        'currency' => $currency,
+    ]);
 
     $ordersStatement = $db->prepare("SELECT id, status, total, DATE_FORMAT(created_at, '%H:%i') AS created_at FROM orders WHERE table_id = ? AND restaurant_id = ? AND status NOT IN ('Ödeme Alındı', 'Tamamlandı', 'İptal') ORDER BY created_at DESC");
     $ordersStatement->execute([$tableId, $restaurantId]);
@@ -116,6 +121,21 @@ function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $lan
         $order['total_formatted'] = number_format($order['total'], 2, ',', '.') . ' ' . $currency;
         return $order;
     }, $ordersStatement->fetchAll() ?: []);
+
+    $sessionStatement = $db->prepare("SELECT order_id, status, payload, DATE_FORMAT(updated_at, '%H:%i') AS updated_at FROM table_order_sessions WHERE table_id = ? AND restaurant_id = ? ORDER BY updated_at DESC");
+    $sessionStatement->execute([$tableId, $restaurantId]);
+    $table['session_orders'] = array_map(static function ($row) use ($currency) {
+        $payload = json_decode($row['payload'] ?? '{}', true) ?: [];
+        $total = isset($payload['total']) ? (float)$payload['total'] : null;
+        return [
+            'order_id' => (int)$row['order_id'],
+            'status' => $row['status'],
+            'updated_at' => $row['updated_at'],
+            'total' => $total,
+            'total_formatted' => $total !== null ? number_format($total, 2, ',', '.') . ' ' . $currency : null,
+            'items' => $payload['items'] ?? [],
+        ];
+    }, $sessionStatement->fetchAll() ?: []);
 
     return $table;
 }

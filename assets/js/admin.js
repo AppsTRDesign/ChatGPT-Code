@@ -1,6 +1,35 @@
 Dropzone.autoDiscover = false;
 
 const AdminApp = (() => {
+    const baseUrl = (window.APP_STATE?.baseUrl || window.location.origin).replace(/\/+$/, '');
+    const withBase = (path = '') => {
+        if (!path) {
+            return baseUrl;
+        }
+        if (/^https?:\/\//i.test(path)) {
+            return path;
+        }
+        const cleanedPath = String(path).replace(/^\/+/, '');
+        return `${baseUrl}/${cleanedPath}`;
+    };
+
+    const resolveIconClass = (value) => {
+        const icon = (value || '').trim();
+        if (!icon) {
+            return 'bx bx-dots-horizontal';
+        }
+        if (icon.includes(' ')) {
+            return icon;
+        }
+        if (icon.startsWith('bx-')) {
+            return `bx ${icon}`;
+        }
+        if (icon.startsWith('fa-')) {
+            return `fa-solid ${icon}`;
+        }
+        return icon;
+    };
+
     const state = {
         summary: {},
         chart: null,
@@ -30,10 +59,26 @@ const AdminApp = (() => {
         .replace(/'/g, '&#39;');
 
     const ICON_LIBRARY = [
-        'bx-coffee', 'bx-bowl-hot', 'bx-cake', 'bx-dish', 'bx-pizza', 'bx-baguette', 'bx-beer', 'bx-bowl-rice',
-        'bx-dots-horizontal', 'bx-cube-alt', 'bx-water', 'bx-ice-cream', 'bx-restaurant', 'bx-food-menu', 'bx-sushi', 'bx-lemon',
-        'bx-doughnut', 'bx-bone', 'bx-burger', 'bx-cheese', 'bx-cupcake', 'bx-wine', 'bx-fridge', 'bx-hot', 'bx-bowl',
-        'bx-chilli', 'bx-bread', 'bx-croissant', 'bx-cocktail', 'bx-knife', 'bx-raspberry', 'bx-shrimp', 'bx-taco'
+        { class: 'bx bx-coffee', label: 'Kahve' },
+        { class: 'bx bx-bowl-hot', label: 'Çorba' },
+        { class: 'bx bx-cake', label: 'Pasta' },
+        { class: 'bx bx-dish', label: 'Günün Menüsü' },
+        { class: 'bx bx-pizza', label: 'Pizza' },
+        { class: 'bx bx-baguette', label: 'Sandviç' },
+        { class: 'bx bx-wine', label: 'İçecek' },
+        { class: 'bx bx-bowl-rice', label: 'Ana Yemek' },
+        { class: 'bx bx-ice-cream', label: 'Dondurma' },
+        { class: 'bx bx-restaurant', label: 'Şef Önerisi' },
+        { class: 'bx bx-food-menu', label: 'Menü' },
+        { class: 'bx bx-lemon', label: 'Limonata' },
+        { class: 'fa-solid fa-burger', label: 'Burger' },
+        { class: 'fa-solid fa-mug-hot', label: 'Sıcak İçecek' },
+        { class: 'fa-solid fa-ice-cream', label: 'Tatlı' },
+        { class: 'fa-solid fa-drumstick-bite', label: 'Tavuk' },
+        { class: 'fa-solid fa-fish', label: 'Balık' },
+        { class: 'fa-solid fa-bowl-rice', label: 'Pilav' },
+        { class: 'fa-solid fa-utensils', label: 'Servis' },
+        { class: 'fa-solid fa-martini-glass-citrus', label: 'Kokteyl' },
     ];
 
     const ORDER_STATUSES = ['Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Ödeme Alındı', 'İptal'];
@@ -103,7 +148,7 @@ const AdminApp = (() => {
     const socket = io('https://qrmenu.noasoft.org:4000');
 
     const fetchJSON = async (url, options = {}) => {
-        const response = await fetch(url, options);
+        const response = await fetch(withBase(url), options);
         const data = await response.json();
         if (data.error) {
             throw new Error(data.message || 'Bilinmeyen bir hata oluştu.');
@@ -344,6 +389,18 @@ const AdminApp = (() => {
                         <span>${order.total_formatted || Number(order.total).toFixed(2)}</span>
                     </li>
                 `).join('');
+                const sessionHtml = (table.session_orders || []).map((session) => `
+                    <li>
+                        <span>#${session.order_id} - ${session.status}</span>
+                        <span>${session.total_formatted || ''}</span>
+                    </li>
+                `).join('');
+                const sessionBlock = sessionHtml ? `
+                    <div class="session-orders">
+                        <strong>Geçici Siparişler</strong>
+                        <ul>${sessionHtml}</ul>
+                    </div>
+                ` : '';
 
                 card.innerHTML = `
                     <div class="table-card__head">
@@ -359,11 +416,13 @@ const AdminApp = (() => {
                             <strong>Aktif Siparişler</strong>
                             <ul>${ordersHtml || '<li>Aktif sipariş yok.</li>'}</ul>
                         </div>
+                        ${sessionBlock}
                     </div>
                     <div class="table-card__footer d-flex flex-wrap gap-2">
                         <button class="btn btn-sm btn-outline-primary" data-table-edit="${table.id}">Düzenle</button>
                         <button class="btn btn-sm btn-outline-secondary" data-copy="${table.qr_url}">Link Kopyala</button>
                         <a class="btn btn-sm btn-outline-success" href="${table.qr_code_url}" target="_blank" rel="noopener">QR Görüntüle</a>
+                        <a class="btn btn-sm btn-success" href="${table.qr_download_url}" target="_blank" rel="noopener">QR İndir</a>
                     </div>
                 `;
                 selectors.tablesContainer.appendChild(card);
@@ -431,7 +490,10 @@ const AdminApp = (() => {
             const card = document.createElement('button');
             card.type = 'button';
             card.className = 'category-admin-card';
-            const iconHtml = category.image ? `<img src="${category.image}" alt="${category.name}"/>` : `<i class='bx ${category.icon || 'bx-dots-horizontal'}'></i>`;
+            const iconClass = resolveIconClass(category.icon);
+            const iconHtml = category.image
+                ? `<img src="${category.image}" alt="${category.name}"/>`
+                : `<i class='${iconClass}'></i>`;
             card.innerHTML = `
                 ${iconHtml}
                 <span>${category.name}</span>
@@ -520,15 +582,19 @@ const AdminApp = (() => {
     const renderIconLibrary = (selected) => {
         if (!selectors.iconLibrary) return;
         selectors.iconLibrary.innerHTML = '';
-        ICON_LIBRARY.forEach((icon) => {
+        const normalizedSelected = (selected || '').trim();
+        ICON_LIBRARY.forEach((iconOption) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = `icon-library__item ${selected === icon ? 'active' : ''}`;
-            button.innerHTML = `<i class='bx ${icon}'></i>`;
+            const iconClass = iconOption.class;
+            const altClass = iconClass.replace(/^bx\s+/, 'bx-');
+            const isActive = normalizedSelected === iconClass || normalizedSelected === altClass;
+            button.className = `icon-library__item ${isActive ? 'active' : ''}`;
+            button.innerHTML = `<i class='${iconClass}'></i><span>${iconOption.label}</span>`;
             button.addEventListener('click', () => {
                 selectors.iconLibrary.querySelectorAll('.icon-library__item').forEach((item) => item.classList.remove('active'));
                 button.classList.add('active');
-                selectors.categoryForm.querySelector('[name="icon"]').value = icon;
+                selectors.categoryForm.querySelector('[name="icon"]').value = iconClass;
             });
             selectors.iconLibrary.appendChild(button);
         });
@@ -700,7 +766,7 @@ const AdminApp = (() => {
         document.querySelectorAll('[data-dropzone]').forEach((element) => {
             const acceptedFiles = element.dataset.accept || 'image/*';
             const dz = new Dropzone(element, {
-                url: 'api/upload.php',
+                url: withBase('api/upload.php'),
                 paramName: 'file',
                 maxFiles: 1,
                 acceptedFiles,
@@ -721,13 +787,13 @@ const AdminApp = (() => {
                 if (element.dataset.preview) {
                     const preview = document.querySelector(element.dataset.preview);
                     if (preview) {
-                        preview.src = response.url || response.path;
+                        preview.src = response.url || withBase(response.path || '');
                     }
                 }
                 if (element.dataset.audio) {
                     const audio = document.querySelector(element.dataset.audio);
                     if (audio) {
-                        audio.src = response.url || response.path;
+                        audio.src = response.url || withBase(response.path || '');
                         audio.load?.();
                     }
                 }
@@ -869,7 +935,7 @@ const AdminApp = (() => {
             if (exportButton) {
                 const type = exportButton.dataset.orderExport;
                 const orderId = exportButton.dataset.order;
-                window.open(`api/export.php?type=${type}&order=${orderId}`, '_blank');
+                window.open(withBase(`api/export.php?type=${type}&order=${orderId}`), '_blank');
             }
         });
     };
@@ -1002,7 +1068,7 @@ const AdminApp = (() => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'logout' }),
             });
-            window.location.href = 'login.php';
+            window.location.href = withBase('login');
         });
     };
 
@@ -1011,7 +1077,7 @@ const AdminApp = (() => {
         if (!table.length) return;
         table.DataTable({
             ajax: {
-                url: 'api/languages.php',
+                url: withBase('api/languages.php'),
                 dataSrc: 'languages',
             },
             destroy: true,
@@ -1029,7 +1095,7 @@ const AdminApp = (() => {
         if (!table.length) return;
         table.DataTable({
             ajax: {
-                url: 'api/reports.php',
+                url: withBase('api/reports.php'),
                 dataSrc: 'reports',
                 data: () => ({
                     start: document.querySelector('#reportStart')?.value || '',
@@ -1061,7 +1127,7 @@ const AdminApp = (() => {
             end: document.querySelector('#reportEnd')?.value || '',
             format,
         });
-        window.open(`api/export.php?${query.toString()}`, '_blank');
+        window.open(withBase(`api/export.php?${query.toString()}`), '_blank');
     };
 
     const fetchReports = async () => {
@@ -1305,7 +1371,7 @@ const AdminApp = (() => {
         if (!table.length) return;
         table.DataTable({
             ajax: {
-                url: 'api/currencies.php',
+                url: withBase('api/currencies.php'),
                 dataSrc: 'currencies',
             },
             destroy: true,

@@ -1,4 +1,44 @@
 const MenuApp = (() => {
+    const baseUrl = (document.body.dataset.baseUrl || window.MENU_STATE?.baseUrl || window.location.origin).replace(/\/+$/, '');
+    const withBase = (path = '') => {
+        if (!path) {
+            return baseUrl;
+        }
+        if (/^https?:\/\//i.test(path)) {
+            return path;
+        }
+        const cleanedPath = String(path).replace(/^\/+/, '');
+        return `${baseUrl}/${cleanedPath}`;
+    };
+
+    const resolveAsset = (value, fallback = null) => {
+        const source = value || fallback;
+        if (!source) {
+            return withBase('assets/vendor/demo/coffee-1.png');
+        }
+        if (/^https?:\/\//i.test(source)) {
+            return source;
+        }
+        return withBase(source);
+    };
+
+    const resolveIconClass = (value) => {
+        const icon = (value || '').trim();
+        if (!icon) {
+            return 'bx bx-dots-horizontal';
+        }
+        if (icon.includes(' ')) {
+            return icon;
+        }
+        if (icon.startsWith('bx-')) {
+            return `bx ${icon}`;
+        }
+        if (icon.startsWith('fa-')) {
+            return `fa-solid ${icon}`;
+        }
+        return icon;
+    };
+
     const state = {
         categories: [],
         products: [],
@@ -57,7 +97,7 @@ const MenuApp = (() => {
     });
 
     const fetchJSON = async (url, options = {}) => {
-        const response = await fetch(url, options);
+        const response = await fetch(withBase(url), options);
         const data = await response.json();
         if (data.error) {
             throw new Error(data.message || 'İşlem gerçekleştirilemedi.');
@@ -137,9 +177,9 @@ const MenuApp = (() => {
             button.type = 'button';
             button.className = `category-card ${Number(state.selectedCategory) === Number(category.id) ? 'active' : ''}`;
             const iconHtml = category.image
-                ? `<img src="${category.image}" alt="${category.name}" loading="lazy">`
+                ? `<img src="${resolveAsset(category.image)}" alt="${category.name}" loading="lazy">`
                 : category.icon
-                    ? `<span class="badge"><i class="bx ${category.icon}"></i></span>`
+                    ? `<span class="badge"><i class="${resolveIconClass(category.icon)}"></i></span>`
                     : '<span class="badge">🍽️</span>';
             button.innerHTML = `${iconHtml}<strong>${category.name}</strong>`;
             button.addEventListener('click', () => {
@@ -166,8 +206,9 @@ const MenuApp = (() => {
             .forEach((product) => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
+                const productImage = resolveAsset(product.image, 'assets/vendor/demo/coffee-1.png');
                 card.innerHTML = `
-                    <img src="${product.image || 'assets/vendor/demo/coffee-1.png'}" alt="${product.name}" loading="lazy" />
+                    <img src="${productImage}" alt="${product.name}" loading="lazy" />
                     <div>
                         <h3>${product.name}</h3>
                         <p>${product.description || ''}</p>
@@ -259,7 +300,7 @@ const MenuApp = (() => {
                 variantName,
                 price: Number(unitPrice),
                 qty: quantity,
-                image: product.image || '',
+                image: resolveAsset(product.image, 'assets/vendor/demo/coffee-1.png'),
             });
         }
         updateCartSummary();

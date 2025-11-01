@@ -23,16 +23,51 @@ try {
 
         $order = fetchOrder($db, $orderId, $currency);
 
+        $activeCount = null;
         if (!empty($order['table_id'])) {
             if (in_array($status, ['Ödeme Alındı', 'İptal'], true)) {
                 $active = $db->prepare("SELECT COUNT(*) FROM orders WHERE restaurant_id = ? AND table_id = ? AND status NOT IN ('Ödeme Alındı', 'İptal')");
                 $active->execute([$restaurantId, $order['table_id']]);
-                if ((int)$active->fetchColumn() === 0) {
+                $activeCount = (int)$active->fetchColumn();
+                if ($activeCount === 0) {
                     $db->prepare('UPDATE tables SET status = "available", updated_at = NOW() WHERE restaurant_id = ? AND id = ?')->execute([$restaurantId, $order['table_id']]);
                 }
             } else {
                 $db->prepare('UPDATE tables SET status = "occupied", updated_at = NOW() WHERE restaurant_id = ? AND id = ?')->execute([$restaurantId, $order['table_id']]);
             }
+        }
+
+        $sessionPayload = [
+            'status' => $status,
+            'total' => $order['total'] ?? 0,
+            'items' => array_map(static function ($item) {
+                return [
+                    'name' => $item['name'],
+                    'variant_name' => $item['variant_name'],
+                    'quantity' => (int)$item['quantity'],
+                    'unit_price' => (float)$item['unit_price'],
+                ];
+            }, $order['items'] ?? []),
+        ];
+
+        if (!empty($order['table_id'])) {
+            if (in_array($status, ['Ödeme Alındı', 'İptal'], true)) {
+                $db->prepare('DELETE FROM table_order_sessions WHERE restaurant_id = ? AND order_id = ?')->execute([$restaurantId, $orderId]);
+                if ($activeCount === 0) {
+                    $db->prepare('DELETE FROM table_order_sessions WHERE restaurant_id = ? AND table_id = ?')->execute([$restaurantId, $order['table_id']]);
+                }
+            } else {
+                $db->prepare('INSERT INTO table_order_sessions (restaurant_id, table_id, order_id, status, payload) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status), payload = VALUES(payload), table_id = VALUES(table_id), updated_at = NOW()')
+                    ->execute([
+                        $restaurantId,
+                        $order['table_id'],
+                        $orderId,
+                        $status,
+                        json_encode($sessionPayload, JSON_UNESCAPED_UNICODE),
+                    ]);
+            }
+        } elseif (in_array($status, ['Ödeme Alındı', 'İptal'], true)) {
+            $db->prepare('DELETE FROM table_order_sessions WHERE restaurant_id = ? AND order_id = ?')->execute([$restaurantId, $orderId]);
         }
 
         Response::json([
