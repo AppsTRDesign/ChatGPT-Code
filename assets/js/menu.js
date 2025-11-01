@@ -46,6 +46,7 @@ const MenuApp = (() => {
         cart: [],
         baseCurrency: (document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         currency: (document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
+        currencyMeta: window.MENU_STATE?.currencyMeta || {},
         language: document.body.dataset.currentLanguage || (window.MENU_STATE?.languages?.[0] || 'tr'),
         tableId: Number(document.body.dataset.tableId || 0),
         tableName: window.MENU_STATE?.tableName || '',
@@ -174,6 +175,30 @@ const MenuApp = (() => {
         return amount.toFixed(2);
     };
 
+    const getCurrencyMeta = (code) => {
+        const meta = state.currencyMeta?.[code];
+        if (meta) {
+            return meta;
+        }
+        return {};
+    };
+
+    const getCurrencySymbol = (code = state.currency) => {
+        const meta = getCurrencyMeta(code);
+        const symbol = (meta.symbol || '').trim();
+        return symbol !== '' ? symbol : code;
+    };
+
+    const formatCurrency = (value, code = state.currency) => {
+        const numeric = parseNumeric(value);
+        const amount = numeric !== null ? numeric.toFixed(2) : '0.00';
+        const symbol = getCurrencySymbol(code);
+        if (/^[A-Za-z]{2,4}$/.test(symbol)) {
+            return `${amount} ${symbol}`;
+        }
+        return `${symbol} ${amount}`;
+    };
+
     const statusToClass = (status = '') => {
         return status
             .toString()
@@ -249,7 +274,7 @@ const MenuApp = (() => {
                     <div>
                         <h3>${product.name}</h3>
                         <p>${product.description || ''}</p>
-                        <strong>${convertPrice(product.price)} ${state.currency}</strong>
+                        <strong>${formatCurrency(convertPrice(product.price))}</strong>
                     </div>
                     <button type="button" data-product="${product.id}">
                         <span>+</span>
@@ -297,7 +322,7 @@ const MenuApp = (() => {
             button.className = `overlay-variant ${index === 0 ? 'active' : ''}`;
             button.innerHTML = `
                 <span>${variant.name}</span>
-                <strong>${convertPrice(variant.price)} ${state.currency}</strong>
+                <strong>${formatCurrency(convertPrice(variant.price))}</strong>
             `;
             button.addEventListener('click', () => {
                 state.overlayVariant = variant;
@@ -315,7 +340,7 @@ const MenuApp = (() => {
     const updateOverlayButton = () => {
         if (!elements.addToCartButton || !state.overlayVariant) return;
         const total = state.overlayVariant.price * state.overlayQuantity;
-        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${convertPrice(total)} ${state.currency}`;
+        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${formatCurrency(convertPrice(total))}`;
     };
 
     const changeOverlayQuantity = (delta) => {
@@ -354,10 +379,10 @@ const MenuApp = (() => {
         const totalAmount = state.cart.reduce((total, item) => total + item.qty * item.price, 0);
         elements.cartSummary.innerHTML = `
             <span>${totalQty} ürün</span>
-            <strong>${convertPrice(totalAmount)} ${state.currency}</strong>
+            <strong>${formatCurrency(convertPrice(totalAmount))}</strong>
         `;
         if (elements.cartTotal) {
-            elements.cartTotal.textContent = `${convertPrice(totalAmount)} ${state.currency}`;
+            elements.cartTotal.textContent = `${formatCurrency(convertPrice(totalAmount))}`;
         }
     };
 
@@ -383,8 +408,8 @@ const MenuApp = (() => {
                         <button type="button" data-qty-plus="${item.key}">+</button>
                     </div>
                     <div class="cart-item__price">
-                        <span>${convertPrice(item.price)} ${state.currency}</span>
-                        <strong>${convertPrice(item.price * item.qty)} ${state.currency}</strong>
+                        <span>${formatCurrency(convertPrice(item.price))}</span>
+                        <strong>${formatCurrency(convertPrice(item.price * item.qty))}</strong>
                     </div>
                     <button type="button" class="btn btn-link text-danger p-0" data-remove="${item.key}">Sil</button>
                 </div>
@@ -464,7 +489,7 @@ const MenuApp = (() => {
         state.orders.forEach((order) => {
             const card = document.createElement('div');
             card.className = 'order-track-card';
-            const totalAmount = `${convertPrice(order.total)} ${state.currency}`;
+            const totalAmount = formatCurrency(convertPrice(order.total));
             card.innerHTML = `
                     <div class="order-track-card__head">
                         <div>

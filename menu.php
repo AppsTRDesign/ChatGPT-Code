@@ -56,6 +56,21 @@ $friendlyPath = $tableId > 0
 $baseUrl = rtrim(BASE_URL, '/');
 $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
 $currencyCodes = array_values(array_filter(array_map(static fn(array $currency) => strtoupper($currency['code'] ?? ''), $currencies)));
+$currencyMeta = [];
+foreach ($currencies as $currency) {
+    $code = strtoupper($currency['code'] ?? '');
+    if ($code === '') {
+        continue;
+    }
+    $currencyMeta[$code] = [
+        'symbol' => $currency['symbol'] ?? '',
+        'name' => $currency['name'] ?? '',
+    ];
+}
+$currentSymbol = $currencyMeta[$currentCurrency]['symbol'] ?? '';
+if ($currentSymbol === '') {
+    $currentSymbol = $currentCurrency;
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($defaultLanguage) ?>">
@@ -104,12 +119,13 @@ $currencyCodes = array_values(array_filter(array_map(static fn(array $currency) 
                         $code = strtoupper($currency['code'] ?? '');
                         $name = trim($currency['name'] ?? $code);
                         $symbol = trim($currency['symbol'] ?? '');
-                        $label = $name;
-                        if ($symbol !== '') {
-                            $label .= ' (' . $symbol . ')';
-                        }
                     ?>
-                    <option value="<?= htmlspecialchars($code) ?>" <?= $code === $currentCurrency ? 'selected' : '' ?>><?= htmlspecialchars($code) ?> &mdash; <?= htmlspecialchars($label) ?></option>
+                    <option
+                        value="<?= htmlspecialchars($code) ?>"
+                        data-symbol="<?= htmlspecialchars($symbol) ?>"
+                        data-name="<?= htmlspecialchars($name) ?>"
+                        <?= $code === $currentCurrency ? 'selected' : '' ?>
+                    ><?= htmlspecialchars($code) ?></option>
                 <?php endforeach; ?>
             </select>
             <button type="button" id="callWaiter" class="menu-controls__waiter">
@@ -136,7 +152,7 @@ $currencyCodes = array_values(array_filter(array_map(static fn(array $currency) 
 
 <button class="cart-floating" id="cartButton">
     <span><?= htmlspecialchars(Language::get('app.orders')) ?></span>
-    <div id="cartSummary"><span>0 ürün</span><strong>0.00 <?= htmlspecialchars($currentCurrency) ?></strong></div>
+    <div id="cartSummary"><span>0 ürün</span><strong><?= htmlspecialchars($currentSymbol) ?> 0.00</strong></div>
 </button>
 
 <div class="cart-backdrop d-none" id="cartBackdrop"></div>
@@ -149,7 +165,7 @@ $currencyCodes = array_values(array_filter(array_map(static fn(array $currency) 
     <div class="cart-drawer__footer">
         <div>
             <span>Toplam</span>
-            <strong id="cartTotal">0.00 <?= htmlspecialchars($currentCurrency) ?></strong>
+            <strong id="cartTotal"><?= htmlspecialchars($currentSymbol) ?> 0.00</strong>
         </div>
         <div class="d-flex gap-2">
             <button type="button" class="btn btn-outline-secondary" id="clearCart">Temizle</button>
@@ -185,6 +201,7 @@ $currencyCodes = array_values(array_filter(array_map(static fn(array $currency) 
         currency: <?= json_encode($currentCurrency, JSON_UNESCAPED_UNICODE) ?>,
         languages: <?= json_encode(array_column($languages, 'code'), JSON_UNESCAPED_UNICODE) ?>,
         currencies: <?= json_encode($currencyCodes, JSON_UNESCAPED_UNICODE) ?>,
+        currencyMeta: <?= json_encode($currencyMeta, JSON_UNESCAPED_UNICODE) ?>,
         addToCartText: <?= json_encode(Language::get('menu.add_to_cart', 'Sepete Ekle'), JSON_UNESCAPED_UNICODE) ?>,
         tableId: <?= json_encode($tableId, JSON_UNESCAPED_UNICODE) ?>,
         tableName: <?= json_encode($tableName, JSON_UNESCAPED_UNICODE) ?>,
