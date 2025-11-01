@@ -47,9 +47,7 @@ const MenuApp = (() => {
         baseCurrency: (document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         currency: (document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         language: document.body.dataset.currentLanguage || (window.MENU_STATE?.languages?.[0] || 'tr'),
-        exchangeRate: 1,
         currencyCache: new Map(),
-        pendingConversions: new Set(),
         tableId: Number(document.body.dataset.tableId || 0),
         tableName: window.MENU_STATE?.tableName || '',
         orders: [],
@@ -145,47 +143,6 @@ const MenuApp = (() => {
         return Number.isFinite(numeric) ? numeric : null;
     };
 
-    const queueConversion = (amount) => {
-        const cacheKey = `${state.baseCurrency}-${state.currency}-${amount.toFixed(2)}`;
-        if (state.pendingConversions.has(cacheKey)) {
-            return;
-        }
-        state.pendingConversions.add(cacheKey);
-
-        const params = new URLSearchParams({
-            from: state.baseCurrency,
-            to: state.currency,
-            amount: amount,
-        });
-
-        fetchJSON(`api/currency.php?${params.toString()}`)
-            .then((data) => {
-                const convertedAmount =
-                    parseNumeric(data.amount) ??
-                    parseNumeric(data.secondary) ??
-                    parseNumeric(data.primary) ??
-                    amount * state.exchangeRate;
-                const rate = parseNumeric(data.rate) ??
-                    (amount > 0 && convertedAmount > 0 ? convertedAmount / amount : null);
-                if (rate && rate > 0) {
-                    state.exchangeRate = rate;
-                }
-                state.currencyCache.set(cacheKey, convertedAmount.toFixed(2));
-            })
-            .catch((error) => {
-                console.error('Kur çevrim hatası', error);
-                state.currencyCache.set(cacheKey, (amount * state.exchangeRate).toFixed(2));
-            })
-            .finally(() => {
-                state.pendingConversions.delete(cacheKey);
-                renderProducts();
-                updateCartSummary();
-                renderCart();
-                renderOrderStatus();
-                updateOverlayButton();
-            });
-    };
-
     const convertPrice = (price) => {
         const amount = Number(price) || 0;
 
@@ -194,13 +151,45 @@ const MenuApp = (() => {
         }
 
         const cacheKey = `${state.baseCurrency}-${state.currency}-${amount.toFixed(2)}`;
-        if (state.currencyCache.has(cacheKey)) {
-            return state.currencyCache.get(cacheKey);
+        const cached = state.currencyCache.get(cacheKey);
+        if (typeof cached === 'string') {
+            return cached;
+        }
+        if (cached && typeof cached === 'object' && cached.pending) {
+            return cached.value;
         }
 
-        queueConversion(amount);
+        const placeholder = amount.toFixed(2);
+        state.currencyCache.set(cacheKey, { pending: true, value: placeholder });
 
-        return (amount * state.exchangeRate).toFixed(2);
+        const params = new URLSearchParams({
+            from: state.baseCurrency,
+            to: state.currency,
+            amount: amount.toString(),
+        });
+
+        fetchJSON(`api/currency.php?${params.toString()}`)
+            .then((data) => {
+                const convertedAmount =
+                    parseNumeric(data.amount) ??
+                    parseNumeric(data.secondary) ??
+                    parseNumeric(data.primary);
+                const resolved = convertedAmount !== null ? convertedAmount.toFixed(2) : placeholder;
+                state.currencyCache.set(cacheKey, resolved);
+            })
+            .catch((error) => {
+                console.error('Kur çevrim hatası', error);
+                state.currencyCache.set(cacheKey, placeholder);
+            })
+            .finally(() => {
+                renderProducts();
+                updateCartSummary();
+                renderCart();
+                renderOrderStatus();
+                updateOverlayButton();
+            });
+
+        return placeholder;
     };
 
     const statusToClass = (status = '') => {
@@ -535,52 +524,11 @@ const MenuApp = (() => {
         audioElement.play().catch(() => {});
     };
 
-    const getReferenceAmount = () => {
-        const pricedProduct = state.products.find((product) => Number(product.price) > 0);
-        if (pricedProduct) {
-            return Number(pricedProduct.price);
-        }
-        if (state.cart.length) {
-            const cartItem = state.cart.find((item) => Number(item.price) > 0);
-            if (cartItem) {
-                return Number(cartItem.price);
-            }
-        }
-        const orderWithTotal = state.orders.find((order) => Number(order.total) > 0);
-        if (orderWithTotal) {
-            return Number(orderWithTotal.total);
-        }
-        return 1;
-    };
-
     const updateExchangeRate = async () => {
-        state.currencyCache.clear?.();
-        state.pendingConversions.clear?.();
-
-        if (state.currency === state.baseCurrency) {
-            state.exchangeRate = 1;
-            return;
-        }
-        try {
-            const referenceAmount = getReferenceAmount();
-            const params = new URLSearchParams({
-                from: state.baseCurrency,
-                to: state.currency,
-                amount: referenceAmount,
-            });
-            const data = await fetchJSON(`api/currency.php?${params.toString()}`);
-            const parseRate = (value) => {
-                if (value === undefined || value === null) {
-                    return null;
-                }
-                const numeric = parseFloat(String(value).replace(/,/g, ''));
-                return Number.isNaN(numeric) || numeric <= 0 ? null : numeric;
-            };
-            const rate = parseRate(data.rate) ?? parseRate(data.primary) ?? parseRate(data.secondary);
-            state.exchangeRate = rate ?? 1;
-        } catch (error) {
-            console.error('Kur çevrim hatası', error);
-            state.exchangeRate = 1;
+        if (state.currencyCache?.clear) {
+            state.currencyCache.clear();
+        } else {
+            state.currencyCache = new Map();
         }
         updateOverlayButton();
     };
