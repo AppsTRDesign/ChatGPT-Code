@@ -89,6 +89,7 @@ const AdminApp = (() => {
 
     const selectors = {
         dashboardRoot: document.querySelector('.dashboard'),
+        mobileHeader: document.querySelector('.dashboard__mobile-header'),
         sidebarToggle: document.querySelector('#sidebarToggle'),
         sidebarClose: document.querySelector('#sidebarClose'),
         sidebarOverlay: document.querySelector('#sidebarOverlay'),
@@ -250,6 +251,16 @@ const AdminApp = (() => {
         }
     };
 
+    const syncMobileHeaderHeight = () => {
+        if (!selectors.mobileHeader) {
+            return;
+        }
+        const height = Math.ceil(selectors.mobileHeader.getBoundingClientRect().height);
+        if (height > 0) {
+            document.documentElement.style.setProperty('--mobile-header-height', `${height}px`);
+        }
+    };
+
     const closeSidebar = () => {
         selectors.dashboardRoot?.classList.remove('sidebar-open');
         updateSidebarToggleLabel();
@@ -261,6 +272,7 @@ const AdminApp = (() => {
     };
 
     const bindSidebarToggle = () => {
+        syncMobileHeaderHeight();
         selectors.sidebarToggle?.addEventListener('click', () => {
             if (selectors.dashboardRoot?.classList.contains('sidebar-open')) {
                 closeSidebar();
@@ -277,11 +289,17 @@ const AdminApp = (() => {
         });
 
         window.addEventListener('resize', () => {
+            syncMobileHeaderHeight();
             if (window.innerWidth >= 992) {
                 closeSidebar();
             }
         });
 
+        const handleLoad = () => {
+            syncMobileHeaderHeight();
+            window.removeEventListener('load', handleLoad);
+        };
+        window.addEventListener('load', handleLoad);
         updateSidebarToggleLabel();
     };
 
