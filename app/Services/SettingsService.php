@@ -46,6 +46,7 @@ class SettingsService
             'currencies' => $this->currencies(),
             'languages' => $this->languages(),
             'notifications' => $this->notifications(),
+            'daily_menu' => $this->dailyMenu(),
             'timezones' => $this->timezones(),
         ];
     }
@@ -68,7 +69,131 @@ class SettingsService
             $this->updateNotifications($data['notifications']);
         }
 
+        if (array_key_exists('daily_menu', $data)) {
+            $this->saveDailyMenu($data['daily_menu'] ?? []);
+        }
+
         return $this->all();
+    }
+
+    public function dailyMenu(): array
+    {
+        $section = $this->getSection('daily_menu');
+        $items = $section['items'] ?? [];
+
+        $normalized = array_map(function ($item) {
+            $id = (string)($item['id'] ?? '');
+            $productId = (int)($item['product_id'] ?? 0);
+            $headline = trim((string)($item['headline'] ?? ''));
+            $tagline = trim((string)($item['tagline'] ?? ''));
+            $badge = trim((string)($item['badge'] ?? ''));
+            $position = (int)($item['position'] ?? 0);
+
+            if ($id === '') {
+                $id = $this->generateDailyMenuId();
+            }
+
+            return [
+                'id' => $id,
+                'product_id' => $productId,
+                'headline' => $headline,
+                'tagline' => $tagline,
+                'badge' => $badge,
+                'position' => $position,
+            ];
+        }, $items);
+
+        usort($normalized, static fn($a, $b) => ($a['position'] ?? 0) <=> ($b['position'] ?? 0));
+
+        return array_values($normalized);
+    }
+
+    public function saveDailyMenuItem(array $payload): array
+    {
+        $items = $this->dailyMenu();
+        $id = (string)($payload['id'] ?? '');
+        $productId = (int)($payload['product_id'] ?? 0);
+
+        if ($productId <= 0) {
+            throw new \InvalidArgumentException('Günün menüsü için ürün seçilmelidir.');
+        }
+
+        $headline = trim((string)($payload['headline'] ?? ''));
+        $tagline = trim((string)($payload['tagline'] ?? ''));
+        $badge = trim((string)($payload['badge'] ?? ''));
+
+        if ($headline === '') {
+            $headline = trim((string)($payload['name'] ?? ''));
+        }
+
+        if ($id === '') {
+            $id = $this->generateDailyMenuId();
+            $position = count($items) + 1;
+            $items[] = [
+                'id' => $id,
+                'product_id' => $productId,
+                'headline' => $headline,
+                'tagline' => $tagline,
+                'badge' => $badge,
+                'position' => $position,
+            ];
+        } else {
+            $updated = false;
+            foreach ($items as &$item) {
+                if ($item['id'] === $id) {
+                    $item['product_id'] = $productId;
+                    $item['headline'] = $headline;
+                    $item['tagline'] = $tagline;
+                    $item['badge'] = $badge;
+                    $updated = true;
+                    break;
+                }
+            }
+            unset($item);
+
+            if (!$updated) {
+                $items[] = [
+                    'id' => $id,
+                    'product_id' => $productId,
+                    'headline' => $headline,
+                    'tagline' => $tagline,
+                    'badge' => $badge,
+                    'position' => count($items) + 1,
+                ];
+            }
+        }
+
+        $this->saveDailyMenu($items);
+
+        return $this->dailyMenu();
+    }
+
+    public function deleteDailyMenuItem(string $id): array
+    {
+        $items = array_filter($this->dailyMenu(), static fn($item) => $item['id'] !== $id);
+        $this->saveDailyMenu(array_values($items));
+
+        return $this->dailyMenu();
+    }
+
+    public function reorderDailyMenu(array $order): array
+    {
+        $items = $this->dailyMenu();
+        $positions = [];
+        $index = 1;
+        foreach ($order as $itemId) {
+            $positions[(string)$itemId] = $index++;
+        }
+
+        foreach ($items as &$item) {
+            $item['position'] = $positions[$item['id']] ?? $item['position'];
+        }
+        unset($item);
+
+        usort($items, static fn($a, $b) => ($a['position'] ?? 0) <=> ($b['position'] ?? 0));
+        $this->saveDailyMenu($items);
+
+        return $this->dailyMenu();
     }
 
     public function currencies(): array
@@ -269,6 +394,23 @@ class SettingsService
         $this->saveSection('notifications', $payload);
     }
 
+    private function saveDailyMenu(array $items): void
+    {
+        $position = 1;
+        $normalized = array_map(function ($item) use (&$position) {
+            $item['id'] = (string)($item['id'] ?? $this->generateDailyMenuId());
+            $item['product_id'] = (int)($item['product_id'] ?? 0);
+            $item['headline'] = trim((string)($item['headline'] ?? ''));
+            $item['tagline'] = trim((string)($item['tagline'] ?? ''));
+            $item['badge'] = trim((string)($item['badge'] ?? ''));
+            $item['position'] = $position++;
+
+            return $item;
+        }, array_values($items));
+
+        $this->saveSection('daily_menu', ['items' => $normalized]);
+    }
+
     private function getSection(string $section): array
     {
         $statement = $this->db->prepare('SELECT payload FROM restaurant_settings WHERE restaurant_id = ? AND section = ?');
@@ -334,6 +476,11 @@ class SettingsService
         }
 
         return $value;
+    }
+
+    private function generateDailyMenuId(): string
+    {
+        return bin2hex(random_bytes(6));
     }
 
     private function mediaUrl(?string $value): ?string

@@ -236,6 +236,20 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
 
         <section class="section<?= $currentSection === 'menu' ? '' : ' d-none' ?>" id="section-menu">
             <div class="row g-3">
+                <div class="col-12">
+                    <div class="card h-100">
+                        <div class="card-header flex-column flex-lg-row d-flex gap-3 align-items-lg-center justify-content-between">
+                            <div>
+                                <h2 class="h5 mb-1">Günün Menüsü</h2>
+                                <p class="text-muted mb-0">Öne çıkan ürünleri seçin ve kaydırmalı menüde gösterin.</p>
+                            </div>
+                            <button class="btn btn-sm btn-primary" id="newDailyMenuButton">Öğe Ekle</button>
+                        </div>
+                        <div class="card-body">
+                            <div id="dailyMenuList" class="daily-menu-admin"></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="col-12 col-xl-4">
                     <div class="card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -561,6 +575,42 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
                     <button type="button" class="btn btn-success" id="saveCategory">Kaydet</button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="dailyMenuModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Günün Menüsü</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dailyMenuForm" class="row g-3">
+                    <input type="hidden" name="id">
+                    <div class="col-12">
+                        <label class="form-label">Ürün</label>
+                        <select name="product_id" id="dailyMenuProduct" class="form-select" required></select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Başlık</label>
+                        <input type="text" name="headline" class="form-control" placeholder="Örn. Günün içeceği">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Alt Başlık</label>
+                        <input type="text" name="tagline" class="form-control" placeholder="Kısa açıklama">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Rozet</label>
+                        <input type="text" name="badge" class="form-control" placeholder="Örn. Yeni">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+                <button type="button" class="btn btn-success" id="saveDailyMenu">Kaydet</button>
             </div>
         </div>
     </div>

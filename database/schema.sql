@@ -169,6 +169,10 @@ INSERT INTO restaurant_settings (restaurant_id, section, payload) VALUES
 (1, 'qr', JSON_OBJECT('token', '', 'width', 400, 'height', 400, 'format', 'png', 'transparent', false, 'color', '#000000', 'background', '#ffffff'))
 ON DUPLICATE KEY UPDATE payload = VALUES(payload);
 
+INSERT INTO restaurant_settings (restaurant_id, section, payload) VALUES
+(1, 'daily_menu', JSON_OBJECT('items', JSON_ARRAY(JSON_OBJECT('id', 'seed-1', 'product_id', 1, 'headline', 'Şefin Önerisi', 'tagline', 'Soğuk kahvemiz ile serinleyin', 'badge', 'Yeni', 'position', 1))))
+ON DUPLICATE KEY UPDATE payload = VALUES(payload);
+
 INSERT INTO restaurant_currencies (restaurant_id, code, symbol, name, is_default) VALUES
 (1, 'TRY', '₺', 'Türk Lirası', 1),
 (1, 'USD', '$', 'Amerikan Doları', 0)

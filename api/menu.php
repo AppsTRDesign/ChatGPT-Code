@@ -10,4 +10,5 @@ $service = new MenuService(1);
 Response::json([
     'categories' => $service->categories(),
     'products' => $service->products(),
+    'daily_menu' => $service->dailyMenu(),
 ]);

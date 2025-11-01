@@ -49,6 +49,7 @@ const AdminApp = (() => {
         products: [],
         productSearch: '',
         productCategory: 'all',
+        dailyMenu: [],
     };
 
     const escapeHtml = (value = '') => String(value)
@@ -104,6 +105,7 @@ const AdminApp = (() => {
         deleteCategoryButton: document.querySelector('#deleteCategoryButton'),
         categoryForm: document.querySelector('#categoryForm'),
         categoryList: document.querySelector('#categoryList'),
+        dailyMenuList: document.querySelector('#dailyMenuList'),
         productList: document.querySelector('#productList'),
         productForm: document.querySelector('#productForm'),
         saveProduct: document.querySelector('#saveProduct'),
@@ -137,6 +139,10 @@ const AdminApp = (() => {
         notificationsForm: document.querySelector('#notificationsForm'),
         orderSoundPreview: document.querySelector('#orderSoundPreview'),
         waiterSoundPreview: document.querySelector('#waiterSoundPreview'),
+        newDailyMenuButton: document.querySelector('#newDailyMenuButton'),
+        dailyMenuModal: document.querySelector('#dailyMenuModal'),
+        dailyMenuForm: document.querySelector('#dailyMenuForm'),
+        saveDailyMenu: document.querySelector('#saveDailyMenu'),
     };
 
     const toast = Swal.mixin({
@@ -155,6 +161,18 @@ const AdminApp = (() => {
             throw new Error(data.message || 'Bilinmeyen bir hata oluştu.');
         }
         return data;
+    };
+
+    const getDefaultCurrencySymbol = () => {
+        const defaultCode = (state.settings?.restaurant?.currency || 'TRY').toUpperCase();
+        const entry = (state.settings?.currencies || []).find((currency) => (currency.code || '').toUpperCase() === defaultCode);
+        return entry?.symbol || defaultCode;
+    };
+
+    const formatCurrencyValue = (amount) => {
+        const symbol = getDefaultCurrencySymbol();
+        const value = Number(amount || 0).toFixed(2);
+        return /^[A-Za-z]{2,4}$/.test(symbol) ? `${value} ${symbol}` : `${symbol} ${value}`;
     };
 
     const statusToClass = (status = '') => {
@@ -587,6 +605,149 @@ const AdminApp = (() => {
         const data = await fetchJSON('api/products.php');
         state.products = data.products || [];
         renderProducts();
+        const selectedProduct = selectors.dailyMenuForm?.querySelector('[name="product_id"]')?.value || '';
+        populateDailyMenuSelect(selectedProduct);
+    };
+
+    const renderDailyMenu = () => {
+        if (!selectors.dailyMenuList) return;
+        selectors.dailyMenuList.innerHTML = '';
+
+        if (!state.dailyMenu.length) {
+            selectors.dailyMenuList.innerHTML = '<p class="text-muted mb-0">Henüz eklenmiş öğe bulunmuyor.</p>';
+            return;
+        }
+
+        state.dailyMenu.forEach((item, index) => {
+            const product = item.product || {};
+            const image = product.image || 'assets/vendor/demo/coffee-1.png';
+            const badge = (item.badge || '').trim();
+            const headline = item.headline || product.name || '';
+            const tagline = (item.tagline || '').trim();
+            const price = formatCurrencyValue(product.price);
+            const card = document.createElement('div');
+            card.className = 'daily-menu-admin__item';
+            card.innerHTML = `
+                <div class="daily-menu-admin__media">
+                    <img src="${image}" alt="${escapeHtml(product.name || '')}" loading="lazy">
+                </div>
+                <div class="daily-menu-admin__body">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                        <h3>${escapeHtml(headline)}</h3>
+                        ${badge ? `<span class="badge bg-success">${escapeHtml(badge)}</span>` : ''}
+                    </div>
+                    ${tagline ? `<p class="text-muted mb-1">${escapeHtml(tagline)}</p>` : ''}
+                    <small class="text-muted">${escapeHtml(product.name || '')} • ${price}</small>
+                </div>
+                <div class="daily-menu-admin__actions">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-daily-up="${item.id}" ${index === 0 ? 'disabled' : ''}>
+                        <i class="bx bx-chevron-up"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-daily-down="${item.id}" ${index === state.dailyMenu.length - 1 ? 'disabled' : ''}>
+                        <i class="bx bx-chevron-down"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-daily-edit="${item.id}">Düzenle</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-daily-delete="${item.id}">Sil</button>
+                </div>
+            `;
+            selectors.dailyMenuList.appendChild(card);
+        });
+    };
+
+    const fetchDailyMenu = async () => {
+        const data = await fetchJSON('api/daily-menu.php');
+        state.dailyMenu = data.items || [];
+        renderDailyMenu();
+    };
+
+    const populateDailyMenuSelect = (selectedId = '') => {
+        const select = selectors.dailyMenuForm?.querySelector('select[name="product_id"]');
+        if (!select) return;
+        if (!state.products.length) {
+            select.innerHTML = '<option value="">Ürün bulunamadı</option>';
+            select.disabled = true;
+            return;
+        }
+        select.disabled = false;
+        select.innerHTML = state.products.map((product) => {
+            const isSelected = Number(product.id) === Number(selectedId);
+            return `<option value="${product.id}" ${isSelected ? 'selected' : ''}>${escapeHtml(product.name || '')}</option>`;
+        }).join('');
+    };
+
+    const openDailyMenuModal = (id = null) => {
+        if (!selectors.dailyMenuModal || !selectors.dailyMenuForm) return;
+        const modal = bootstrap.Modal.getOrCreateInstance(selectors.dailyMenuModal);
+        selectors.dailyMenuForm.reset();
+        selectors.dailyMenuForm.querySelector('[name="id"]').value = id || '';
+        populateDailyMenuSelect();
+        if (id) {
+            const item = state.dailyMenu.find((entry) => entry.id === id);
+            if (item) {
+                selectors.dailyMenuForm.querySelector('[name="product_id"]').value = item.product_id;
+                selectors.dailyMenuForm.querySelector('[name="headline"]').value = item.headline || '';
+                selectors.dailyMenuForm.querySelector('[name="tagline"]').value = item.tagline || '';
+                selectors.dailyMenuForm.querySelector('[name="badge"]').value = item.badge || '';
+            }
+        }
+        modal.show();
+    };
+
+    const saveDailyMenuItem = async () => {
+        if (!selectors.dailyMenuForm) return;
+        const formData = new FormData(selectors.dailyMenuForm);
+        const payload = Object.fromEntries(formData.entries());
+        payload.product_id = Number(payload.product_id || 0);
+        const response = await fetchJSON('api/daily-menu.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        state.dailyMenu = response.items || [];
+        renderDailyMenu();
+        toast.fire({ icon: 'success', title: response.message || 'Güncellendi.' });
+        bootstrap.Modal.getInstance(selectors.dailyMenuModal)?.hide();
+    };
+
+    const reorderDailyMenu = async (order) => {
+        const response = await fetchJSON('api/daily-menu.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reorder', order }),
+        });
+        state.dailyMenu = response.items || [];
+        renderDailyMenu();
+    };
+
+    const moveDailyMenuItem = async (id, direction) => {
+        const currentIndex = state.dailyMenu.findIndex((item) => item.id === id);
+        if (currentIndex === -1) return;
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (targetIndex < 0 || targetIndex >= state.dailyMenu.length) {
+            return;
+        }
+        const order = [...state.dailyMenu];
+        const [moved] = order.splice(currentIndex, 1);
+        order.splice(targetIndex, 0, moved);
+        await reorderDailyMenu(order.map((item) => item.id));
+    };
+
+    const deleteDailyMenuItem = async (id) => {
+        const confirmResult = await Swal.fire({
+            title: 'Emin misiniz?',
+            text: 'Günün menüsünden kaldırılacak.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sil',
+            cancelButtonText: 'Vazgeç',
+        });
+        if (!confirmResult.isConfirmed) {
+            return;
+        }
+        const response = await fetchJSON(`api/daily-menu.php?id=${id}`, { method: 'DELETE' });
+        state.dailyMenu = response.items || [];
+        renderDailyMenu();
+        toast.fire({ icon: 'success', title: response.message || 'Silindi.' });
     };
 
     const openCategoryModal = (id = null) => {
@@ -1042,6 +1203,30 @@ const AdminApp = (() => {
             }
         });
         selectors.addVariant?.addEventListener('click', () => addVariantRow());
+    };
+
+    const bindDailyMenuActions = () => {
+        selectors.newDailyMenuButton?.addEventListener('click', () => openDailyMenuModal());
+        selectors.saveDailyMenu?.addEventListener('click', saveDailyMenuItem);
+        selectors.dailyMenuList?.addEventListener('click', async (event) => {
+            const button = event.target.closest('[data-daily-edit], [data-daily-delete], [data-daily-up], [data-daily-down]');
+            if (!button) return;
+            if (button.dataset.dailyEdit) {
+                openDailyMenuModal(button.dataset.dailyEdit);
+                return;
+            }
+            if (button.dataset.dailyDelete) {
+                await deleteDailyMenuItem(button.dataset.dailyDelete);
+                return;
+            }
+            if (button.dataset.dailyUp) {
+                await moveDailyMenuItem(button.dataset.dailyUp, 'up');
+                return;
+            }
+            if (button.dataset.dailyDown) {
+                await moveDailyMenuItem(button.dataset.dailyDown, 'down');
+            }
+        });
     };
 
     const bindFilters = () => {
@@ -1503,6 +1688,7 @@ const AdminApp = (() => {
         bindTableActions();
         bindWaiterActions();
         bindMenuManagement();
+        bindDailyMenuActions();
         bindSettingsForms();
         populateDefaultLanguage();
         populateCurrencySelect();
@@ -1526,6 +1712,7 @@ const AdminApp = (() => {
             fetchWaiterCalls(),
             fetchCategories(),
             fetchProducts(),
+            fetchDailyMenu(),
         ]);
     };
 

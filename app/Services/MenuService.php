@@ -16,6 +16,63 @@ class MenuService
         $this->restaurantId = $restaurantId;
     }
 
+    public function dailyMenu(): array
+    {
+        $settings = new SettingsService($this->restaurantId);
+        $items = $settings->dailyMenu();
+
+        if (empty($items)) {
+            return [];
+        }
+
+        $productIds = array_values(array_unique(array_filter(array_map(static fn($item) => (int)($item['product_id'] ?? 0), $items))));
+
+        if (empty($productIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+        $statement = $this->db->prepare("SELECT id, name, description, price, image FROM products WHERE restaurant_id = ? AND id IN ({$placeholders})");
+        $statement->execute(array_merge([$this->restaurantId], $productIds));
+        $products = $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+        $productMap = [];
+        foreach ($products as $product) {
+            $product['price'] = (float)($product['price'] ?? 0);
+            $product['image'] = $this->mediaUrl($product['image'] ?? null);
+            $productMap[(int)$product['id']] = $product;
+        }
+
+        $result = [];
+        foreach ($items as $item) {
+            $productId = (int)($item['product_id'] ?? 0);
+            if (!isset($productMap[$productId])) {
+                continue;
+            }
+
+            $product = $productMap[$productId];
+            $result[] = [
+                'id' => $item['id'],
+                'product_id' => $productId,
+                'headline' => $item['headline'] ?: $product['name'],
+                'tagline' => $item['tagline'] ?? '',
+                'badge' => $item['badge'] ?? '',
+                'position' => (int)($item['position'] ?? 0),
+                'product' => [
+                    'id' => (int)$product['id'],
+                    'name' => $product['name'],
+                    'description' => $product['description'],
+                    'price' => (float)$product['price'],
+                    'image' => $product['image'],
+                ],
+            ];
+        }
+
+        usort($result, static fn($a, $b) => ($a['position'] ?? 0) <=> ($b['position'] ?? 0));
+
+        return $result;
+    }
+
     public function categories(): array
     {
         $statement = $this->db->prepare('SELECT id, name, icon, image FROM categories WHERE restaurant_id = ? ORDER BY name');

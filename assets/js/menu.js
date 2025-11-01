@@ -39,9 +39,17 @@ const MenuApp = (() => {
         return icon;
     };
 
+    const escapeHtml = (value = '') => String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
     const state = {
         categories: [],
         products: [],
+        dailyMenu: [],
         selectedCategory: null,
         cart: [],
         baseCurrency: (document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
@@ -54,11 +62,13 @@ const MenuApp = (() => {
         overlayProduct: null,
         overlayVariant: null,
         overlayQuantity: 1,
+        activeNav: 'homeSection',
     };
 
     const elements = {
         categories: document.querySelector('#menuCategories'),
         products: document.querySelector('#menuProducts'),
+        dailySlider: document.querySelector('#dailySlider'),
         cartSummary: document.querySelector('#cartSummary'),
         currencySelect: document.querySelector('#currencySelect'),
         languageSelect: document.querySelector('#languageSelect'),
@@ -85,6 +95,7 @@ const MenuApp = (() => {
         refreshOrders: document.querySelector('#refreshOrders'),
         audioOrder: document.querySelector('#audioOrder'),
         audioNotify: document.querySelector('#audioNotify'),
+        bottomNav: document.querySelector('#menuBottomNav'),
     };
 
     const socket = io('https://qrmenu.noasoft.org:4000');
@@ -158,12 +169,14 @@ const MenuApp = (() => {
         fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`)
             .then((data) => {
                 const rate =
+                    parseNumeric(data.rate) ??
                     parseNumeric(data.secondary) ??
                     parseNumeric(data.primary) ??
                     parseNumeric(data.amount);
                 if (rate !== null) {
                     cachedRates[key] = rate;
                     renderProducts();
+                    renderDailyMenu();
                     updateCartSummary();
                     renderCart();
                     renderOrderStatus();
@@ -215,7 +228,9 @@ const MenuApp = (() => {
         const data = await fetchJSON('api/menu.php');
         state.categories = data.categories || [];
         state.products = data.products || [];
+        state.dailyMenu = data.daily_menu || data.daily || [];
         renderCategories();
+        renderDailyMenu();
         renderProducts();
         updateCartSummary();
     };
@@ -231,6 +246,7 @@ const MenuApp = (() => {
             state.selectedCategory = null;
             renderCategories();
             renderProducts();
+            scrollToSection('productSection');
         });
         elements.categories.appendChild(allButton);
 
@@ -248,8 +264,54 @@ const MenuApp = (() => {
                 state.selectedCategory = Number(category.id);
                 renderCategories();
                 renderProducts();
+                scrollToSection('productSection');
             });
             elements.categories.appendChild(button);
+        });
+    };
+
+    const renderDailyMenu = () => {
+        if (!elements.dailySlider) return;
+        elements.dailySlider.innerHTML = '';
+
+        if (!state.dailyMenu.length) {
+            elements.dailySlider.innerHTML = '<p class="text-muted mb-0">Günün menüsü hazırlanmaktadır.</p>';
+            return;
+        }
+
+        state.dailyMenu.forEach((item) => {
+            const product = state.products.find((entry) => Number(entry.id) === Number(item.product_id))
+                || item.product
+                || null;
+            if (!product) {
+                return;
+            }
+            const image = resolveAsset(product.image, 'assets/vendor/demo/coffee-1.png');
+            const headline = item.headline || product.name || '';
+            const tagline = item.tagline || product.description || '';
+            const badge = item.badge || '';
+            const card = document.createElement('article');
+            card.className = 'daily-card';
+            card.innerHTML = `
+                <div class="daily-card__image">
+                    <img src="${image}" alt="${escapeHtml(headline)}" loading="lazy">
+                    ${badge ? `<span class="daily-card__badge">${escapeHtml(badge)}</span>` : ''}
+                </div>
+                <div class="daily-card__body">
+                    <h3>${escapeHtml(headline)}</h3>
+                    ${tagline ? `<p>${escapeHtml(tagline)}</p>` : ''}
+                    <div class="daily-card__footer">
+                        <strong>${formatCurrency(convertPrice(product.price))}</strong>
+                        <button type="button" data-daily-add="${product.id}">${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</button>
+                    </div>
+                </div>
+            `;
+            card.querySelector('[data-daily-add]')?.addEventListener('click', (event) => {
+                event.stopPropagation();
+                openProductOverlay(product);
+            });
+            card.addEventListener('click', () => openProductOverlay(product));
+            elements.dailySlider.appendChild(card);
         });
     };
 
@@ -271,17 +333,17 @@ const MenuApp = (() => {
                 const productImage = resolveAsset(product.image, 'assets/vendor/demo/coffee-1.png');
                 card.innerHTML = `
                     <img src="${productImage}" alt="${product.name}" loading="lazy" />
-                    <div>
+                    <div class="product-card__body">
                         <h3>${product.name}</h3>
-                        <p>${product.description || ''}</p>
-                        <strong>${formatCurrency(convertPrice(product.price))}</strong>
+                        ${product.description ? `<p>${product.description}</p>` : ''}
+                        <div class="product-card__price">${formatCurrency(convertPrice(product.price))}</div>
                     </div>
-                    <button type="button" data-product="${product.id}">
-                        <span>+</span>
+                    <button type="button" class="product-card__action" data-product="${product.id}">
+                        <i class="bx bx-cart-add"></i>
                         <span>${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</span>
                     </button>
                 `;
-                card.querySelector('button').addEventListener('click', () => openProductOverlay(product));
+                card.querySelector('.product-card__action').addEventListener('click', () => openProductOverlay(product));
                 elements.products.appendChild(card);
             });
     };
@@ -531,11 +593,65 @@ const MenuApp = (() => {
         audioElement.play().catch(() => {});
     };
 
+    const scrollToSection = (targetId) => {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        const offset = target.getBoundingClientRect().top + window.scrollY - 96;
+        window.scrollTo({ top: offset < 0 ? 0 : offset, behavior: 'smooth' });
+    };
+
+    const highlightBottomNav = (targetId) => {
+        if (!elements.bottomNav) return;
+        elements.bottomNav.querySelectorAll('.menu-bottom-nav__item').forEach((item) => {
+            item.classList.toggle('active', item.dataset.target === targetId);
+        });
+        state.activeNav = targetId;
+    };
+
+    const bindBottomNav = () => {
+        if (!elements.bottomNav) return;
+        elements.bottomNav.addEventListener('click', (event) => {
+            const button = event.target.closest('.menu-bottom-nav__item');
+            if (!button) return;
+            const action = button.dataset.action;
+            if (action === 'cart') {
+                toggleCart(true);
+                return;
+            }
+            const targetId = button.dataset.target;
+            if (targetId) {
+                scrollToSection(targetId);
+                highlightBottomNav(targetId);
+            }
+        });
+    };
+
+    const bindScrollSpy = () => {
+        const sectionIds = ['homeSection', 'dailySection', 'categorySection', 'orderSection'];
+        const handleScroll = () => {
+            const scrollPosition = window.scrollY + 140;
+            let current = state.activeNav;
+            sectionIds.forEach((id) => {
+                const element = document.getElementById(id);
+                if (!element) return;
+                if (scrollPosition >= element.offsetTop) {
+                    current = id;
+                }
+            });
+            if (current !== state.activeNav) {
+                highlightBottomNav(current);
+            }
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        handleScroll();
+    };
+
     const bindEvents = () => {
         elements.currencySelect?.addEventListener('change', (event) => {
             state.currency = event.target.value.toUpperCase();
             cachedRates = {};
             renderProducts();
+            renderDailyMenu();
             updateCartSummary();
             renderCart();
             updateOverlayButton();
@@ -684,6 +800,9 @@ const MenuApp = (() => {
         updateCartSummary();
         await refreshOrderStatus();
         bindEvents();
+        bindBottomNav();
+        highlightBottomNav('homeSection');
+        bindScrollSpy();
         bindSocket();
     };
 

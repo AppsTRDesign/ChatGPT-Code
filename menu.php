@@ -139,9 +139,36 @@ if ($currentSymbol === '') {
 </header>
 
 <main class="menu-container">
-    <section class="category-list" id="menuCategories"></section>
-    <section class="product-grid" id="menuProducts"></section>
-    <section class="order-status" id="orderStatus">
+    <section class="menu-section" id="homeSection">
+        <div class="menu-block" id="dailySection">
+            <div class="menu-block__header">
+                <div>
+                    <h2>Günün Menüsü</h2>
+                    <p class="text-muted">Şefin önerileri ve özel tatlar</p>
+                </div>
+            </div>
+            <div class="daily-slider" id="dailySlider"></div>
+        </div>
+        <div class="menu-block" id="categorySection">
+            <div class="menu-block__header">
+                <div>
+                    <h2>Kategoriler</h2>
+                    <p class="text-muted">Lezzetleri kategorilere göre keşfedin</p>
+                </div>
+            </div>
+            <div class="category-list" id="menuCategories"></div>
+        </div>
+        <div class="menu-block" id="productSection">
+            <div class="menu-block__header">
+                <div>
+                    <h2>Ürünler</h2>
+                    <p class="text-muted">Menüdeki tüm ürünleri inceleyin</p>
+                </div>
+            </div>
+            <div class="product-grid" id="menuProducts"></div>
+        </div>
+    </section>
+    <section class="order-status menu-block" id="orderSection">
         <div class="order-status__header">
             <h2><?= htmlspecialchars(Language::get('menu.orders_title', 'Sipariş Takibi')) ?></h2>
             <button type="button" id="refreshOrders" class="btn btn-light btn-sm">Yenile</button>
@@ -149,6 +176,29 @@ if ($currentSymbol === '') {
         <div id="orderStatusList" class="order-status__list"></div>
     </section>
 </main>
+
+<nav class="menu-bottom-nav" id="menuBottomNav">
+    <button type="button" class="menu-bottom-nav__item active" data-target="homeSection">
+        <i class="bx bx-home-alt-2"></i>
+        <span>Ana Sayfa</span>
+    </button>
+    <button type="button" class="menu-bottom-nav__item" data-target="dailySection">
+        <i class="bx bx-star"></i>
+        <span>Günün</span>
+    </button>
+    <button type="button" class="menu-bottom-nav__item" data-target="orderSection">
+        <i class="bx bx-receipt"></i>
+        <span>Sipariş</span>
+    </button>
+    <button type="button" class="menu-bottom-nav__item" data-target="categorySection">
+        <i class="bx bx-category-alt"></i>
+        <span>Kategori</span>
+    </button>
+    <button type="button" class="menu-bottom-nav__item" data-action="cart">
+        <i class="bx bx-cart"></i>
+        <span>Sepet</span>
+    </button>
+</nav>
 
 <button class="cart-floating" id="cartButton">
     <span><?= htmlspecialchars(Language::get('app.orders')) ?></span>
