@@ -9,6 +9,8 @@ class SettingsService
 {
     private const DEFAULT_ORDER_SOUND = 'assets/vendor/sounds/order.mp3';
     private const DEFAULT_WAITER_SOUND = 'assets/vendor/sounds/notification.mp3';
+    private const DEFAULT_ORDER_FLASH_COLOR = '#0f9d58';
+    private const DEFAULT_WAITER_FLASH_COLOR = '#ea4335';
     private PDO $db;
     private int $restaurantId;
     private ?array $restaurantCache = null;
@@ -411,6 +413,8 @@ class SettingsService
             'order_sound' => $this->normalizeMedia($data['order_sound'] ?? null) ?: self::DEFAULT_ORDER_SOUND,
             'waiter_sound' => $this->normalizeMedia($data['waiter_sound'] ?? null) ?: self::DEFAULT_WAITER_SOUND,
             'flash_enabled' => filter_var($data['flash_enabled'] ?? false, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+            'flash_order_color' => $this->sanitizeColor($data['flash_order_color'] ?? null, self::DEFAULT_ORDER_FLASH_COLOR),
+            'flash_waiter_color' => $this->sanitizeColor($data['flash_waiter_color'] ?? null, self::DEFAULT_WAITER_FLASH_COLOR),
         ];
 
         $this->saveSection('notifications', $payload);
@@ -487,11 +491,15 @@ class SettingsService
         $order = $section['order_sound'] ?? self::DEFAULT_ORDER_SOUND;
         $waiter = $section['waiter_sound'] ?? self::DEFAULT_WAITER_SOUND;
         $flash = filter_var($section['flash_enabled'] ?? false, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+        $orderColor = $this->sanitizeColor($section['flash_order_color'] ?? null, self::DEFAULT_ORDER_FLASH_COLOR);
+        $waiterColor = $this->sanitizeColor($section['flash_waiter_color'] ?? null, self::DEFAULT_WAITER_FLASH_COLOR);
 
         return [
             'order_sound' => $this->mediaUrl($order),
             'waiter_sound' => $this->mediaUrl($waiter),
             'flash_enabled' => $flash ?? false,
+            'flash_order_color' => $orderColor,
+            'flash_waiter_color' => $waiterColor,
         ];
     }
 
@@ -597,6 +605,28 @@ class SettingsService
         }
 
         return $value;
+    }
+
+    private function sanitizeColor(?string $color, string $fallback): string
+    {
+        if (!$color) {
+            return strtoupper($fallback);
+        }
+
+        $value = strtoupper(trim($color));
+        if ($value === '') {
+            return strtoupper($fallback);
+        }
+
+        if (!str_starts_with($value, '#')) {
+            $value = '#' . ltrim($value, '#');
+        }
+
+        if (preg_match('/^#([0-9A-F]{3}|[0-9A-F]{6})$/', $value)) {
+            return $value;
+        }
+
+        return strtoupper($fallback);
     }
 
     private function generateDailyMenuId(): string

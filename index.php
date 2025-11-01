@@ -129,7 +129,9 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
         </div>
     </aside>
     <div class="dashboard__overlay d-lg-none" id="sidebarOverlay"></div>
-    <div class="alert-flash" id="alertFlash" role="alert" aria-hidden="true">
+    <div class="alert-flash" id="alertFlash" role="alert" aria-hidden="true"
+         data-order-color="<?= htmlspecialchars($notifications['flash_order_color'] ?? '#0F9D58') ?>"
+         data-waiter-color="<?= htmlspecialchars($notifications['flash_waiter_color'] ?? '#EA4335') ?>">
         <div class="alert-flash__content">
             <span id="alertFlashText">Yeni bildirim</span>
         </div>
@@ -336,7 +338,9 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                     </div>
                 </div>
                 <div class="card-body">
-                    <table id="reportsTable" class="table table-striped table-hover w-100"></table>
+                    <div class="table-responsive data-table-responsive">
+                        <table id="reportsTable" class="table table-striped table-hover w-100"></table>
+                    </div>
                 </div>
             </div>
         </section>
@@ -511,6 +515,14 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                             <div class="dropzone mt-2 dz-dashed" data-dropzone data-target="#waiterSoundInput" data-audio="#waiterSoundPreview" data-accept="audio/*" data-placeholder="Ses dosyasını buraya bırakın"></div>
                             <audio id="waiterSoundPreview" class="w-100 mt-2" controls src="<?= htmlspecialchars($waiterSound) ?>"></audio>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Yeni Sipariş Flaş Rengi</label>
+                            <input type="color" name="flash_order_color" class="form-control form-control-color" value="<?= htmlspecialchars($notifications['flash_order_color'] ?? '#0F9D58') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Garson Çağrısı Flaş Rengi</label>
+                            <input type="color" name="flash_waiter_color" class="form-control form-control-color" value="<?= htmlspecialchars($notifications['flash_waiter_color'] ?? '#EA4335') ?>">
+                        </div>
                         <div class="col-12">
                             <div class="form-check form-switch mt-2">
                                 <input type="hidden" name="flash_enabled" value="0">
@@ -602,7 +614,9 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                     <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#languageModal">Yeni Dil</button>
                 </div>
                 <div class="card-body">
-                    <table id="languagesTable" class="table table-striped table-hover w-100"></table>
+                    <div class="table-responsive data-table-responsive">
+                        <table id="languagesTable" class="table table-striped table-hover w-100"></table>
+                    </div>
                 </div>
             </div>
 
@@ -619,7 +633,9 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                             </span>
                         <?php endforeach; ?>
                     </div>
-                    <table id="currenciesTable" class="table table-striped table-hover w-100"></table>
+                    <div class="table-responsive data-table-responsive">
+                        <table id="currenciesTable" class="table table-striped table-hover w-100"></table>
+                    </div>
                 </div>
             </div>
         </section>

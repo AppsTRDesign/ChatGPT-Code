@@ -216,12 +216,14 @@ a:hover {
   justify-content: center;
   padding: 24px;
   color: #ffffff;
-  background: rgba(15, 157, 88, 0);
+  background: rgba(0, 0, 0, 0);
   z-index: 1400;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
   cursor: pointer;
+  --flash-color: rgba(15, 157, 88, 0.9);
+  --flash-color-soft: rgba(15, 157, 88, 0.55);
 }
 
 .alert-flash.active {
@@ -239,19 +241,19 @@ a:hover {
 
 @keyframes flashPulse {
   0% {
-    background: rgba(15, 157, 88, 0);
+    background: rgba(0, 0, 0, 0);
   }
   22% {
-    background: rgba(15, 157, 88, 0.9);
+    background: var(--flash-color);
   }
   55% {
-    background: rgba(15, 157, 88, 0.55);
+    background: var(--flash-color-soft);
   }
   82% {
-    background: rgba(15, 157, 88, 0.9);
+    background: var(--flash-color);
   }
   100% {
-    background: rgba(15, 157, 88, 0);
+    background: rgba(0, 0, 0, 0);
   }
 }
 
@@ -322,6 +324,61 @@ a:hover {
   border-radius: 999px;
   padding: 6px 14px;
   margin: 0 4px;
+}
+
+.data-table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.dataTables_wrapper .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.dataTables_wrapper .row > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dataTables_wrapper .dataTables_filter {
+  justify-content: flex-end;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  width: auto;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .dataTables_wrapper .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dataTables_wrapper .row > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dataTables_wrapper .dataTables_filter {
+    justify-content: flex-start;
+    text-align: left !important;
+  }
+
+  .dataTables_wrapper .dataTables_filter input {
+    width: 100%;
+  }
+
+  .dataTables_wrapper .dataTables_paginate {
+    justify-content: center;
+  }
 }
 
 .dropzone {

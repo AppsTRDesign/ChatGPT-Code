@@ -54,6 +54,12 @@ const AdminApp = (() => {
         flashTimeout: null,
     };
 
+    const FLASH_DEFAULTS = {
+        order: '#0F9D58',
+        waiter: '#EA4335',
+    };
+    const HEX_COLOR_PATTERN = /^#([0-9A-F]{3}|[0-9A-F]{6})$/i;
+
     const escapeHtml = (value = '') => String(value)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -221,11 +227,58 @@ const AdminApp = (() => {
         selectors.flashOverlay.setAttribute('aria-hidden', 'true');
     };
 
-    const triggerFlash = (message) => {
-        const notifications = state.settings?.notifications || window.APP_STATE?.notifications || {};
+    const getNotifications = () => state.settings?.notifications || window.APP_STATE?.notifications || {};
+
+    const ensureFlashColorCache = () => {
+        if (!selectors.flashOverlay) {
+            return;
+        }
+        const notifications = getNotifications();
+        let orderColor = notifications.flash_order_color || selectors.flashOverlay.dataset.orderColor || FLASH_DEFAULTS.order;
+        let waiterColor = notifications.flash_waiter_color || selectors.flashOverlay.dataset.waiterColor || FLASH_DEFAULTS.waiter;
+        orderColor = HEX_COLOR_PATTERN.test(orderColor) ? orderColor.toUpperCase() : FLASH_DEFAULTS.order;
+        waiterColor = HEX_COLOR_PATTERN.test(waiterColor) ? waiterColor.toUpperCase() : FLASH_DEFAULTS.waiter;
+        selectors.flashOverlay.dataset.orderColor = orderColor;
+        selectors.flashOverlay.dataset.waiterColor = waiterColor;
+    };
+
+    const hexToRgba = (hex, alpha = 1) => {
+        if (!hex) {
+            return `rgba(15, 157, 88, ${alpha})`;
+        }
+        let sanitized = hex.toString().trim().replace('#', '');
+        if (sanitized.length === 3) {
+            sanitized = sanitized.split('').map((char) => char + char).join('');
+        }
+        if (sanitized.length !== 6 || Number.isNaN(Number(`0x${sanitized}`))) {
+            return `rgba(15, 157, 88, ${alpha})`;
+        }
+        const bigint = parseInt(sanitized, 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
+    const applyFlashColor = (type = 'order') => {
+        if (!selectors.flashOverlay) {
+            return;
+        }
+        ensureFlashColorCache();
+        const key = type === 'waiter' ? 'waiterColor' : 'orderColor';
+        const fallback = FLASH_DEFAULTS[type] || FLASH_DEFAULTS.order;
+        const hex = selectors.flashOverlay.dataset[key] || fallback;
+        const sanitizedHex = HEX_COLOR_PATTERN.test(hex) ? hex.toUpperCase() : fallback;
+        selectors.flashOverlay.style.setProperty('--flash-color', hexToRgba(sanitizedHex, 0.9));
+        selectors.flashOverlay.style.setProperty('--flash-color-soft', hexToRgba(sanitizedHex, 0.55));
+    };
+
+    const triggerFlash = (message, type = 'order') => {
+        const notifications = getNotifications();
         if (!selectors.flashOverlay || !notifications.flash_enabled) {
             return;
         }
+        applyFlashColor(type);
         if (selectors.flashOverlayText) {
             selectors.flashOverlayText.textContent = message || 'Yeni bildirim';
         }
@@ -1173,6 +1226,18 @@ const AdminApp = (() => {
                 hideFlash();
             }
         }
+        if (selectors.notificationsForm) {
+            const orderColorInput = selectors.notificationsForm.querySelector('[name="flash_order_color"]');
+            const waiterColorInput = selectors.notificationsForm.querySelector('[name="flash_waiter_color"]');
+            if (orderColorInput) {
+                orderColorInput.value = notifications.flash_order_color || selectors.flashOverlay?.dataset.orderColor || FLASH_DEFAULTS.order;
+            }
+            if (waiterColorInput) {
+                waiterColorInput.value = notifications.flash_waiter_color || selectors.flashOverlay?.dataset.waiterColor || FLASH_DEFAULTS.waiter;
+            }
+        }
+        ensureFlashColorCache();
+        applyFlashColor('order');
     };
 
     const populateMailSettings = () => {
@@ -1545,6 +1610,7 @@ const AdminApp = (() => {
             },
             destroy: true,
             responsive: true,
+            autoWidth: false,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
             columns: [
                 { data: 'period', title: 'Dönem' },
@@ -1676,6 +1742,7 @@ const AdminApp = (() => {
             },
             destroy: true,
             responsive: true,
+            autoWidth: false,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
             columns: [
                 { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
@@ -1817,6 +1884,7 @@ const AdminApp = (() => {
             },
             destroy: true,
             responsive: true,
+            autoWidth: false,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
             columns: [
                 { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
@@ -1872,10 +1940,15 @@ const AdminApp = (() => {
 
     const bindSocket = () => {
         socket.on('order:update', async (payload) => {
-            const title = payload.table ? `${payload.table} - ${payload.status}` : `Sipariş ${payload.status}`;
+            const statusText = payload.status || '';
+            const title = payload.table ? `${payload.table} - ${statusText}` : `Sipariş ${statusText}`;
+            const isNewOrder = statusText.toLowerCase() === 'beklemede';
+            const flashMessage = payload.table
+                ? `${payload.table} - ${isNewOrder ? 'Yeni Sipariş' : statusText}`
+                : (isNewOrder ? 'Yeni Sipariş' : `Sipariş ${statusText}`);
             toast.fire({ icon: 'info', title });
             playAudio(selectors.audioOrder);
-            triggerFlash(title);
+            triggerFlash(flashMessage, 'order');
             await fetchOrders();
             await fetchTables();
             await fetchDashboard();
@@ -1885,7 +1958,8 @@ const AdminApp = (() => {
             const title = payload.table ? `${payload.table} garson istiyor.` : 'Yeni garson çağrısı';
             toast.fire({ icon: 'warning', title });
             playAudio(selectors.audioNotify);
-            triggerFlash(title);
+            const flashMessage = payload.table ? `${payload.table} - Garson Çağrısı` : 'Garson Çağrısı';
+            triggerFlash(flashMessage, 'waiter');
             await fetchWaiterCalls();
             await fetchTables();
             await fetchDashboard();
