@@ -337,6 +337,14 @@ const AdminApp = (() => {
         syncMobileHeaderHeight();
         if (selectors.mobileNav && window.bootstrap?.Collapse) {
             mobileNavCollapse = bootstrap.Collapse.getOrCreateInstance(selectors.mobileNav, { toggle: false });
+            selectors.mobileNav.addEventListener('show.bs.collapse', () => {
+                selectors.dashboardRoot?.classList.add('sidebar-open');
+                updateSidebarToggleLabel();
+            });
+            selectors.mobileNav.addEventListener('hidden.bs.collapse', () => {
+                selectors.dashboardRoot?.classList.remove('sidebar-open');
+                updateSidebarToggleLabel();
+            });
         }
 
         selectors.sidebarToggle?.addEventListener('click', (event) => {
@@ -1611,6 +1619,8 @@ const AdminApp = (() => {
             destroy: true,
             responsive: true,
             autoWidth: false,
+            scrollX: true,
+            scrollCollapse: true,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
             columns: [
                 { data: 'period', title: 'Dönem' },
@@ -1743,6 +1753,8 @@ const AdminApp = (() => {
             destroy: true,
             responsive: true,
             autoWidth: false,
+            scrollX: true,
+            scrollCollapse: true,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
             columns: [
                 { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
@@ -1885,6 +1897,8 @@ const AdminApp = (() => {
             destroy: true,
             responsive: true,
             autoWidth: false,
+            scrollX: true,
+            scrollCollapse: true,
             language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
             columns: [
                 { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
