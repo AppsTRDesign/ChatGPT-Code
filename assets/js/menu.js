@@ -159,7 +159,6 @@ const MenuApp = (() => {
     };
 
     let cachedRates = {};
-    let ratePromises = {};
 
     const refreshPriceViews = () => {
         renderDailyMenu();
@@ -170,61 +169,41 @@ const MenuApp = (() => {
         renderOrderStatus();
     };
 
-    const ensureRate = () => {
+    const convertPrice = (price) => {
+        const amount = Number(price) || 0;
         const key = `${state.baseCurrency}_${state.currency}`;
-
         if (state.currency === state.baseCurrency) {
-            cachedRates[key] = 1;
-            return Promise.resolve(1);
+            return amount.toFixed(2);
         }
 
-        if (cachedRates[key]) {
-            return Promise.resolve(cachedRates[key]);
+        if (cachedRates[key] && cachedRates[key] !== 'loading') {
+            return (amount * cachedRates[key]).toFixed(2);
         }
 
-        if (ratePromises[key]) {
-            return ratePromises[key];
+        if (cachedRates[key] === 'loading') {
+            return amount.toFixed(2);
         }
 
-        ratePromises[key] = fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`)
+        cachedRates[key] = 'loading';
+
+        fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`)
             .then((data) => {
                 const rate =
-                    parseNumeric(data.rate) ??
                     parseNumeric(data.secondary) ??
+                    parseNumeric(data.rate) ??
                     parseNumeric(data.primary) ??
                     parseNumeric(data.amount);
                 if (rate && rate > 0) {
                     cachedRates[key] = rate;
                     refreshPriceViews();
-                    return rate;
+                } else {
+                    delete cachedRates[key];
                 }
-                throw new Error('Kur bilgisi alınamadı.');
             })
             .catch((error) => {
                 console.error('Kur çevrim hatası', error);
-                return null;
-            })
-            .finally(() => {
-                delete ratePromises[key];
+                delete cachedRates[key];
             });
-
-        return ratePromises[key];
-    };
-
-    const convertPrice = (price) => {
-        const amount = Number(price) || 0;
-
-        if (state.currency === state.baseCurrency) {
-            return amount.toFixed(2);
-        }
-
-        const key = `${state.baseCurrency}_${state.currency}`;
-
-        if (cachedRates[key]) {
-            return (amount * cachedRates[key]).toFixed(2);
-        }
-
-        ensureRate();
 
         return amount.toFixed(2);
     };
@@ -243,14 +222,18 @@ const MenuApp = (() => {
         return symbol !== '' ? symbol : code;
     };
 
-    const formatCurrency = (value, code = state.currency) => {
-        const numeric = parseNumeric(value);
+    const renderPrice = (value, code = state.currency) => {
+        const converted = convertPrice(value);
+        const numeric = parseNumeric(converted);
         const amount = numeric !== null ? numeric.toFixed(2) : '0.00';
-        const symbol = getCurrencySymbol(code);
-        if (/^[A-Za-z]{2,4}$/.test(symbol)) {
-            return `${amount} ${symbol}`;
+        const symbol = (getCurrencySymbol(code) || '').trim();
+
+        if (symbol && !/^[A-Za-z]{3,}$/.test(symbol)) {
+            return `${symbol}${amount}`;
         }
-        return `${symbol} ${amount}`;
+
+        const suffix = symbol || code;
+        return `${amount} ${suffix}`;
     };
 
     const statusToClass = (status = '') => {
@@ -342,7 +325,7 @@ const MenuApp = (() => {
                     <h3>${escapeHtml(headline)}</h3>
                     ${tagline ? `<p>${escapeHtml(tagline)}</p>` : ''}
                     <div class="daily-card__footer">
-                        <strong>${formatCurrency(convertPrice(product.price))}</strong>
+                        <strong>${renderPrice(product.price)}</strong>
                         <button type="button" data-daily-add="${product.id}">${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</button>
                     </div>
                 </div>
@@ -377,7 +360,7 @@ const MenuApp = (() => {
                     <div class="product-card__body">
                         <h3>${product.name}</h3>
                         ${product.description ? `<p>${product.description}</p>` : ''}
-                        <div class="product-card__price">${formatCurrency(convertPrice(product.price))}</div>
+                        <div class="product-card__price">${renderPrice(product.price)}</div>
                     </div>
                     <button type="button" class="product-card__action" data-product="${product.id}">
                         <i class="bx bx-cart-add"></i>
@@ -425,7 +408,7 @@ const MenuApp = (() => {
             button.className = `overlay-variant ${index === 0 ? 'active' : ''}`;
             button.innerHTML = `
                 <span>${variant.name}</span>
-                <strong>${formatCurrency(convertPrice(variant.price))}</strong>
+                <strong>${renderPrice(variant.price)}</strong>
             `;
             button.addEventListener('click', () => {
                 state.overlayVariant = variant;
@@ -443,7 +426,7 @@ const MenuApp = (() => {
     const updateOverlayButton = () => {
         if (!elements.addToCartButton || !state.overlayVariant) return;
         const total = state.overlayVariant.price * state.overlayQuantity;
-        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${formatCurrency(convertPrice(total))}`;
+        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${renderPrice(total)}`;
     };
 
     const changeOverlayQuantity = (delta) => {
@@ -482,10 +465,10 @@ const MenuApp = (() => {
         const totalAmount = state.cart.reduce((total, item) => total + item.qty * item.price, 0);
         elements.cartSummary.innerHTML = `
             <span>${totalQty} ürün</span>
-            <strong>${formatCurrency(convertPrice(totalAmount))}</strong>
+            <strong>${renderPrice(totalAmount)}</strong>
         `;
         if (elements.cartTotal) {
-            elements.cartTotal.textContent = `${formatCurrency(convertPrice(totalAmount))}`;
+            elements.cartTotal.textContent = `${renderPrice(totalAmount)}`;
         }
     };
 
@@ -511,8 +494,8 @@ const MenuApp = (() => {
                         <button type="button" data-qty-plus="${item.key}">+</button>
                     </div>
                     <div class="cart-item__price">
-                        <span>${formatCurrency(convertPrice(item.price))}</span>
-                        <strong>${formatCurrency(convertPrice(item.price * item.qty))}</strong>
+                        <span>${renderPrice(item.price)}</span>
+                        <strong>${renderPrice(item.price * item.qty)}</strong>
                     </div>
                     <button type="button" class="btn btn-link text-danger p-0" data-remove="${item.key}">Sil</button>
                 </div>
@@ -610,7 +593,7 @@ const MenuApp = (() => {
         state.orders.forEach((order) => {
             const card = document.createElement('div');
             card.className = 'order-track-card';
-            const totalAmount = formatCurrency(convertPrice(order.total));
+            const totalAmount = renderPrice(order.total);
             card.innerHTML = `
                     <div class="order-track-card__head">
                         <div>
@@ -742,9 +725,7 @@ const MenuApp = (() => {
         elements.currencySelect?.addEventListener('change', (event) => {
             state.currency = event.target.value.toUpperCase();
             cachedRates = {};
-            ratePromises = {};
             refreshPriceViews();
-            ensureRate();
             updateMenuLocation(state.language, state.currency, true);
         });
 
@@ -884,7 +865,6 @@ const MenuApp = (() => {
         window.translationAddToCart = window.MENU_STATE?.addToCartText || 'Sepete Ekle';
         state.language = elements.languageSelect?.value || state.language;
         applyAudioSources();
-        ensureRate();
         await loadMenu();
         refreshPriceViews();
         await refreshOrderStatus();

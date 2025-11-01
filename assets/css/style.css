@@ -812,6 +812,38 @@ a:hover {
     gap: 12px;
   }
 
+  .menu-block {
+    padding: 20px;
+  }
+
+  .menu-block__header h2 {
+    font-size: 18px;
+  }
+
+  .menu-block__header p {
+    font-size: 13px;
+  }
+
+  .daily-card__body h3 {
+    font-size: 18px;
+  }
+
+  .daily-card__body p {
+    font-size: 13px;
+  }
+
+  .product-card__body h3 {
+    font-size: 16px;
+  }
+
+  .product-card__body p {
+    font-size: 13px;
+  }
+
+  .product-card__price {
+    font-size: 15px;
+  }
+
 }
 
 .cart-floating {
@@ -839,6 +871,7 @@ a:hover {
   .contact-content {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 20px;
   }
 
@@ -849,6 +882,7 @@ a:hover {
 
   .contact-details {
     order: -1;
+    margin-bottom: 0;
   }
 }
 
@@ -864,15 +898,18 @@ a:hover {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, rgba(15, 157, 88, 0.15), rgba(52, 168, 83, 0.25));
+  padding: 48px 16px;
+  background: linear-gradient(135deg, rgba(15, 157, 88, 0.18), rgba(52, 168, 83, 0.3));
 }
 
 .login-card {
   background: #ffffff;
-  padding: 32px;
+  padding: 36px 32px;
   border-radius: var(--radius-lg);
-  width: min(420px, 92%);
-  box-shadow: 0 25px 55px rgba(31, 41, 51, 0.12);
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  box-shadow: 0 28px 60px rgba(31, 41, 51, 0.14);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -891,6 +928,12 @@ a:hover {
 .login-card__footer {
   text-align: center;
   font-size: 13px;
+}
+
+@media (max-width: 576px) {
+  .login-card {
+    padding: 28px 24px;
+  }
 }
 
 .modal-content {
