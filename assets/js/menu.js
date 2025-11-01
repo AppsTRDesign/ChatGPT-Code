@@ -472,13 +472,37 @@ const MenuApp = (() => {
         audioElement.play().catch(() => {});
     };
 
+    const getReferenceAmount = () => {
+        const pricedProduct = state.products.find((product) => Number(product.price) > 0);
+        if (pricedProduct) {
+            return Number(pricedProduct.price);
+        }
+        if (state.cart.length) {
+            const cartItem = state.cart.find((item) => Number(item.price) > 0);
+            if (cartItem) {
+                return Number(cartItem.price);
+            }
+        }
+        const orderWithTotal = state.orders.find((order) => Number(order.total) > 0);
+        if (orderWithTotal) {
+            return Number(orderWithTotal.total);
+        }
+        return 1;
+    };
+
     const updateExchangeRate = async () => {
         if (state.currency === state.baseCurrency) {
             state.exchangeRate = 1;
             return;
         }
         try {
-            const data = await fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`);
+            const referenceAmount = getReferenceAmount();
+            const params = new URLSearchParams({
+                from: state.baseCurrency,
+                to: state.currency,
+                amount: referenceAmount,
+            });
+            const data = await fetchJSON(`api/currency.php?${params.toString()}`);
             const parseRate = (value) => {
                 if (value === undefined || value === null) {
                     return null;
@@ -643,8 +667,10 @@ const MenuApp = (() => {
         window.translationAddToCart = window.MENU_STATE?.addToCartText || 'Sepete Ekle';
         state.language = elements.languageSelect?.value || state.language;
         applyAudioSources();
-        await updateExchangeRate();
         await loadMenu();
+        await updateExchangeRate();
+        renderProducts();
+        updateCartSummary();
         await refreshOrderStatus();
         bindEvents();
         bindSocket();
