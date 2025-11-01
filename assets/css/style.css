@@ -984,7 +984,7 @@ a:hover {
 
 .cart-floating {
   right: 16px;
-  bottom: 120px;
+  bottom: 75px;
 }
 
 @media (max-width: 1024px) {
@@ -1227,6 +1227,13 @@ a:hover {
   object-fit: contain;
 }
 
+.daily-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
 .daily-card__badge {
   position: absolute;
   top: 12px;
@@ -1239,6 +1246,12 @@ a:hover {
   font-size: 13px;
 }
 
+.daily-card__price {
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(31, 41, 55, 0.9);
+}
+
 .daily-card__body h3 {
   margin: 0;
   font-size: 18px;
@@ -1249,20 +1262,16 @@ a:hover {
   color: rgba(31, 41, 51, 0.7);
 }
 
-.daily-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.daily-card__footer button {
+.daily-card__action {
   background: var(--theme-color);
   color: #ffffff;
   border: none;
-  padding: 10px 18px;
+  padding: 12px 18px;
   border-radius: 999px;
   font-weight: 600;
+  width: 100%;
+  text-align: center;
+  margin-top: auto;
 }
 
 .category-list {
@@ -1496,7 +1505,7 @@ a:hover {
 }
 .cart-floating {
   position: fixed;
-  bottom: 24px;
+  bottom: 75px;
   left: auto;
   right: 24px;
   transform: none;
@@ -1901,7 +1910,7 @@ a:hover {
     left: 16px;
     right: 16px;
     width: auto;
-    bottom: 120px;
+    bottom: 85px;
   }
 
   .menu-bottom-nav {

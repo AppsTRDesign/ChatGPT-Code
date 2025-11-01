@@ -283,12 +283,10 @@ const MenuApp = (() => {
                     ${badge ? `<span class="daily-card__badge">${escapeHtml(badge)}</span>` : ''}
                 </div>
                 <div class="daily-card__body">
+                    <strong class="daily-card__price">${priceText}</strong>
                     <h3>${escapeHtml(headline)}</h3>
                     ${tagline ? `<p>${escapeHtml(tagline)}</p>` : ''}
-                    <div class="daily-card__footer">
-                        <strong>${priceText}</strong>
-                        <button type="button" data-daily-add="${product.id}">${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</button>
-                    </div>
+                    <button type="button" class="daily-card__action" data-daily-add="${product.id}">${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</button>
                 </div>
             `;
             card.querySelector('[data-daily-add]')?.addEventListener('click', (event) => {
