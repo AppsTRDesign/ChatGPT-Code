@@ -1,41 +1,53 @@
-# NoaSoft QR Menü Platformu
+[b]NoaSoft QR Menü Platformu[/b]
 
-Modern restoranlar için tasarlanmış ajax tabanlı QR menü ve restoran yönetim platformu. Sistem PHP 8 + PDO, Node.js 16.20 ve Socket.IO kullanarak gerçek zamanlı sipariş, garson çağrısı ve bildirim altyapısı sunar.
+[quote]PHP 8 + PDO, Node.js 16.20, Socket.IO ve MySQL üzerinde çalışan modern, ajax tabanlı restoran yönetim ve QR menü çözümü.[/quote]
 
-## Özellikler
+[b]Sunucu Gereksinimleri[/b]
+[list]
+[*]PHP 8 (pdo_mysql etkin)
+[*]Node.js 16.20 ve npm 8
+[*]MySQL 5.7/8.x
+[*]cURL, mbstring ve GD kütüphaneleri
+[/list]
 
-- Yönetim paneli: Sipariş durumu, masa yönetimi, garson çağrıları ve gelişmiş raporlama ekranları.
-- Müşteri menüsü: Mobil uyumlu kart tasarımları, kategori bazlı ürün gösterimi, sepet sistemi ve anlık bildirimler.
-- QR kod yönetimi: qrcode.noasoft.org API entegrasyonu ile masa bazlı QR üretimi ve Dropzone tabanlı logo yükleme.
-- Çoklu dil ve para birimi: JSON tabanlı dil paketleri ve canlı para birimi dönüştürme yardımcıları.
-- Doküman çıktıları: Dompdf ve mPDF ile Türkçe karakter desteği olan PDF/adisyon çıktıları.
-- Gerçek zamanlı katman: HTTPS + Socket.IO sunucusu (port 4000) ile garson çağrısı ve sipariş durum güncellemeleri.
+[b]Öne Çıkan Özellikler[/b]
+[list]
+[*][b]Yönetim Paneli:[/b] Gerçek zamanlı sipariş/garson kartları, masa QR yönetimi, varyasyonlu ürün/kategori editörü, günlük menü slider yönetimi ve gelişmiş rapor dışa aktarmaları (PDF, Excel, yazar kasa fişi).
+[*][b]QR & Marka Ayarları:[/b] qrcode.noasoft.org API ile logo_url destekli masa QR’ları, Dropzone önizlemeleri, otomatik QR yenileme ve tema bazlı mobil tasarım.
+[*][b]Çoklu Dil & Para Birimi:[/b] JSON tabanlı dil CRUD, para birimi ekleme/silme/varsayılan yapma, anlık currencyConverter destekli fiyat çevirileri ve menüde simge bazlı para formatlama.
+[*][b]Bildirimler & Sesler:[/b] HTTPS Socket.IO (4000) üzerinden anlık sipariş/garson push’ları, özelleştirilebilir bildirim ses dosyaları, mobil menüde canlı durum ve sesli uyarılar.
+[*][b]İletişim & Mail:[/b] PHP mail() ayar paneli, iletişim formu üzerinden bildirim e-postası gönderimi, şifre sıfırlama maili ve yönetici hesap yönetimi.
+[*][b]Müşteri Menüsü:[/b] Günün menüsü slider’ı, alt sekmeli navigasyon (Ana sayfa / Günün / Sipariş / Kategori / İletişim / Sepet), varyasyon modalları, mobil kart sepeti ve sipariş takibi.
+[/list]
 
-## Kurulum
-
-```bash
+[b]Kurulum[/b]
+[code]
 composer install
 npm install
-```
+[/code]
 
-### PHP Uygulaması
+[b]Veritabanı[/b]
+[list]
+[*]`config/config.php` dosyasında bağlantı bilgilerini düzenleyin.
+[*]`database/schema.sql` içeriğini MySQL sunucunuza uygulayın (tüm tablolar + demo veriler).
+[*]Uygulamayı kök dizinden (public klasörü olmadan) yayınlayın.
+[/list]
 
-1. `config/config.php` dosyasında veritabanı bilgilerini güncelleyin.
-2. `database/schema.sql` dosyasındaki tabloları MySQL sunucunuza uygulayın.
-3. Web sunucunuzu projenin kök dizinine yönlendirin (`public` alt dizini yoktur).
+[b]Varsayılan Yönetici Girişi[/b]
+[code]
+E-posta : admin@noasoft.com
+Şifre   : admin123
+[/code]
 
-### Node.js Socket Sunucusu
-
-```bash
+[b]Socket.IO Sunucusu[/b]
+[code]
 npm run start
-```
+[/code]
 
-Sunucu varsayılan olarak 4000 portunda TLS ile çalışır. Sertifika yollarını `node/socket/server.js` dosyasından güncelleyin.
-
-## Geliştirme Notları
-
-- Tüm AJAX istekleri `/api` altındaki uç noktalara yönlendirilmiştir.
-- SweetAlert2 bildirimleri için `assets/js/admin.js` ve `assets/js/menu.js` dosyaları örnek kullanım içerir.
-- PDF/adisyon çıktıları için `App\Services\ReportExportService` sınıfı kullanılabilir.
-- Dil paketleri `languages/` klasöründe JSON formatındadır; yeni dosyalar otomatik olarak ayarlar ekranına eklenir.
-- Dropzone bileşenleri `data-dropzone` özelliği üzerinden otomatik başlatılır.
+[b]Önemli Notlar[/b]
+[list]
+[*]Tüm AJAX istekleri `/api` altındaki PHP uçlarından sağlanır; başarı/hata bildirimleri SweetAlert2 üzerinden yapılır.
+[*]Dropzone bileşenleri `data-dropzone` özelliği ile otomatik yapılandırılır ve yüklenen dosyalar `storage/uploads/` altında tutulur.
+[*]PDF ve yazar kasa fişleri için dompdf/dompdf ve mpdf/mpdf paketleri kurulu olup Türkçe karakter desteği sağlanmıştır.
+[*]Gerçek zamanlı bildirimler için Node.js tarafında TLS sertifika yollarını `node/socket/server.js` içerisinden güncellemeyi unutmayın.
+[/list]

@@ -63,6 +63,7 @@ const MenuApp = (() => {
         overlayVariant: null,
         overlayQuantity: 1,
         activeNav: 'homeSection',
+        contact: window.MENU_STATE?.contact || {},
     };
 
     const elements = {
@@ -96,6 +97,8 @@ const MenuApp = (() => {
         audioOrder: document.querySelector('#audioOrder'),
         audioNotify: document.querySelector('#audioNotify'),
         bottomNav: document.querySelector('#menuBottomNav'),
+        contactForm: document.querySelector('#contactForm'),
+        contactFeedback: document.querySelector('#contactFeedback'),
     };
 
     const socket = io('https://qrmenu.noasoft.org:4000');
@@ -627,7 +630,7 @@ const MenuApp = (() => {
     };
 
     const bindScrollSpy = () => {
-        const sectionIds = ['homeSection', 'dailySection', 'categorySection', 'orderSection'];
+        const sectionIds = ['homeSection', 'dailySection', 'categorySection', 'orderSection', 'contactSection'];
         const handleScroll = () => {
             const scrollPosition = window.scrollY + 140;
             let current = state.activeNav;
@@ -644,6 +647,36 @@ const MenuApp = (() => {
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
         handleScroll();
+    };
+
+    const bindContactForm = () => {
+        if (!elements.contactForm) return;
+        elements.contactForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(elements.contactForm);
+            const payload = Object.fromEntries(formData.entries());
+            if (elements.contactFeedback) {
+                elements.contactFeedback.textContent = 'Mesajınız gönderiliyor...';
+                elements.contactFeedback.className = 'contact-feedback text-muted';
+            }
+            try {
+                const data = await fetchJSON('api/contact.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                if (elements.contactFeedback) {
+                    elements.contactFeedback.textContent = data.message || 'Mesajınız başarıyla gönderildi.';
+                    elements.contactFeedback.className = 'contact-feedback text-success';
+                }
+                elements.contactForm.reset();
+            } catch (error) {
+                if (elements.contactFeedback) {
+                    elements.contactFeedback.textContent = error.message;
+                    elements.contactFeedback.className = 'contact-feedback text-danger';
+                }
+            }
+        });
     };
 
     const bindEvents = () => {

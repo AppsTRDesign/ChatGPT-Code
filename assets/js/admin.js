@@ -37,6 +37,7 @@ const AdminApp = (() => {
         settings: window.APP_STATE?.settings || {},
         qrPreview: window.APP_STATE?.qrPreview || '',
         currentSection: window.APP_STATE?.currentSection || 'dashboard',
+        user: window.APP_USER || null,
         orders: [],
         orderStatus: 'all',
         orderSearch: '',
@@ -118,6 +119,7 @@ const AdminApp = (() => {
         iconLibrary: document.querySelector('#iconLibrary'),
         generalSettingsForm: document.querySelector('#generalSettingsForm'),
         brandingForm: document.querySelector('#brandingForm'),
+        mailSettingsForm: document.querySelector('#mailSettingsForm'),
         qrForm: document.querySelector('#qrForm'),
         qrPreviewImage: document.querySelector('#qrPreviewImage'),
         logoutButton: document.querySelector('#logoutButton'),
@@ -137,6 +139,8 @@ const AdminApp = (() => {
         audioOrder: document.querySelector('#audioOrderAdmin'),
         audioNotify: document.querySelector('#audioNotifyAdmin'),
         notificationsForm: document.querySelector('#notificationsForm'),
+        accountForm: document.querySelector('#accountForm'),
+        passwordForm: document.querySelector('#passwordForm'),
         orderSoundPreview: document.querySelector('#orderSoundPreview'),
         waiterSoundPreview: document.querySelector('#waiterSoundPreview'),
         newDailyMenuButton: document.querySelector('#newDailyMenuButton'),
@@ -412,39 +416,6 @@ const AdminApp = (() => {
                         </li>
                     `;
                 }).join('');
-                const sessionHtml = (table.session_orders || []).map((session) => {
-                    const items = (session.items || []).map((item) => `
-                        <li>
-                            <span>${escapeHtml(item.name || '')}${item.variant_name ? ` <small>${escapeHtml(item.variant_name)}</small>` : ''}</span>
-                            <span>${Number(item.quantity) || 0}</span>
-                        </li>
-                    `).join('');
-                    const itemsBlock = items ? `<ul class="session-orders__items">${items}</ul>` : '';
-                    const total = session.total_formatted ? escapeHtml(session.total_formatted) : '';
-                    const updated = session.updated_at ? escapeHtml(session.updated_at) : '';
-                    const totalColumn = total ? `<span class="session-orders__total">${total}</span>` : '<span></span>';
-                    const updatedColumn = updated ? `<small class="text-muted">${updated}</small>` : '';
-                    return `
-                        <li>
-                            <div class="session-orders__row">
-                                <span class="fw-semibold">#${session.order_id}</span>
-                                <span class="badge status-${statusToClass(session.status)}">${escapeHtml(session.status)}</span>
-                            </div>
-                            <div class="session-orders__row session-orders__meta">
-                                ${totalColumn}
-                                ${updatedColumn}
-                            </div>
-                            ${itemsBlock}
-                        </li>
-                    `;
-                }).join('');
-                const sessionBlock = sessionHtml ? `
-                    <div class="session-orders">
-                        <strong>Geçici Siparişler</strong>
-                        <ul>${sessionHtml}</ul>
-                    </div>
-                ` : '';
-
                 card.innerHTML = `
                     <div class="table-card__head">
                         <div>
@@ -459,7 +430,6 @@ const AdminApp = (() => {
                             <strong>Aktif Siparişler</strong>
                             <ul>${ordersHtml || '<li>Aktif sipariş yok.</li>'}</ul>
                         </div>
-                        ${sessionBlock}
                     </div>
                     <div class="table-card__footer d-flex flex-wrap gap-2">
                         <button class="btn btn-sm btn-outline-primary" data-table-edit="${table.id}">Düzenle</button>
@@ -1019,6 +989,7 @@ const AdminApp = (() => {
         state.qrPreview = data.qr_preview || state.qrPreview;
         updateBrandingPreviews();
         updateAudioSources();
+        populateMailSettings();
         if (selectors.qrPreviewImage && state.qrPreview) {
             selectors.qrPreviewImage.src = state.qrPreview;
         }
@@ -1026,6 +997,7 @@ const AdminApp = (() => {
         populateCurrencySelect();
         populateTimezones();
         updateCurrencyBadges();
+        await fetchTables();
     };
 
     const updateBrandingPreviews = () => {
@@ -1063,6 +1035,33 @@ const AdminApp = (() => {
         }
         if (waiterInput) {
             waiterInput.value = notifications.waiter_sound || '';
+        }
+    };
+
+    const populateMailSettings = () => {
+        if (!selectors.mailSettingsForm) return;
+        const mail = state.settings?.mail || {};
+        selectors.mailSettingsForm.querySelector('[name="from_name"]').value = mail.from_name || '';
+        selectors.mailSettingsForm.querySelector('[name="from_email"]').value = mail.from_email || '';
+        selectors.mailSettingsForm.querySelector('[name="notification_email"]').value = mail.notification_email || '';
+        selectors.mailSettingsForm.querySelector('[name="reply_to"]').value = mail.reply_to || '';
+    };
+
+    const populateAccountForm = () => {
+        const user = state.user || window.APP_USER || {};
+        if (selectors.accountForm) {
+            const nameInput = selectors.accountForm.querySelector('[name="name"]');
+            const emailInput = selectors.accountForm.querySelector('[name="email"]');
+            const idInput = selectors.accountForm.querySelector('[name="user_id"]');
+            if (nameInput) nameInput.value = user.name || '';
+            if (emailInput) emailInput.value = user.email || '';
+            if (idInput) idInput.value = user.id || '';
+        }
+        if (selectors.passwordForm) {
+            const idInput = selectors.passwordForm.querySelector('[name="user_id"]');
+            if (idInput) {
+                idInput.value = user.id || '';
+            }
         }
     };
 
@@ -1297,6 +1296,81 @@ const AdminApp = (() => {
         handleSettingsSubmit(selectors.brandingForm, (formData) => ({ branding: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.qrForm, (formData) => ({ qr: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.notificationsForm, (formData) => ({ notifications: Object.fromEntries(formData.entries()) }), reloadSettings);
+        handleSettingsSubmit(selectors.mailSettingsForm, (formData) => ({ mail: Object.fromEntries(formData.entries()) }), reloadSettings);
+    };
+
+    const bindAccountForm = () => {
+        if (!selectors.accountForm) return;
+        selectors.accountForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(selectors.accountForm);
+            const payload = Object.fromEntries(formData.entries());
+            const userId = payload.user_id || state.user?.id;
+            if (!userId) {
+                toast.fire({ icon: 'error', title: 'Kullanıcı bilgisi bulunamadı.' });
+                return;
+            }
+            try {
+                const data = await fetchJSON('api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update-profile',
+                        user_id: Number(userId),
+                        name: payload.name,
+                        email: payload.email,
+                    }),
+                });
+                if (data.user) {
+                    state.user = data.user;
+                    window.APP_USER = data.user;
+                    populateAccountForm();
+                }
+                toast.fire({ icon: 'success', title: data.message || 'Bilgiler güncellendi.' });
+            } catch (error) {
+                toast.fire({ icon: 'error', title: error.message });
+            }
+        });
+    };
+
+    const bindPasswordForm = () => {
+        if (!selectors.passwordForm) return;
+        selectors.passwordForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(selectors.passwordForm);
+            const payload = Object.fromEntries(formData.entries());
+            const userId = payload.user_id || state.user?.id;
+            if (!userId) {
+                toast.fire({ icon: 'error', title: 'Kullanıcı bilgisi bulunamadı.' });
+                return;
+            }
+            if (!payload.new_password || payload.new_password.trim() === '') {
+                toast.fire({ icon: 'error', title: 'Yeni şifre zorunludur.' });
+                return;
+            }
+            if ((payload.confirm_password || '').trim() !== payload.new_password.trim()) {
+                toast.fire({ icon: 'error', title: 'Yeni şifreler eşleşmiyor.' });
+                return;
+            }
+            try {
+                const data = await fetchJSON('api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update-password',
+                        user_id: Number(userId),
+                        current_password: payload.current_password,
+                        new_password: payload.new_password,
+                    }),
+                });
+                selectors.passwordForm.reset();
+                const hiddenId = selectors.passwordForm.querySelector('[name="user_id"]');
+                if (hiddenId) hiddenId.value = userId;
+                toast.fire({ icon: 'success', title: data.message || 'Şifre güncellendi.' });
+            } catch (error) {
+                toast.fire({ icon: 'error', title: error.message });
+            }
+        });
     };
 
     const bindAuth = () => {
@@ -1690,11 +1764,15 @@ const AdminApp = (() => {
         bindMenuManagement();
         bindDailyMenuActions();
         bindSettingsForms();
+        bindAccountForm();
+        bindPasswordForm();
         populateDefaultLanguage();
         populateCurrencySelect();
         populateTimezones();
         updateBrandingPreviews();
         updateAudioSources();
+        populateMailSettings();
+        populateAccountForm();
         updateCurrencyBadges();
         bindAuth();
         bindExportButtons();

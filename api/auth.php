@@ -32,9 +32,9 @@ try {
     }
 
     if ($action === 'reset') {
-        $newPassword = $auth->resetPassword($payload['email'] ?? '');
+        $auth->resetPassword($payload['email'] ?? '');
         Response::json([
-            'message' => 'Şifreniz sıfırlandı. Yeni şifre: ' . $newPassword,
+            'message' => 'Yeni şifreniz e-posta adresinize gönderildi.',
         ]);
     }
 
@@ -42,6 +42,14 @@ try {
         $auth->updatePassword((int)$payload['user_id'], $payload['current_password'] ?? '', $payload['new_password'] ?? '');
         Response::json([
             'message' => 'Şifreniz güncellendi.',
+        ]);
+    }
+
+    if ($action === 'update-profile') {
+        $user = $auth->updateProfile((int)$payload['user_id'], $payload['name'] ?? '', $payload['email'] ?? '');
+        Response::json([
+            'user' => $user,
+            'message' => 'Kullanıcı bilgileriniz güncellendi.',
         ]);
     }
 

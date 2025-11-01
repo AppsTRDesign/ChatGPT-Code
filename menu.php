@@ -11,6 +11,7 @@ $restaurant = $settings['restaurant'] ?? [];
 $branding = $settings['branding'] ?? [];
 $languages = $settings['languages'] ?? [];
 $currencies = $settings['currencies'] ?? [];
+$mailSettings = $settings['mail'] ?? [];
 $notifications = $settings['notifications'] ?? [];
 
 $tableId = isset($_GET['table']) ? (int)$_GET['table'] : 0;
@@ -71,6 +72,7 @@ $currentSymbol = $currencyMeta[$currentCurrency]['symbol'] ?? '';
 if ($currentSymbol === '') {
     $currentSymbol = $currentCurrency;
 }
+$contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettings['from_email'] ?? ''));
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($defaultLanguage) ?>">
@@ -175,6 +177,72 @@ if ($currentSymbol === '') {
         </div>
         <div id="orderStatusList" class="order-status__list"></div>
     </section>
+
+    <section class="menu-block contact-block" id="contactSection">
+        <div class="menu-block__header">
+            <div>
+                <h2>İletişim</h2>
+                <p class="text-muted">Öneri, talep ve sorularınız için bize ulaşın</p>
+            </div>
+        </div>
+        <div class="contact-content">
+            <div class="contact-details">
+                <div class="contact-details__item">
+                    <i class="bx bx-store"></i>
+                    <div>
+                        <strong><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></strong>
+                        <?php if (!empty($restaurant['description'])): ?>
+                            <p class="mb-0 text-muted"><?= htmlspecialchars($restaurant['description']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php if (!empty($restaurant['phone'])): ?>
+                    <div class="contact-details__item">
+                        <i class="bx bx-phone"></i>
+                        <div>
+                            <strong>Telefon</strong>
+                            <a href="tel:<?= htmlspecialchars($restaurant['phone']) ?>"><?= htmlspecialchars($restaurant['phone']) ?></a>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                <?php if (!empty($restaurant['address'])): ?>
+                    <div class="contact-details__item">
+                        <i class="bx bx-map"></i>
+                        <div>
+                            <strong>Adres</strong>
+                            <p class="mb-0"><?= htmlspecialchars($restaurant['address']) ?></p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                <?php if ($contactEmail !== ''): ?>
+                    <div class="contact-details__item">
+                        <i class="bx bx-envelope"></i>
+                        <div>
+                            <strong>E-posta</strong>
+                            <a href="mailto:<?= htmlspecialchars($contactEmail) ?>"><?= htmlspecialchars($contactEmail) ?></a>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <form id="contactForm" class="contact-form">
+                <h3 class="contact-form__title">Mesaj Gönder</h3>
+                <div class="mb-3">
+                    <label class="form-label">Adınız Soyadınız</label>
+                    <input type="text" name="name" class="form-control" placeholder="Adınız" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">E-posta</label>
+                    <input type="email" name="email" class="form-control" placeholder="ornek@mail.com" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mesajınız</label>
+                    <textarea name="message" class="form-control" rows="4" placeholder="Mesajınızı buraya yazın" required></textarea>
+                </div>
+                <div id="contactFeedback" class="contact-feedback" role="status"></div>
+                <button type="submit" class="btn btn-primary w-100">Gönder</button>
+            </form>
+        </div>
+    </section>
 </main>
 
 <nav class="menu-bottom-nav" id="menuBottomNav">
@@ -193,6 +261,10 @@ if ($currentSymbol === '') {
     <button type="button" class="menu-bottom-nav__item" data-target="categorySection">
         <i class="bx bx-category-alt"></i>
         <span>Kategori</span>
+    </button>
+    <button type="button" class="menu-bottom-nav__item" data-target="contactSection">
+        <i class="bx bx-phone-call"></i>
+        <span>İletişim</span>
     </button>
     <button type="button" class="menu-bottom-nav__item" data-action="cart">
         <i class="bx bx-cart"></i>
@@ -258,7 +330,13 @@ if ($currentSymbol === '') {
         orderSound: <?= json_encode($orderSound, JSON_UNESCAPED_UNICODE) ?>,
         waiterSound: <?= json_encode($waiterSound, JSON_UNESCAPED_UNICODE) ?>,
         basePath: <?= json_encode($friendlyPath, JSON_UNESCAPED_UNICODE) ?>,
-        baseUrl: <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>
+        baseUrl: <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>,
+        contact: <?= json_encode([
+            'name' => $restaurant['name'] ?? '',
+            'phone' => $restaurant['phone'] ?? '',
+            'address' => $restaurant['address'] ?? '',
+            'email' => $contactEmail,
+        ], JSON_UNESCAPED_UNICODE) ?>
     };
     document.documentElement.style.setProperty('--theme-color', <?= json_encode($restaurant['theme_color'] ?? '#0f9d58', JSON_UNESCAPED_UNICODE) ?>);
 </script>

@@ -323,6 +323,11 @@ a:hover {
   color: #047857;
 }
 
+.badge.status-odeme-alindi {
+  background: rgba(16, 185, 129, 0.18);
+  color: #047857;
+}
+
 .badge.status-iptal {
   background: rgba(248, 113, 113, 0.18);
   color: #b91c1c;
@@ -810,16 +815,28 @@ a:hover {
     gap: 12px;
   }
 
-  .cart-floating {
-    right: 16px;
-    bottom: 120px;
-  }
+.cart-floating {
+  right: 16px;
+  bottom: 120px;
+}
 
-  .product-card {
+.product-card {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto auto;
+  text-align: center;
+}
+
+@media (max-width: 1024px) {
+  .contact-content {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    text-align: center;
   }
+}
+
+@media (max-width: 768px) {
+  .contact-form {
+    padding: 20px;
+  }
+}
 
   .product-card img {
     width: 100%;
@@ -1458,6 +1475,73 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.contact-block {
+  margin-top: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.contact-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.contact-details {
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contact-details__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.contact-details__item i {
+  font-size: 24px;
+  color: var(--theme-color);
+  padding-top: 4px;
+}
+
+.contact-details__item strong {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.contact-details__item a {
+  color: var(--theme-color);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.contact-form {
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 24px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+}
+
+.contact-form__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.contact-feedback {
+  min-height: 20px;
+  font-size: 14px;
 }
 
 .order-track-card__footer {

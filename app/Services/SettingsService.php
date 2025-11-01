@@ -11,6 +11,7 @@ class SettingsService
     private const DEFAULT_WAITER_SOUND = 'assets/vendor/sounds/notification.mp3';
     private PDO $db;
     private int $restaurantId;
+    private ?array $restaurantCache = null;
 
     public function __construct(int $restaurantId = 1)
     {
@@ -46,6 +47,7 @@ class SettingsService
             'currencies' => $this->currencies(),
             'languages' => $this->languages(),
             'notifications' => $this->notifications(),
+            'mail' => $this->mailSettings($restaurant),
             'daily_menu' => $this->dailyMenu(),
             'timezones' => $this->timezones(),
         ];
@@ -53,6 +55,7 @@ class SettingsService
 
     public function update(array $data): array
     {
+        $shouldRefreshQr = !empty($data['branding']) || !empty($data['qr']);
         if (!empty($data['restaurant'])) {
             $this->updateRestaurant($data['restaurant']);
         }
@@ -69,11 +72,21 @@ class SettingsService
             $this->updateNotifications($data['notifications']);
         }
 
+        if (!empty($data['mail'])) {
+            $this->updateMail($data['mail']);
+        }
+
         if (array_key_exists('daily_menu', $data)) {
             $this->saveDailyMenu($data['daily_menu'] ?? []);
         }
 
-        return $this->all();
+        $updated = $this->all();
+
+        if ($shouldRefreshQr) {
+            $this->refreshTableQrCodes($updated);
+        }
+
+        return $updated;
     }
 
     public function dailyMenu(): array
@@ -345,6 +358,10 @@ class SettingsService
 
     private function fetchRestaurant(): array
     {
+        if ($this->restaurantCache !== null) {
+            return $this->restaurantCache;
+        }
+
         $query = $this->db->prepare('SELECT name, phone, description, address, currency, timezone, language, theme_color, logo, favicon, qr_logo FROM restaurants WHERE id = ?');
         $query->execute([$this->restaurantId]);
         $restaurant = $query->fetch();
@@ -353,6 +370,8 @@ class SettingsService
             $this->db->prepare('INSERT INTO restaurants (id, name) VALUES (?, ?)')->execute([$this->restaurantId, 'Yeni Restoran']);
             return $this->fetchRestaurant();
         }
+
+        $this->restaurantCache = $restaurant;
 
         return $restaurant;
     }
@@ -371,6 +390,7 @@ class SettingsService
             $data['theme_color'] ?? '#0f9d58',
             $this->restaurantId,
         ]);
+        $this->restaurantCache = null;
     }
 
     private function updateBranding(array $data): void
@@ -382,6 +402,7 @@ class SettingsService
             $this->normalizeQrLogo($data['qr_logo'] ?? null),
             $this->restaurantId,
         ]);
+        $this->restaurantCache = null;
     }
 
     private function updateNotifications(array $data): void
@@ -392,6 +413,35 @@ class SettingsService
         ];
 
         $this->saveSection('notifications', $payload);
+    }
+
+    private function updateMail(array $data): void
+    {
+        $payload = [
+            'from_name' => trim((string)($data['from_name'] ?? '')),
+            'from_email' => $this->normalizeEmail($data['from_email'] ?? ''),
+            'notification_email' => $this->normalizeEmail($data['notification_email'] ?? ''),
+            'reply_to' => $this->normalizeEmail($data['reply_to'] ?? ''),
+        ];
+
+        if (empty($payload['from_name'])) {
+            $restaurant = $this->fetchRestaurant();
+            $payload['from_name'] = $restaurant['name'] ?? 'QR Menü';
+        }
+
+        if (!$payload['from_email'] && $payload['notification_email']) {
+            $payload['from_email'] = $payload['notification_email'];
+        }
+
+        if (!$payload['notification_email']) {
+            $payload['notification_email'] = $this->primaryUserEmail();
+        }
+
+        if (!$payload['reply_to']) {
+            $payload['reply_to'] = $payload['notification_email'];
+        }
+
+        $this->saveSection('mail', array_filter($payload, static fn($value) => $value !== null && $value !== ''));
     }
 
     private function saveDailyMenu(array $items): void
@@ -440,6 +490,74 @@ class SettingsService
             'order_sound' => $this->mediaUrl($order),
             'waiter_sound' => $this->mediaUrl($waiter),
         ];
+    }
+
+    public function mailSettings(?array $restaurant = null): array
+    {
+        $section = $this->getSection('mail');
+        $restaurant ??= $this->fetchRestaurant();
+
+        $fromName = trim((string)($section['from_name'] ?? ($restaurant['name'] ?? 'QR Menü')));
+        $fromEmail = $this->normalizeEmail($section['from_email'] ?? '') ?? ($this->normalizeEmail($section['notification_email'] ?? '') ?? null);
+        $notification = $this->normalizeEmail($section['notification_email'] ?? '') ?? $this->primaryUserEmail();
+        $replyTo = $this->normalizeEmail($section['reply_to'] ?? '') ?? $notification;
+
+        return [
+            'from_name' => $fromName !== '' ? $fromName : ($restaurant['name'] ?? 'QR Menü'),
+            'from_email' => $fromEmail ?? '',
+            'notification_email' => $notification ?? '',
+            'reply_to' => $replyTo ?? '',
+        ];
+    }
+
+    private function normalizeEmail(?string $email): ?string
+    {
+        if (!$email) {
+            return null;
+        }
+
+        $email = trim(strtolower($email));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        return $email;
+    }
+
+    private function primaryUserEmail(): ?string
+    {
+        $statement = $this->db->prepare('SELECT email FROM restaurant_users WHERE restaurant_id = ? ORDER BY id ASC LIMIT 1');
+        $statement->execute([$this->restaurantId]);
+        $email = $statement->fetchColumn();
+
+        return $this->normalizeEmail($email ?: null);
+    }
+
+    private function refreshTableQrCodes(array $settings): void
+    {
+        $restaurant = $settings['restaurant'] ?? [];
+        $qrConfig = $settings['qr'] ?? [];
+        $branding = $settings['branding'] ?? [];
+        $logo = $branding['qr_logo'] ?? ($qrConfig['logo_url'] ?? ($qrConfig['logo'] ?? null));
+        if ($logo) {
+            $qrConfig['logo_url'] = $logo;
+        }
+
+        $language = strtolower($restaurant['language'] ?? $this->currentLanguage());
+        $currency = strtoupper($restaurant['currency'] ?? $this->currentCurrency());
+
+        $qrService = new QrService();
+        $statement = $this->db->prepare('SELECT id FROM tables WHERE restaurant_id = ?');
+        $statement->execute([$this->restaurantId]);
+        $tableIds = $statement->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+        foreach ($tableIds as $tableId) {
+            $tableId = (int)$tableId;
+            $tableUrl = rtrim(BASE_URL, '/') . '/menu/' . $tableId . '/' . $language . '/' . $currency;
+            $qrUrl = $qrService->generateUrl($tableUrl, $qrConfig);
+            $update = $this->db->prepare('UPDATE tables SET qr_code_url = ?, updated_at = NOW() WHERE id = ? AND restaurant_id = ?');
+            $update->execute([$qrUrl, $tableId, $this->restaurantId]);
+        }
     }
 
     private function normalizeMedia(?string $value): ?string

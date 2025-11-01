@@ -20,6 +20,7 @@ $settings = $settingsService->all();
 $restaurant = $settings['restaurant'] ?? [];
 $branding = $settings['branding'] ?? [];
 $notifications = $settings['notifications'] ?? [];
+$mailSettings = $settings['mail'] ?? [];
 $currencies = $settings['currencies'] ?? [];
 usort($currencies, static fn(array $a, array $b) => strcmp($a['code'] ?? '', $b['code'] ?? ''));
 $timezones = $settings['timezones'] ?? $settingsService->timezones();
@@ -480,6 +481,76 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
             </div>
 
             <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">PHP Mail Ayarları</h2>
+                </div>
+                <div class="card-body">
+                    <form id="mailSettingsForm" class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Gönderen Adı</label>
+                            <input type="text" name="from_name" class="form-control" value="<?= htmlspecialchars($mailSettings['from_name'] ?? ($restaurant['name'] ?? '')) ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Gönderen E-posta</label>
+                            <input type="email" name="from_email" class="form-control" value="<?= htmlspecialchars($mailSettings['from_email'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Bildirim E-postası</label>
+                            <input type="email" name="notification_email" class="form-control" value="<?= htmlspecialchars($mailSettings['notification_email'] ?? ($user['email'] ?? '')) ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Varsayılan Yanıt Adresi</label>
+                            <input type="email" name="reply_to" class="form-control" value="<?= htmlspecialchars($mailSettings['reply_to'] ?? ($mailSettings['notification_email'] ?? ($user['email'] ?? ''))) ?>">
+                        </div>
+                        <div class="col-12 text-end">
+                            <button class="btn btn-success" type="submit">Kaydet</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Yönetici Hesabı</h2>
+                </div>
+                <div class="card-body">
+                    <form id="accountForm" class="row g-3 mb-4">
+                        <input type="hidden" name="user_id" value="<?= htmlspecialchars((string)($user['id'] ?? '')) ?>">
+                        <div class="col-md-6">
+                            <label class="form-label">Ad Soyad</label>
+                            <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">E-posta</label>
+                            <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
+                        </div>
+                        <div class="col-12 text-end">
+                            <button class="btn btn-success" type="submit">Bilgileri Güncelle</button>
+                        </div>
+                    </form>
+                    <hr>
+                    <form id="passwordForm" class="row g-3">
+                        <input type="hidden" name="user_id" value="<?= htmlspecialchars((string)($user['id'] ?? '')) ?>">
+                        <div class="col-md-4">
+                            <label class="form-label">Mevcut Şifre</label>
+                            <input type="password" name="current_password" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Yeni Şifre</label>
+                            <input type="password" name="new_password" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Yeni Şifre (Tekrar)</label>
+                            <input type="password" name="confirm_password" class="form-control" required>
+                        </div>
+                        <div class="col-12 text-end">
+                            <button class="btn btn-outline-primary" type="submit">Şifreyi Güncelle</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mb-4">
                 <div class="card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
                     <h2 class="h5 mb-0">Dil Yönetimi</h2>
                     <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#languageModal">Yeni Dil</button>
@@ -756,6 +827,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
 
 <script>
     window.APP_BASE_URL = <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>;
+    window.APP_USER = <?= json_encode($user, JSON_UNESCAPED_UNICODE) ?>;
     window.APP_STATE = {
         settings: <?= json_encode($settings, JSON_UNESCAPED_UNICODE) ?>,
         qrPreview: <?= json_encode($qrPreview, JSON_UNESCAPED_UNICODE) ?>,

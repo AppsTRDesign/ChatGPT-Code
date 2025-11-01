@@ -122,21 +122,6 @@ function fetchTable(\PDO $db, QrService $qrService, array $qrConfig, string $lan
         return $order;
     }, $ordersStatement->fetchAll() ?: []);
 
-    $sessionStatement = $db->prepare("SELECT order_id, status, payload, DATE_FORMAT(updated_at, '%H:%i') AS updated_at FROM table_order_sessions WHERE table_id = ? AND restaurant_id = ? ORDER BY updated_at DESC");
-    $sessionStatement->execute([$tableId, $restaurantId]);
-    $table['session_orders'] = array_map(static function ($row) use ($currency) {
-        $payload = json_decode($row['payload'] ?? '{}', true) ?: [];
-        $total = isset($payload['total']) ? (float)$payload['total'] : null;
-        return [
-            'order_id' => (int)$row['order_id'],
-            'status' => $row['status'],
-            'updated_at' => $row['updated_at'],
-            'total' => $total,
-            'total_formatted' => $total !== null ? number_format($total, 2, ',', '.') . ' ' . $currency : null,
-            'items' => $payload['items'] ?? [],
-        ];
-    }, $sessionStatement->fetchAll() ?: []);
-
     return $table;
 }
 

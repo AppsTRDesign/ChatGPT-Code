@@ -184,7 +184,7 @@ INSERT INTO restaurant_languages (restaurant_id, code, label) VALUES
 ON DUPLICATE KEY UPDATE label = VALUES(label);
 
 INSERT INTO restaurant_users (restaurant_id, email, password, name)
-VALUES (1, 'admin@noasoft.com', '$2y$10$4KoBmGdltEm8JpVcYFXYwuW2PFe5mpvlbNJ66IWaKOsfD9PfrxGXu', 'Demo Yönetici')
+VALUES (1, 'admin@noasoft.com', '$2y$12$3s9ePl8UxxkgIynanT2Lxe5Z5wyOXzF4rpgU/qM9bVOuitnHl44Zu', 'Demo Yönetici')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 INSERT INTO tables (id, restaurant_id, name, status, qr_code_url) VALUES
