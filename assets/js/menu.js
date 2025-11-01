@@ -48,6 +48,8 @@ const MenuApp = (() => {
         currency: (document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         language: document.body.dataset.currentLanguage || (window.MENU_STATE?.languages?.[0] || 'tr'),
         exchangeRate: 1,
+        currencyCache: new Map(),
+        pendingConversions: new Set(),
         tableId: Number(document.body.dataset.tableId || 0),
         tableName: window.MENU_STATE?.tableName || '',
         orders: [],
@@ -135,8 +137,69 @@ const MenuApp = (() => {
         }
     };
 
+    const parseNumeric = (value) => {
+        if (value === undefined || value === null) {
+            return null;
+        }
+        const numeric = parseFloat(String(value).replace(/,/g, ''));
+        return Number.isFinite(numeric) ? numeric : null;
+    };
+
+    const queueConversion = (amount) => {
+        const cacheKey = `${state.baseCurrency}-${state.currency}-${amount.toFixed(2)}`;
+        if (state.pendingConversions.has(cacheKey)) {
+            return;
+        }
+        state.pendingConversions.add(cacheKey);
+
+        const params = new URLSearchParams({
+            from: state.baseCurrency,
+            to: state.currency,
+            amount: amount,
+        });
+
+        fetchJSON(`api/currency.php?${params.toString()}`)
+            .then((data) => {
+                const convertedAmount =
+                    parseNumeric(data.amount) ??
+                    parseNumeric(data.secondary) ??
+                    parseNumeric(data.primary) ??
+                    amount * state.exchangeRate;
+                const rate = parseNumeric(data.rate) ??
+                    (amount > 0 && convertedAmount > 0 ? convertedAmount / amount : null);
+                if (rate && rate > 0) {
+                    state.exchangeRate = rate;
+                }
+                state.currencyCache.set(cacheKey, convertedAmount.toFixed(2));
+            })
+            .catch((error) => {
+                console.error('Kur çevrim hatası', error);
+                state.currencyCache.set(cacheKey, (amount * state.exchangeRate).toFixed(2));
+            })
+            .finally(() => {
+                state.pendingConversions.delete(cacheKey);
+                renderProducts();
+                updateCartSummary();
+                renderCart();
+                renderOrderStatus();
+                updateOverlayButton();
+            });
+    };
+
     const convertPrice = (price) => {
         const amount = Number(price) || 0;
+
+        if (state.currency === state.baseCurrency) {
+            return amount.toFixed(2);
+        }
+
+        const cacheKey = `${state.baseCurrency}-${state.currency}-${amount.toFixed(2)}`;
+        if (state.currencyCache.has(cacheKey)) {
+            return state.currencyCache.get(cacheKey);
+        }
+
+        queueConversion(amount);
+
         return (amount * state.exchangeRate).toFixed(2);
     };
 
@@ -491,6 +554,9 @@ const MenuApp = (() => {
     };
 
     const updateExchangeRate = async () => {
+        state.currencyCache.clear?.();
+        state.pendingConversions.clear?.();
+
         if (state.currency === state.baseCurrency) {
             state.exchangeRate = 1;
             return;
