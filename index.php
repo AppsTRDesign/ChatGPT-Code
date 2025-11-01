@@ -43,6 +43,16 @@ $sectionPaths = [
     'settings' => '/panel/settings',
 ];
 
+$navItems = [
+    ['key' => 'dashboard', 'label' => Language::get('app.dashboard')],
+    ['key' => 'orders', 'label' => Language::get('app.orders')],
+    ['key' => 'tables', 'label' => Language::get('app.tables')],
+    ['key' => 'waiter', 'label' => Language::get('dashboard.waiter_calls')],
+    ['key' => 'menu', 'label' => Language::get('menu.manager', 'Menü Yönetimi')],
+    ['key' => 'reports', 'label' => Language::get('app.reports')],
+    ['key' => 'settings', 'label' => Language::get('app.settings')],
+];
+
 $qrSettings = $settings['qr'] ?? [];
 $qrLogo = $branding['qr_logo'] ?? ($qrSettings['logo'] ?? null);
 if ($qrLogo && str_starts_with($qrLogo, '/')) {
@@ -91,7 +101,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
 </head>
 <body data-base-url="<?= htmlspecialchars($baseUrl) ?>">
 <div class="dashboard" data-theme-color="<?= htmlspecialchars($restaurant['theme_color'] ?? '#0f9d58') ?>">
-    <aside class="dashboard__sidebar">
+    <aside class="dashboard__sidebar d-none d-lg-flex">
         <div class="dashboard__brand">
             <?php if (!empty($branding['logo'])): ?>
                 <img src="<?= htmlspecialchars($branding['logo']) ?>" alt="<?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?>" class="dashboard__logo">
@@ -99,31 +109,16 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                 <h1><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></h1>
             <?php endif; ?>
         </div>
-        <button type="button" class="dashboard__close d-lg-none" id="sidebarClose" aria-label="Menüyü Kapat">
-            <i class="bx bx-x"></i>
-        </button>
         <nav class="dashboard__nav">
-            <a href="<?= htmlspecialchars($sectionPaths['dashboard']) ?>" class="dashboard__link <?= $currentSection === 'dashboard' ? 'active' : '' ?>" data-section="dashboard" data-url="<?= htmlspecialchars($sectionPaths['dashboard']) ?>">
-                <?= htmlspecialchars(Language::get('app.dashboard')) ?>
-            </a>
-            <a href="<?= htmlspecialchars($sectionPaths['orders']) ?>" class="dashboard__link <?= $currentSection === 'orders' ? 'active' : '' ?>" data-section="orders" data-url="<?= htmlspecialchars($sectionPaths['orders']) ?>">
-                <?= htmlspecialchars(Language::get('app.orders')) ?>
-            </a>
-            <a href="<?= htmlspecialchars($sectionPaths['tables']) ?>" class="dashboard__link <?= $currentSection === 'tables' ? 'active' : '' ?>" data-section="tables" data-url="<?= htmlspecialchars($sectionPaths['tables']) ?>">
-                <?= htmlspecialchars(Language::get('app.tables')) ?>
-            </a>
-            <a href="<?= htmlspecialchars($sectionPaths['waiter']) ?>" class="dashboard__link <?= $currentSection === 'waiter' ? 'active' : '' ?>" data-section="waiter" data-url="<?= htmlspecialchars($sectionPaths['waiter']) ?>">
-                <?= htmlspecialchars(Language::get('dashboard.waiter_calls')) ?>
-            </a>
-            <a href="<?= htmlspecialchars($sectionPaths['menu']) ?>" class="dashboard__link <?= $currentSection === 'menu' ? 'active' : '' ?>" data-section="menu" data-url="<?= htmlspecialchars($sectionPaths['menu']) ?>">
-                <?= htmlspecialchars(Language::get('menu.manager', 'Menü Yönetimi')) ?>
-            </a>
-            <a href="<?= htmlspecialchars($sectionPaths['reports']) ?>" class="dashboard__link <?= $currentSection === 'reports' ? 'active' : '' ?>" data-section="reports" data-url="<?= htmlspecialchars($sectionPaths['reports']) ?>">
-                <?= htmlspecialchars(Language::get('app.reports')) ?>
-            </a>
-            <a href="<?= htmlspecialchars($sectionPaths['settings']) ?>" class="dashboard__link <?= $currentSection === 'settings' ? 'active' : '' ?>" data-section="settings" data-url="<?= htmlspecialchars($sectionPaths['settings']) ?>">
-                <?= htmlspecialchars(Language::get('app.settings')) ?>
-            </a>
+            <?php foreach ($navItems as $item): ?>
+                <?php $key = $item['key']; ?>
+                <a href="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>"
+                   class="dashboard__link <?= $currentSection === $key ? 'active' : '' ?>"
+                   data-section="<?= htmlspecialchars($key) ?>"
+                   data-url="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>">
+                    <?= htmlspecialchars($item['label']) ?>
+                </a>
+            <?php endforeach; ?>
         </nav>
         <div class="dashboard__user">
             <div>
@@ -148,12 +143,32 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                     <?php endif; ?>
                     <span class="navbar-brand__title"><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></span>
                 </span>
-                <button type="button" class="navbar-toggler dashboard__menu-toggle" id="sidebarToggle" aria-label="Menüyü Aç" aria-expanded="false">
+                <button type="button" class="navbar-toggler dashboard__menu-toggle" id="sidebarToggle" aria-label="Menüyü Aç" aria-expanded="false" aria-controls="mobileNav">
                     <span class="navbar-toggler-icon"></span>
                     <span class="dashboard__toggle-label" data-toggle-label>Menüyü Aç</span>
                 </button>
             </div>
         </nav>
+        <div class="collapse dashboard__mobile-collapse d-lg-none" id="mobileNav">
+            <div class="dashboard__mobile-menu">
+                <?php foreach ($navItems as $item): ?>
+                    <?php $key = $item['key']; ?>
+                    <a href="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>"
+                       class="dashboard__link <?= $currentSection === $key ? 'active' : '' ?>"
+                       data-section="<?= htmlspecialchars($key) ?>"
+                       data-url="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>">
+                        <?= htmlspecialchars($item['label']) ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+            <div class="dashboard__mobile-user">
+                <div>
+                    <span class="dashboard__user-name"><?= htmlspecialchars($user['name']) ?></span>
+                    <small class="d-block text-muted"><?= htmlspecialchars($user['email']) ?></small>
+                </div>
+                <button class="btn btn-sm btn-outline-success" id="mobileLogout">Çıkış</button>
+            </div>
+        </div>
         <section class="section<?= $currentSection === 'dashboard' ? '' : ' d-none' ?>" id="section-dashboard">
             <div class="row g-3 mb-4" id="summaryCards">
                 <div class="col-6 col-md-3">

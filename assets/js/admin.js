@@ -86,6 +86,7 @@ const AdminApp = (() => {
     ];
 
     const ORDER_STATUSES = ['Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Ödeme Alındı', 'İptal'];
+    let mobileNavCollapse = null;
 
     const selectors = {
         dashboardRoot: document.querySelector('.dashboard'),
@@ -93,6 +94,7 @@ const AdminApp = (() => {
         sidebarToggle: document.querySelector('#sidebarToggle'),
         sidebarClose: document.querySelector('#sidebarClose'),
         sidebarOverlay: document.querySelector('#sidebarOverlay'),
+        mobileNav: document.querySelector('#mobileNav'),
         sections: document.querySelectorAll('.section'),
         navButtons: document.querySelectorAll('.dashboard__link'),
         summaryCards: document.querySelectorAll('[data-summary]'),
@@ -129,6 +131,7 @@ const AdminApp = (() => {
         qrForm: document.querySelector('#qrForm'),
         qrPreviewImage: document.querySelector('#qrPreviewImage'),
         logoutButton: document.querySelector('#logoutButton'),
+        mobileLogout: document.querySelector('#mobileLogout'),
         languageModal: document.querySelector('#languageModal'),
         languageForm: document.querySelector('#languageForm'),
         saveLanguage: document.querySelector('#saveLanguage'),
@@ -262,18 +265,29 @@ const AdminApp = (() => {
     };
 
     const closeSidebar = () => {
+        if (mobileNavCollapse && selectors.mobileNav?.classList.contains('show')) {
+            mobileNavCollapse.hide();
+        }
         selectors.dashboardRoot?.classList.remove('sidebar-open');
         updateSidebarToggleLabel();
     };
 
     const openSidebar = () => {
         selectors.dashboardRoot?.classList.add('sidebar-open');
+        if (mobileNavCollapse && !selectors.mobileNav?.classList.contains('show')) {
+            mobileNavCollapse.show();
+        }
         updateSidebarToggleLabel();
     };
 
     const bindSidebarToggle = () => {
         syncMobileHeaderHeight();
-        selectors.sidebarToggle?.addEventListener('click', () => {
+        if (selectors.mobileNav && window.bootstrap?.Collapse) {
+            mobileNavCollapse = bootstrap.Collapse.getOrCreateInstance(selectors.mobileNav, { toggle: false });
+        }
+
+        selectors.sidebarToggle?.addEventListener('click', (event) => {
+            event.preventDefault();
             if (selectors.dashboardRoot?.classList.contains('sidebar-open')) {
                 closeSidebar();
             } else {
@@ -1500,14 +1514,21 @@ const AdminApp = (() => {
     };
 
     const bindAuth = () => {
-        selectors.logoutButton?.addEventListener('click', async () => {
-            await fetchJSON('api/auth.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'logout' }),
+        const attachLogout = (button) => {
+            if (!button) return;
+            button.addEventListener('click', async (event) => {
+                event.preventDefault();
+                await fetchJSON('api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'logout' }),
+                });
+                window.location.href = withBase('login');
             });
-            window.location.href = withBase('login');
-        });
+        };
+
+        attachLogout(selectors.logoutButton);
+        attachLogout(selectors.mobileLogout);
     };
 
     const initReportsTable = () => {
