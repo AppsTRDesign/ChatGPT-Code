@@ -1,0 +1,99 @@
+body.template-menu4 {
+    background: #f0f3f7;
+    color: #1b1d21;
+}
+
+body.template-menu4 .menu-hero {
+    background: #ffffff;
+    color: #1b1d21;
+    border-bottom: 1px solid rgba(30, 136, 229, 0.18);
+    box-shadow: 0 12px 32px rgba(30, 136, 229, 0.15);
+}
+
+body.template-menu4 .menu-hero img {
+    border-radius: 50%;
+    background: rgba(30, 136, 229, 0.08);
+}
+
+body.template-menu4 .menu-controls .form-select,
+body.template-menu4 .menu-controls__waiter {
+    border-radius: 50px;
+    border: 1px solid rgba(30, 136, 229, 0.25);
+    background: rgba(255, 255, 255, 0.95);
+    color: #1b1d21;
+}
+
+body.template-menu4 .menu-controls__waiter {
+    background: rgba(30, 136, 229, 0.12);
+    color: #1b1d21;
+}
+
+body.template-menu4 .menu-block {
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    box-shadow: none;
+}
+
+body.template-menu4 .menu-block__header h2 {
+    color: #1e88e5;
+    font-weight: 600;
+}
+
+body.template-menu4 .category-card,
+body.template-menu4 .product-card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.template-menu4 .product-card:hover,
+body.template-menu4 .category-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 45px rgba(30, 136, 229, 0.15);
+}
+
+body.template-menu4 .product-card__price {
+    color: #1e88e5;
+}
+
+body.template-menu4 .product-card__action,
+body.template-menu4 .daily-card__action {
+    background: #1e88e5;
+    color: #ffffff;
+    border-radius: 999px;
+    border: none;
+}
+
+body.template-menu4 .menu-bottom-nav {
+    background: #ffffff;
+    border-top: 1px solid rgba(30, 136, 229, 0.15);
+    box-shadow: 0 18px 45px rgba(30, 136, 229, 0.18);
+}
+
+body.template-menu4 .menu-bottom-nav__item.active,
+body.template-menu4 .menu-bottom-nav__item:hover {
+    color: #1e88e5;
+}
+
+body.template-menu4 .cart-floating {
+    background: #1e88e5;
+    color: #ffffff;
+    box-shadow: 0 22px 45px rgba(30, 136, 229, 0.25);
+}
+
+body.template-menu4 .contact-form,
+body.template-menu4 .contact-details {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+}
+
+body.template-menu4 input,
+body.template-menu4 textarea,
+body.template-menu4 select {
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}

@@ -11,6 +11,34 @@ class SettingsService
     private const DEFAULT_WAITER_SOUND = 'assets/vendor/sounds/notification.mp3';
     private const DEFAULT_ORDER_FLASH_COLOR = '#0f9d58';
     private const DEFAULT_WAITER_FLASH_COLOR = '#ea4335';
+    private const DEFAULT_MENU_TEMPLATE = 'menu1';
+    private const MENU_TEMPLATES = [
+        'menu1' => [
+            'label' => 'Neo Fresh',
+            'description' => 'Canlı yeşil vurgularla varsayılan modern tasarım.',
+            'swatch' => ['#0f9d58', '#34a853'],
+        ],
+        'menu2' => [
+            'label' => 'Gece Işığı',
+            'description' => 'Koyu tonlar ve neon vurgu ile premium deneyim.',
+            'swatch' => ['#1f1b2c', '#ff7b54'],
+        ],
+        'menu3' => [
+            'label' => 'Pastel Breeze',
+            'description' => 'Pastel renkler ve yumuşak kart köşeleri ile ferah görünüm.',
+            'swatch' => ['#f8b195', '#355c7d'],
+        ],
+        'menu4' => [
+            'label' => 'Minimal Beyaz',
+            'description' => 'Açık alan kullanımı ve ince çizgilerle minimalist yaklaşım.',
+            'swatch' => ['#f5f5f5', '#1e88e5'],
+        ],
+        'menu5' => [
+            'label' => 'Retro Sunset',
+            'description' => 'Sıcak degrade arka plan ve retro yazı tipleri ile özgün deneyim.',
+            'swatch' => ['#ff9a8b', '#ff6a88'],
+        ],
+    ];
     private PDO $db;
     private int $restaurantId;
     private ?array $restaurantCache = null;
@@ -52,6 +80,7 @@ class SettingsService
             'mail' => $this->mailSettings($restaurant),
             'daily_menu' => $this->dailyMenu(),
             'timezones' => $this->timezones(),
+            'menu' => $this->menuSettings(),
         ];
     }
 
@@ -76,6 +105,10 @@ class SettingsService
 
         if (!empty($data['mail'])) {
             $this->updateMail($data['mail']);
+        }
+
+        if (!empty($data['menu'])) {
+            $this->updateMenuSettings($data['menu']);
         }
 
         if (array_key_exists('daily_menu', $data)) {
@@ -358,6 +391,27 @@ class SettingsService
         ];
     }
 
+    private function menuSettings(): array
+    {
+        $section = $this->getSection('menu');
+        $template = $this->normalizeMenuTemplate($section['template'] ?? null);
+        $templates = [];
+
+        foreach (self::MENU_TEMPLATES as $key => $meta) {
+            $templates[] = [
+                'id' => $key,
+                'label' => $meta['label'],
+                'description' => $meta['description'],
+                'swatch' => $meta['swatch'],
+            ];
+        }
+
+        return [
+            'template' => $template,
+            'templates' => $templates,
+        ];
+    }
+
     private function fetchRestaurant(): array
     {
         if ($this->restaurantCache !== null) {
@@ -447,6 +501,12 @@ class SettingsService
         }
 
         $this->saveSection('mail', array_filter($payload, static fn($value) => $value !== null && $value !== ''));
+    }
+
+    private function updateMenuSettings(array $data): void
+    {
+        $template = $this->normalizeMenuTemplate($data['template'] ?? null);
+        $this->saveSection('menu', ['template' => $template]);
     }
 
     private function saveDailyMenu(array $items): void
@@ -650,5 +710,19 @@ class SettingsService
         }
 
         return rtrim(BASE_URL, '/') . '/' . $value;
+    }
+
+    private function normalizeMenuTemplate(?string $template): string
+    {
+        $key = strtolower(trim((string)$template));
+        if ($key === '') {
+            $key = self::DEFAULT_MENU_TEMPLATE;
+        }
+
+        if (!array_key_exists($key, self::MENU_TEMPLATES)) {
+            $key = self::DEFAULT_MENU_TEMPLATE;
+        }
+
+        return $key;
     }
 }

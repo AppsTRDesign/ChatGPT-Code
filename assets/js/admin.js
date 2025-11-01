@@ -35,6 +35,7 @@ const AdminApp = (() => {
         chart: null,
         period: 'weekly',
         settings: window.APP_STATE?.settings || {},
+        menuTemplate: window.APP_STATE?.settings?.menu?.template || 'menu1',
         qrPreview: window.APP_STATE?.qrPreview || '',
         currentSection: window.APP_STATE?.currentSection || 'dashboard',
         user: window.APP_USER || null,
@@ -132,6 +133,7 @@ const AdminApp = (() => {
         addVariant: document.querySelector('#addVariant'),
         iconLibrary: document.querySelector('#iconLibrary'),
         generalSettingsForm: document.querySelector('#generalSettingsForm'),
+        menuTemplateForm: document.querySelector('#menuTemplateForm'),
         brandingForm: document.querySelector('#brandingForm'),
         mailSettingsForm: document.querySelector('#mailSettingsForm'),
         qrForm: document.querySelector('#qrForm'),
@@ -1179,6 +1181,7 @@ const AdminApp = (() => {
         state.qrPreview = data.qr_preview || state.qrPreview;
         updateBrandingPreviews();
         updateAudioSources();
+        updateTemplateSelections();
         populateMailSettings();
         if (selectors.qrPreviewImage && state.qrPreview) {
             selectors.qrPreviewImage.src = state.qrPreview;
@@ -1273,6 +1276,22 @@ const AdminApp = (() => {
                 idInput.value = user.id || '';
             }
         }
+    };
+
+    const updateTemplateSelections = () => {
+        const current = state.settings?.menu?.template || state.menuTemplate || 'menu1';
+        state.menuTemplate = current;
+        if (!selectors.menuTemplateForm) return;
+        const cards = selectors.menuTemplateForm.querySelectorAll('.template-card');
+        cards.forEach((card) => {
+            const input = card.querySelector('input[name="template"]');
+            if (!input) {
+                return;
+            }
+            const isActive = input.value === current;
+            card.classList.toggle('active', isActive);
+            input.checked = isActive;
+        });
     };
 
     const populateDefaultLanguage = () => {
@@ -1503,6 +1522,15 @@ const AdminApp = (() => {
 
     const bindSettingsForms = () => {
         handleSettingsSubmit(selectors.generalSettingsForm, (formData) => ({ restaurant: Object.fromEntries(formData.entries()) }), reloadSettings);
+        if (selectors.menuTemplateForm) {
+            selectors.menuTemplateForm.addEventListener('change', (event) => {
+                if (event.target.matches('input[name="template"]')) {
+                    state.menuTemplate = event.target.value;
+                    updateTemplateSelections();
+                }
+            });
+        }
+        handleSettingsSubmit(selectors.menuTemplateForm, (formData) => ({ menu: { template: formData.get('template') } }), reloadSettings);
         handleSettingsSubmit(selectors.brandingForm, (formData) => ({ branding: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.qrForm, (formData) => ({ qr: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.notificationsForm, (formData) => ({ notifications: Object.fromEntries(formData.entries()) }), reloadSettings);
@@ -2010,6 +2038,7 @@ const AdminApp = (() => {
         populateTimezones();
         updateBrandingPreviews();
         updateAudioSources();
+        updateTemplateSelections();
         populateMailSettings();
         populateAccountForm();
         updateCurrencyBadges();

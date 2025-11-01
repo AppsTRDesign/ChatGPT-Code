@@ -1,0 +1,100 @@
+body.template-menu2 {
+    background: linear-gradient(160deg, #0d0f1a 0%, #1f2339 60%, #262a45 100%);
+    color: #f7f8ff;
+}
+
+body.template-menu2 .menu-hero {
+    background: linear-gradient(135deg, rgba(47, 54, 95, 0.95), rgba(255, 123, 84, 0.65));
+    box-shadow: 0 28px 60px rgba(10, 12, 32, 0.65);
+}
+
+body.template-menu2 .menu-hero h2,
+body.template-menu2 .menu-hero p,
+body.template-menu2 .menu-hero small {
+    color: #ffffff;
+}
+
+body.template-menu2 .menu-controls .form-select {
+    background: rgba(19, 22, 39, 0.85);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #f8f9ff;
+}
+
+body.template-menu2 .menu-controls__waiter {
+    background: rgba(255, 123, 84, 0.85);
+    color: #0d0f1a;
+}
+
+body.template-menu2 .menu-block {
+    background: rgba(19, 22, 39, 0.85);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 22px 60px rgba(8, 10, 24, 0.5);
+}
+
+body.template-menu2 .menu-block__header h2,
+body.template-menu2 .menu-block__header p,
+body.template-menu2 .text-muted {
+    color: rgba(255, 255, 255, 0.82) !important;
+}
+
+body.template-menu2 .category-card,
+body.template-menu2 .product-card {
+    background: rgba(28, 32, 54, 0.95);
+    color: #f7f8ff;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 18px 50px rgba(8, 10, 24, 0.45);
+}
+
+body.template-menu2 .product-card__price {
+    color: #ffb997;
+}
+
+body.template-menu2 .product-card__action,
+body.template-menu2 .daily-card__action {
+    background: linear-gradient(135deg, #ff7b54, #ffb26b);
+    color: #0f0f1c;
+    border: none;
+}
+
+body.template-menu2 .menu-bottom-nav {
+    background: rgba(16, 19, 33, 0.95);
+    box-shadow: 0 24px 70px rgba(7, 9, 26, 0.75);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.template-menu2 .menu-bottom-nav__item {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+body.template-menu2 .menu-bottom-nav__item.active,
+body.template-menu2 .menu-bottom-nav__item:hover {
+    color: #ffb997;
+}
+
+body.template-menu2 .cart-floating {
+    background: linear-gradient(135deg, #ff7b54, #ffb26b);
+    color: #0d0f1a;
+    box-shadow: 0 22px 60px rgba(8, 10, 24, 0.55);
+}
+
+body.template-menu2 .contact-form,
+body.template-menu2 .contact-details {
+    background: rgba(20, 24, 40, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.template-menu2 input,
+body.template-menu2 textarea,
+body.template-menu2 select {
+    background: rgba(11, 13, 26, 0.85);
+    color: #f1f3ff;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.template-menu2 .btn-primary,
+body.template-menu2 .btn-success {
+    background: linear-gradient(135deg, #ff7b54, #ffb26b);
+    border: none;
+    color: #0d0f1a;
+}

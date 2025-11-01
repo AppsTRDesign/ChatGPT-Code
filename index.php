@@ -22,6 +22,9 @@ $branding = $settings['branding'] ?? [];
 $notifications = $settings['notifications'] ?? [];
 $mailSettings = $settings['mail'] ?? [];
 $currencies = $settings['currencies'] ?? [];
+$menuSettings = $settings['menu'] ?? [];
+$menuTemplate = $menuSettings['template'] ?? 'menu1';
+$menuTemplates = $menuSettings['templates'] ?? [];
 usort($currencies, static fn(array $a, array $b) => strcmp($a['code'] ?? '', $b['code'] ?? ''));
 $timezones = $settings['timezones'] ?? $settingsService->timezones();
 $defaultLanguage = $restaurant['language'] ?? 'tr';
@@ -402,6 +405,51 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                             <button class="btn btn-success" type="submit">Kaydet</button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Menü Tasarımı</h2>
+                </div>
+                <div class="card-body">
+                    <?php if (!empty($menuTemplates)): ?>
+                        <form id="menuTemplateForm" class="template-grid">
+                            <div class="row g-4">
+                                <?php foreach ($menuTemplates as $templateOption): ?>
+                                    <?php
+                                        $templateId = $templateOption['id'] ?? '';
+                                        $isActive = $templateId === $menuTemplate;
+                                        $swatch = $templateOption['swatch'] ?? [];
+                                    ?>
+                                    <div class="col-12 col-md-6 col-xl-4">
+                                        <label class="template-card<?= $isActive ? ' active' : '' ?>" data-template="<?= htmlspecialchars($templateId) ?>">
+                                            <input type="radio" name="template" value="<?= htmlspecialchars($templateId) ?>" <?= $isActive ? 'checked' : '' ?> hidden>
+                                            <div class="template-card__swatch">
+                                                <?php if (!empty($swatch)): ?>
+                                                    <?php foreach ($swatch as $color): ?>
+                                                        <span style="background: <?= htmlspecialchars($color) ?>"></span>
+                                                    <?php endforeach; ?>
+                                                <?php else: ?>
+                                                    <span style="background: var(--theme-color, #0f9d58);"></span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="template-card__body">
+                                                <h3><?= htmlspecialchars($templateOption['label'] ?? strtoupper($templateId)) ?></h3>
+                                                <p class="mb-0 text-muted"><?= htmlspecialchars($templateOption['description'] ?? '') ?></p>
+                                            </div>
+                                            <span class="template-card__badge">Seç</span>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <div class="text-end mt-4">
+                                <button type="submit" class="btn btn-success">Tasarımı Kaydet</button>
+                            </div>
+                        </form>
+                    <?php else: ?>
+                        <p class="mb-0 text-muted">Henüz menü tasarım seçenekleri bulunamadı.</p>
+                    <?php endif; ?>
                 </div>
             </div>
 

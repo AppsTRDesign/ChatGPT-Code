@@ -1,0 +1,85 @@
+body.template-menu3 {
+    background: linear-gradient(120deg, #f8b195 0%, #f67280 40%, #c06c84 70%, #6c5b7b 100%);
+    background-attachment: fixed;
+}
+
+body.template-menu3 .menu-hero {
+    background: rgba(255, 255, 255, 0.92);
+    color: #2c2233;
+    box-shadow: 0 32px 70px rgba(108, 91, 123, 0.35);
+}
+
+body.template-menu3 .greeting h2 {
+    color: #6c5b7b;
+}
+
+body.template-menu3 .menu-block {
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 32px;
+    box-shadow: 0 28px 65px rgba(108, 91, 123, 0.25);
+    border: none;
+}
+
+body.template-menu3 .menu-block__header h2 {
+    color: #355c7d;
+}
+
+body.template-menu3 .menu-block__header p,
+body.template-menu3 .text-muted {
+    color: rgba(44, 34, 51, 0.65) !important;
+}
+
+body.template-menu3 .category-card {
+    background: rgba(248, 220, 224, 0.8);
+    color: #2c2233;
+    border: none;
+    box-shadow: 0 18px 45px rgba(248, 177, 149, 0.4);
+}
+
+body.template-menu3 .product-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 28px;
+    box-shadow: 0 24px 55px rgba(108, 91, 123, 0.28);
+}
+
+body.template-menu3 .product-card__price {
+    color: #f67280;
+}
+
+body.template-menu3 .product-card__action,
+body.template-menu3 .daily-card__action {
+    background: linear-gradient(135deg, #f67280, #c06c84);
+    border: none;
+    color: #ffffff;
+}
+
+body.template-menu3 .menu-bottom-nav {
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 24px 55px rgba(108, 91, 123, 0.3);
+}
+
+body.template-menu3 .menu-bottom-nav__item.active,
+body.template-menu3 .menu-bottom-nav__item:hover {
+    color: #f67280;
+}
+
+body.template-menu3 .cart-floating {
+    background: linear-gradient(135deg, #f8b195, #f67280);
+    box-shadow: 0 24px 55px rgba(108, 91, 123, 0.3);
+}
+
+body.template-menu3 .contact-form,
+body.template-menu3 .contact-details {
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 24px;
+    box-shadow: 0 28px 60px rgba(108, 91, 123, 0.3);
+    border: none;
+}
+
+body.template-menu3 input,
+body.template-menu3 textarea,
+body.template-menu3 select {
+    border-radius: 14px;
+    border: 1px solid rgba(108, 91, 123, 0.25);
+}
