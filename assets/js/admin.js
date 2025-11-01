@@ -1165,6 +1165,7 @@ const AdminApp = (() => {
                     body: JSON.stringify(payload),
                 });
                 state.settings = data.settings || {};
+                state.menuTemplate = state.settings?.menu?.template || state.menuTemplate || 'menu1';
                 toast.fire({ icon: 'success', title: data.message });
                 if (typeof onSuccess === 'function') {
                     await onSuccess(data);
@@ -1178,6 +1179,7 @@ const AdminApp = (() => {
     const reloadSettings = async () => {
         const data = await fetchJSON('api/settings.php');
         state.settings = data.settings || {};
+        state.menuTemplate = state.settings?.menu?.template || state.menuTemplate || 'menu1';
         state.qrPreview = data.qr_preview || state.qrPreview;
         updateBrandingPreviews();
         updateAudioSources();
@@ -1279,7 +1281,7 @@ const AdminApp = (() => {
     };
 
     const updateTemplateSelections = () => {
-        const current = state.settings?.menu?.template || state.menuTemplate || 'menu1';
+        const current = state.menuTemplate || state.settings?.menu?.template || 'menu1';
         state.menuTemplate = current;
         if (!selectors.menuTemplateForm) return;
         const cards = selectors.menuTemplateForm.querySelectorAll('.template-card');
