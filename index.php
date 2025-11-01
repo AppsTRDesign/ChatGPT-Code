@@ -99,6 +99,9 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                 <h1><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></h1>
             <?php endif; ?>
         </div>
+        <button type="button" class="dashboard__close d-lg-none" id="sidebarClose" aria-label="Menüyü Kapat">
+            <i class="bx bx-x"></i>
+        </button>
         <nav class="dashboard__nav">
             <a href="<?= htmlspecialchars($sectionPaths['dashboard']) ?>" class="dashboard__link <?= $currentSection === 'dashboard' ? 'active' : '' ?>" data-section="dashboard" data-url="<?= htmlspecialchars($sectionPaths['dashboard']) ?>">
                 <?= htmlspecialchars(Language::get('app.dashboard')) ?>
@@ -130,7 +133,14 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
             <button class="btn btn-sm btn-outline-light" id="logoutButton">Çıkış</button>
         </div>
     </aside>
+    <div class="dashboard__overlay d-lg-none" id="sidebarOverlay"></div>
     <main class="dashboard__content">
+        <div class="dashboard__mobile-header d-lg-none">
+            <button type="button" class="dashboard__menu-toggle" id="sidebarToggle">
+                <i class="bx bx-menu"></i>
+                <span>Menüyü Aç</span>
+            </button>
+        </div>
         <section class="section<?= $currentSection === 'dashboard' ? '' : ' d-none' ?>" id="section-dashboard">
             <div class="row g-3 mb-4" id="summaryCards">
                 <div class="col-6 col-md-3">

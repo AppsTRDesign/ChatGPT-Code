@@ -87,6 +87,10 @@ const AdminApp = (() => {
     const ORDER_STATUSES = ['Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Ödeme Alındı', 'İptal'];
 
     const selectors = {
+        dashboardRoot: document.querySelector('.dashboard'),
+        sidebarToggle: document.querySelector('#sidebarToggle'),
+        sidebarClose: document.querySelector('#sidebarClose'),
+        sidebarOverlay: document.querySelector('#sidebarOverlay'),
         sections: document.querySelectorAll('.section'),
         navButtons: document.querySelectorAll('.dashboard__link'),
         summaryCards: document.querySelectorAll('[data-summary]'),
@@ -197,6 +201,49 @@ const AdminApp = (() => {
         audioElement.play().catch(() => {});
     };
 
+    const updateSidebarToggleLabel = () => {
+        const label = selectors.sidebarToggle?.querySelector('span');
+        if (!label) {
+            return;
+        }
+        label.textContent = selectors.dashboardRoot?.classList.contains('sidebar-open') ? 'Menüyü Kapat' : 'Menüyü Aç';
+    };
+
+    const closeSidebar = () => {
+        selectors.dashboardRoot?.classList.remove('sidebar-open');
+        updateSidebarToggleLabel();
+    };
+
+    const openSidebar = () => {
+        selectors.dashboardRoot?.classList.add('sidebar-open');
+        updateSidebarToggleLabel();
+    };
+
+    const bindSidebarToggle = () => {
+        selectors.sidebarToggle?.addEventListener('click', () => {
+            if (selectors.dashboardRoot?.classList.contains('sidebar-open')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
+        });
+
+        selectors.sidebarClose?.addEventListener('click', () => {
+            closeSidebar();
+        });
+        selectors.sidebarOverlay?.addEventListener('click', () => {
+            closeSidebar();
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 992) {
+                closeSidebar();
+            }
+        });
+
+        updateSidebarToggleLabel();
+    };
+
     const detectSectionFromLocation = () => {
         const sectionPaths = window.APP_STATE?.sectionPaths || {};
         const currentPath = window.location.pathname.replace(/\/+$/, '') || '/panel';
@@ -227,6 +274,9 @@ const AdminApp = (() => {
             button.addEventListener('click', (event) => {
                 event.preventDefault();
                 switchSection(button.dataset.section, true);
+                if (window.innerWidth < 992) {
+                    closeSidebar();
+                }
             });
         });
 
@@ -1754,6 +1804,7 @@ const AdminApp = (() => {
         state.currentSection = detectSectionFromLocation();
         switchSection(state.currentSection);
         window.history.replaceState({ section: state.currentSection }, '', window.location.pathname);
+        bindSidebarToggle();
         bindNavigation();
         bindChartControls();
         initDropzones();
