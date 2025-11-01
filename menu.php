@@ -34,6 +34,17 @@ foreach ($currencies as $currency) {
     }
 }
 
+if (empty($currencies)) {
+    $currencies[] = [
+        'code' => $defaultCurrency,
+        'name' => $defaultCurrency,
+        'symbol' => '',
+        'is_default' => 1,
+    ];
+}
+
+usort($currencies, static fn(array $a, array $b) => strcmp($a['code'] ?? '', $b['code'] ?? ''));
+
 $currentCurrency = strtoupper($_GET['currency'] ?? $defaultCurrency);
 
 $orderSound = $notifications['order_sound'] ?? (rtrim(BASE_URL, '/') . '/assets/vendor/sounds/order.mp3');
@@ -44,6 +55,7 @@ $friendlyPath = $tableId > 0
 
 $baseUrl = rtrim(BASE_URL, '/');
 $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
+$currencyCodes = array_values(array_filter(array_map(static fn(array $currency) => strtoupper($currency['code'] ?? ''), $currencies)));
 ?>
 <!DOCTYPE html>
 <html lang="<?= htmlspecialchars($defaultLanguage) ?>">
@@ -60,6 +72,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-borderless/borderless.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-M9d1RChESyqCCpt5TR1+t0NenE2no0RvrRZtGJPD7W82dManIeZDV4SSQdlqzTeWY5Avzk3l3pNGdisM8z7jkQ==" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
     <link rel="stylesheet" href="<?= htmlspecialchars($asset('assets/css/style.css')) ?>">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
@@ -87,7 +100,16 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
             </select>
             <select id="currencySelect" class="form-select">
                 <?php foreach ($currencies as $currency): ?>
-                    <option value="<?= htmlspecialchars($currency['code']) ?>" <?= $currency['code'] === $currentCurrency ? 'selected' : '' ?>><?= htmlspecialchars($currency['code']) ?></option>
+                    <?php
+                        $code = strtoupper($currency['code'] ?? '');
+                        $name = trim($currency['name'] ?? $code);
+                        $symbol = trim($currency['symbol'] ?? '');
+                        $label = $name;
+                        if ($symbol !== '') {
+                            $label .= ' (' . $symbol . ')';
+                        }
+                    ?>
+                    <option value="<?= htmlspecialchars($code) ?>" <?= $code === $currentCurrency ? 'selected' : '' ?>><?= htmlspecialchars($code) ?> &mdash; <?= htmlspecialchars($label) ?></option>
                 <?php endforeach; ?>
             </select>
             <button type="button" id="callWaiter" class="menu-controls__waiter">
@@ -162,7 +184,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
     window.MENU_STATE = {
         currency: <?= json_encode($currentCurrency, JSON_UNESCAPED_UNICODE) ?>,
         languages: <?= json_encode(array_column($languages, 'code'), JSON_UNESCAPED_UNICODE) ?>,
-        currencies: <?= json_encode(array_column($currencies, 'code'), JSON_UNESCAPED_UNICODE) ?>,
+        currencies: <?= json_encode($currencyCodes, JSON_UNESCAPED_UNICODE) ?>,
         addToCartText: <?= json_encode(Language::get('menu.add_to_cart', 'Sepete Ekle'), JSON_UNESCAPED_UNICODE) ?>,
         tableId: <?= json_encode($tableId, JSON_UNESCAPED_UNICODE) ?>,
         tableName: <?= json_encode($tableName, JSON_UNESCAPED_UNICODE) ?>,

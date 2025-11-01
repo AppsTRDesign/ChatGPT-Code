@@ -135,7 +135,10 @@ const MenuApp = (() => {
         }
     };
 
-    const convertPrice = (price) => (price * state.exchangeRate).toFixed(2);
+    const convertPrice = (price) => {
+        const amount = Number(price) || 0;
+        return (amount * state.exchangeRate).toFixed(2);
+    };
 
     const statusToClass = (status = '') => {
         return status
@@ -172,7 +175,7 @@ const MenuApp = (() => {
         });
         elements.categories.appendChild(allButton);
 
-        state.categories.forEach((category) => {
+        [...state.categories].sort((a, b) => a.name.localeCompare(b.name, 'tr')).forEach((category) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `category-card ${Number(state.selectedCategory) === Number(category.id) ? 'active' : ''}`;
@@ -228,6 +231,9 @@ const MenuApp = (() => {
         state.overlayProduct = product;
         state.overlayVariant = null;
         state.overlayQuantity = 1;
+        if (!elements.cartDrawer?.classList.contains('d-none')) {
+            toggleCart(false);
+        }
         if (!elements.productOverlay) {
             addToCart(product, null, 1);
             return;
@@ -355,8 +361,16 @@ const MenuApp = (() => {
 
     const toggleCart = (show) => {
         if (!elements.cartDrawer || !elements.cartBackdrop) return;
-        elements.cartDrawer.classList.toggle('d-none', !show);
-        elements.cartBackdrop.classList.toggle('d-none', !show && elements.productOverlay?.classList.contains('d-none'));
+        if (show) {
+            closeProductOverlay();
+            elements.cartDrawer.classList.remove('d-none');
+            elements.cartBackdrop.classList.remove('d-none');
+        } else {
+            elements.cartDrawer.classList.add('d-none');
+            if (elements.productOverlay?.classList.contains('d-none')) {
+                elements.cartBackdrop.classList.add('d-none');
+            }
+        }
     };
 
     const clearCart = () => {
@@ -471,6 +485,7 @@ const MenuApp = (() => {
             console.error('Kur çevrim hatası', error);
             state.exchangeRate = 1;
         }
+        updateOverlayButton();
     };
 
     const bindEvents = () => {
@@ -480,6 +495,7 @@ const MenuApp = (() => {
             renderProducts();
             updateCartSummary();
             renderCart();
+            updateOverlayButton();
             renderOrderStatus();
             updateMenuLocation(state.language, state.currency, true);
         });

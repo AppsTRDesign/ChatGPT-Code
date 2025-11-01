@@ -20,6 +20,8 @@ $settings = $settingsService->all();
 $restaurant = $settings['restaurant'] ?? [];
 $branding = $settings['branding'] ?? [];
 $notifications = $settings['notifications'] ?? [];
+$currencies = $settings['currencies'] ?? [];
+usort($currencies, static fn(array $a, array $b) => strcmp($a['code'] ?? '', $b['code'] ?? ''));
 $timezones = $settings['timezones'] ?? $settingsService->timezones();
 $defaultLanguage = $restaurant['language'] ?? 'tr';
 Language::load($defaultLanguage);
@@ -83,6 +85,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/min/dropzone.min.js"></script>
+    <script>if (window.Dropzone) { window.Dropzone.autoDiscover = false; }</script>
     <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 </head>
 <body data-base-url="<?= htmlspecialchars($baseUrl) ?>">
@@ -310,7 +313,17 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Para Birimi</label>
-                            <input type="text" name="currency" class="form-control" value="<?= htmlspecialchars($restaurant['currency'] ?? 'TRY') ?>">
+                            <select name="currency" id="currencySelectAdmin" class="form-select" data-default="<?= htmlspecialchars($restaurant['currency'] ?? 'TRY') ?>">
+                                <?php if (empty($currencies)): ?>
+                                    <option value="<?= htmlspecialchars($restaurant['currency'] ?? 'TRY') ?>" selected><?= htmlspecialchars($restaurant['currency'] ?? 'TRY') ?></option>
+                                <?php else: ?>
+                                    <?php foreach ($currencies as $currency): ?>
+                                        <option value="<?= htmlspecialchars($currency['code']) ?>" <?= ($currency['code'] ?? '') === ($restaurant['currency'] ?? '') ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($currency['code']) ?> &mdash; <?= htmlspecialchars($currency['name'] ?? $currency['code']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Saat Dilimi</label>
@@ -469,7 +482,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                 </div>
                 <div class="card-body">
                     <div class="currency-badges mb-3" id="currencyBadges">
-                        <?php foreach (($settings['currencies'] ?? []) as $currency): ?>
+                        <?php foreach ($currencies as $currency): ?>
                             <span class="badge rounded-pill <?= !empty($currency['is_default']) ? 'bg-success' : 'bg-secondary' ?> me-2 mb-2">
                                 <?= htmlspecialchars($currency['code']) ?> &mdash; <?= htmlspecialchars($currency['name'] ?? $currency['code']) ?>
                             </span>

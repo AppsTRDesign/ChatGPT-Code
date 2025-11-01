@@ -64,21 +64,22 @@ const AdminApp = (() => {
         { class: 'bx bx-cake', label: 'Pasta' },
         { class: 'bx bx-dish', label: 'Günün Menüsü' },
         { class: 'bx bx-pizza', label: 'Pizza' },
-        { class: 'bx bx-baguette', label: 'Sandviç' },
         { class: 'bx bx-wine', label: 'İçecek' },
-        { class: 'bx bx-bowl-rice', label: 'Ana Yemek' },
-        { class: 'bx bx-ice-cream', label: 'Dondurma' },
-        { class: 'bx bx-restaurant', label: 'Şef Önerisi' },
-        { class: 'bx bx-food-menu', label: 'Menü' },
+        { class: 'bx bx-restaurant', label: 'Ana Yemek' },
         { class: 'bx bx-lemon', label: 'Limonata' },
+        { class: 'bx bx-ice-cream', label: 'Dondurma' },
         { class: 'fa-solid fa-burger', label: 'Burger' },
         { class: 'fa-solid fa-mug-hot', label: 'Sıcak İçecek' },
         { class: 'fa-solid fa-ice-cream', label: 'Tatlı' },
         { class: 'fa-solid fa-drumstick-bite', label: 'Tavuk' },
         { class: 'fa-solid fa-fish', label: 'Balık' },
-        { class: 'fa-solid fa-bowl-rice', label: 'Pilav' },
         { class: 'fa-solid fa-utensils', label: 'Servis' },
         { class: 'fa-solid fa-martini-glass-citrus', label: 'Kokteyl' },
+        { class: 'fa-solid fa-bowl-food', label: 'Ev Yemekleri' },
+        { class: 'fa-solid fa-leaf', label: 'Vegan' },
+        { class: 'fa-solid fa-pepper-hot', label: 'Acılı' },
+        { class: 'fa-solid fa-bacon', label: 'Kahvaltı' },
+        { class: 'fa-solid fa-pizza-slice', label: 'Atıştırmalık' },
     ];
 
     const ORDER_STATUSES = ['Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Ödeme Alındı', 'İptal'];
@@ -383,18 +384,42 @@ const AdminApp = (() => {
             .forEach((table) => {
                 const card = document.createElement('div');
                 card.className = 'table-card';
-                const ordersHtml = (table.active_orders || []).map((order) => `
-                    <li>
-                        <span>#${order.id} - ${order.status}</span>
-                        <span>${order.total_formatted || Number(order.total).toFixed(2)}</span>
-                    </li>
-                `).join('');
-                const sessionHtml = (table.session_orders || []).map((session) => `
-                    <li>
-                        <span>#${session.order_id} - ${session.status}</span>
-                        <span>${session.total_formatted || ''}</span>
-                    </li>
-                `).join('');
+                const ordersHtml = (table.active_orders || []).map((order) => {
+                    const status = escapeHtml(order.status || '');
+                    const total = escapeHtml(order.total_formatted || Number(order.total).toFixed(2));
+                    return `
+                        <li>
+                            <span>#${order.id} - ${status}</span>
+                            <span>${total}</span>
+                        </li>
+                    `;
+                }).join('');
+                const sessionHtml = (table.session_orders || []).map((session) => {
+                    const items = (session.items || []).map((item) => `
+                        <li>
+                            <span>${escapeHtml(item.name || '')}${item.variant_name ? ` <small>${escapeHtml(item.variant_name)}</small>` : ''}</span>
+                            <span>${Number(item.quantity) || 0}</span>
+                        </li>
+                    `).join('');
+                    const itemsBlock = items ? `<ul class="session-orders__items">${items}</ul>` : '';
+                    const total = session.total_formatted ? escapeHtml(session.total_formatted) : '';
+                    const updated = session.updated_at ? escapeHtml(session.updated_at) : '';
+                    const totalColumn = total ? `<span class="session-orders__total">${total}</span>` : '<span></span>';
+                    const updatedColumn = updated ? `<small class="text-muted">${updated}</small>` : '';
+                    return `
+                        <li>
+                            <div class="session-orders__row">
+                                <span class="fw-semibold">#${session.order_id}</span>
+                                <span class="badge status-${statusToClass(session.status)}">${escapeHtml(session.status)}</span>
+                            </div>
+                            <div class="session-orders__row session-orders__meta">
+                                ${totalColumn}
+                                ${updatedColumn}
+                            </div>
+                            ${itemsBlock}
+                        </li>
+                    `;
+                }).join('');
                 const sessionBlock = sessionHtml ? `
                     <div class="session-orders">
                         <strong>Geçici Siparişler</strong>
@@ -837,6 +862,7 @@ const AdminApp = (() => {
             selectors.qrPreviewImage.src = state.qrPreview;
         }
         populateDefaultLanguage();
+        populateCurrencySelect();
         populateTimezones();
         updateCurrencyBadges();
     };
@@ -893,6 +919,31 @@ const AdminApp = (() => {
         }
     };
 
+    const populateCurrencySelect = () => {
+        const select = document.querySelector('#currencySelectAdmin');
+        if (!select) return;
+        const currencies = state.settings?.currencies || [];
+        const defaultCode = (state.settings?.restaurant?.currency || select.dataset.default || 'TRY').toUpperCase();
+        if (!currencies.length) {
+            select.innerHTML = `<option value="${defaultCode}">${defaultCode}</option>`;
+            select.value = defaultCode;
+            select.disabled = false;
+            return;
+        }
+        select.disabled = false;
+        select.innerHTML = currencies
+            .map((currency) => {
+                const code = (currency.code || '').toUpperCase();
+                const name = escapeHtml(currency.name || code);
+                const symbol = currency.symbol ? escapeHtml(currency.symbol) : '';
+                const label = symbol ? `${name} (${symbol})` : name;
+                const selected = code === defaultCode ? 'selected' : '';
+                return `<option value="${code}" ${selected}>${code} &mdash; ${label}</option>`;
+            })
+            .join('');
+        select.value = defaultCode;
+    };
+
     const populateTimezones = () => {
         const select = document.querySelector('#timezoneSelect');
         if (!select) return;
@@ -907,6 +958,7 @@ const AdminApp = (() => {
         const currencies = state.settings?.currencies || [];
         if (!currencies.length) {
             selectors.currencyBadges.innerHTML = '<span class="badge bg-secondary">Para birimi ekleyin</span>';
+            populateCurrencySelect();
             return;
         }
         selectors.currencyBadges.innerHTML = currencies
@@ -915,6 +967,7 @@ const AdminApp = (() => {
                 return `<span class="badge rounded-pill ${badgeClass} me-2 mb-2">${escapeHtml(currency.code)} &mdash; ${escapeHtml(currency.name || currency.code)}</span>`;
             })
             .join('');
+        populateCurrencySelect();
     };
 
     const bindOrderActions = () => {
@@ -1452,6 +1505,7 @@ const AdminApp = (() => {
         bindMenuManagement();
         bindSettingsForms();
         populateDefaultLanguage();
+        populateCurrencySelect();
         populateTimezones();
         updateBrandingPreviews();
         updateAudioSources();

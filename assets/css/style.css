@@ -433,10 +433,50 @@ a:hover {
 
 .table-card__body .session-orders li {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   font-size: 13px;
   color: rgba(31, 41, 51, 0.6);
+}
+
+.session-orders__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.session-orders__meta {
+  font-size: 12px;
+  color: rgba(31, 41, 51, 0.55);
+}
+
+.session-orders__total {
+  font-weight: 600;
+}
+
+.session-orders__items {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-orders__items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(31, 41, 51, 0.55);
+}
+
+.session-orders__items small {
+  display: block;
+  font-size: 11px;
+  color: rgba(31, 41, 51, 0.5);
 }
 
 .table-card__footer {
@@ -682,17 +722,28 @@ a:hover {
   }
 
   .menu-hero .menu-controls {
-    justify-content: flex-start;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  #languageSelect {
+    grid-column: span 2;
+  }
+
+  #currencySelect,
+  .menu-controls__waiter {
+    grid-column: span 1;
   }
 }
 
 @media (max-width: 576px) {
   .cart-drawer {
-    width: calc(100% - 24px);
+    width: 100%;
     padding: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    transform: none;
+    border-radius: 28px 28px 0 0;
   }
 
   .cart-drawer__footer {
@@ -777,17 +828,19 @@ a:hover {
 }
 
 .menu-hero .menu-controls {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(140px, auto);
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .menu-hero .menu-controls select {
   border-radius: 999px;
   padding: 10px 18px;
-  min-width: 120px;
+  min-width: 0;
+  width: 100%;
   border: none;
   font-weight: 600;
   color: #1f2933;
@@ -803,6 +856,11 @@ a:hover {
   font-weight: 600;
   box-shadow: 0 12px 32px rgba(251, 188, 5, 0.35);
   transition: background 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  white-space: nowrap;
 }
 
 .menu-controls__waiter:hover {
@@ -851,8 +909,8 @@ a:hover {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.75);
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.9);
   padding: 6px;
   border: 2px solid var(--theme-color);
 }

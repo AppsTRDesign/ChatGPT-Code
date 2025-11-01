@@ -240,7 +240,7 @@ class SettingsService
             $data['phone'] ?? null,
             $data['description'] ?? null,
             $data['address'] ?? null,
-            $data['currency'] ?? 'TRY',
+            isset($data['currency']) ? strtoupper($data['currency']) : 'TRY',
             $data['timezone'] ?? 'Europe/Istanbul',
             $data['language'] ?? 'tr',
             $data['theme_color'] ?? '#0f9d58',
