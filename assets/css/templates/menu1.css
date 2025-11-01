@@ -20,3 +20,51 @@ body.template-menu1 .menu-bottom-nav {
 body.template-menu1 .cart-floating {
     box-shadow: 0 18px 45px rgba(15, 157, 88, 0.35);
 }
+
+body.template-menu1 .product-sheet,
+body.template-menu1 .cart-drawer,
+body.template-menu1 .order-track-card,
+body.template-menu1 .contact-details,
+body.template-menu1 .contact-form {
+    background: #ffffff;
+    color: #1f2933;
+    border: 1px solid rgba(15, 157, 88, 0.12);
+    box-shadow: 0 18px 45px rgba(15, 157, 88, 0.1);
+}
+
+body.template-menu1 .cart-item {
+    border-color: rgba(15, 157, 88, 0.18);
+}
+
+body.template-menu1 .cart-drawer__footer .btn-primary,
+body.template-menu1 .product-sheet__footer .btn-primary,
+body.template-menu1 .order-track-card__footer .btn-primary {
+    background: var(--theme-color);
+    border: none;
+    color: #ffffff;
+}
+
+body.template-menu1 .cart-drawer__footer .btn-outline-secondary,
+body.template-menu1 .product-sheet__footer .btn-outline-secondary {
+    border-color: rgba(15, 157, 88, 0.35);
+    color: rgba(15, 157, 88, 0.95);
+}
+
+body.template-menu1 .overlay-variant {
+    background: rgba(240, 253, 244, 0.92);
+    border: 1px solid rgba(15, 157, 88, 0.22);
+    color: #0f4a2c;
+}
+
+body.template-menu1 .overlay-variant.active,
+body.template-menu1 .overlay-variant:hover {
+    background: rgba(15, 157, 88, 0.12);
+    border-color: var(--theme-color);
+    color: #0f3d25;
+}
+
+body.template-menu1 .order-track-card__head h4,
+body.template-menu1 .order-track-card__items span,
+body.template-menu1 .order-track-card__footer strong {
+    color: inherit;
+}

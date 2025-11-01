@@ -98,3 +98,42 @@ body.template-menu5 select {
     background: rgba(255, 154, 139, 0.08);
     color: #2b1d25;
 }
+
+body.template-menu5 .product-sheet,
+body.template-menu5 .cart-drawer,
+body.template-menu5 .order-track-card {
+    background: rgba(255, 255, 255, 0.94);
+    color: #2b1d25;
+    border: 1px solid rgba(255, 106, 136, 0.18);
+    box-shadow: 0 26px 60px rgba(255, 106, 136, 0.28);
+}
+
+body.template-menu5 .cart-item {
+    border-color: rgba(255, 106, 136, 0.16);
+}
+
+body.template-menu5 .cart-drawer__footer .btn-primary,
+body.template-menu5 .product-sheet__footer .btn-primary {
+    background: linear-gradient(135deg, #ff6a88, #ff99ac);
+    border: none;
+    color: #ffffff;
+}
+
+body.template-menu5 .cart-drawer__footer .btn-outline-secondary,
+body.template-menu5 .product-sheet__footer .btn-outline-secondary {
+    border-color: rgba(255, 106, 136, 0.35);
+    color: #ff6a88;
+}
+
+body.template-menu5 .overlay-variant {
+    background: rgba(255, 221, 228, 0.92);
+    border: 1px solid rgba(255, 106, 136, 0.22);
+    color: #2b1d25;
+}
+
+body.template-menu5 .overlay-variant.active,
+body.template-menu5 .overlay-variant:hover {
+    background: rgba(255, 154, 139, 0.16);
+    border-color: #ff6a88;
+    color: #2b1d25;
+}

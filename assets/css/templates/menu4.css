@@ -97,3 +97,42 @@ body.template-menu4 select {
     border-radius: 14px;
     border: 1px solid rgba(0, 0, 0, 0.08);
 }
+
+body.template-menu4 .product-sheet,
+body.template-menu4 .cart-drawer,
+body.template-menu4 .order-track-card {
+    background: #ffffff;
+    color: #1b1d21;
+    border: 1px solid rgba(30, 136, 229, 0.12);
+    box-shadow: 0 20px 55px rgba(30, 136, 229, 0.12);
+}
+
+body.template-menu4 .cart-item {
+    border-color: rgba(30, 136, 229, 0.16);
+}
+
+body.template-menu4 .cart-drawer__footer .btn-primary,
+body.template-menu4 .product-sheet__footer .btn-primary {
+    background: #1e88e5;
+    border: none;
+    color: #ffffff;
+}
+
+body.template-menu4 .cart-drawer__footer .btn-outline-secondary,
+body.template-menu4 .product-sheet__footer .btn-outline-secondary {
+    border-color: rgba(30, 136, 229, 0.35);
+    color: #1e88e5;
+}
+
+body.template-menu4 .overlay-variant {
+    background: rgba(236, 245, 255, 0.92);
+    border: 1px solid rgba(30, 136, 229, 0.18);
+    color: #1b1d21;
+}
+
+body.template-menu4 .overlay-variant.active,
+body.template-menu4 .overlay-variant:hover {
+    background: rgba(30, 136, 229, 0.12);
+    border-color: #1e88e5;
+    color: #1b1d21;
+}
