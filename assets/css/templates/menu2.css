@@ -25,6 +25,11 @@ body.template-menu2 .menu-controls__waiter {
     color: #0d0f1a;
 }
 
+body.template-menu2 .menu-controls__waiter:hover,
+body.template-menu2 .menu-controls__waiter:focus {
+    filter: brightness(1.05);
+}
+
 body.template-menu2 .menu-block {
     background: rgba(19, 22, 39, 0.85);
     border-radius: 24px;
@@ -55,6 +60,11 @@ body.template-menu2 .daily-card__action {
     background: linear-gradient(135deg, #ff7b54, #ffb26b);
     color: #0f0f1c;
     border: none;
+}
+
+body.template-menu2 .product-card__action:hover,
+body.template-menu2 .daily-card__action:hover {
+    filter: brightness(1.05);
 }
 
 body.template-menu2 .menu-bottom-nav {
@@ -93,10 +103,27 @@ body.template-menu2 select {
 }
 
 body.template-menu2 .btn-primary,
-body.template-menu2 .btn-success {
+body.template-menu2 .btn-success,
+body.template-menu2 .product-sheet__footer .btn-success,
+body.template-menu2 .cart-drawer__footer .btn-success,
+body.template-menu2 .contact-form .btn-primary,
+body.template-menu2 .menu-block .btn-primary,
+body.template-menu2 .menu-block .btn-success {
     background: linear-gradient(135deg, #ff7b54, #ffb26b);
     border: none;
     color: #0d0f1a;
+}
+
+body.template-menu2 .btn-primary:hover,
+body.template-menu2 .btn-success:hover {
+    filter: brightness(1.06);
+}
+
+body.template-menu2 .btn-light,
+body.template-menu2 .btn-light:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #f7f8ff;
 }
 
 body.template-menu2 .product-sheet,
@@ -135,6 +162,7 @@ body.template-menu2 .cart-drawer__footer .btn-outline-secondary,
 body.template-menu2 .product-sheet__footer .btn-outline-secondary {
     border-color: rgba(255, 255, 255, 0.22);
     color: rgba(255, 255, 255, 0.82);
+    background: rgba(19, 22, 39, 0.85);
 }
 
 body.template-menu2 .overlay-variant {

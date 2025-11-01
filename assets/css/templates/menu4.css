@@ -28,6 +28,11 @@ body.template-menu4 .menu-controls__waiter {
     color: #1b1d21;
 }
 
+body.template-menu4 .menu-controls__waiter:hover,
+body.template-menu4 .menu-controls__waiter:focus {
+    background: rgba(30, 136, 229, 0.2);
+}
+
 body.template-menu4 .menu-block {
     background: #ffffff;
     border-radius: 20px;
@@ -112,7 +117,12 @@ body.template-menu4 .cart-item {
 }
 
 body.template-menu4 .cart-drawer__footer .btn-primary,
-body.template-menu4 .product-sheet__footer .btn-primary {
+body.template-menu4 .product-sheet__footer .btn-primary,
+body.template-menu4 .cart-drawer__footer .btn-success,
+body.template-menu4 .product-sheet__footer .btn-success,
+body.template-menu4 .contact-form .btn-primary,
+body.template-menu4 .menu-block .btn-primary,
+body.template-menu4 .menu-block .btn-success {
     background: #1e88e5;
     border: none;
     color: #ffffff;
@@ -122,6 +132,14 @@ body.template-menu4 .cart-drawer__footer .btn-outline-secondary,
 body.template-menu4 .product-sheet__footer .btn-outline-secondary {
     border-color: rgba(30, 136, 229, 0.35);
     color: #1e88e5;
+    background: rgba(30, 136, 229, 0.08);
+}
+
+body.template-menu4 .btn-light,
+body.template-menu4 .btn-light:focus {
+    background: rgba(30, 136, 229, 0.12);
+    border: none;
+    color: #1b1d21;
 }
 
 body.template-menu4 .overlay-variant {

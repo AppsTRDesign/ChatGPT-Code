@@ -30,6 +30,11 @@ body.template-menu5 .menu-controls__waiter {
     font-weight: 600;
 }
 
+body.template-menu5 .menu-controls__waiter:hover,
+body.template-menu5 .menu-controls__waiter:focus {
+    filter: brightness(1.05);
+}
+
 body.template-menu5 .menu-block {
     background: rgba(255, 255, 255, 0.92);
     border-radius: 28px;
@@ -113,7 +118,12 @@ body.template-menu5 .cart-item {
 }
 
 body.template-menu5 .cart-drawer__footer .btn-primary,
-body.template-menu5 .product-sheet__footer .btn-primary {
+body.template-menu5 .product-sheet__footer .btn-primary,
+body.template-menu5 .cart-drawer__footer .btn-success,
+body.template-menu5 .product-sheet__footer .btn-success,
+body.template-menu5 .contact-form .btn-primary,
+body.template-menu5 .menu-block .btn-primary,
+body.template-menu5 .menu-block .btn-success {
     background: linear-gradient(135deg, #ff6a88, #ff99ac);
     border: none;
     color: #ffffff;
@@ -123,6 +133,14 @@ body.template-menu5 .cart-drawer__footer .btn-outline-secondary,
 body.template-menu5 .product-sheet__footer .btn-outline-secondary {
     border-color: rgba(255, 106, 136, 0.35);
     color: #ff6a88;
+    background: rgba(255, 154, 139, 0.12);
+}
+
+body.template-menu5 .btn-light,
+body.template-menu5 .btn-light:focus {
+    background: rgba(255, 154, 139, 0.18);
+    border: none;
+    color: #2b1d25;
 }
 
 body.template-menu5 .overlay-variant {
