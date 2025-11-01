@@ -24,52 +24,26 @@ $sessionStatement->execute([
 
 $sessions = $sessionStatement->fetchAll() ?: [];
 
-$orders = [];
-
-if (!empty($sessions)) {
-    $orders = array_map(static function ($row) use ($currency) {
-        $payload = json_decode($row['payload'] ?? '{}', true) ?: [];
-        $total = isset($payload['total']) ? (float)$payload['total'] : 0.0;
-        $items = array_map(static function ($item) {
-            return [
-                'name' => $item['name'] ?? '',
-                'variant_name' => $item['variant_name'] ?? null,
-                'quantity' => (int)($item['quantity'] ?? 0),
-            ];
-        }, $payload['items'] ?? []);
-
+$orders = array_map(static function ($row) use ($currency) {
+    $payload = json_decode($row['payload'] ?? '{}', true) ?: [];
+    $total = isset($payload['total']) ? (float)$payload['total'] : 0.0;
+    $items = array_map(static function ($item) {
         return [
-            'id' => (int)$row['order_id'],
-            'status' => $row['status'],
-            'created_at' => $row['updated_at'],
-            'total' => $total,
-            'total_formatted' => number_format($total, 2, ',', '.') . ' ' . $currency,
-            'items' => $items,
+            'name' => $item['name'] ?? '',
+            'variant_name' => $item['variant_name'] ?? null,
+            'quantity' => (int)($item['quantity'] ?? 0),
         ];
-    }, $sessions);
-} else {
-    $sql = "SELECT o.id, o.status, o.total, DATE_FORMAT(o.created_at, '%d.%m.%Y %H:%i') AS created_at
-        FROM orders o
-        WHERE o.restaurant_id = :restaurant AND o.table_id = :table
-        ORDER BY o.created_at DESC LIMIT 10";
-    $statement = $db->prepare($sql);
-    $statement->execute([
-        ':restaurant' => $restaurantId,
-        ':table' => $tableId,
-    ]);
+    }, $payload['items'] ?? []);
 
-    $orders = array_map(static function ($order) use ($db, $currency) {
-        $itemsStatement = $db->prepare('SELECT p.name, oi.quantity, pv.name AS variant_name FROM order_items oi INNER JOIN products p ON p.id = oi.product_id LEFT JOIN product_variants pv ON pv.id = oi.variant_id WHERE oi.order_id = ?');
-        $itemsStatement->execute([$order['id']]);
-        $order['items'] = $itemsStatement->fetchAll() ?: [];
-        $order['total'] = (float)$order['total'];
-        $order['total_formatted'] = number_format($order['total'], 2, ',', '.') . ' ' . $currency;
-        if ($order['status'] === 'Tamamlandı') {
-            $order['status'] = 'Ödeme Alındı';
-        }
-        return $order;
-    }, $statement->fetchAll() ?: []);
-}
+    return [
+        'id' => (int)$row['order_id'],
+        'status' => $row['status'],
+        'created_at' => $row['updated_at'],
+        'total' => $total,
+        'total_formatted' => number_format($total, 2, ',', '.') . ' ' . $currency,
+        'items' => $items,
+    ];
+}, $sessions);
 
 Response::json([
     'orders' => $orders,

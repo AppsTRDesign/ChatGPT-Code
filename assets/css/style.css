@@ -776,17 +776,13 @@ a:hover {
   }
 
   .menu-hero .menu-controls {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+    justify-content: space-between;
   }
 
-  #languageSelect {
-    grid-column: span 2;
-  }
-
-  #currencySelect,
+  .menu-hero .menu-controls select,
   .menu-controls__waiter {
-    grid-column: span 1;
+    flex: 1 1 0;
   }
 }
 
@@ -800,13 +796,14 @@ a:hover {
   }
 
   .menu-hero .menu-controls {
-    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
-  #languageSelect,
-  #currencySelect,
+  .menu-hero .menu-controls select,
   .menu-controls__waiter {
-    grid-column: span 1;
+    flex: 1 1 0;
+    padding: 8px 12px;
+    font-size: 13px;
   }
 
   .cart-drawer__footer {
@@ -814,6 +811,8 @@ a:hover {
     align-items: stretch;
     gap: 12px;
   }
+
+}
 
 .cart-floating {
   right: 16px;
@@ -835,6 +834,21 @@ a:hover {
 @media (max-width: 768px) {
   .contact-form {
     padding: 20px;
+  }
+
+  .contact-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .contact-form,
+  .contact-details {
+    width: 100%;
+  }
+
+  .contact-details {
+    order: -1;
   }
 }
 
@@ -915,22 +929,24 @@ a:hover {
 }
 
 .menu-hero .menu-controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  align-items: center;
+  display: flex;
+  align-items: stretch;
   justify-content: flex-end;
   gap: 12px;
+  flex-wrap: nowrap;
+  width: 100%;
 }
 
 .menu-hero .menu-controls select {
   border-radius: 999px;
   padding: 10px 18px;
   min-width: 0;
-  width: 100%;
   border: none;
   font-weight: 600;
   color: #1f2933;
   background: #ffffff;
+  flex: 0 1 150px;
+  text-align: center;
 }
 
 .menu-controls__waiter {
@@ -945,8 +961,9 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
   white-space: nowrap;
+  flex: 0 1 150px;
+  min-width: 0;
 }
 
 .menu-controls__waiter:hover {
@@ -1318,7 +1335,7 @@ a:hover {
   border-top-right-radius: 24px;
   box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.12);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 12px 16px;
   z-index: 1020;
 }
@@ -1346,6 +1363,11 @@ a:hover {
 
 .menu-bottom-nav__item.active i {
   transform: scale(1.1);
+}
+
+.menu-bottom-nav__item.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .quantity-picker {
@@ -1499,6 +1521,8 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .contact-details__item {

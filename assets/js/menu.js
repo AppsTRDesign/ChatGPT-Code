@@ -93,6 +93,7 @@ const MenuApp = (() => {
         addToCartButton: document.querySelector('#addToCartButton'),
         closeProductOverlay: document.querySelector('#closeProductOverlay'),
         orderStatusList: document.querySelector('#orderStatusList'),
+        orderSection: document.querySelector('#orderSection'),
         refreshOrders: document.querySelector('#refreshOrders'),
         audioOrder: document.querySelector('#audioOrder'),
         audioNotify: document.querySelector('#audioNotify'),
@@ -158,35 +159,72 @@ const MenuApp = (() => {
     };
 
     let cachedRates = {};
+    let ratePromises = {};
 
-    const convertPrice = (price) => {
-        const amount = Number(price) || 0;
+    const refreshPriceViews = () => {
+        renderDailyMenu();
+        renderProducts();
+        updateCartSummary();
+        renderCart();
+        updateOverlayButton();
+        renderOrderStatus();
+    };
+
+    const ensureRate = () => {
         const key = `${state.baseCurrency}_${state.currency}`;
 
-        if (state.currency === state.baseCurrency) return amount.toFixed(2);
-
-        if (cachedRates[key]) {
-            return (amount * cachedRates[key]).toFixed(2);
+        if (state.currency === state.baseCurrency) {
+            cachedRates[key] = 1;
+            return Promise.resolve(1);
         }
 
-        fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`)
+        if (cachedRates[key]) {
+            return Promise.resolve(cachedRates[key]);
+        }
+
+        if (ratePromises[key]) {
+            return ratePromises[key];
+        }
+
+        ratePromises[key] = fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`)
             .then((data) => {
                 const rate =
                     parseNumeric(data.rate) ??
                     parseNumeric(data.secondary) ??
                     parseNumeric(data.primary) ??
                     parseNumeric(data.amount);
-                if (rate !== null) {
+                if (rate && rate > 0) {
                     cachedRates[key] = rate;
-                    renderProducts();
-                    renderDailyMenu();
-                    updateCartSummary();
-                    renderCart();
-                    renderOrderStatus();
-                    updateOverlayButton();
+                    refreshPriceViews();
+                    return rate;
                 }
+                throw new Error('Kur bilgisi alınamadı.');
             })
-            .catch((e) => console.error('Kur çevrim hatası', e));
+            .catch((error) => {
+                console.error('Kur çevrim hatası', error);
+                return null;
+            })
+            .finally(() => {
+                delete ratePromises[key];
+            });
+
+        return ratePromises[key];
+    };
+
+    const convertPrice = (price) => {
+        const amount = Number(price) || 0;
+
+        if (state.currency === state.baseCurrency) {
+            return amount.toFixed(2);
+        }
+
+        const key = `${state.baseCurrency}_${state.currency}`;
+
+        if (cachedRates[key]) {
+            return (amount * cachedRates[key]).toFixed(2);
+        }
+
+        ensureRate();
 
         return amount.toFixed(2);
     };
@@ -539,18 +577,36 @@ const MenuApp = (() => {
 
     const refreshOrderStatus = async () => {
         if (!state.tableId || !elements.orderStatusList) return;
-        const data = await fetchJSON(`api/order-status.php?table_id=${state.tableId}`);
-        state.orders = data.orders || [];
+        try {
+            const data = await fetchJSON(`api/order-status.php?table_id=${state.tableId}`);
+            state.orders = data.orders || [];
+        } catch (error) {
+            console.error('Sipariş durumu yüklenemedi', error);
+            state.orders = [];
+        }
         renderOrderStatus();
     };
 
     const renderOrderStatus = () => {
         if (!elements.orderStatusList) return;
         elements.orderStatusList.innerHTML = '';
+        const orderNavButton = elements.bottomNav?.querySelector('[data-target="orderSection"]');
         if (!state.orders.length) {
-            elements.orderStatusList.innerHTML = '<p class="text-muted">Henüz siparişiniz bulunmuyor.</p>';
+            if (orderNavButton) {
+                orderNavButton.classList.add('is-disabled');
+                orderNavButton.setAttribute('aria-disabled', 'true');
+            }
+            if (elements.orderSection) {
+                elements.orderSection.classList.add('d-none');
+            }
+            if (state.activeNav === 'orderSection') {
+                highlightBottomNav('homeSection');
+            }
             return;
         }
+        orderNavButton?.classList.remove('is-disabled');
+        orderNavButton?.removeAttribute('aria-disabled');
+        elements.orderSection?.classList.remove('d-none');
         state.orders.forEach((order) => {
             const card = document.createElement('div');
             card.className = 'order-track-card';
@@ -616,6 +672,9 @@ const MenuApp = (() => {
         elements.bottomNav.addEventListener('click', (event) => {
             const button = event.target.closest('.menu-bottom-nav__item');
             if (!button) return;
+            if (button.classList.contains('is-disabled')) {
+                return;
+            }
             const action = button.dataset.action;
             if (action === 'cart') {
                 toggleCart(true);
@@ -683,12 +742,9 @@ const MenuApp = (() => {
         elements.currencySelect?.addEventListener('change', (event) => {
             state.currency = event.target.value.toUpperCase();
             cachedRates = {};
-            renderProducts();
-            renderDailyMenu();
-            updateCartSummary();
-            renderCart();
-            updateOverlayButton();
-            renderOrderStatus();
+            ratePromises = {};
+            refreshPriceViews();
+            ensureRate();
             updateMenuLocation(state.language, state.currency, true);
         });
 
@@ -828,9 +884,9 @@ const MenuApp = (() => {
         window.translationAddToCart = window.MENU_STATE?.addToCartText || 'Sepete Ekle';
         state.language = elements.languageSelect?.value || state.language;
         applyAudioSources();
+        ensureRate();
         await loadMenu();
-        renderProducts();
-        updateCartSummary();
+        refreshPriceViews();
         await refreshOrderStatus();
         bindEvents();
         bindBottomNav();
