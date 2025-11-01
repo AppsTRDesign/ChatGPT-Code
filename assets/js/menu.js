@@ -47,7 +47,6 @@ const MenuApp = (() => {
         baseCurrency: (document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         currency: (document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         language: document.body.dataset.currentLanguage || (window.MENU_STATE?.languages?.[0] || 'tr'),
-        currencyCache: new Map(),
         tableId: Number(document.body.dataset.tableId || 0),
         tableName: window.MENU_STATE?.tableName || '',
         orders: [],
@@ -143,53 +142,36 @@ const MenuApp = (() => {
         return Number.isFinite(numeric) ? numeric : null;
     };
 
+    let cachedRates = {};
+
     const convertPrice = (price) => {
         const amount = Number(price) || 0;
+        const key = `${state.baseCurrency}_${state.currency}`;
 
-        if (state.currency === state.baseCurrency) {
-            return amount.toFixed(2);
+        if (state.currency === state.baseCurrency) return amount.toFixed(2);
+
+        if (cachedRates[key]) {
+            return (amount * cachedRates[key]).toFixed(2);
         }
 
-        const cacheKey = `${state.baseCurrency}-${state.currency}-${amount.toFixed(2)}`;
-        const cached = state.currencyCache.get(cacheKey);
-        if (typeof cached === 'string') {
-            return cached;
-        }
-        if (cached && typeof cached === 'object' && cached.pending) {
-            return cached.value;
-        }
-
-        const placeholder = amount.toFixed(2);
-        state.currencyCache.set(cacheKey, { pending: true, value: placeholder });
-
-        const params = new URLSearchParams({
-            from: state.baseCurrency,
-            to: state.currency,
-            amount: amount.toString(),
-        });
-
-        fetchJSON(`api/currency.php?${params.toString()}`)
+        fetchJSON(`api/currency.php?from=${state.baseCurrency}&to=${state.currency}&amount=1`)
             .then((data) => {
-                const convertedAmount =
-                    parseNumeric(data.amount) ??
+                const rate =
                     parseNumeric(data.secondary) ??
-                    parseNumeric(data.primary);
-                const resolved = convertedAmount !== null ? convertedAmount.toFixed(2) : placeholder;
-                state.currencyCache.set(cacheKey, resolved);
+                    parseNumeric(data.primary) ??
+                    parseNumeric(data.amount);
+                if (rate !== null) {
+                    cachedRates[key] = rate;
+                    renderProducts();
+                    updateCartSummary();
+                    renderCart();
+                    renderOrderStatus();
+                    updateOverlayButton();
+                }
             })
-            .catch((error) => {
-                console.error('Kur çevrim hatası', error);
-                state.currencyCache.set(cacheKey, placeholder);
-            })
-            .finally(() => {
-                renderProducts();
-                updateCartSummary();
-                renderCart();
-                renderOrderStatus();
-                updateOverlayButton();
-            });
+            .catch((e) => console.error('Kur çevrim hatası', e));
 
-        return placeholder;
+        return amount.toFixed(2);
     };
 
     const statusToClass = (status = '') => {
@@ -524,19 +506,10 @@ const MenuApp = (() => {
         audioElement.play().catch(() => {});
     };
 
-    const updateExchangeRate = async () => {
-        if (state.currencyCache?.clear) {
-            state.currencyCache.clear();
-        } else {
-            state.currencyCache = new Map();
-        }
-        updateOverlayButton();
-    };
-
     const bindEvents = () => {
-        elements.currencySelect?.addEventListener('change', async (event) => {
+        elements.currencySelect?.addEventListener('change', (event) => {
             state.currency = event.target.value.toUpperCase();
-            await updateExchangeRate();
+            cachedRates = {};
             renderProducts();
             updateCartSummary();
             renderCart();
@@ -682,7 +655,6 @@ const MenuApp = (() => {
         state.language = elements.languageSelect?.value || state.language;
         applyAudioSources();
         await loadMenu();
-        await updateExchangeRate();
         renderProducts();
         updateCartSummary();
         await refreshOrderStatus();
