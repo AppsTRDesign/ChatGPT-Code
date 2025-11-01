@@ -410,6 +410,7 @@ class SettingsService
         $payload = [
             'order_sound' => $this->normalizeMedia($data['order_sound'] ?? null) ?: self::DEFAULT_ORDER_SOUND,
             'waiter_sound' => $this->normalizeMedia($data['waiter_sound'] ?? null) ?: self::DEFAULT_WAITER_SOUND,
+            'flash_enabled' => filter_var($data['flash_enabled'] ?? false, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
         ];
 
         $this->saveSection('notifications', $payload);
@@ -485,10 +486,12 @@ class SettingsService
         $section = $this->getSection('notifications');
         $order = $section['order_sound'] ?? self::DEFAULT_ORDER_SOUND;
         $waiter = $section['waiter_sound'] ?? self::DEFAULT_WAITER_SOUND;
+        $flash = filter_var($section['flash_enabled'] ?? false, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
 
         return [
             'order_sound' => $this->mediaUrl($order),
             'waiter_sound' => $this->mediaUrl($waiter),
+            'flash_enabled' => $flash ?? false,
         ];
     }
 

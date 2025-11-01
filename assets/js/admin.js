@@ -51,6 +51,7 @@ const AdminApp = (() => {
         productSearch: '',
         productCategory: 'all',
         dailyMenu: [],
+        flashTimeout: null,
     };
 
     const escapeHtml = (value = '') => String(value)
@@ -151,6 +152,9 @@ const AdminApp = (() => {
         dailyMenuModal: document.querySelector('#dailyMenuModal'),
         dailyMenuForm: document.querySelector('#dailyMenuForm'),
         saveDailyMenu: document.querySelector('#saveDailyMenu'),
+        flashOverlay: document.querySelector('#alertFlash'),
+        flashOverlayText: document.querySelector('#alertFlashText'),
+        flashToggle: document.querySelector('#flashToggle'),
     };
 
     const toast = Swal.mixin({
@@ -201,12 +205,49 @@ const AdminApp = (() => {
         audioElement.play().catch(() => {});
     };
 
-    const updateSidebarToggleLabel = () => {
-        const label = selectors.sidebarToggle?.querySelector('span');
-        if (!label) {
+    const hideFlash = () => {
+        if (state.flashTimeout) {
+            clearTimeout(state.flashTimeout);
+            state.flashTimeout = null;
+        }
+        if (!selectors.flashOverlay) {
             return;
         }
-        label.textContent = selectors.dashboardRoot?.classList.contains('sidebar-open') ? 'Menüyü Kapat' : 'Menüyü Aç';
+        selectors.flashOverlay.classList.remove('active');
+        selectors.flashOverlay.setAttribute('aria-hidden', 'true');
+    };
+
+    const triggerFlash = (message) => {
+        const notifications = state.settings?.notifications || window.APP_STATE?.notifications || {};
+        if (!selectors.flashOverlay || !notifications.flash_enabled) {
+            return;
+        }
+        if (selectors.flashOverlayText) {
+            selectors.flashOverlayText.textContent = message || 'Yeni bildirim';
+        }
+        selectors.flashOverlay.classList.remove('active');
+        // force reflow so CSS animation can restart
+        // eslint-disable-next-line no-unused-expressions
+        selectors.flashOverlay.offsetHeight;
+        selectors.flashOverlay.classList.add('active');
+        selectors.flashOverlay.setAttribute('aria-hidden', 'false');
+        if (state.flashTimeout) {
+            clearTimeout(state.flashTimeout);
+        }
+        state.flashTimeout = setTimeout(() => {
+            hideFlash();
+        }, 1800);
+    };
+
+    const updateSidebarToggleLabel = () => {
+        const isOpen = selectors.dashboardRoot?.classList.contains('sidebar-open');
+        const label = selectors.sidebarToggle?.querySelector('[data-toggle-label]');
+        if (label) {
+            label.textContent = isOpen ? 'Menüyü Kapat' : 'Menüyü Aç';
+        }
+        if (selectors.sidebarToggle) {
+            selectors.sidebarToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
     };
 
     const closeSidebar = () => {
@@ -242,6 +283,12 @@ const AdminApp = (() => {
         });
 
         updateSidebarToggleLabel();
+    };
+
+    const bindFlashOverlay = () => {
+        selectors.flashOverlay?.addEventListener('click', () => {
+            hideFlash();
+        });
     };
 
     const detectSectionFromLocation = () => {
@@ -1086,6 +1133,14 @@ const AdminApp = (() => {
         if (waiterInput) {
             waiterInput.value = notifications.waiter_sound || '';
         }
+        if (selectors.flashToggle) {
+            const enabled = Boolean(notifications.flash_enabled);
+            selectors.flashToggle.checked = enabled;
+            selectors.flashToggle.setAttribute('aria-checked', enabled ? 'true' : 'false');
+            if (!enabled) {
+                hideFlash();
+            }
+        }
     };
 
     const populateMailSettings = () => {
@@ -1347,6 +1402,9 @@ const AdminApp = (() => {
         handleSettingsSubmit(selectors.qrForm, (formData) => ({ qr: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.notificationsForm, (formData) => ({ notifications: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.mailSettingsForm, (formData) => ({ mail: Object.fromEntries(formData.entries()) }), reloadSettings);
+        selectors.flashToggle?.addEventListener('change', () => {
+            selectors.flashToggle.setAttribute('aria-checked', selectors.flashToggle.checked ? 'true' : 'false');
+        });
     };
 
     const bindAccountForm = () => {
@@ -1778,6 +1836,7 @@ const AdminApp = (() => {
             const title = payload.table ? `${payload.table} - ${payload.status}` : `Sipariş ${payload.status}`;
             toast.fire({ icon: 'info', title });
             playAudio(selectors.audioOrder);
+            triggerFlash(title);
             await fetchOrders();
             await fetchTables();
             await fetchDashboard();
@@ -1787,6 +1846,7 @@ const AdminApp = (() => {
             const title = payload.table ? `${payload.table} garson istiyor.` : 'Yeni garson çağrısı';
             toast.fire({ icon: 'warning', title });
             playAudio(selectors.audioNotify);
+            triggerFlash(title);
             await fetchWaiterCalls();
             await fetchTables();
             await fetchDashboard();
@@ -1805,6 +1865,7 @@ const AdminApp = (() => {
         switchSection(state.currentSection);
         window.history.replaceState({ section: state.currentSection }, '', window.location.pathname);
         bindSidebarToggle();
+        bindFlashOverlay();
         bindNavigation();
         bindChartControls();
         initDropzones();

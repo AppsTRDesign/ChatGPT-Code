@@ -134,13 +134,26 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
         </div>
     </aside>
     <div class="dashboard__overlay d-lg-none" id="sidebarOverlay"></div>
-    <main class="dashboard__content">
-        <div class="dashboard__mobile-header d-lg-none">
-            <button type="button" class="dashboard__menu-toggle" id="sidebarToggle">
-                <i class="bx bx-menu"></i>
-                <span>Menüyü Aç</span>
-            </button>
+    <div class="alert-flash" id="alertFlash" role="alert" aria-hidden="true">
+        <div class="alert-flash__content">
+            <span id="alertFlashText">Yeni bildirim</span>
         </div>
+    </div>
+    <main class="dashboard__content">
+        <nav class="navbar navbar-light dashboard__mobile-header d-lg-none">
+            <div class="container-fluid">
+                <span class="navbar-brand">
+                    <?php if (!empty($branding['logo'])): ?>
+                        <img src="<?= htmlspecialchars($branding['logo']) ?>" alt="<?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?>" class="dashboard__mobile-logo">
+                    <?php endif; ?>
+                    <span class="navbar-brand__title"><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></span>
+                </span>
+                <button type="button" class="navbar-toggler dashboard__menu-toggle" id="sidebarToggle" aria-label="Menüyü Aç" aria-expanded="false">
+                    <span class="navbar-toggler-icon"></span>
+                    <span class="dashboard__toggle-label" data-toggle-label>Menüyü Aç</span>
+                </button>
+            </div>
+        </nav>
         <section class="section<?= $currentSection === 'dashboard' ? '' : ' d-none' ?>" id="section-dashboard">
             <div class="row g-3 mb-4" id="summaryCards">
                 <div class="col-6 col-md-3">
@@ -482,6 +495,14 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                             <input type="text" name="waiter_sound" id="waiterSoundInput" class="form-control" value="<?= htmlspecialchars($notifications['waiter_sound'] ?? '') ?>" readonly>
                             <div class="dropzone mt-2 dz-dashed" data-dropzone data-target="#waiterSoundInput" data-audio="#waiterSoundPreview" data-accept="audio/*" data-placeholder="Ses dosyasını buraya bırakın"></div>
                             <audio id="waiterSoundPreview" class="w-100 mt-2" controls src="<?= htmlspecialchars($waiterSound) ?>"></audio>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch mt-2">
+                                <input type="hidden" name="flash_enabled" value="0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="flashToggle" name="flash_enabled" value="1" <?= !empty($notifications['flash_enabled']) ? 'checked' : '' ?> aria-checked="<?= !empty($notifications['flash_enabled']) ? 'true' : 'false' ?>">
+                                <label class="form-check-label fw-semibold" for="flashToggle">Tam ekran flaş bildirimi</label>
+                                <small class="text-muted d-block mt-1">Yeni sipariş veya garson çağrısı geldiğinde ekran uyarısı göster.</small>
+                            </div>
                         </div>
                         <div class="col-12 text-end">
                             <button class="btn btn-success" type="submit">Kaydet</button>
