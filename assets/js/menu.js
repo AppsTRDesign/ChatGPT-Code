@@ -62,7 +62,8 @@ const MenuApp = (() => {
         overlayProduct: null,
         overlayVariant: null,
         overlayQuantity: 1,
-        activeNav: 'homeSection',
+        activeNav: 'homePage',
+        sortOption: 'name_asc',
         contact: window.MENU_STATE?.contact || {},
     };
 
@@ -76,6 +77,7 @@ const MenuApp = (() => {
         waiterButton: document.querySelector('#callWaiter'),
         cartButton: document.querySelector('#cartButton'),
         searchInput: document.querySelector('#searchMenu'),
+        sortSelect: document.querySelector('#sortProducts'),
         cartDrawer: document.querySelector('#cartDrawer'),
         cartBackdrop: document.querySelector('#cartBackdrop'),
         closeCart: document.querySelector('#closeCart'),
@@ -93,13 +95,16 @@ const MenuApp = (() => {
         addToCartButton: document.querySelector('#addToCartButton'),
         closeProductOverlay: document.querySelector('#closeProductOverlay'),
         orderStatusList: document.querySelector('#orderStatusList'),
-        orderSection: document.querySelector('#orderSection'),
+        orderPage: document.querySelector('#ordersPage'),
         refreshOrders: document.querySelector('#refreshOrders'),
         audioOrder: document.querySelector('#audioOrder'),
         audioNotify: document.querySelector('#audioNotify'),
         bottomNav: document.querySelector('#menuBottomNav'),
         contactForm: document.querySelector('#contactForm'),
         contactFeedback: document.querySelector('#contactFeedback'),
+        categoryPageList: document.querySelector('#categoryPageList'),
+        categoryPageProducts: document.querySelector('#categoryPageProducts'),
+        pages: document.querySelectorAll('.menu-page'),
     };
 
     const socket = io('https://qrmenu.noasoft.org:4000');
@@ -219,39 +224,48 @@ const MenuApp = (() => {
         updateCartSummary();
     };
 
-    const renderCategories = () => {
-        if (!elements.categories) return;
-        elements.categories.innerHTML = '';
-        const allButton = document.createElement('button');
-        allButton.type = 'button';
-        allButton.className = `category-card ${state.selectedCategory === null ? 'active' : ''}`;
-        allButton.innerHTML = '<span class="badge">🍽️</span><strong>Tümü</strong>';
-        allButton.addEventListener('click', () => {
-            state.selectedCategory = null;
-            renderCategories();
-            renderProducts();
-            scrollToSection('productSection');
-        });
-        elements.categories.appendChild(allButton);
+    const selectCategory = (categoryId = null) => {
+        state.selectedCategory = categoryId === null ? null : Number(categoryId);
+        renderCategories();
+        renderProducts();
+    };
 
-        [...state.categories].sort((a, b) => a.name.localeCompare(b.name, 'tr')).forEach((category) => {
+    const renderCategoryContainer = (container, categories, { includeAll = true } = {}) => {
+        if (!container) return;
+        container.innerHTML = '';
+
+        const addButton = (label, iconHtml, isActive, onClick) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = `category-card ${Number(state.selectedCategory) === Number(category.id) ? 'active' : ''}`;
+            button.className = `category-card ${isActive ? 'active' : ''}`;
+            button.innerHTML = `${iconHtml}<strong>${escapeHtml(label)}</strong>`;
+            button.addEventListener('click', onClick);
+            container.appendChild(button);
+        };
+
+        if (includeAll) {
+            addButton('Tümü', '<span class="badge">🍽️</span>', state.selectedCategory === null, () => selectCategory(null));
+        }
+
+        categories.forEach((category) => {
             const iconHtml = category.image
-                ? `<img src="${resolveAsset(category.image)}" alt="${category.name}" loading="lazy">`
+                ? `<img src="${resolveAsset(category.image)}" alt="${escapeHtml(category.name)}" loading="lazy">`
                 : category.icon
                     ? `<span class="badge"><i class="${resolveIconClass(category.icon)}"></i></span>`
                     : '<span class="badge">🍽️</span>';
-            button.innerHTML = `${iconHtml}<strong>${category.name}</strong>`;
-            button.addEventListener('click', () => {
-                state.selectedCategory = Number(category.id);
-                renderCategories();
-                renderProducts();
-                scrollToSection('productSection');
-            });
-            elements.categories.appendChild(button);
+            addButton(
+                category.name,
+                iconHtml,
+                Number(state.selectedCategory) === Number(category.id),
+                () => selectCategory(Number(category.id)),
+            );
         });
+    };
+
+    const renderCategories = () => {
+        const sortedCategories = [...state.categories].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+        renderCategoryContainer(elements.categories, sortedCategories, { includeAll: true });
+        renderCategoryContainer(elements.categoryPageList, sortedCategories, { includeAll: true });
     };
 
     const renderDailyMenu = () => {
@@ -298,38 +312,78 @@ const MenuApp = (() => {
         });
     };
 
-    const renderProducts = () => {
-        if (!elements.products) return;
-        elements.products.innerHTML = '';
+    const sortProducts = (products) => {
+        const items = [...products];
+        const parsePrice = (value) => Number.parseFloat(value) || 0;
+        switch (state.sortOption) {
+            case 'name_desc':
+                return items.sort((a, b) => b.name.localeCompare(a.name, 'tr'));
+            case 'price_asc':
+                return items.sort((a, b) => parsePrice(a.price) - parsePrice(b.price));
+            case 'price_desc':
+                return items.sort((a, b) => parsePrice(b.price) - parsePrice(a.price));
+            case 'name_asc':
+            default:
+                return items.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+        }
+    };
+
+    const filterProducts = () => {
         const query = elements.searchInput?.value.trim().toLowerCase() || '';
-        state.products
-            .filter((product) => {
-                if (state.selectedCategory && Number(product.category_id) !== Number(state.selectedCategory)) {
-                    return false;
-                }
-                if (!query) return true;
-                return product.name.toLowerCase().includes(query) || (product.description || '').toLowerCase().includes(query);
-            })
-            .forEach((product) => {
-                const card = document.createElement('div');
-                card.className = 'product-card';
-                const productImage = resolveAsset(product.image, 'assets/vendor/demo/coffee-1.png');
-                const priceText = `${convertPrice(product.price)} ${state.currency}`;
-                card.innerHTML = `
-                    <img src="${productImage}" alt="${product.name}" loading="lazy" />
-                    <div class="product-card__body">
-                        <h3>${product.name}</h3>
-                        ${product.description ? `<p>${product.description}</p>` : ''}
-                        <div class="product-card__price">${priceText}</div>
-                    </div>
-                    <button type="button" class="product-card__action" data-product="${product.id}">
-                        <i class="bx bx-cart-add"></i>
-                        <span>${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</span>
-                    </button>
-                `;
-                card.querySelector('.product-card__action').addEventListener('click', () => openProductOverlay(product));
-                elements.products.appendChild(card);
-            });
+        const filtered = state.products.filter((product) => {
+            if (state.selectedCategory && Number(product.category_id) !== Number(state.selectedCategory)) {
+                return false;
+            }
+            if (!query) return true;
+            const normalizedName = product.name.toLowerCase();
+            const normalizedDescription = (product.description || '').toLowerCase();
+            return normalizedName.includes(query) || normalizedDescription.includes(query);
+        });
+        return sortProducts(filtered);
+    };
+
+    const buildProductCard = (product) => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        const productImage = resolveAsset(product.image, 'assets/vendor/demo/coffee-1.png');
+        const priceText = `${convertPrice(product.price)} ${state.currency}`;
+        card.innerHTML = `
+            <img src="${productImage}" alt="${escapeHtml(product.name)}" loading="lazy" />
+            <div class="product-card__body">
+                <h3>${escapeHtml(product.name)}</h3>
+                ${product.description ? `<p>${escapeHtml(product.description)}</p>` : ''}
+                <div class="product-card__price">${priceText}</div>
+            </div>
+            <button type="button" class="product-card__action" data-product="${product.id}">
+                <i class="bx bx-cart-add"></i>
+                <span>${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</span>
+            </button>
+        `;
+        const actionButton = card.querySelector('.product-card__action');
+        actionButton?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            openProductOverlay(product);
+        });
+        card.addEventListener('click', () => openProductOverlay(product));
+        return card;
+    };
+
+    const renderProductList = (container, products, emptyMessage) => {
+        if (!container) return;
+        container.innerHTML = '';
+        if (!products.length) {
+            container.innerHTML = `<p class="text-muted mb-0">${escapeHtml(emptyMessage)}</p>`;
+            return;
+        }
+        products.forEach((product) => {
+            container.appendChild(buildProductCard(product));
+        });
+    };
+
+    const renderProducts = () => {
+        const filtered = filterProducts();
+        renderProductList(elements.products, filtered, 'Aradığınız kriterlere uygun ürün bulunamadı.');
+        renderProductList(elements.categoryPageProducts, filtered, 'Bu kategoriye ait ürün bulunamadı.');
     };
 
     const openProductOverlay = (product) => {
@@ -535,23 +589,10 @@ const MenuApp = (() => {
     const renderOrderStatus = () => {
         if (!elements.orderStatusList) return;
         elements.orderStatusList.innerHTML = '';
-        const orderNavButton = elements.bottomNav?.querySelector('[data-target="orderSection"]');
         if (!state.orders.length) {
-            if (orderNavButton) {
-                orderNavButton.classList.add('is-disabled');
-                orderNavButton.setAttribute('aria-disabled', 'true');
-            }
-            if (elements.orderSection) {
-                elements.orderSection.classList.add('d-none');
-            }
-            if (state.activeNav === 'orderSection') {
-                highlightBottomNav('homeSection');
-            }
+            elements.orderStatusList.innerHTML = '<p class="text-muted mb-0">Aktif siparişiniz bulunmamaktadır.</p>';
             return;
         }
-        orderNavButton?.classList.remove('is-disabled');
-        orderNavButton?.removeAttribute('aria-disabled');
-        elements.orderSection?.classList.remove('d-none');
         state.orders.forEach((order) => {
             const card = document.createElement('div');
             card.className = 'order-track-card';
@@ -597,19 +638,24 @@ const MenuApp = (() => {
         audioElement.play().catch(() => {});
     };
 
-    const scrollToSection = (targetId) => {
-        const target = document.getElementById(targetId);
-        if (!target) return;
-        const offset = target.getBoundingClientRect().top + window.scrollY - 96;
-        window.scrollTo({ top: offset < 0 ? 0 : offset, behavior: 'smooth' });
-    };
-
     const highlightBottomNav = (targetId) => {
         if (!elements.bottomNav) return;
         elements.bottomNav.querySelectorAll('.menu-bottom-nav__item').forEach((item) => {
             item.classList.toggle('active', item.dataset.target === targetId);
         });
-        state.activeNav = targetId;
+    };
+
+    const setActivePage = (pageId) => {
+        state.activeNav = pageId;
+        const pages = elements.pages ? Array.from(elements.pages) : Array.from(document.querySelectorAll('.menu-page'));
+        pages.forEach((page) => {
+            page.classList.toggle('is-active', page.id === pageId);
+        });
+        highlightBottomNav(pageId);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (pageId === 'ordersPage') {
+            refreshOrderStatus();
+        }
     };
 
     const bindBottomNav = () => {
@@ -617,9 +663,6 @@ const MenuApp = (() => {
         elements.bottomNav.addEventListener('click', (event) => {
             const button = event.target.closest('.menu-bottom-nav__item');
             if (!button) return;
-            if (button.classList.contains('is-disabled')) {
-                return;
-            }
             const action = button.dataset.action;
             if (action === 'cart') {
                 toggleCart(true);
@@ -627,30 +670,9 @@ const MenuApp = (() => {
             }
             const targetId = button.dataset.target;
             if (targetId) {
-                scrollToSection(targetId);
-                highlightBottomNav(targetId);
+                setActivePage(targetId);
             }
         });
-    };
-
-    const bindScrollSpy = () => {
-        const sectionIds = ['homeSection', 'dailySection', 'categorySection', 'orderSection', 'contactSection'];
-        const handleScroll = () => {
-            const scrollPosition = window.scrollY + 140;
-            let current = state.activeNav;
-            sectionIds.forEach((id) => {
-                const element = document.getElementById(id);
-                if (!element) return;
-                if (scrollPosition >= element.offsetTop) {
-                    current = id;
-                }
-            });
-            if (current !== state.activeNav) {
-                highlightBottomNav(current);
-            }
-        };
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        handleScroll();
     };
 
     const bindContactForm = () => {
@@ -779,6 +801,13 @@ const MenuApp = (() => {
         });
 
         elements.searchInput?.addEventListener('input', () => renderProducts());
+        if (elements.sortSelect) {
+            elements.sortSelect.value = state.sortOption;
+            elements.sortSelect.addEventListener('change', (event) => {
+                state.sortOption = event.target.value;
+                renderProducts();
+            });
+        }
         elements.refreshOrders?.addEventListener('click', refreshOrderStatus);
     };
 
@@ -832,8 +861,7 @@ const MenuApp = (() => {
         await refreshOrderStatus();
         bindEvents();
         bindBottomNav();
-        highlightBottomNav('homeSection');
-        bindScrollSpy();
+        setActivePage(state.activeNav || 'homePage');
         bindSocket();
     };
 

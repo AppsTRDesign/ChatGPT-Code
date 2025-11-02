@@ -72,11 +72,20 @@ $templateStylesheet ??= $asset('assets/css/templates/' . ($selectedTemplate ?? '
     </div>
     <div class="search">
         <input type="search" id="searchMenu" placeholder="<?= htmlspecialchars(Language::get('menu.search', 'Menüde ara')) ?>" />
+        <div class="menu-filters">
+            <label for="sortProducts" class="menu-filters__label">Sırala</label>
+            <select id="sortProducts" class="form-select">
+                <option value="name_asc">Ada göre (A-Z)</option>
+                <option value="name_desc">Ada göre (Z-A)</option>
+                <option value="price_asc">Fiyata göre (Artan)</option>
+                <option value="price_desc">Fiyata göre (Azalan)</option>
+            </select>
+        </div>
     </div>
 </header>
 
 <main class="menu-container">
-    <section class="menu-section" id="homeSection">
+    <section class="menu-page is-active" id="homePage">
         <div class="menu-block" id="dailySection">
             <div class="menu-block__header">
                 <div>
@@ -105,24 +114,48 @@ $templateStylesheet ??= $asset('assets/css/templates/' . ($selectedTemplate ?? '
             <div class="product-grid" id="menuProducts"></div>
         </div>
     </section>
-    <section class="order-status menu-block" id="orderSection">
-        <div class="order-status__header">
-            <h2><?= htmlspecialchars(Language::get('menu.orders_title', 'Sipariş Takibi')) ?></h2>
-            <button type="button" id="refreshOrders" class="btn btn-light btn-sm">Yenile</button>
+    <section class="menu-page" id="ordersPage">
+        <div class="order-status menu-block">
+            <div class="order-status__header">
+                <h2><?= htmlspecialchars(Language::get('menu.orders_title', 'Sipariş Takibi')) ?></h2>
+                <button type="button" id="refreshOrders" class="btn btn-light btn-sm">Yenile</button>
+            </div>
+            <div id="orderStatusList" class="order-status__list"></div>
         </div>
-        <div id="orderStatusList" class="order-status__list"></div>
     </section>
 
-    <section class="menu-block contact-block" id="contactSection">
-        <div class="menu-block__header">
-            <div>
-                <h2>İletişim</h2>
-                <p class="text-muted">Öneri, talep ve sorularınız için bize ulaşın</p>
+    <section class="menu-page" id="categoriesPage">
+        <div class="menu-block" id="categoryPage">
+            <div class="menu-block__header">
+                <div>
+                    <h2>Kategoriler</h2>
+                    <p class="text-muted">Kategorileri seçerek ürünleri görüntüleyin</p>
+                </div>
             </div>
+            <div class="category-list category-list--grid" id="categoryPageList"></div>
         </div>
-        <div class="row g-4 contact-content">
-            <div class="col-12 col-md-6 col-lg-5 d-flex order-1 order-md-1">
-                <div class="contact-details w-100">
+        <div class="menu-block" id="categoryProductsBlock">
+            <div class="menu-block__header">
+                <div>
+                    <h2>Ürünler</h2>
+                    <p class="text-muted">Seçilen kategoriye ait ürünler</p>
+                </div>
+            </div>
+            <div class="product-grid" id="categoryPageProducts"></div>
+        </div>
+    </section>
+
+    <section class="menu-page" id="contactPage">
+        <div class="menu-block contact-block" id="contactSection">
+            <div class="menu-block__header">
+                <div>
+                    <h2>İletişim</h2>
+                    <p class="text-muted">Öneri, talep ve sorularınız için bize ulaşın</p>
+                </div>
+            </div>
+            <div class="row g-4 contact-content">
+                <div class="col-12 col-md-6 col-lg-5 d-flex order-1 order-md-1">
+                    <div class="contact-details w-100">
                     <div class="contact-details__item">
                         <i class="bx bx-store"></i>
                         <div>
@@ -181,27 +214,24 @@ $templateStylesheet ??= $asset('assets/css/templates/' . ($selectedTemplate ?? '
                 </form>
             </div>
         </div>
+        </div>
     </section>
 </main>
 
 <nav class="menu-bottom-nav" id="menuBottomNav">
-    <button type="button" class="menu-bottom-nav__item active" data-target="homeSection">
+    <button type="button" class="menu-bottom-nav__item active" data-target="homePage">
         <i class="bx bx-home-alt-2"></i>
         <span>Ana Sayfa</span>
     </button>
-    <button type="button" class="menu-bottom-nav__item" data-target="dailySection">
-        <i class="bx bx-star"></i>
-        <span>Günün</span>
-    </button>
-    <button type="button" class="menu-bottom-nav__item" data-target="orderSection">
+    <button type="button" class="menu-bottom-nav__item" data-target="ordersPage">
         <i class="bx bx-receipt"></i>
         <span>Sipariş</span>
     </button>
-    <button type="button" class="menu-bottom-nav__item" data-target="categorySection">
+    <button type="button" class="menu-bottom-nav__item" data-target="categoriesPage">
         <i class="bx bx-category-alt"></i>
         <span>Kategori</span>
     </button>
-    <button type="button" class="menu-bottom-nav__item" data-target="contactSection">
+    <button type="button" class="menu-bottom-nav__item" data-target="contactPage">
         <i class="bx bx-phone-call"></i>
         <span>İletişim</span>
     </button>
