@@ -99,6 +99,10 @@ body.template-menu2 .daily-card__body p {
     color: rgba(247, 248, 255, 0.75);
 }
 
+body.template-menu2 .product-card__body p {
+    color: rgba(247, 248, 255, 0.75);
+}
+
 body.template-menu2 .product-card__price {
     color: #ffb997;
 }
