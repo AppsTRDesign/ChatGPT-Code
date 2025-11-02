@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use Core\Config;
 use Core\Database;
 use PDO;
+use RuntimeException;
 
 class SettingsService
 {
@@ -39,18 +41,36 @@ class SettingsService
             'swatch' => ['#ff9a8b', '#ff6a88'],
         ],
     ];
-    private PDO $db;
+    private ?PDO $db = null;
     private int $restaurantId;
     private ?array $restaurantCache = null;
+    private bool $fileFallback = false;
+    private array $fileSettings = [];
+    private string $settingsPath;
 
     public function __construct(int $restaurantId = 1)
     {
-        $this->db = Database::connection();
         $this->restaurantId = $restaurantId;
+
+        $storage = Config::get('storage');
+        $this->settingsPath = is_array($storage) && !empty($storage['settings'])
+            ? $storage['settings']
+            : __DIR__ . '/../../storage/settings.json';
+
+        try {
+            $this->db = Database::connection();
+        } catch (RuntimeException $exception) {
+            $this->fileFallback = true;
+            $this->fileSettings = $this->loadFileSettings();
+        }
     }
 
     public function all(): array
     {
+        if ($this->fileFallback) {
+            return $this->allFromFile();
+        }
+
         $restaurant = $this->fetchRestaurant();
         $branding = [
             'logo' => $this->mediaUrl($restaurant['logo'] ?? null),
@@ -246,6 +266,32 @@ class SettingsService
 
     public function currencies(): array
     {
+        if ($this->fileFallback) {
+            $currencies = $this->fileSettings['currencies'] ?? [];
+            $defaultCode = strtoupper($this->fetchRestaurant()['currency'] ?? 'TRY');
+
+            if (empty($currencies)) {
+                $currencies[] = [
+                    'code' => $defaultCode,
+                    'symbol' => '',
+                    'name' => $defaultCode,
+                    'is_default' => 1,
+                ];
+            }
+
+            return array_map(static function ($currency) use ($defaultCode) {
+                $code = strtoupper($currency['code'] ?? $defaultCode);
+
+                return [
+                    'id' => (int)($currency['id'] ?? 0),
+                    'code' => $code,
+                    'symbol' => $currency['symbol'] ?? '',
+                    'name' => $currency['name'] ?? $code,
+                    'is_default' => !empty($currency['is_default']) ? 1 : 0,
+                ];
+            }, $currencies);
+        }
+
         $query = $this->db->prepare('SELECT id, code, symbol, name, is_default FROM restaurant_currencies WHERE restaurant_id = ? ORDER BY is_default DESC, name ASC');
         $query->execute([$this->restaurantId]);
         $currencies = $query->fetchAll() ?: [];
@@ -261,6 +307,52 @@ class SettingsService
 
     public function addCurrency(array $currency): array
     {
+        if ($this->fileFallback) {
+            $code = strtoupper($currency['code'] ?? '');
+            if ($code === '') {
+                return $this->currencies();
+            }
+
+            $currencies = $this->fileSettings['currencies'] ?? [];
+            $found = false;
+            foreach ($currencies as &$entry) {
+                if (strtoupper($entry['code'] ?? '') === $code) {
+                    $entry['code'] = $code;
+                    $entry['symbol'] = $currency['symbol'] ?? ($entry['symbol'] ?? '');
+                    $entry['name'] = $currency['name'] ?? ($entry['name'] ?? $code);
+                    $entry['is_default'] = !empty($currency['is_default']) ? 1 : ($entry['is_default'] ?? 0);
+                    $found = true;
+                    break;
+                }
+            }
+            unset($entry);
+
+            if (!$found) {
+                $currencies[] = [
+                    'code' => $code,
+                    'symbol' => $currency['symbol'] ?? '',
+                    'name' => $currency['name'] ?? $code,
+                    'is_default' => !empty($currency['is_default']) ? 1 : 0,
+                ];
+            }
+
+            if (!empty($currency['is_default'])) {
+                foreach ($currencies as &$entry) {
+                    $entry['is_default'] = strtoupper($entry['code'] ?? '') === $code ? 1 : 0;
+                }
+                unset($entry);
+
+                $restaurant = $this->fileSettings['restaurant'] ?? [];
+                $restaurant['currency'] = $code;
+                $this->fileSettings['restaurant'] = $restaurant;
+            }
+
+            $this->fileSettings['currencies'] = array_values($currencies);
+            $this->persistFileSettings();
+
+            return $this->currencies();
+        }
+
         if (!empty($currency['is_default'])) {
             $this->db->prepare('UPDATE restaurant_currencies SET is_default = 0 WHERE restaurant_id = ?')->execute([$this->restaurantId]);
         }
@@ -283,6 +375,56 @@ class SettingsService
 
     public function deleteCurrency(int $id): array
     {
+        if ($this->fileFallback) {
+            $currencies = $this->fileSettings['currencies'] ?? [];
+            $codeToRemove = null;
+
+            foreach ($currencies as $index => $currency) {
+                $currencyId = (int)($currency['id'] ?? $index);
+                if ($currencyId === $id) {
+                    $codeToRemove = strtoupper($currency['code'] ?? '');
+                    unset($currencies[$index]);
+                    break;
+                }
+            }
+
+            if ($codeToRemove === null && isset($currencies[$id])) {
+                $codeToRemove = strtoupper($currencies[$id]['code'] ?? '');
+                unset($currencies[$id]);
+            }
+
+            $currencies = array_values($currencies);
+            if (empty($currencies)) {
+                $defaultCode = strtoupper($this->fetchRestaurant()['currency'] ?? 'TRY');
+                $currencies[] = [
+                    'code' => $defaultCode,
+                    'symbol' => '',
+                    'name' => $defaultCode,
+                    'is_default' => 1,
+                ];
+            }
+
+            $hasDefault = false;
+            foreach ($currencies as $currency) {
+                if (!empty($currency['is_default'])) {
+                    $hasDefault = true;
+                    break;
+                }
+            }
+
+            if (!$hasDefault && $currencies) {
+                $currencies[0]['is_default'] = 1;
+                $restaurant = $this->fileSettings['restaurant'] ?? [];
+                $restaurant['currency'] = strtoupper($currencies[0]['code'] ?? 'TRY');
+                $this->fileSettings['restaurant'] = $restaurant;
+            }
+
+            $this->fileSettings['currencies'] = $currencies;
+            $this->persistFileSettings();
+
+            return $this->currencies();
+        }
+
         $statement = $this->db->prepare('DELETE FROM restaurant_currencies WHERE restaurant_id = ? AND id = ?');
         $statement->execute([$this->restaurantId, $id]);
 
@@ -291,6 +433,30 @@ class SettingsService
 
     public function setDefaultCurrency(string $code): array
     {
+        if ($this->fileFallback) {
+            $code = strtoupper($code);
+            $currencies = $this->fileSettings['currencies'] ?? [];
+            $hasMatch = false;
+
+            foreach ($currencies as &$currency) {
+                $match = strtoupper($currency['code'] ?? '') === $code;
+                $currency['is_default'] = $match ? 1 : 0;
+                $hasMatch = $hasMatch || $match;
+            }
+            unset($currency);
+
+            if ($hasMatch) {
+                $restaurant = $this->fileSettings['restaurant'] ?? [];
+                $restaurant['currency'] = $code;
+                $this->fileSettings['restaurant'] = $restaurant;
+            }
+
+            $this->fileSettings['currencies'] = $currencies;
+            $this->persistFileSettings();
+
+            return $this->currencies();
+        }
+
         $this->db->prepare('UPDATE restaurant_currencies SET is_default = 0 WHERE restaurant_id = ?')->execute([$this->restaurantId]);
         $statement = $this->db->prepare('UPDATE restaurant_currencies SET is_default = 1 WHERE restaurant_id = ? AND code = ?');
         $statement->execute([$this->restaurantId, strtoupper($code)]);
@@ -305,6 +471,40 @@ class SettingsService
 
     public function languages(): array
     {
+        if ($this->fileFallback) {
+            $languages = $this->fileSettings['languages'] ?? [];
+            $default = strtolower($this->fetchRestaurant()['language'] ?? 'tr');
+
+            if (empty($languages)) {
+                $files = glob(LANG_PATH . '/*.json') ?: [];
+                foreach ($files as $file) {
+                    $code = strtolower(basename($file, '.json'));
+                    $languages[] = [
+                        'code' => $code,
+                        'label' => strtoupper($code),
+                        'is_default' => $code === $default ? 1 : 0,
+                    ];
+                }
+            }
+
+            if (empty($languages)) {
+                $languages[] = [
+                    'code' => $default,
+                    'label' => strtoupper($default),
+                    'is_default' => 1,
+                ];
+            }
+
+            return array_map(static function ($language) use ($default) {
+                $code = strtolower($language['code'] ?? $default);
+                return [
+                    'code' => $code,
+                    'label' => $language['label'] ?? strtoupper($code),
+                    'is_default' => !empty($language['is_default']) ? 1 : 0,
+                ];
+            }, $languages);
+        }
+
         $statement = $this->db->prepare('SELECT code, label, CASE WHEN code = (SELECT language FROM restaurants WHERE id = ?) THEN 1 ELSE 0 END AS is_default FROM restaurant_languages WHERE restaurant_id = ? ORDER BY label');
         $statement->execute([$this->restaurantId, $this->restaurantId]);
         $languages = $statement->fetchAll() ?: [];
@@ -318,6 +518,33 @@ class SettingsService
 
     public function saveLanguageMeta(string $code, string $label): array
     {
+        if ($this->fileFallback) {
+            $code = strtolower($code);
+            $languages = $this->fileSettings['languages'] ?? [];
+            $found = false;
+            foreach ($languages as &$language) {
+                if (strtolower($language['code'] ?? '') === $code) {
+                    $language['label'] = $label;
+                    $found = true;
+                    break;
+                }
+            }
+            unset($language);
+
+            if (!$found) {
+                $languages[] = [
+                    'code' => $code,
+                    'label' => $label,
+                    'is_default' => 0,
+                ];
+            }
+
+            $this->fileSettings['languages'] = $languages;
+            $this->persistFileSettings();
+
+            return $this->languages();
+        }
+
         $statement = $this->db->prepare('INSERT INTO restaurant_languages (restaurant_id, code, label) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE label = VALUES(label)');
         $statement->execute([$this->restaurantId, strtolower($code), $label]);
 
@@ -326,6 +553,21 @@ class SettingsService
 
     public function deleteLanguage(string $code): array
     {
+        if ($this->fileFallback) {
+            $code = strtolower($code);
+            $languages = $this->fileSettings['languages'] ?? [];
+            $languages = array_values(array_filter($languages, static fn($language) => strtolower($language['code'] ?? '') !== $code));
+
+            $this->fileSettings['languages'] = $languages;
+            if ($this->currentLanguage() === $code && $languages) {
+                $this->setDefaultLanguage($languages[0]['code']);
+            }
+
+            $this->persistFileSettings();
+
+            return $this->languages();
+        }
+
         $code = strtolower($code);
         $statement = $this->db->prepare('DELETE FROM restaurant_languages WHERE restaurant_id = ? AND code = ?');
         $statement->execute([$this->restaurantId, $code]);
@@ -342,6 +584,23 @@ class SettingsService
 
     public function setDefaultLanguage(string $code): array
     {
+        if ($this->fileFallback) {
+            $code = strtolower($code);
+            $languages = $this->fileSettings['languages'] ?? [];
+            foreach ($languages as &$language) {
+                $language['is_default'] = strtolower($language['code'] ?? '') === $code ? 1 : 0;
+            }
+            unset($language);
+
+            $this->fileSettings['languages'] = $languages;
+            $restaurant = $this->fileSettings['restaurant'] ?? [];
+            $restaurant['language'] = $code;
+            $this->fileSettings['restaurant'] = $restaurant;
+            $this->persistFileSettings();
+
+            return $this->languages();
+        }
+
         $code = strtolower($code);
         $this->db->prepare('UPDATE restaurants SET language = ?, updated_at = NOW() WHERE id = ?')->execute([
             $code,
@@ -353,6 +612,10 @@ class SettingsService
 
     public function currentLanguage(): string
     {
+        if ($this->fileFallback) {
+            return strtolower($this->fetchRestaurant()['language'] ?? 'tr');
+        }
+
         $statement = $this->db->prepare('SELECT language FROM restaurants WHERE id = ?');
         $statement->execute([$this->restaurantId]);
         return $statement->fetchColumn() ?: 'tr';
@@ -360,6 +623,10 @@ class SettingsService
 
     public function currentCurrency(): string
     {
+        if ($this->fileFallback) {
+            return strtoupper($this->fetchRestaurant()['currency'] ?? 'TRY');
+        }
+
         $statement = $this->db->prepare('SELECT currency FROM restaurants WHERE id = ?');
         $statement->execute([$this->restaurantId]);
         return $statement->fetchColumn() ?: 'TRY';
@@ -420,6 +687,24 @@ class SettingsService
             return $this->restaurantCache;
         }
 
+        if ($this->fileFallback) {
+            $defaults = [
+                'name' => 'QR Menü',
+                'phone' => '',
+                'description' => '',
+                'address' => '',
+                'currency' => 'TRY',
+                'timezone' => 'Europe/Istanbul',
+                'language' => 'tr',
+                'theme_color' => '#0f9d58',
+            ];
+
+            $restaurant = array_merge($defaults, $this->fileSettings['restaurant'] ?? []);
+            $this->restaurantCache = $restaurant;
+
+            return $restaurant;
+        }
+
         $query = $this->db->prepare('SELECT name, phone, description, address, currency, timezone, language, theme_color, logo, favicon, qr_logo FROM restaurants WHERE id = ?');
         $query->execute([$this->restaurantId]);
         $restaurant = $query->fetch();
@@ -436,6 +721,24 @@ class SettingsService
 
     private function updateRestaurant(array $data): void
     {
+        if ($this->fileFallback) {
+            $restaurant = $this->fetchRestaurant();
+            $restaurant['name'] = $data['name'] ?? $restaurant['name'];
+            $restaurant['phone'] = $data['phone'] ?? $restaurant['phone'];
+            $restaurant['description'] = $data['description'] ?? $restaurant['description'];
+            $restaurant['address'] = $data['address'] ?? $restaurant['address'];
+            $restaurant['currency'] = isset($data['currency']) ? strtoupper($data['currency']) : ($restaurant['currency'] ?? 'TRY');
+            $restaurant['timezone'] = $data['timezone'] ?? ($restaurant['timezone'] ?? 'Europe/Istanbul');
+            $restaurant['language'] = $data['language'] ?? ($restaurant['language'] ?? 'tr');
+            $restaurant['theme_color'] = $data['theme_color'] ?? ($restaurant['theme_color'] ?? '#0f9d58');
+
+            $this->fileSettings['restaurant'] = $restaurant;
+            $this->restaurantCache = $restaurant;
+            $this->persistFileSettings();
+
+            return;
+        }
+
         $statement = $this->db->prepare('UPDATE restaurants SET name = ?, phone = ?, description = ?, address = ?, currency = ?, timezone = ?, language = ?, theme_color = ?, updated_at = NOW() WHERE id = ?');
         $statement->execute([
             $data['name'] ?? '',
@@ -453,6 +756,25 @@ class SettingsService
 
     private function updateBranding(array $data): void
     {
+        if ($this->fileFallback) {
+            $restaurant = $this->fetchRestaurant();
+            if (array_key_exists('logo', $data)) {
+                $restaurant['logo'] = $this->normalizeMedia($data['logo']);
+            }
+            if (array_key_exists('favicon', $data)) {
+                $restaurant['favicon'] = $this->normalizeMedia($data['favicon']);
+            }
+            if (array_key_exists('qr_logo', $data)) {
+                $restaurant['qr_logo'] = $this->normalizeQrLogo($data['qr_logo']);
+            }
+
+            $this->fileSettings['restaurant'] = $restaurant;
+            $this->restaurantCache = $restaurant;
+            $this->persistFileSettings();
+
+            return;
+        }
+
         $statement = $this->db->prepare('UPDATE restaurants SET logo = ?, favicon = ?, qr_logo = ?, updated_at = NOW() WHERE id = ?');
         $statement->execute([
             $this->normalizeMedia($data['logo'] ?? null),
@@ -534,6 +856,11 @@ class SettingsService
 
     private function getSection(string $section): array
     {
+        if ($this->fileFallback) {
+            $value = $this->fileSettings[$section] ?? [];
+            return is_array($value) ? $value : [];
+        }
+
         $statement = $this->db->prepare('SELECT payload FROM restaurant_settings WHERE restaurant_id = ? AND section = ?');
         $statement->execute([$this->restaurantId, $section]);
         $payload = $statement->fetchColumn();
@@ -543,6 +870,12 @@ class SettingsService
 
     private function saveSection(string $section, array $payload): void
     {
+        if ($this->fileFallback) {
+            $this->fileSettings[$section] = $payload;
+            $this->persistFileSettings();
+            return;
+        }
+
         $statement = $this->db->prepare('INSERT INTO restaurant_settings (restaurant_id, section, payload) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_at = NOW()');
         $statement->execute([
             $this->restaurantId,
@@ -603,6 +936,12 @@ class SettingsService
 
     private function primaryUserEmail(): ?string
     {
+        if ($this->fileFallback) {
+            $mail = $this->fileSettings['mail'] ?? [];
+            $email = $mail['notification_email'] ?? ($mail['from_email'] ?? null);
+            return $this->normalizeEmail($email);
+        }
+
         $statement = $this->db->prepare('SELECT email FROM restaurant_users WHERE restaurant_id = ? ORDER BY id ASC LIMIT 1');
         $statement->execute([$this->restaurantId]);
         $email = $statement->fetchColumn();
@@ -612,6 +951,10 @@ class SettingsService
 
     private function refreshTableQrCodes(array $settings): void
     {
+        if ($this->fileFallback) {
+            return;
+        }
+
         $restaurant = $settings['restaurant'] ?? [];
         $qrConfig = $settings['qr'] ?? [];
         $branding = $settings['branding'] ?? [];
@@ -730,5 +1073,73 @@ class SettingsService
         }
 
         return $key;
+    }
+
+    private function allFromFile(): array
+    {
+        $restaurant = $this->fetchRestaurant();
+        $branding = [
+            'logo' => $this->mediaUrl($restaurant['logo'] ?? null),
+            'favicon' => $this->mediaUrl($restaurant['favicon'] ?? null),
+            'qr_logo' => $this->mediaUrl($restaurant['qr_logo'] ?? null),
+        ];
+
+        $restaurantForOutput = $restaurant;
+        $restaurantForOutput['logo'] = $branding['logo'];
+        $restaurantForOutput['favicon'] = $branding['favicon'];
+        $restaurantForOutput['qr_logo'] = $branding['qr_logo'];
+
+        $qr = $this->getSection('qr');
+        if (!empty($branding['qr_logo'])) {
+            $qr['logo_url'] = $branding['qr_logo'];
+            $qr['logo'] = $branding['qr_logo'];
+        } elseif (!empty($qr['logo']) && empty($qr['logo_url'])) {
+            $qr['logo_url'] = $this->mediaUrl($qr['logo']);
+        }
+
+        return [
+            'restaurant' => $restaurantForOutput,
+            'qr' => $qr,
+            'branding' => $branding,
+            'currencies' => $this->currencies(),
+            'languages' => $this->languages(),
+            'notifications' => $this->notifications(),
+            'mail' => $this->mailSettings($restaurantForOutput),
+            'daily_menu' => $this->dailyMenu(),
+            'timezones' => $this->timezones(),
+            'menu' => $this->menuSettings(),
+        ];
+    }
+
+    private function loadFileSettings(): array
+    {
+        if (!is_file($this->settingsPath)) {
+            return [];
+        }
+
+        $contents = file_get_contents($this->settingsPath);
+        if ($contents === false || $contents === '') {
+            return [];
+        }
+
+        $decoded = json_decode($contents, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function persistFileSettings(): void
+    {
+        if (!$this->settingsPath) {
+            return;
+        }
+
+        $directory = dirname($this->settingsPath);
+        if (!is_dir($directory)) {
+            mkdir($directory, 0775, true);
+        }
+
+        file_put_contents(
+            $this->settingsPath,
+            json_encode($this->fileSettings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+        );
     }
 }

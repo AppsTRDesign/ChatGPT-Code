@@ -22,10 +22,14 @@ function loadMenuContext(?string $templateOverride = null): array
     $tableId = isset($_GET['table']) ? (int)$_GET['table'] : 0;
     $tableName = null;
     if ($tableId > 0) {
-        $db = Database::connection();
-        $statement = $db->prepare('SELECT name FROM tables WHERE id = ?');
-        $statement->execute([$tableId]);
-        $tableName = $statement->fetchColumn() ?: null;
+        try {
+            $db = Database::connection();
+            $statement = $db->prepare('SELECT name FROM tables WHERE id = ?');
+            $statement->execute([$tableId]);
+            $tableName = $statement->fetchColumn() ?: null;
+        } catch (\Throwable $exception) {
+            $tableName = null;
+        }
     }
 
     $defaultLanguage = strtolower($_GET['lang'] ?? ($restaurant['language'] ?? 'tr'));
