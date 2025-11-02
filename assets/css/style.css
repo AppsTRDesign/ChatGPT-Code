@@ -603,7 +603,19 @@ a:hover {
 .grid-responsive {
   display: grid;
   gap: 18px;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .table-card {
