@@ -918,6 +918,7 @@ const AdminApp = (() => {
         selectors.categoryForm.reset();
         selectors.categoryForm.querySelector('[name="id"]').value = id || '';
         selectors.deleteCategoryButton.classList.toggle('d-none', !id);
+        resetDropzoneTargets('#categoryModal [data-dropzone]');
         const category = state.categories.find((item) => Number(item.id) === Number(id));
         if (category) {
             selectors.categoryForm.querySelector('[name="name"]').value = category.name;
@@ -961,6 +962,7 @@ const AdminApp = (() => {
         renderCategories();
         renderCategoryFilter();
         toast.fire({ icon: 'success', title: data.message });
+        resetDropzoneTargets('#categoryModal [data-dropzone]');
         bootstrap.Modal.getInstance('#categoryModal')?.hide();
     };
 
@@ -991,6 +993,7 @@ const AdminApp = (() => {
         selectors.deleteProductButton.classList.toggle('d-none', !id);
         renderCategoryFilter();
         selectors.variantList.innerHTML = '';
+        resetDropzoneTargets('#productModal [data-dropzone]');
         const product = state.products.find((item) => Number(item.id) === Number(id));
         if (product) {
             selectors.productForm.querySelector('[name="category_id"]').value = product.category_id;
@@ -1040,6 +1043,7 @@ const AdminApp = (() => {
         state.products = data.products || [];
         renderProducts();
         toast.fire({ icon: 'success', title: data.message });
+        resetDropzoneTargets('#productModal [data-dropzone]');
         bootstrap.Modal.getInstance('#productModal')?.hide();
     };
 
@@ -1151,6 +1155,45 @@ const AdminApp = (() => {
 
             dz.on('error', () => {
                 toast.fire({ icon: 'error', title: 'Dosya yüklenirken hata oluştu.' });
+            });
+        });
+    };
+
+    const resetDropzoneTargets = (...selectors) => {
+        selectors.forEach((selector) => {
+            document.querySelectorAll(selector).forEach((element) => {
+                const dzInstance = element.dropzone;
+                if (dzInstance) {
+                    dzInstance.removeAllFiles(true);
+                }
+
+                if (element.dataset.target) {
+                    const target = document.querySelector(element.dataset.target);
+                    if (target) {
+                        target.value = '';
+                    }
+                }
+
+                if (element.dataset.preview) {
+                    const preview = document.querySelector(element.dataset.preview);
+                    if (preview) {
+                        if (!preview.dataset.initialSrc) {
+                            preview.dataset.initialSrc = preview.getAttribute('src') || '';
+                        }
+                        preview.src = preview.dataset.initialSrc;
+                    }
+                }
+
+                if (element.dataset.audio) {
+                    const audio = document.querySelector(element.dataset.audio);
+                    if (audio) {
+                        if (!audio.dataset.initialSrc) {
+                            audio.dataset.initialSrc = audio.getAttribute('src') || '';
+                        }
+                        audio.src = audio.dataset.initialSrc;
+                        audio.load?.();
+                    }
+                }
             });
         });
     };
