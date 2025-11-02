@@ -17,8 +17,7 @@ function loadMenuContext(?string $templateOverride = null): array
     $mailSettings = $settings['mail'] ?? [];
     $notifications = $settings['notifications'] ?? [];
     $menuSettings = $settings['menu'] ?? [];
-    $availableStyles = $menuSettings['styles'] ?? [];
-    $availableViews = $menuSettings['views'] ?? [];
+    $availableStyles = $menuSettings['styles'] ?? ($menuSettings['templates'] ?? []);
 
     $tableId = isset($_GET['table']) ? (int)$_GET['table'] : 0;
     $tableName = null;
@@ -29,8 +28,7 @@ function loadMenuContext(?string $templateOverride = null): array
         $tableName = $statement->fetchColumn() ?: null;
     }
 
-    $defaultLanguage = $_GET['lang'] ?? ($restaurant['language'] ?? 'tr');
-    $defaultLanguage = strtolower($defaultLanguage);
+    $defaultLanguage = strtolower($_GET['lang'] ?? ($restaurant['language'] ?? 'tr'));
     Language::load($defaultLanguage);
 
     $defaultCurrency = strtoupper($restaurant['currency'] ?? 'TRY');
@@ -62,6 +60,7 @@ function loadMenuContext(?string $templateOverride = null): array
 
     $baseUrl = rtrim(BASE_URL, '/');
     $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
+
     $currencyCodes = array_values(array_filter(array_map(static fn(array $currency) => strtoupper($currency['code'] ?? ''), $currencies)));
     $currencyMeta = [];
     foreach ($currencies as $currency) {
@@ -74,30 +73,20 @@ function loadMenuContext(?string $templateOverride = null): array
             'name' => $currency['name'] ?? '',
         ];
     }
-    $currentCurrencyCode = strtoupper($currentCurrency);
+
+    $currentCurrencyCode = $currentCurrency;
     $contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettings['from_email'] ?? ''));
 
-    $styleKeys = array_map(static fn($style) => $style['id'] ?? null, $availableStyles);
-    $styleKeys = array_filter($styleKeys);
-    $viewKeys = array_map(static fn($view) => $view['id'] ?? null, $availableViews);
-    $viewKeys = array_filter($viewKeys);
-
-    $selectedStyle = $menuSettings['style'] ?? ($menuSettings['template'] ?? 'menu1');
+    $templateKeys = array_values(array_filter(array_map(static fn($style) => $style['id'] ?? null, $availableStyles)));
+    $selectedTemplate = $menuSettings['style'] ?? ($menuSettings['template'] ?? 'menu1');
     if ($templateOverride !== null) {
-        $selectedStyle = $templateOverride;
+        $selectedTemplate = $templateOverride;
     }
-    if (!in_array($selectedStyle, $styleKeys, true)) {
-        $selectedStyle = $styleKeys[0] ?? 'menu1';
-    }
-
-    $selectedView = $menuSettings['view'] ?? 'view1';
-    if (!in_array($selectedView, $viewKeys, true)) {
-        $selectedView = $viewKeys[0] ?? 'view1';
+    if (!in_array($selectedTemplate, $templateKeys, true)) {
+        $selectedTemplate = $templateKeys[0] ?? 'menu1';
     }
 
-    $styleStylesheet = $asset('assets/css/templates/' . $selectedStyle . '.css');
-    $viewStylesheet = $asset('assets/css/views/' . $selectedView . '.css');
-    $templateStylesheet = $styleStylesheet;
+    $templateStylesheet = $asset('assets/css/templates/' . $selectedTemplate . '.css');
 
     return compact(
         'settings',
@@ -121,12 +110,8 @@ function loadMenuContext(?string $templateOverride = null): array
         'currencyMeta',
         'currentCurrencyCode',
         'contactEmail',
-        'selectedStyle',
-        'selectedView',
+        'selectedTemplate',
         'availableStyles',
-        'availableViews',
-        'styleStylesheet',
-        'templateStylesheet',
-        'viewStylesheet'
+        'templateStylesheet'
     );
 }

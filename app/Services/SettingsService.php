@@ -12,7 +12,6 @@ class SettingsService
     private const DEFAULT_ORDER_FLASH_COLOR = '#0f9d58';
     private const DEFAULT_WAITER_FLASH_COLOR = '#ea4335';
     private const DEFAULT_MENU_STYLE = 'menu1';
-    private const DEFAULT_MENU_VIEW = 'view1';
     private const MENU_STYLES = [
         'menu1' => [
             'label' => 'Neo Fresh',
@@ -38,28 +37,6 @@ class SettingsService
             'label' => 'Retro Sunset',
             'description' => 'Sıcak degrade arka plan ve retro yazı tipleri ile özgün deneyim.',
             'swatch' => ['#ff9a8b', '#ff6a88'],
-        ],
-    ];
-    private const MENU_VIEWS = [
-        'view1' => [
-            'label' => 'Panorama',
-            'description' => 'Büyük karşılama başlığı ve öne çıkan bloklarla dengeli düzen.',
-        ],
-        'view2' => [
-            'label' => 'Boutique',
-            'description' => 'Şerit başlık ve kart temelli vitrinle butik restoran deneyimi.',
-        ],
-        'view3' => [
-            'label' => 'Gallery',
-            'description' => 'Bölümlerin vitrin gibi sunulduğu galeri odaklı akış.',
-        ],
-        'view4' => [
-            'label' => 'Lounge',
-            'description' => 'Yuvarlatılmış bölümler ve merkezî kartlarla lounge atmosferi.',
-        ],
-        'view5' => [
-            'label' => 'Terra',
-            'description' => 'Tam ekran görseller ve katmanlı içeriklerle doğadan ilham alan düzen.',
         ],
     ];
     private PDO $db;
@@ -418,7 +395,6 @@ class SettingsService
     {
         $section = $this->getSection('menu');
         $style = $this->normalizeMenuTemplate($section['style'] ?? ($section['template'] ?? null));
-        $view = $this->normalizeMenuView($section['view'] ?? null);
 
         $styles = [];
         foreach (self::MENU_STYLES as $key => $meta) {
@@ -430,20 +406,9 @@ class SettingsService
             ];
         }
 
-        $views = [];
-        foreach (self::MENU_VIEWS as $key => $meta) {
-            $views[] = [
-                'id' => $key,
-                'label' => $meta['label'],
-                'description' => $meta['description'],
-            ];
-        }
-
         return [
             'style' => $style,
-            'view' => $view,
             'styles' => $styles,
-            'views' => $views,
             'template' => $style,
             'templates' => $styles,
         ];
@@ -543,11 +508,9 @@ class SettingsService
     private function updateMenuSettings(array $data): void
     {
         $style = $this->normalizeMenuTemplate($data['style'] ?? ($data['template'] ?? null));
-        $view = $this->normalizeMenuView($data['view'] ?? null);
 
         $this->saveSection('menu', [
             'style' => $style,
-            'view' => $view,
             'template' => $style,
         ]);
     }
@@ -764,20 +727,6 @@ class SettingsService
 
         if (!array_key_exists($key, self::MENU_STYLES)) {
             $key = self::DEFAULT_MENU_STYLE;
-        }
-
-        return $key;
-    }
-
-    private function normalizeMenuView(?string $view): string
-    {
-        $key = strtolower(trim((string)$view));
-        if ($key === '') {
-            $key = self::DEFAULT_MENU_VIEW;
-        }
-
-        if (!array_key_exists($key, self::MENU_VIEWS)) {
-            $key = self::DEFAULT_MENU_VIEW;
         }
 
         return $key;
