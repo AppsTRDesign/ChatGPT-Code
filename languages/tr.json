@@ -20,6 +20,81 @@
     "add_to_cart": "Sepete Ekle",
     "currency": "Para Birimi",
     "language": "Dil",
-    "search": "Menüde ara"
+    "search": "Menüde ara",
+    "greeting": "Günaydın",
+    "guest": "Misafir",
+    "table_label": "Masa",
+    "table_prefix": "Masa",
+    "sort": {
+      "label": "Sırala",
+      "name_asc": "Ada göre (A-Z)",
+      "name_desc": "Ada göre (Z-A)",
+      "price_asc": "Fiyata göre (Artan)",
+      "price_desc": "Fiyata göre (Azalan)"
+    },
+    "sections": {
+      "daily_title": "Günün Menüsü",
+      "daily_subtitle": "Şefin önerileri ve özel tatlar",
+      "categories_title": "Kategoriler",
+      "categories_subtitle": "Lezzetleri kategorilere göre keşfedin",
+      "products_title": "Ürünler",
+      "products_subtitle": "Menüdeki tüm ürünleri inceleyin",
+      "category_prompt": "Kategorileri seçerek ürünleri görüntüleyin",
+      "category_products_subtitle": "Seçilen kategoriye ait ürünler"
+    },
+    "orders_title": "Sipariş Takibi",
+    "orders_refresh": "Yenile",
+    "orders_empty": "Aktif siparişiniz bulunmamaktadır.",
+    "order_success": "Siparişiniz alındı.",
+    "order_status_update": "Sipariş :status",
+    "daily_empty": "Günün menüsü hazırlanmaktadır.",
+    "categories_all": "Tümü",
+    "category_empty": "Bu kategoriye ait ürün bulunamadı.",
+    "products_empty": "Aradığınız kriterlere uygun ürün bulunamadı.",
+    "variant_default": "Standart",
+    "toast_added": ":item sepete eklendi.",
+    "table_missing": "Masa bilgisi bulunamadı.",
+    "waiter_called": "Garson çağrısı iletildi.",
+    "waiter_notice": "Garson çağrınız iletildi.",
+    "waiter_status": "Garson durumu: :status",
+    "cart": {
+      "title": "Sepetiniz",
+      "summary": ":count ürün",
+      "empty": "Sepetiniz boş.",
+      "total": "Toplam",
+      "clear": "Temizle",
+      "checkout": "Siparişi Onayla",
+      "remove": "Sil"
+    },
+    "bottom": {
+      "home": "Ana Sayfa",
+      "daily": "Günün",
+      "orders": "Sipariş",
+      "categories": "Kategori",
+      "contact": "İletişim",
+      "cart": "Sepet"
+    }
+  },
+  "contact": {
+    "title": "İletişim",
+    "subtitle": "Öneri, talep ve sorularınız için bize ulaşın",
+    "phone": "Telefon",
+    "address": "Adres",
+    "email": "E-posta",
+    "form_title": "Mesaj Gönder",
+    "name_label": "Adınız Soyadınız",
+    "name_placeholder": "Adınız",
+    "email_label": "E-posta",
+    "email_placeholder": "ornek@mail.com",
+    "message_label": "Mesajınız",
+    "message_placeholder": "Mesajınızı buraya yazın",
+    "submit": "Gönder",
+    "sending": "Mesajınız gönderiliyor...",
+    "success": "Mesajınız başarıyla gönderildi."
+  },
+  "messages": {
+    "error_generic": "İşlem gerçekleştirilemedi.",
+    "currency_fetch": "Kur çevrimi başarısız oldu",
+    "order_status_failed": "Sipariş durumu yüklenemedi"
   }
 }

@@ -20,6 +20,81 @@
     "add_to_cart": "Add to Cart",
     "currency": "Currency",
     "language": "Language",
-    "search": "Search menu"
+    "search": "Search the menu",
+    "greeting": "Good day",
+    "guest": "Guest",
+    "table_label": "Table",
+    "table_prefix": "Table",
+    "sort": {
+      "label": "Sort",
+      "name_asc": "Name (A-Z)",
+      "name_desc": "Name (Z-A)",
+      "price_asc": "Price (Low to High)",
+      "price_desc": "Price (High to Low)"
+    },
+    "sections": {
+      "daily_title": "Today's Menu",
+      "daily_subtitle": "Chef recommendations and special flavours",
+      "categories_title": "Categories",
+      "categories_subtitle": "Discover flavours by category",
+      "products_title": "Products",
+      "products_subtitle": "Browse every dish on the menu",
+      "category_prompt": "Select categories to explore products",
+      "category_products_subtitle": "Products in the selected category"
+    },
+    "orders_title": "Order Tracking",
+    "orders_refresh": "Refresh",
+    "orders_empty": "You do not have any active orders.",
+    "order_success": "Your order has been received.",
+    "order_status_update": "Order :status",
+    "daily_empty": "The daily menu is being prepared.",
+    "categories_all": "All",
+    "category_empty": "No products were found in this category.",
+    "products_empty": "No products match your filters.",
+    "variant_default": "Standard",
+    "toast_added": ":item has been added to your cart.",
+    "table_missing": "Table information could not be found.",
+    "waiter_called": "Waiter call sent.",
+    "waiter_notice": "Your waiter request has been sent.",
+    "waiter_status": "Waiter status: :status",
+    "cart": {
+      "title": "Your Cart",
+      "summary": ":count items",
+      "empty": "Your cart is empty.",
+      "total": "Total",
+      "clear": "Clear",
+      "checkout": "Confirm Order",
+      "remove": "Remove"
+    },
+    "bottom": {
+      "home": "Home",
+      "daily": "Daily",
+      "orders": "Orders",
+      "categories": "Categories",
+      "contact": "Contact",
+      "cart": "Cart"
+    }
+  },
+  "contact": {
+    "title": "Contact",
+    "subtitle": "Reach out with your questions and requests",
+    "phone": "Phone",
+    "address": "Address",
+    "email": "Email",
+    "form_title": "Send a Message",
+    "name_label": "Full Name",
+    "name_placeholder": "Your name",
+    "email_label": "Email",
+    "email_placeholder": "name@example.com",
+    "message_label": "Message",
+    "message_placeholder": "Write your message here",
+    "submit": "Send",
+    "sending": "Sending your message...",
+    "success": "Your message has been sent successfully."
+  },
+  "messages": {
+    "error_generic": "The operation could not be completed.",
+    "currency_fetch": "Currency conversion failed",
+    "order_status_failed": "Unable to load order status"
   }
 }

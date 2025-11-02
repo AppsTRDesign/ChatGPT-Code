@@ -1,4 +1,20 @@
 const MenuApp = (() => {
+    const strings = window.MENU_STATE?.strings || {};
+    const t = (key, fallback = '') => {
+        if (Object.prototype.hasOwnProperty.call(strings, key)) {
+            return strings[key];
+        }
+        return fallback || key;
+    };
+    const format = (text, replacements = {}) => {
+        if (!text) {
+            return '';
+        }
+        return Object.entries(replacements).reduce(
+            (accumulator, [token, value]) => accumulator.replace(new RegExp(`:${token}`, 'g'), value),
+            text,
+        );
+    };
     const baseUrl = (document.body.dataset.baseUrl || window.MENU_STATE?.baseUrl || window.location.origin).replace(/\/+$/, '');
     const withBase = (path = '') => {
         if (!path) {
@@ -120,7 +136,7 @@ const MenuApp = (() => {
         const response = await fetch(withBase(url), options);
         const data = await response.json();
         if (data.error) {
-            throw new Error(data.message || 'İşlem gerçekleştirilemedi.');
+            throw new Error(data.message || t('messages.error_generic', 'The operation could not be completed.'));
         }
         return data;
     };
@@ -196,7 +212,7 @@ const MenuApp = (() => {
                     refreshPriceViews();
                 }
             })
-            .catch((e) => console.error('Kur çevrim hatası', e));
+            .catch((error) => console.error(t('messages.currency_fetch', 'Currency conversion failed'), error));
 
         return amount.toFixed(2);
     };
@@ -244,7 +260,7 @@ const MenuApp = (() => {
         };
 
         if (includeAll) {
-            addButton('Tümü', '<span class="badge">🍽️</span>', state.selectedCategory === null, () => selectCategory(null));
+            addButton(t('menu.categories_all', 'All'), '<span class="badge">🍽️</span>', state.selectedCategory === null, () => selectCategory(null));
         }
 
         categories.forEach((category) => {
@@ -273,7 +289,7 @@ const MenuApp = (() => {
         elements.dailySlider.innerHTML = '';
 
         if (!state.dailyMenu.length) {
-            elements.dailySlider.innerHTML = '<p class="text-muted mb-0">Günün menüsü hazırlanmaktadır.</p>';
+            elements.dailySlider.innerHTML = `<p class="text-muted mb-0">${escapeHtml(t('menu.daily_empty', 'Daily menu is being prepared.'))}</p>`;
             return;
         }
 
@@ -300,7 +316,7 @@ const MenuApp = (() => {
                     <strong class="daily-card__price">${priceText}</strong>
                     <h3>${escapeHtml(headline)}</h3>
                     ${tagline ? `<p>${escapeHtml(tagline)}</p>` : ''}
-                    <button type="button" class="daily-card__action" data-daily-add="${product.id}">${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</button>
+                    <button type="button" class="daily-card__action" data-daily-add="${product.id}">${window.MENU_STATE?.addToCartText || t('menu.add_to_cart', 'Add to Cart')}</button>
                 </div>
             `;
             card.querySelector('[data-daily-add]')?.addEventListener('click', (event) => {
@@ -356,7 +372,7 @@ const MenuApp = (() => {
             </div>
             <button type="button" class="product-card__action" data-product="${product.id}">
                 <i class="bx bx-cart-add"></i>
-                <span>${window.MENU_STATE?.addToCartText || 'Sepete Ekle'}</span>
+                <span>${window.MENU_STATE?.addToCartText || t('menu.add_to_cart', 'Add to Cart')}</span>
             </button>
         `;
         const actionButton = card.querySelector('.product-card__action');
@@ -382,8 +398,8 @@ const MenuApp = (() => {
 
     const renderProducts = () => {
         const filtered = filterProducts();
-        renderProductList(elements.products, filtered, 'Aradığınız kriterlere uygun ürün bulunamadı.');
-        renderProductList(elements.categoryPageProducts, filtered, 'Bu kategoriye ait ürün bulunamadı.');
+        renderProductList(elements.products, filtered, t('menu.products_empty', 'No products match your filters.'));
+        renderProductList(elements.categoryPageProducts, filtered, t('menu.category_empty', 'No products were found in this category.'));
     };
 
     const openProductOverlay = (product) => {
@@ -415,7 +431,7 @@ const MenuApp = (() => {
     const renderOverlayVariants = (product) => {
         if (!elements.overlayVariants) return;
         elements.overlayVariants.innerHTML = '';
-        const variants = product.variants && product.variants.length ? product.variants : [{ id: null, name: 'Standart', price: product.price }];
+        const variants = product.variants && product.variants.length ? product.variants : [{ id: null, name: t('menu.variant_default', 'Standard'), price: product.price }];
         variants.forEach((variant, index) => {
             const button = document.createElement('button');
             button.type = 'button';
@@ -441,7 +457,8 @@ const MenuApp = (() => {
     const updateOverlayButton = () => {
         if (!elements.addToCartButton || !state.overlayVariant) return;
         const total = state.overlayVariant.price * state.overlayQuantity;
-        elements.addToCartButton.textContent = `${window.MENU_STATE?.addToCartText || 'Sepete Ekle'} • ${convertPrice(total)} ${state.currency}`;
+        const addToCartLabel = window.MENU_STATE?.addToCartText || t('menu.add_to_cart', 'Add to Cart');
+        elements.addToCartButton.textContent = `${addToCartLabel} • ${convertPrice(total)} ${state.currency}`;
     };
 
     const changeOverlayQuantity = (delta) => {
@@ -471,7 +488,7 @@ const MenuApp = (() => {
         }
         updateCartSummary();
         renderCart();
-        toast.fire({ icon: 'success', title: `${product.name} sepete eklendi.` });
+        toast.fire({ icon: 'success', title: format(t('menu.toast_added', ':item has been added to your cart.'), { item: product.name }) });
     };
 
     const updateCartSummary = () => {
@@ -479,8 +496,10 @@ const MenuApp = (() => {
         const totalQty = state.cart.reduce((total, item) => total + item.qty, 0);
         const totalAmount = state.cart.reduce((total, item) => total + item.qty * item.price, 0);
         const convertedTotal = convertPrice(totalAmount);
+        const summaryTemplate = t('menu.cart.summary', ':count items');
+        const summaryText = format(summaryTemplate, { count: totalQty });
         elements.cartSummary.innerHTML = `
-            <span>${totalQty} ürün</span>
+            <span>${escapeHtml(summaryText)}</span>
             <strong>${convertedTotal} ${state.currency}</strong>
         `;
         if (elements.cartTotal) {
@@ -492,7 +511,7 @@ const MenuApp = (() => {
         if (!elements.cartItems) return;
         elements.cartItems.innerHTML = '';
         if (!state.cart.length) {
-            elements.cartItems.innerHTML = '<p class="text-muted">Sepetiniz boş.</p>';
+            elements.cartItems.innerHTML = `<p class="text-muted">${escapeHtml(t('menu.cart.empty', 'Your cart is empty.'))}</p>`;
             return;
         }
         state.cart.forEach((item) => {
@@ -513,7 +532,7 @@ const MenuApp = (() => {
                         <span>${convertPrice(item.price)} ${state.currency}</span>
                         <strong>${convertPrice(item.price * item.qty)} ${state.currency}</strong>
                     </div>
-                    <button type="button" class="btn btn-link text-danger p-0" data-remove="${item.key}">Sil</button>
+                    <button type="button" class="btn btn-link text-danger p-0" data-remove="${item.key}">${escapeHtml(t('menu.cart.remove', 'Remove'))}</button>
                 </div>
             `;
             elements.cartItems.appendChild(row);
@@ -542,11 +561,11 @@ const MenuApp = (() => {
 
     const submitOrder = async () => {
         if (!state.cart.length) {
-            toast.fire({ icon: 'info', title: 'Sepetiniz boş.' });
+            toast.fire({ icon: 'info', title: t('menu.cart.empty', 'Your cart is empty.') });
             return;
         }
         if (!state.tableId) {
-            toast.fire({ icon: 'error', title: 'Masa bilgisi eksik.' });
+            toast.fire({ icon: 'error', title: t('menu.table_missing', 'Table information could not be found.') });
             return;
         }
         const payload = {
@@ -563,11 +582,12 @@ const MenuApp = (() => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            toast.fire({ icon: 'success', title: response.message || 'Siparişiniz alındı.' });
+            toast.fire({ icon: 'success', title: response.message || t('menu.order_success', 'Your order has been received.') });
             clearCart();
             toggleCart(false);
             playAudio(elements.audioOrder);
-            socket.emit('order:new', { table: state.tableName || `Masa ${state.tableId}`, table_id: state.tableId });
+            const fallbackTableName = `${t('menu.table_prefix', 'Table')} ${state.tableId}`;
+            socket.emit('order:new', { table: state.tableName || fallbackTableName, table_id: state.tableId });
             await refreshOrderStatus();
         } catch (error) {
             toast.fire({ icon: 'error', title: error.message });
@@ -580,7 +600,7 @@ const MenuApp = (() => {
             const data = await fetchJSON(`api/order-status.php?table_id=${state.tableId}`);
             state.orders = data.orders || [];
         } catch (error) {
-            console.error('Sipariş durumu yüklenemedi', error);
+            console.error(t('messages.order_status_failed', 'Unable to load order status'), error);
             state.orders = [];
         }
         renderOrderStatus();
@@ -590,7 +610,7 @@ const MenuApp = (() => {
         if (!elements.orderStatusList) return;
         elements.orderStatusList.innerHTML = '';
         if (!state.orders.length) {
-            elements.orderStatusList.innerHTML = '<p class="text-muted mb-0">Aktif siparişiniz bulunmamaktadır.</p>';
+            elements.orderStatusList.innerHTML = `<p class="text-muted mb-0">${escapeHtml(t('menu.orders_empty', 'You do not have any active orders.'))}</p>`;
             return;
         }
         state.orders.forEach((order) => {
@@ -682,7 +702,7 @@ const MenuApp = (() => {
             const formData = new FormData(elements.contactForm);
             const payload = Object.fromEntries(formData.entries());
             if (elements.contactFeedback) {
-                elements.contactFeedback.textContent = 'Mesajınız gönderiliyor...';
+                elements.contactFeedback.textContent = t('contact.sending', 'Sending your message...');
                 elements.contactFeedback.className = 'contact-feedback text-muted';
             }
             try {
@@ -692,7 +712,7 @@ const MenuApp = (() => {
                     body: JSON.stringify(payload),
                 });
                 if (elements.contactFeedback) {
-                    elements.contactFeedback.textContent = data.message || 'Mesajınız başarıyla gönderildi.';
+                    elements.contactFeedback.textContent = data.message || t('contact.success', 'Your message has been sent successfully.');
                     elements.contactFeedback.className = 'contact-feedback text-success';
                 }
                 elements.contactForm.reset();
@@ -720,7 +740,7 @@ const MenuApp = (() => {
 
         elements.waiterButton?.addEventListener('click', async () => {
             if (!state.tableId) {
-                toast.fire({ icon: 'error', title: 'Masa bilgisi bulunamadı.' });
+                toast.fire({ icon: 'error', title: t('menu.table_missing', 'Table information could not be found.') });
                 return;
             }
             try {
@@ -729,8 +749,9 @@ const MenuApp = (() => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ table_id: state.tableId }),
                 });
-                toast.fire({ icon: 'success', title: 'Garson çağrısı iletildi.' });
-                socket.emit('waiter:call', { table: state.tableName || `Masa ${state.tableId}`, table_id: state.tableId });
+                toast.fire({ icon: 'success', title: t('menu.waiter_called', 'Waiter call sent.') });
+                const fallbackTableName = `${t('menu.table_prefix', 'Table')} ${state.tableId}`;
+                socket.emit('waiter:call', { table: state.tableName || fallbackTableName, table_id: state.tableId });
                 playAudio(elements.audioNotify);
             } catch (error) {
                 toast.fire({ icon: 'error', title: error.message });
@@ -793,7 +814,7 @@ const MenuApp = (() => {
             const index = Array.from(elements.overlayVariants.children).indexOf(button);
             const variants = state.overlayProduct.variants && state.overlayProduct.variants.length
                 ? state.overlayProduct.variants
-                : [{ id: null, name: 'Standart', price: state.overlayProduct.price }];
+                : [{ id: null, name: t('menu.variant_default', 'Standard'), price: state.overlayProduct.price }];
             state.overlayVariant = variants[index];
             elements.overlayVariants.querySelectorAll('.overlay-variant').forEach((item) => item.classList.remove('active'));
             button.classList.add('active');
@@ -819,7 +840,8 @@ const MenuApp = (() => {
             return Number(payload.table_id) === Number(state.tableId);
         }
         if (state.tableName) {
-            return payload.table === state.tableName || payload.table === `Masa ${state.tableId}`;
+            const fallbackTableName = `${t('menu.table_prefix', 'Table')} ${state.tableId}`;
+            return payload.table === state.tableName || payload.table === fallbackTableName;
         }
         return true;
     };
@@ -829,7 +851,7 @@ const MenuApp = (() => {
             if (!sameTable(payload)) {
                 return;
             }
-            toast.fire({ icon: 'info', title: `Garson durumu: ${payload.status}` });
+            toast.fire({ icon: 'info', title: format(t('menu.waiter_status', 'Waiter status: :status'), { status: payload.status }) });
             playAudio(elements.audioNotify);
             await refreshOrderStatus();
         });
@@ -838,7 +860,7 @@ const MenuApp = (() => {
             if (!sameTable(payload)) {
                 return;
             }
-            toast.fire({ icon: 'info', title: 'Garson çağrınız iletildi.' });
+            toast.fire({ icon: 'info', title: t('menu.waiter_notice', 'Your waiter request has been sent.') });
             playAudio(elements.audioNotify);
         });
 
@@ -846,14 +868,14 @@ const MenuApp = (() => {
             if (!sameTable(payload)) {
                 return;
             }
-            toast.fire({ icon: 'info', title: `Sipariş ${payload.status}` });
+            toast.fire({ icon: 'info', title: format(t('menu.order_status_update', 'Order :status'), { status: payload.status }) });
             playAudio(elements.audioOrder);
             await refreshOrderStatus();
         });
     };
 
     const init = async () => {
-        window.translationAddToCart = window.MENU_STATE?.addToCartText || 'Sepete Ekle';
+        window.translationAddToCart = window.MENU_STATE?.addToCartText || t('menu.add_to_cart', 'Add to Cart');
         state.language = elements.languageSelect?.value || state.language;
         applyAudioSources();
         await loadMenu();

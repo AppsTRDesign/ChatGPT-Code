@@ -6,11 +6,28 @@ if (file_exists($autoload)) {
     require_once $autoload;
 }
 
-spl_autoload_register(function ($class) {
+spl_autoload_register(function (string $class): void {
     $baseDir = __DIR__ . '/';
     $class = ltrim($class, '\\');
-    $file = $baseDir . str_replace('\\', '/', $class) . '.php';
 
+    $namespaceMap = [
+        'App\\' => 'app/',
+        'Core\\' => 'core/',
+        'Helpers\\' => 'helpers/',
+    ];
+
+    foreach ($namespaceMap as $prefix => $directory) {
+        if (strncmp($class, $prefix, strlen($prefix)) === 0) {
+            $relative = substr($class, strlen($prefix));
+            $file = $baseDir . $directory . str_replace('\\', '/', $relative) . '.php';
+            if (file_exists($file)) {
+                require_once $file;
+            }
+            return;
+        }
+    }
+
+    $file = $baseDir . str_replace('\\', '/', $class) . '.php';
     if (file_exists($file)) {
         require_once $file;
     }
