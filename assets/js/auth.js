@@ -6,6 +6,14 @@ const withBase = (path = '') => {
     return `${baseUrl}/${cleaned}`;
 };
 
+const strings = window.APP_I18N || {};
+const t = (key, fallback = '') => {
+    if (Object.prototype.hasOwnProperty.call(strings, key)) {
+        return strings[key];
+    }
+    return fallback || key;
+};
+
 const loginForm = document.querySelector('#loginForm');
 const forgotPasswordButton = document.querySelector('#forgotPassword');
 
@@ -34,7 +42,7 @@ if (loginForm) {
             });
             const result = await response.json();
             if (result.error) {
-                throw new Error(result.message || 'Giriş başarısız.');
+                throw new Error(result.message || t('auth.login_failed', 'Giriş başarısız.'));
             }
 
             toast.fire({ icon: 'success', title: result.message });
@@ -42,7 +50,7 @@ if (loginForm) {
                 window.location.href = withBase('panel');
             }, 800);
         } catch (error) {
-            toast.fire({ icon: 'error', title: error.message });
+            toast.fire({ icon: 'error', title: error.message || t('messages.error_generic', 'İşlem gerçekleştirilemedi.') });
         }
     });
 }
@@ -50,13 +58,13 @@ if (loginForm) {
 if (forgotPasswordButton) {
     forgotPasswordButton.addEventListener('click', async () => {
         const { value: email } = await Swal.fire({
-            title: 'Şifre Sıfırlama',
+            title: t('auth.reset.title', 'Şifre Sıfırlama'),
             input: 'email',
-            inputLabel: 'E-posta adresinizi girin',
-            confirmButtonText: 'Gönder',
+            inputLabel: t('auth.reset.prompt', 'E-posta adresinizi girin'),
+            confirmButtonText: t('auth.reset.submit', 'Gönder'),
             showCancelButton: true,
-            cancelButtonText: 'Vazgeç',
-            inputPlaceholder: 'admin@noasoft.com',
+            cancelButtonText: t('auth.reset.cancel', 'Vazgeç'),
+            inputPlaceholder: t('auth.reset.placeholder', 'admin@noasoft.com'),
         });
 
         if (!email) {
@@ -71,12 +79,12 @@ if (forgotPasswordButton) {
             });
             const result = await response.json();
             if (result.error) {
-                throw new Error(result.message || 'Şifre sıfırlanamadı.');
+                throw new Error(result.message || t('auth.reset.failed', 'Şifre sıfırlanamadı.'));
             }
 
             Swal.fire({ icon: 'success', text: result.message });
         } catch (error) {
-            Swal.fire({ icon: 'error', text: error.message });
+            Swal.fire({ icon: 'error', text: error.message || t('messages.error_generic', 'İşlem gerçekleştirilemedi.') });
         }
     });
 }

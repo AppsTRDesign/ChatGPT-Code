@@ -32,6 +32,54 @@ $timezones = $settings['timezones'] ?? $settingsService->timezones();
 $defaultLanguage = $restaurant['language'] ?? 'tr';
 Language::load($defaultLanguage);
 
+$adminTranslationKeys = [
+    'messages.error_generic',
+    'admin.messages.updated',
+    'admin.messages.deleted',
+    'admin.messages.link_copied',
+    'admin.messages.file_uploaded',
+    'admin.messages.file_upload_failed',
+    'admin.messages.file_upload_error',
+    'admin.messages.user_missing',
+    'admin.messages.profile_updated',
+    'admin.messages.password_required',
+    'admin.messages.password_mismatch',
+    'admin.messages.password_updated',
+    'admin.confirm.title',
+    'admin.confirm.delete',
+    'admin.confirm.cancel',
+    'admin.daily.delete_confirm',
+    'admin.categories.delete_confirm',
+    'admin.products.delete_confirm',
+    'admin.tables.delete_title',
+    'admin.languages.delete_title',
+    'admin.languages.default_updated',
+    'admin.languages.deleted',
+    'admin.languages.invalid_json',
+    'admin.languages.saved',
+    'admin.currency.delete_title',
+    'admin.currency.default_updated',
+    'admin.currency.deleted',
+    'admin.currency.saved',
+    'admin.upload.placeholder',
+    'admin.orders.label',
+    'admin.orders.new',
+    'admin.orders.toast_with_table',
+    'admin.orders.toast_generic',
+    'admin.orders.flash_with_table',
+    'admin.orders.flash_generic',
+    'admin.waiter.table_request',
+    'admin.waiter.new_call',
+    'admin.waiter.flash_with_table',
+    'admin.waiter.flash_generic',
+    'admin.waiter.status',
+];
+
+$adminStrings = [];
+foreach ($adminTranslationKeys as $key) {
+    $adminStrings[$key] = Language::get($key);
+}
+
 $allowedSections = ['dashboard', 'orders', 'tables', 'waiter', 'menu', 'reports', 'settings'];
 $currentSection = $_GET['section'] ?? 'dashboard';
 if (!in_array($currentSection, $allowedSections, true)) {
@@ -941,6 +989,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
 <script>
     window.APP_BASE_URL = <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>;
     window.APP_USER = <?= json_encode($user, JSON_UNESCAPED_UNICODE) ?>;
+    window.APP_I18N = <?= json_encode($adminStrings, JSON_UNESCAPED_UNICODE) ?>;
     window.APP_STATE = {
         settings: <?= json_encode($settings, JSON_UNESCAPED_UNICODE) ?>,
         qrPreview: <?= json_encode($qrPreview, JSON_UNESCAPED_UNICODE) ?>,
@@ -948,7 +997,8 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
         sectionPaths: <?= json_encode($sectionPaths, JSON_UNESCAPED_UNICODE) ?>,
         notifications: <?= json_encode($notifications, JSON_UNESCAPED_UNICODE) ?>,
         timezones: <?= json_encode($timezones, JSON_UNESCAPED_UNICODE) ?>,
-        baseUrl: <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>
+        baseUrl: <?= json_encode($baseUrl, JSON_UNESCAPED_UNICODE) ?>,
+        strings: window.APP_I18N
     };
 </script>
 <script src="<?= htmlspecialchars($asset('assets/js/admin.js')) ?>"></script>

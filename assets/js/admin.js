@@ -13,6 +13,23 @@ const AdminApp = (() => {
         return `${baseUrl}/${cleanedPath}`;
     };
 
+    const strings = window.APP_STATE?.strings || window.APP_I18N || {};
+    const t = (key, fallback = '') => {
+        if (Object.prototype.hasOwnProperty.call(strings, key)) {
+            return strings[key];
+        }
+        return fallback || key;
+    };
+    const format = (text, replacements = {}) => {
+        if (!text) {
+            return '';
+        }
+        return Object.entries(replacements).reduce(
+            (accumulator, [token, value]) => accumulator.replace(new RegExp(`:${token}`, 'g'), value),
+            text,
+        );
+    };
+
     const resolveIconClass = (value) => {
         const icon = (value || '').trim();
         if (!icon) {
@@ -183,7 +200,7 @@ const AdminApp = (() => {
         const response = await fetch(withBase(url), options);
         const data = await response.json();
         if (data.error) {
-            throw new Error(data.message || 'Bilinmeyen bir hata oluştu.');
+            throw new Error(data.message || t('messages.error_generic', 'Bilinmeyen bir hata oluştu.'));
         }
         return data;
     };
@@ -868,7 +885,7 @@ const AdminApp = (() => {
         });
         state.dailyMenu = response.items || [];
         renderDailyMenu();
-        toast.fire({ icon: 'success', title: response.message || 'Güncellendi.' });
+        toast.fire({ icon: 'success', title: response.message || t('admin.messages.updated', 'Güncellendi.') });
         bootstrap.Modal.getInstance(selectors.dailyMenuModal)?.hide();
     };
 
@@ -897,12 +914,12 @@ const AdminApp = (() => {
 
     const deleteDailyMenuItem = async (id) => {
         const confirmResult = await Swal.fire({
-            title: 'Emin misiniz?',
-            text: 'Günün menüsünden kaldırılacak.',
+            title: t('admin.confirm.title', 'Emin misiniz?'),
+            text: t('admin.daily.delete_confirm', 'Günün menüsünden kaldırılacak.'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sil',
-            cancelButtonText: 'Vazgeç',
+            confirmButtonText: t('admin.confirm.delete', 'Sil'),
+            cancelButtonText: t('admin.confirm.cancel', 'Vazgeç'),
         });
         if (!confirmResult.isConfirmed) {
             return;
@@ -910,7 +927,7 @@ const AdminApp = (() => {
         const response = await fetchJSON(`api/daily-menu.php?id=${id}`, { method: 'DELETE' });
         state.dailyMenu = response.items || [];
         renderDailyMenu();
-        toast.fire({ icon: 'success', title: response.message || 'Silindi.' });
+        toast.fire({ icon: 'success', title: response.message || t('admin.messages.deleted', 'Silindi.') });
     };
 
     const openCategoryModal = (id = null) => {
@@ -970,12 +987,12 @@ const AdminApp = (() => {
         const id = selectors.categoryForm.querySelector('[name="id"]').value;
         if (!id) return;
         const confirmResult = await Swal.fire({
-            title: 'Emin misiniz?',
-            text: 'Kategori silinecek.',
+            title: t('admin.confirm.title', 'Emin misiniz?'),
+            text: t('admin.categories.delete_confirm', 'Kategori silinecek.'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sil',
-            cancelButtonText: 'Vazgeç',
+            confirmButtonText: t('admin.confirm.delete', 'Sil'),
+            cancelButtonText: t('admin.confirm.cancel', 'Vazgeç'),
         });
         if (!confirmResult.isConfirmed) return;
         const data = await fetchJSON(`api/categories.php?id=${id}`, { method: 'DELETE' });
@@ -1049,12 +1066,12 @@ const AdminApp = (() => {
 
     const deleteProduct = async (id) => {
         const confirmResult = await Swal.fire({
-            title: 'Emin misiniz?',
-            text: 'Ürün silinecek.',
+            title: t('admin.confirm.title', 'Emin misiniz?'),
+            text: t('admin.products.delete_confirm', 'Ürün silinecek.'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sil',
-            cancelButtonText: 'Vazgeç',
+            confirmButtonText: t('admin.confirm.delete', 'Sil'),
+            cancelButtonText: t('admin.confirm.cancel', 'Vazgeç'),
         });
         if (!confirmResult.isConfirmed) return;
         const data = await fetchJSON(`api/products.php?id=${id}`, { method: 'DELETE' });
@@ -1095,11 +1112,11 @@ const AdminApp = (() => {
         const id = selectors.deleteTableButton.dataset.id;
         if (!id) return;
         const confirmResult = await Swal.fire({
-            title: 'Masa silinsin mi?',
+            title: t('admin.tables.delete_title', 'Masa silinsin mi?'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sil',
-            cancelButtonText: 'Vazgeç',
+            confirmButtonText: t('admin.confirm.delete', 'Sil'),
+            cancelButtonText: t('admin.confirm.cancel', 'Vazgeç'),
         });
         if (!confirmResult.isConfirmed) return;
         const data = await fetchJSON(`api/tables.php?id=${id}`, { method: 'DELETE' });
@@ -1111,7 +1128,7 @@ const AdminApp = (() => {
 
     const handleCopy = (text) => {
         navigator.clipboard.writeText(text).then(() => {
-            toast.fire({ icon: 'success', title: 'Bağlantı kopyalandı.' });
+            toast.fire({ icon: 'success', title: t('admin.messages.link_copied', 'Bağlantı kopyalandı.') });
         });
     };
 
@@ -1124,12 +1141,12 @@ const AdminApp = (() => {
                 maxFiles: 1,
                 acceptedFiles,
                 addRemoveLinks: true,
-                dictDefaultMessage: element.dataset.placeholder || 'Dosyayı buraya bırakın',
+                dictDefaultMessage: element.dataset.placeholder || t('admin.upload.placeholder', 'Dosyayı buraya bırakın'),
             });
 
             dz.on('success', (file, response) => {
                 if (!response.success) {
-                    toast.fire({ icon: 'error', title: response.message || 'Dosya yüklenemedi.' });
+                    toast.fire({ icon: 'error', title: response.message || t('admin.messages.file_upload_failed', 'Dosya yüklenemedi.') });
                     return;
                 }
                 const target = document.querySelector(element.dataset.target);
@@ -1150,11 +1167,11 @@ const AdminApp = (() => {
                         audio.load?.();
                     }
                 }
-                toast.fire({ icon: 'success', title: 'Dosya yüklendi.' });
+                toast.fire({ icon: 'success', title: t('admin.messages.file_uploaded', 'Dosya yüklendi.') });
             });
 
             dz.on('error', () => {
-                toast.fire({ icon: 'error', title: 'Dosya yüklenirken hata oluştu.' });
+                toast.fire({ icon: 'error', title: t('admin.messages.file_upload_error', 'Dosya yüklenirken hata oluştu.') });
             });
         });
     };
@@ -1602,7 +1619,7 @@ const AdminApp = (() => {
             const payload = Object.fromEntries(formData.entries());
             const userId = payload.user_id || state.user?.id;
             if (!userId) {
-                toast.fire({ icon: 'error', title: 'Kullanıcı bilgisi bulunamadı.' });
+                toast.fire({ icon: 'error', title: t('admin.messages.user_missing', 'Kullanıcı bilgisi bulunamadı.') });
                 return;
             }
             try {
@@ -1621,7 +1638,7 @@ const AdminApp = (() => {
                     window.APP_USER = data.user;
                     populateAccountForm();
                 }
-                toast.fire({ icon: 'success', title: data.message || 'Bilgiler güncellendi.' });
+                toast.fire({ icon: 'success', title: data.message || t('admin.messages.profile_updated', 'Bilgiler güncellendi.') });
             } catch (error) {
                 toast.fire({ icon: 'error', title: error.message });
             }
@@ -1636,15 +1653,15 @@ const AdminApp = (() => {
             const payload = Object.fromEntries(formData.entries());
             const userId = payload.user_id || state.user?.id;
             if (!userId) {
-                toast.fire({ icon: 'error', title: 'Kullanıcı bilgisi bulunamadı.' });
+                toast.fire({ icon: 'error', title: t('admin.messages.user_missing', 'Kullanıcı bilgisi bulunamadı.') });
                 return;
             }
             if (!payload.new_password || payload.new_password.trim() === '') {
-                toast.fire({ icon: 'error', title: 'Yeni şifre zorunludur.' });
+                toast.fire({ icon: 'error', title: t('admin.messages.password_required', 'Yeni şifre zorunludur.') });
                 return;
             }
             if ((payload.confirm_password || '').trim() !== payload.new_password.trim()) {
-                toast.fire({ icon: 'error', title: 'Yeni şifreler eşleşmiyor.' });
+                toast.fire({ icon: 'error', title: t('admin.messages.password_mismatch', 'Yeni şifreler eşleşmiyor.') });
                 return;
             }
             try {
@@ -1661,7 +1678,7 @@ const AdminApp = (() => {
                 selectors.passwordForm.reset();
                 const hiddenId = selectors.passwordForm.querySelector('[name="user_id"]');
                 if (hiddenId) hiddenId.value = userId;
-                toast.fire({ icon: 'success', title: data.message || 'Şifre güncellendi.' });
+                toast.fire({ icon: 'success', title: data.message || t('admin.messages.password_updated', 'Şifre güncellendi.') });
             } catch (error) {
                 toast.fire({ icon: 'error', title: error.message });
             }
@@ -1767,22 +1784,22 @@ const AdminApp = (() => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code }),
         });
-        toast.fire({ icon: 'success', title: response.message || 'Varsayılan dil güncellendi.' });
+        toast.fire({ icon: 'success', title: response.message || t('admin.languages.default_updated', 'Varsayılan dil güncellendi.') });
         await reloadSettings();
         $('#languagesTable').DataTable().ajax.reload(null, false);
     };
 
     const deleteLanguage = async (code) => {
         const confirmResult = await Swal.fire({
-            title: 'Dil silinsin mi?',
+            title: t('admin.languages.delete_title', 'Dil silinsin mi?'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sil',
-            cancelButtonText: 'Vazgeç',
+            confirmButtonText: t('admin.confirm.delete', 'Sil'),
+            cancelButtonText: t('admin.confirm.cancel', 'Vazgeç'),
         });
         if (!confirmResult.isConfirmed) return;
         const response = await fetchJSON(`api/languages.php?code=${code}`, { method: 'DELETE' });
-        toast.fire({ icon: 'success', title: response.message || 'Dil silindi.' });
+        toast.fire({ icon: 'success', title: response.message || t('admin.languages.deleted', 'Dil silindi.') });
         await reloadSettings();
         $('#languagesTable').DataTable().ajax.reload(null, false);
     };
@@ -1805,7 +1822,7 @@ const AdminApp = (() => {
                 try {
                     translations = JSON.parse(payload.translations || '{}');
                 } catch (error) {
-                    toast.fire({ icon: 'error', title: 'Geçerli bir JSON içeriği girin.' });
+                    toast.fire({ icon: 'error', title: t('admin.languages.invalid_json', 'Geçerli bir JSON içeriği girin.') });
                     return;
                 }
                 payload.translations = translations;
@@ -1814,7 +1831,7 @@ const AdminApp = (() => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
-                toast.fire({ icon: 'success', title: response.message || 'Dil kaydedildi.' });
+                toast.fire({ icon: 'success', title: response.message || t('admin.languages.saved', 'Dil kaydedildi.') });
                 await reloadSettings();
                 bootstrap.Modal.getInstance(selectors.languageModal)?.hide();
                 $('#languagesTable').DataTable().ajax.reload(null, false);
@@ -1917,22 +1934,22 @@ const AdminApp = (() => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code }),
         });
-        toast.fire({ icon: 'success', title: response.message || 'Varsayılan para birimi güncellendi.' });
+        toast.fire({ icon: 'success', title: response.message || t('admin.currency.default_updated', 'Varsayılan para birimi güncellendi.') });
         await reloadSettings();
         $('#currenciesTable').DataTable().ajax.reload(null, false);
     };
 
     const deleteCurrency = async (id) => {
         const confirmResult = await Swal.fire({
-            title: 'Para birimi silinsin mi?',
+            title: t('admin.currency.delete_title', 'Para birimi silinsin mi?'),
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sil',
-            cancelButtonText: 'Vazgeç',
+            confirmButtonText: t('admin.confirm.delete', 'Sil'),
+            cancelButtonText: t('admin.confirm.cancel', 'Vazgeç'),
         });
         if (!confirmResult.isConfirmed) return;
         const response = await fetchJSON(`api/currencies.php?id=${id}`, { method: 'DELETE' });
-        toast.fire({ icon: 'success', title: response.message || 'Para birimi silindi.' });
+        toast.fire({ icon: 'success', title: response.message || t('admin.currency.deleted', 'Para birimi silindi.') });
         await reloadSettings();
         $('#currenciesTable').DataTable().ajax.reload(null, false);
     };
@@ -1958,7 +1975,7 @@ const AdminApp = (() => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
-                toast.fire({ icon: 'success', title: response.message || 'Para birimi kaydedildi.' });
+                toast.fire({ icon: 'success', title: response.message || t('admin.currency.saved', 'Para birimi kaydedildi.') });
                 await reloadSettings();
                 bootstrap.Modal.getInstance(selectors.currencyModal)?.hide();
                 $('#currenciesTable').DataTable().ajax.reload(null, false);
@@ -2037,11 +2054,28 @@ const AdminApp = (() => {
     const bindSocket = () => {
         socket.on('order:update', async (payload) => {
             const statusText = payload.status || '';
-            const title = payload.table ? `${payload.table} - ${statusText}` : `Sipariş ${statusText}`;
+            const orderLabel = t('admin.orders.label', 'Sipariş');
+            const newOrderLabel = t('admin.orders.new', 'Yeni Sipariş');
+            const titleTemplate = payload.table
+                ? t('admin.orders.toast_with_table', ':table - :status')
+                : t('admin.orders.toast_generic', ':label :status');
+            const title = format(titleTemplate, {
+                table: payload.table || '',
+                label: orderLabel,
+                status: statusText,
+            });
             const isNewOrder = statusText.toLowerCase() === 'beklemede';
+            const flashTemplate = payload.table
+                ? t('admin.orders.flash_with_table', ':table - :status')
+                : t('admin.orders.flash_generic', ':label :status');
             const flashMessage = payload.table
-                ? `${payload.table} - ${isNewOrder ? 'Yeni Sipariş' : statusText}`
-                : (isNewOrder ? 'Yeni Sipariş' : `Sipariş ${statusText}`);
+                ? format(flashTemplate, {
+                    table: payload.table || '',
+                    status: isNewOrder ? newOrderLabel : statusText,
+                })
+                : (isNewOrder
+                    ? newOrderLabel
+                    : format(flashTemplate, { label: orderLabel, status: statusText }));
             toast.fire({ icon: 'info', title });
             playAudio(selectors.audioOrder);
             triggerFlash(flashMessage, 'order');
@@ -2051,10 +2085,15 @@ const AdminApp = (() => {
         });
 
         socket.on('waiter:call', async (payload) => {
-            const title = payload.table ? `${payload.table} garson istiyor.` : 'Yeni garson çağrısı';
+            const title = payload.table
+                ? format(t('admin.waiter.table_request', ':table garson istiyor.'), { table: payload.table })
+                : t('admin.waiter.new_call', 'Yeni garson çağrısı');
             toast.fire({ icon: 'warning', title });
             playAudio(selectors.audioNotify);
-            const flashMessage = payload.table ? `${payload.table} - Garson Çağrısı` : 'Garson Çağrısı';
+            const flashTemplate = payload.table
+                ? t('admin.waiter.flash_with_table', ':table - Garson Çağrısı')
+                : t('admin.waiter.flash_generic', 'Garson Çağrısı');
+            const flashMessage = format(flashTemplate, { table: payload.table || '' });
             triggerFlash(flashMessage, 'waiter');
             await fetchWaiterCalls();
             await fetchTables();
@@ -2062,7 +2101,7 @@ const AdminApp = (() => {
         });
 
         socket.on('waiter:update', async (payload) => {
-            toast.fire({ icon: 'info', title: `Garson durumu: ${payload.status}` });
+            toast.fire({ icon: 'info', title: format(t('admin.waiter.status', 'Garson durumu: :status'), { status: payload.status || '' }) });
             playAudio(selectors.audioNotify);
             await fetchWaiterCalls();
             await fetchDashboard();

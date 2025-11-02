@@ -96,5 +96,79 @@
     "error_generic": "The operation could not be completed.",
     "currency_fetch": "Currency conversion failed",
     "order_status_failed": "Unable to load order status"
+  },
+  "auth": {
+    "login_failed": "Login failed.",
+    "reset": {
+      "title": "Password Reset",
+      "prompt": "Enter your email address",
+      "submit": "Send",
+      "cancel": "Cancel",
+      "placeholder": "admin@noasoft.com",
+      "failed": "Password reset failed."
+    }
+  },
+  "admin": {
+    "messages": {
+      "updated": "Updated.",
+      "deleted": "Deleted.",
+      "link_copied": "Link copied.",
+      "file_uploaded": "File uploaded.",
+      "file_upload_failed": "File could not be uploaded.",
+      "file_upload_error": "An error occurred while uploading the file.",
+      "user_missing": "User information could not be found.",
+      "profile_updated": "Profile updated.",
+      "password_required": "New password is required.",
+      "password_mismatch": "New passwords do not match.",
+      "password_updated": "Password updated."
+    },
+    "confirm": {
+      "title": "Are you sure?",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    },
+    "daily": {
+      "delete_confirm": "This item will be removed from the daily menu."
+    },
+    "categories": {
+      "delete_confirm": "The category will be deleted."
+    },
+    "products": {
+      "delete_confirm": "The product will be deleted."
+    },
+    "tables": {
+      "delete_title": "Delete table?"
+    },
+    "languages": {
+      "delete_title": "Delete language?",
+      "default_updated": "Default language updated.",
+      "deleted": "Language deleted.",
+      "invalid_json": "Enter a valid JSON payload.",
+      "saved": "Language saved."
+    },
+    "currency": {
+      "delete_title": "Delete currency?",
+      "default_updated": "Default currency updated.",
+      "deleted": "Currency deleted.",
+      "saved": "Currency saved."
+    },
+    "upload": {
+      "placeholder": "Drop files here"
+    },
+    "orders": {
+      "label": "Order",
+      "new": "New Order",
+      "toast_with_table": ":table - :status",
+      "toast_generic": ":label :status",
+      "flash_with_table": ":table - :status",
+      "flash_generic": ":label :status"
+    },
+    "waiter": {
+      "table_request": ":table is requesting a waiter.",
+      "new_call": "New waiter call",
+      "flash_with_table": ":table - Waiter Call",
+      "flash_generic": "Waiter Call",
+      "status": "Waiter status: :status"
+    }
   }
 }

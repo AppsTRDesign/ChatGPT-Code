@@ -96,5 +96,79 @@
     "error_generic": "İşlem gerçekleştirilemedi.",
     "currency_fetch": "Kur çevrimi başarısız oldu",
     "order_status_failed": "Sipariş durumu yüklenemedi"
+  },
+  "auth": {
+    "login_failed": "Giriş başarısız.",
+    "reset": {
+      "title": "Şifre Sıfırlama",
+      "prompt": "E-posta adresinizi girin",
+      "submit": "Gönder",
+      "cancel": "Vazgeç",
+      "placeholder": "admin@noasoft.com",
+      "failed": "Şifre sıfırlanamadı."
+    }
+  },
+  "admin": {
+    "messages": {
+      "updated": "Güncellendi.",
+      "deleted": "Silindi.",
+      "link_copied": "Bağlantı kopyalandı.",
+      "file_uploaded": "Dosya yüklendi.",
+      "file_upload_failed": "Dosya yüklenemedi.",
+      "file_upload_error": "Dosya yüklenirken hata oluştu.",
+      "user_missing": "Kullanıcı bilgisi bulunamadı.",
+      "profile_updated": "Bilgiler güncellendi.",
+      "password_required": "Yeni şifre zorunludur.",
+      "password_mismatch": "Yeni şifreler eşleşmiyor.",
+      "password_updated": "Şifre güncellendi."
+    },
+    "confirm": {
+      "title": "Emin misiniz?",
+      "delete": "Sil",
+      "cancel": "Vazgeç"
+    },
+    "daily": {
+      "delete_confirm": "Günün menüsünden kaldırılacak."
+    },
+    "categories": {
+      "delete_confirm": "Kategori silinecek."
+    },
+    "products": {
+      "delete_confirm": "Ürün silinecek."
+    },
+    "tables": {
+      "delete_title": "Masa silinsin mi?"
+    },
+    "languages": {
+      "delete_title": "Dil silinsin mi?",
+      "default_updated": "Varsayılan dil güncellendi.",
+      "deleted": "Dil silindi.",
+      "invalid_json": "Geçerli bir JSON içeriği girin.",
+      "saved": "Dil kaydedildi."
+    },
+    "currency": {
+      "delete_title": "Para birimi silinsin mi?",
+      "default_updated": "Varsayılan para birimi güncellendi.",
+      "deleted": "Para birimi silindi.",
+      "saved": "Para birimi kaydedildi."
+    },
+    "upload": {
+      "placeholder": "Dosyayı buraya bırakın"
+    },
+    "orders": {
+      "label": "Sipariş",
+      "new": "Yeni Sipariş",
+      "toast_with_table": ":table - :status",
+      "toast_generic": ":label :status",
+      "flash_with_table": ":table - :status",
+      "flash_generic": ":label :status"
+    },
+    "waiter": {
+      "table_request": ":table garson istiyor.",
+      "new_call": "Yeni garson çağrısı",
+      "flash_with_table": ":table - Garson Çağrısı",
+      "flash_generic": "Garson Çağrısı",
+      "status": "Garson durumu: :status"
+    }
   }
 }
