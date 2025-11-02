@@ -36,6 +36,8 @@ const AdminApp = (() => {
         period: 'weekly',
         settings: window.APP_STATE?.settings || {},
         menuTemplate: window.APP_STATE?.settings?.menu?.template || 'menu1',
+        menuStyle: window.APP_STATE?.settings?.menu?.style || window.APP_STATE?.settings?.menu?.template || 'menu1',
+        menuView: window.APP_STATE?.settings?.menu?.view || 'view1',
         qrPreview: window.APP_STATE?.qrPreview || '',
         currentSection: window.APP_STATE?.currentSection || 'dashboard',
         user: window.APP_USER || null,
@@ -1166,6 +1168,8 @@ const AdminApp = (() => {
                 });
                 state.settings = data.settings || {};
                 state.menuTemplate = state.settings?.menu?.template || state.menuTemplate || 'menu1';
+                state.menuStyle = state.settings?.menu?.style || state.menuTemplate;
+                state.menuView = state.settings?.menu?.view || state.menuView || 'view1';
                 toast.fire({ icon: 'success', title: data.message });
                 if (typeof onSuccess === 'function') {
                     await onSuccess(data);
@@ -1180,6 +1184,8 @@ const AdminApp = (() => {
         const data = await fetchJSON('api/settings.php');
         state.settings = data.settings || {};
         state.menuTemplate = state.settings?.menu?.template || state.menuTemplate || 'menu1';
+        state.menuStyle = state.settings?.menu?.style || state.menuTemplate;
+        state.menuView = state.settings?.menu?.view || state.menuView || 'view1';
         state.qrPreview = data.qr_preview || state.qrPreview;
         updateBrandingPreviews();
         updateAudioSources();
@@ -1281,19 +1287,32 @@ const AdminApp = (() => {
     };
 
     const updateTemplateSelections = () => {
-        const current = state.menuTemplate || state.settings?.menu?.template || 'menu1';
-        state.menuTemplate = current;
         if (!selectors.menuTemplateForm) return;
-        const cards = selectors.menuTemplateForm.querySelectorAll('.template-card');
-        cards.forEach((card) => {
-            const input = card.querySelector('input[name="template"]');
-            if (!input) {
-                return;
-            }
-            const isActive = input.value === current;
-            card.classList.toggle('active', isActive);
-            input.checked = isActive;
-        });
+        const currentStyle = state.menuStyle || state.settings?.menu?.style || state.settings?.menu?.template || 'menu1';
+        const currentView = state.menuView || state.settings?.menu?.view || 'view1';
+        state.menuStyle = currentStyle;
+        state.menuTemplate = currentStyle;
+        state.menuView = currentView;
+
+        selectors.menuTemplateForm.querySelectorAll('[data-style]')
+            .forEach((card) => {
+                const input = card.querySelector('input[name="style"]');
+                const isActive = input && input.value === currentStyle;
+                if (input) {
+                    input.checked = isActive;
+                }
+                card.classList.toggle('active', !!isActive);
+            });
+
+        selectors.menuTemplateForm.querySelectorAll('[data-view]')
+            .forEach((card) => {
+                const input = card.querySelector('input[name="view"]');
+                const isActive = input && input.value === currentView;
+                if (input) {
+                    input.checked = isActive;
+                }
+                card.classList.toggle('active', !!isActive);
+            });
     };
 
     const populateDefaultLanguage = () => {
@@ -1526,13 +1545,22 @@ const AdminApp = (() => {
         handleSettingsSubmit(selectors.generalSettingsForm, (formData) => ({ restaurant: Object.fromEntries(formData.entries()) }), reloadSettings);
         if (selectors.menuTemplateForm) {
             selectors.menuTemplateForm.addEventListener('change', (event) => {
-                if (event.target.matches('input[name="template"]')) {
+                if (event.target.matches('input[name="style"]')) {
+                    state.menuStyle = event.target.value;
                     state.menuTemplate = event.target.value;
-                    updateTemplateSelections();
                 }
+                if (event.target.matches('input[name="view"]')) {
+                    state.menuView = event.target.value;
+                }
+                updateTemplateSelections();
             });
         }
-        handleSettingsSubmit(selectors.menuTemplateForm, (formData) => ({ menu: { template: formData.get('template') } }), reloadSettings);
+        handleSettingsSubmit(selectors.menuTemplateForm, (formData) => ({
+            menu: {
+                style: formData.get('style') || state.menuStyle,
+                view: formData.get('view') || state.menuView,
+            },
+        }), reloadSettings);
         handleSettingsSubmit(selectors.brandingForm, (formData) => ({ branding: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.qrForm, (formData) => ({ qr: Object.fromEntries(formData.entries()) }), reloadSettings);
         handleSettingsSubmit(selectors.notificationsForm, (formData) => ({ notifications: Object.fromEntries(formData.entries()) }), reloadSettings);

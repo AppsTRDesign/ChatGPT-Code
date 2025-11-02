@@ -1169,6 +1169,12 @@ a:hover {
   gap: 16px;
 }
 
+.greeting__logo {
+  max-width: 96px;
+  max-height: 96px;
+  object-fit: contain;
+}
+
 .menu-hero .menu-controls {
   display: flex;
   align-items: stretch;
@@ -2101,7 +2107,8 @@ a:hover {
     pointer-events: none;
 }
 
-.template-card__swatch {
+.template-card__swatch,
+.template-card__preview {
     display: flex;
     gap: 6px;
     margin-bottom: 16px;
@@ -2113,6 +2120,41 @@ a:hover {
     height: 28px;
     border-radius: 10px;
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.template-card__preview {
+    align-items: center;
+    padding: 0 6px;
+}
+
+.template-card__preview .preview-block {
+    display: inline-block;
+    flex: 1 1 auto;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.template-card__preview .preview-block--hero {
+  flex: 1.4;
+  background: rgba(15, 157, 88, 0.4);
+}
+
+.template-card__preview .preview-block--content {
+  flex: 2;
+}
+
+.template-card__preview .preview-block--footer {
+    flex: 1;
+  height: 8px;
+}
+
+.template-card--view .template-card__preview .preview-block--content {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.template-card--view .template-card__preview .preview-block--footer {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .template-card__body h3 {

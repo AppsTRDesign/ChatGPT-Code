@@ -17,6 +17,8 @@ function loadMenuContext(?string $templateOverride = null): array
     $mailSettings = $settings['mail'] ?? [];
     $notifications = $settings['notifications'] ?? [];
     $menuSettings = $settings['menu'] ?? [];
+    $availableStyles = $menuSettings['styles'] ?? [];
+    $availableViews = $menuSettings['views'] ?? [];
 
     $tableId = isset($_GET['table']) ? (int)$_GET['table'] : 0;
     $tableName = null;
@@ -75,18 +77,27 @@ function loadMenuContext(?string $templateOverride = null): array
     $currentCurrencyCode = strtoupper($currentCurrency);
     $contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettings['from_email'] ?? ''));
 
-    $availableTemplates = $menuSettings['templates'] ?? [];
-    $templateKeys = array_map(static fn($template) => $template['id'] ?? null, $availableTemplates);
-    $templateKeys = array_filter($templateKeys);
-    $selectedTemplate = $menuSettings['template'] ?? 'menu1';
+    $styleKeys = array_map(static fn($style) => $style['id'] ?? null, $availableStyles);
+    $styleKeys = array_filter($styleKeys);
+    $viewKeys = array_map(static fn($view) => $view['id'] ?? null, $availableViews);
+    $viewKeys = array_filter($viewKeys);
+
+    $selectedStyle = $menuSettings['style'] ?? ($menuSettings['template'] ?? 'menu1');
     if ($templateOverride !== null) {
-        $selectedTemplate = $templateOverride;
+        $selectedStyle = $templateOverride;
     }
-    if (!in_array($selectedTemplate, $templateKeys, true)) {
-        $selectedTemplate = $templateKeys[0] ?? 'menu1';
+    if (!in_array($selectedStyle, $styleKeys, true)) {
+        $selectedStyle = $styleKeys[0] ?? 'menu1';
     }
 
-    $templateStylesheet = $asset('assets/css/templates/' . $selectedTemplate . '.css');
+    $selectedView = $menuSettings['view'] ?? 'view1';
+    if (!in_array($selectedView, $viewKeys, true)) {
+        $selectedView = $viewKeys[0] ?? 'view1';
+    }
+
+    $styleStylesheet = $asset('assets/css/templates/' . $selectedStyle . '.css');
+    $viewStylesheet = $asset('assets/css/views/' . $selectedView . '.css');
+    $templateStylesheet = $styleStylesheet;
 
     return compact(
         'settings',
@@ -110,8 +121,12 @@ function loadMenuContext(?string $templateOverride = null): array
         'currencyMeta',
         'currentCurrencyCode',
         'contactEmail',
-        'selectedTemplate',
-        'availableTemplates',
-        'templateStylesheet'
+        'selectedStyle',
+        'selectedView',
+        'availableStyles',
+        'availableViews',
+        'styleStylesheet',
+        'templateStylesheet',
+        'viewStylesheet'
     );
 }

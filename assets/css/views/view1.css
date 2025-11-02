@@ -1,0 +1,60 @@
+.layout-panorama .menu-hero {
+    background: linear-gradient(135deg, rgba(15, 157, 88, 0.85), rgba(52, 168, 83, 0.65)), url('../../vendor/demo/coffee-1.png') right center/180px no-repeat;
+    border-bottom-left-radius: 48px;
+    border-bottom-right-radius: 48px;
+    padding: 48px 24px 56px;
+}
+
+.layout-panorama .greeting__identity {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.layout-panorama .greeting__logo {
+    height: 72px;
+    width: 72px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 12px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
+}
+
+.layout-panorama .menu-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.layout-panorama .menu-block {
+    border-radius: 28px;
+    box-shadow: 0 24px 50px rgba(15, 157, 88, 0.08);
+}
+
+.layout-panorama .menu-bottom-nav {
+    backdrop-filter: blur(12px);
+    background: rgba(15, 157, 88, 0.15);
+}
+
+@media (max-width: 768px) {
+    .layout-panorama .menu-hero {
+        padding: 36px 20px 48px;
+        border-bottom-left-radius: 32px;
+        border-bottom-right-radius: 32px;
+    }
+
+    .layout-panorama .greeting__identity {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .layout-panorama .menu-controls {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .layout-panorama .menu-controls .form-select {
+        flex: 1 1 48%;
+        min-width: 140px;
+    }
+}
