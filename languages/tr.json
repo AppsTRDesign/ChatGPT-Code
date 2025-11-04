@@ -66,6 +66,11 @@
       "checkout": "Siparişi Onayla",
       "remove": "Sil"
     },
+    "pagination": {
+      "previous": "Önceki",
+      "next": "Sonraki",
+      "page": ":number. sayfa"
+    },
     "bottom": {
       "home": "Ana Sayfa",
       "daily": "Günün",

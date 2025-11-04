@@ -190,40 +190,49 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
         </div>
     </div>
     <main class="dashboard__content">
-        <nav class="navbar navbar-light dashboard__mobile-header d-lg-none">
+        <nav class="navbar navbar-expand-lg navbar-light dashboard__mobile-header d-lg-none">
             <div class="container-fluid">
-                <span class="navbar-brand">
+                <a class="navbar-brand" href="<?= htmlspecialchars($sectionPaths['dashboard'] ?? '#') ?>">
                     <?php if (!empty($branding['logo'])): ?>
                         <img src="<?= htmlspecialchars($branding['logo']) ?>" alt="<?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?>" class="dashboard__mobile-logo">
                     <?php endif; ?>
                     <span class="navbar-brand__title"><?= htmlspecialchars($restaurant['name'] ?? 'Restoran') ?></span>
-                </span>
-                <button type="button" class="navbar-toggler dashboard__menu-toggle" id="sidebarToggle" aria-label="Menüyü Aç" aria-expanded="false" aria-controls="mobileNav">
+                </a>
+                <button type="button"
+                        class="navbar-toggler dashboard__menu-toggle"
+                        id="sidebarToggle"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#mobileNav"
+                        aria-controls="mobileNav"
+                        aria-expanded="false"
+                        aria-label="Menüyü Aç">
                     <span class="navbar-toggler-icon"></span>
                     <span class="dashboard__toggle-label" data-toggle-label>Menüyü Aç</span>
                 </button>
+                <div class="collapse navbar-collapse dashboard__mobile-collapse d-lg-none" id="mobileNav">
+                    <ul class="navbar-nav flex-column dashboard__mobile-menu">
+                        <?php foreach ($navItems as $item): ?>
+                            <?php $key = $item['key']; ?>
+                            <li class="nav-item">
+                                <a href="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>"
+                                   class="nav-link dashboard__link <?= $currentSection === $key ? 'active' : '' ?>"
+                                   data-section="<?= htmlspecialchars($key) ?>"
+                                   data-url="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>">
+                                    <?= htmlspecialchars($item['label']) ?>
+                                </a>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <div class="dashboard__mobile-user">
+                        <div>
+                            <span class="dashboard__user-name"><?= htmlspecialchars($user['name']) ?></span>
+                            <small class="d-block text-muted"><?= htmlspecialchars($user['email']) ?></small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-success" id="mobileLogout">Çıkış</button>
+                    </div>
+                </div>
             </div>
         </nav>
-        <div class="collapse dashboard__mobile-collapse d-lg-none" id="mobileNav">
-            <div class="dashboard__mobile-menu">
-                <?php foreach ($navItems as $item): ?>
-                    <?php $key = $item['key']; ?>
-                    <a href="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>"
-                       class="dashboard__link <?= $currentSection === $key ? 'active' : '' ?>"
-                       data-section="<?= htmlspecialchars($key) ?>"
-                       data-url="<?= htmlspecialchars($sectionPaths[$key] ?? '#') ?>">
-                        <?= htmlspecialchars($item['label']) ?>
-                    </a>
-                <?php endforeach; ?>
-            </div>
-            <div class="dashboard__mobile-user">
-                <div>
-                    <span class="dashboard__user-name"><?= htmlspecialchars($user['name']) ?></span>
-                    <small class="d-block text-muted"><?= htmlspecialchars($user['email']) ?></small>
-                </div>
-                <button class="btn btn-sm btn-outline-success" id="mobileLogout">Çıkış</button>
-            </div>
-        </div>
         <section class="section<?= $currentSection === 'dashboard' ? '' : ' d-none' ?>" id="section-dashboard">
             <div class="row g-3 mb-4" id="summaryCards">
                 <div class="col-6 col-md-3">

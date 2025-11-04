@@ -187,6 +187,32 @@ const AdminApp = (() => {
         flashToggle: document.querySelector('#flashToggle'),
     };
 
+    const DATA_TABLE_LANGUAGE_URL = '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json';
+
+    const buildDataTable = (table, options = {}) => {
+        if (!table || !table.length) {
+            return null;
+        }
+        const baseOptions = {
+            destroy: true,
+            responsive: {
+                details: {
+                    type: 'column',
+                    target: 'tr',
+                },
+            },
+            autoWidth: false,
+            scrollX: true,
+            scrollCollapse: true,
+            language: { url: DATA_TABLE_LANGUAGE_URL },
+            dom: "<'row g-2 align-items-center mb-3'<'col-12 col-md-6 dt-length'l><'col-12 col-md-6 dt-search text-md-end'f>>" +
+                'rt' +
+                "<'row g-2 align-items-center mt-3'<'col-12 col-md-6 text-muted'i><'col-12 col-md-6 text-md-end dt-pagination'p>>",
+            pageLength: 10,
+        };
+        return table.DataTable({ ...baseOptions, ...options });
+    };
+
     const toast = Swal.mixin({
         toast: true,
         position: 'top-end',
@@ -1706,7 +1732,7 @@ const AdminApp = (() => {
     const initReportsTable = () => {
         const table = $('#reportsTable');
         if (!table.length) return;
-        table.DataTable({
+        buildDataTable(table, {
             ajax: {
                 url: withBase('api/reports.php'),
                 dataSrc: 'reports',
@@ -1715,12 +1741,7 @@ const AdminApp = (() => {
                     end: document.querySelector('#reportEnd')?.value || '',
                 }),
             },
-            destroy: true,
-            responsive: true,
-            autoWidth: false,
-            scrollX: true,
-            scrollCollapse: true,
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
+            order: [[0, 'desc']],
             columns: [
                 { data: 'period', title: 'Dönem' },
                 { data: 'orders', title: 'Sipariş' },
@@ -1844,17 +1865,12 @@ const AdminApp = (() => {
     const initLanguagesTable = () => {
         const table = $('#languagesTable');
         if (!table.length) return;
-        table.DataTable({
+        buildDataTable(table, {
             ajax: {
                 url: withBase('api/languages.php'),
                 dataSrc: 'languages',
             },
-            destroy: true,
-            responsive: true,
-            autoWidth: false,
-            scrollX: true,
-            scrollCollapse: true,
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
+            order: [[1, 'asc']],
             columns: [
                 { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
                 { data: 'label', title: 'Dil Adı' },
@@ -1867,6 +1883,7 @@ const AdminApp = (() => {
                     data: null,
                     title: 'İşlemler',
                     orderable: false,
+                    className: 'text-nowrap',
                     render: (data, type, row) => {
                         const disabled = Number(row.is_default) === 1 ? 'disabled' : '';
                         return `
@@ -1988,17 +2005,12 @@ const AdminApp = (() => {
     const initCurrenciesTable = () => {
         const table = $('#currenciesTable');
         if (!table.length) return;
-        table.DataTable({
+        buildDataTable(table, {
             ajax: {
                 url: withBase('api/currencies.php'),
                 dataSrc: 'currencies',
             },
-            destroy: true,
-            responsive: true,
-            autoWidth: false,
-            scrollX: true,
-            scrollCollapse: true,
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/tr.json' },
+            order: [[1, 'asc']],
             columns: [
                 { data: 'code', title: 'Kod', render: (value) => value.toUpperCase() },
                 { data: 'name', title: 'Ad' },
@@ -2012,6 +2024,7 @@ const AdminApp = (() => {
                     data: null,
                     title: 'İşlemler',
                     orderable: false,
+                    className: 'text-nowrap',
                     render: (data, type, row) => {
                         const disabled = Number(row.is_default) === 1 ? 'disabled' : '';
                         return `

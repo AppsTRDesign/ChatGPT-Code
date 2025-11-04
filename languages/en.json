@@ -66,6 +66,11 @@
       "checkout": "Confirm Order",
       "remove": "Remove"
     },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page :number"
+    },
     "bottom": {
       "home": "Home",
       "daily": "Daily",

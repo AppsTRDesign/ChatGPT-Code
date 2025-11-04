@@ -32,6 +32,9 @@ $jsStrings = [
     'menu.order_status_update' => Language::get('menu.order_status_update', 'Order :status'),
     'menu.add_to_cart' => Language::get('menu.add_to_cart', 'Add to Cart'),
     'menu.table_prefix' => Language::get('menu.table_prefix', 'Table'),
+    'menu.pagination.previous' => Language::get('menu.pagination.previous', 'Previous'),
+    'menu.pagination.next' => Language::get('menu.pagination.next', 'Next'),
+    'menu.pagination.page' => Language::get('menu.pagination.page', 'Page :number'),
 ];
 
 $cartSummaryTemplate = Language::get('menu.cart.summary', ':count items');
@@ -59,7 +62,7 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://qrmenu.noasoft.org:4000/socket.io/socket.io.js"></script>
 </head>
-<body class="menu-page template-<?= htmlspecialchars($selectedTemplate) ?>" data-base-url="<?= htmlspecialchars($baseUrl) ?>" data-base-currency="<?= htmlspecialchars($defaultCurrency) ?>" data-current-currency="<?= htmlspecialchars($currentCurrency) ?>" data-current-language="<?= htmlspecialchars($defaultLanguage) ?>" data-table-id="<?= htmlspecialchars((string)$tableId) ?>">
+<body class="menu-app template-<?= htmlspecialchars($selectedTemplate) ?>" data-base-url="<?= htmlspecialchars($baseUrl) ?>" data-base-currency="<?= htmlspecialchars($defaultCurrency) ?>" data-current-currency="<?= htmlspecialchars($currentCurrency) ?>" data-current-language="<?= htmlspecialchars($defaultLanguage) ?>" data-table-id="<?= htmlspecialchars((string)$tableId) ?>">
 <header class="menu-hero" style="--theme-color: <?= htmlspecialchars($restaurant['theme_color'] ?? '#0f9d58') ?>;">
     <div class="greeting">
         <div class="d-flex align-items-center gap-3">
@@ -142,6 +145,7 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
                 </div>
             </div>
             <div class="product-grid" id="menuProducts"></div>
+            <nav class="menu-pagination" id="menuProductsPagination"></nav>
         </div>
     </section>
     <section class="menu-page" id="ordersPage">
@@ -172,6 +176,7 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
                 </div>
             </div>
             <div class="product-grid" id="categoryPageProducts"></div>
+            <nav class="menu-pagination" id="categoryProductsPagination"></nav>
         </div>
     </section>
 

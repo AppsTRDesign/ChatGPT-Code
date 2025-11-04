@@ -16,6 +16,7 @@ const MenuApp = (() => {
         );
     };
     const baseUrl = (document.body.dataset.baseUrl || window.MENU_STATE?.baseUrl || window.location.origin).replace(/\/+$/, '');
+    const PRODUCTS_PER_PAGE = 6;
     const withBase = (path = '') => {
         if (!path) {
             return baseUrl;
@@ -67,6 +68,7 @@ const MenuApp = (() => {
         products: [],
         dailyMenu: [],
         selectedCategory: null,
+        categoryPageSelected: null,
         cart: [],
         baseCurrency: (document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         currency: (document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
@@ -81,11 +83,15 @@ const MenuApp = (() => {
         activeNav: 'homePage',
         sortOption: 'name_asc',
         contact: window.MENU_STATE?.contact || {},
+        productsPage: 1,
+        categoryPage: 1,
+        productsPerPage: PRODUCTS_PER_PAGE,
     };
 
     const elements = {
         categories: document.querySelector('#menuCategories'),
         products: document.querySelector('#menuProducts'),
+        productsPagination: document.querySelector('#menuProductsPagination'),
         dailySlider: document.querySelector('#dailySlider'),
         cartSummary: document.querySelector('#cartSummary'),
         currencySelect: document.querySelector('#currencySelect'),
@@ -120,6 +126,7 @@ const MenuApp = (() => {
         contactFeedback: document.querySelector('#contactFeedback'),
         categoryPageList: document.querySelector('#categoryPageList'),
         categoryPageProducts: document.querySelector('#categoryPageProducts'),
+        categoryPagination: document.querySelector('#categoryProductsPagination'),
         pages: document.querySelectorAll('.menu-page'),
     };
 
@@ -184,6 +191,7 @@ const MenuApp = (() => {
     const refreshPriceViews = () => {
         renderDailyMenu();
         renderProducts();
+        renderCategoryPageProducts();
         updateCartSummary();
         renderCart();
         updateOverlayButton();
@@ -234,33 +242,38 @@ const MenuApp = (() => {
         state.categories = data.categories || [];
         state.products = data.products || [];
         state.dailyMenu = data.daily_menu || data.daily || [];
+        state.productsPage = 1;
+        state.categoryPage = 1;
+        state.categoryPageSelected = null;
         renderCategories();
         renderDailyMenu();
         renderProducts();
+        renderCategoryPageProducts();
         updateCartSummary();
     };
 
-    const selectCategory = (categoryId = null) => {
-        state.selectedCategory = categoryId === null ? null : Number(categoryId);
-        renderCategories();
-        renderProducts();
-    };
+    const getSortedCategories = () => [...state.categories].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
 
-    const renderCategoryContainer = (container, categories, { includeAll = true } = {}) => {
+    const renderCategoryContainer = (container, categories, {
+        includeAll = true,
+        activeId = null,
+        onSelect = () => {},
+    } = {}) => {
         if (!container) return;
         container.innerHTML = '';
 
-        const addButton = (label, iconHtml, isActive, onClick) => {
+        const addButton = (label, iconHtml, value, isActive) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `category-card ${isActive ? 'active' : ''}`;
             button.innerHTML = `${iconHtml}<strong>${escapeHtml(label)}</strong>`;
-            button.addEventListener('click', onClick);
+            button.addEventListener('click', () => onSelect(value));
             container.appendChild(button);
         };
 
         if (includeAll) {
-            addButton(t('menu.categories_all', 'All'), '<span class="badge">🍽️</span>', state.selectedCategory === null, () => selectCategory(null));
+            const isActive = activeId === null || activeId === undefined;
+            addButton(t('menu.categories_all', 'All'), '<span class="badge">🍽️</span>', null, isActive);
         }
 
         categories.forEach((category) => {
@@ -269,19 +282,34 @@ const MenuApp = (() => {
                 : category.icon
                     ? `<span class="badge"><i class="${resolveIconClass(category.icon)}"></i></span>`
                     : '<span class="badge">🍽️</span>';
-            addButton(
-                category.name,
-                iconHtml,
-                Number(state.selectedCategory) === Number(category.id),
-                () => selectCategory(Number(category.id)),
-            );
+            const id = Number(category.id);
+            const isActive = activeId !== null && activeId !== undefined ? Number(activeId) === id : false;
+            addButton(category.name, iconHtml, id, isActive);
         });
     };
 
     const renderCategories = () => {
-        const sortedCategories = [...state.categories].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
-        renderCategoryContainer(elements.categories, sortedCategories, { includeAll: true });
-        renderCategoryContainer(elements.categoryPageList, sortedCategories, { includeAll: true });
+        const sortedCategories = getSortedCategories();
+        renderCategoryContainer(elements.categories, sortedCategories, {
+            includeAll: true,
+            activeId: state.selectedCategory,
+            onSelect: (value) => {
+                state.selectedCategory = value === null ? null : Number(value);
+                state.productsPage = 1;
+                renderProducts();
+                renderCategories();
+            },
+        });
+        renderCategoryContainer(elements.categoryPageList, sortedCategories, {
+            includeAll: true,
+            activeId: state.categoryPageSelected,
+            onSelect: (value) => {
+                state.categoryPageSelected = value === null ? null : Number(value);
+                state.categoryPage = 1;
+                renderCategoryPageProducts();
+                renderCategories();
+            },
+        });
     };
 
     const renderDailyMenu = () => {
@@ -396,10 +424,105 @@ const MenuApp = (() => {
         });
     };
 
+    const paginate = (items, page, perPage) => {
+        const totalItems = items.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
+        const current = Math.min(Math.max(page, 1), totalPages);
+        const start = (current - 1) * perPage;
+        return {
+            items: items.slice(start, start + perPage),
+            totalItems,
+            totalPages,
+            current,
+        };
+    };
+
+    const renderPagination = (container, totalItems, currentPage, perPage, onPageChange) => {
+        if (!container) return;
+        const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
+        if (totalPages <= 1) {
+            container.innerHTML = '';
+            container.classList.add('d-none');
+            return;
+        }
+        container.classList.remove('d-none');
+        container.innerHTML = '';
+
+        const createButton = (label, targetPage, { disabled = false, active = false, aria = '' } = {}) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            if (active) {
+                button.classList.add('active');
+            }
+            if (disabled) {
+                button.disabled = true;
+            }
+            if (aria) {
+                button.setAttribute('aria-label', aria);
+            }
+            if (!disabled) {
+                button.addEventListener('click', () => onPageChange(targetPage));
+            }
+            container.appendChild(button);
+        };
+
+        const prevLabel = t('menu.pagination.previous', 'Previous');
+        const nextLabel = t('menu.pagination.next', 'Next');
+        createButton(prevLabel, currentPage - 1, {
+            disabled: currentPage <= 1,
+            aria: prevLabel,
+        });
+
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        startPage = Math.max(1, endPage - 4);
+
+        for (let page = startPage; page <= endPage; page += 1) {
+            const aria = format(t('menu.pagination.page', 'Page :number'), { number: page });
+            createButton(String(page), page, {
+                active: page === currentPage,
+                aria,
+            });
+        }
+
+        createButton(nextLabel, currentPage + 1, {
+            disabled: currentPage >= totalPages,
+            aria: nextLabel,
+        });
+    };
+
     const renderProducts = () => {
         const filtered = filterProducts();
-        renderProductList(elements.products, filtered, t('menu.products_empty', 'No products match your filters.'));
-        renderProductList(elements.categoryPageProducts, filtered, t('menu.category_empty', 'No products were found in this category.'));
+        const { items, totalItems, current } = paginate(filtered, state.productsPage, state.productsPerPage);
+        state.productsPage = current;
+        renderProductList(elements.products, items, t('menu.products_empty', 'No products match your filters.'));
+        renderPagination(elements.productsPagination, totalItems, current, state.productsPerPage, (page) => {
+            state.productsPage = page;
+            renderProducts();
+        });
+    };
+
+    const getCategoryPageProducts = () => {
+        if (state.categoryPageSelected === null || state.categoryPageSelected === undefined) {
+            return [...state.products];
+        }
+        return state.products.filter((product) => Number(product.category_id) === Number(state.categoryPageSelected));
+    };
+
+    const renderCategoryPageProducts = () => {
+        if (!elements.categoryPageProducts) return;
+        const products = sortProducts(getCategoryPageProducts());
+        const { items, totalItems, current } = paginate(products, state.categoryPage, state.productsPerPage);
+        state.categoryPage = current;
+        const emptyMessage = state.categoryPageSelected === null || state.categoryPageSelected === undefined
+            ? t('menu.products_empty', 'No products match your filters.')
+            : t('menu.category_empty', 'No products were found in this category.');
+        renderProductList(elements.categoryPageProducts, items, emptyMessage);
+        renderPagination(elements.categoryPagination, totalItems, current, state.productsPerPage, (page) => {
+            state.categoryPage = page;
+            renderCategoryPageProducts();
+        });
     };
 
     const openProductOverlay = (product) => {

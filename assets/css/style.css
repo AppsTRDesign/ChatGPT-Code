@@ -195,6 +195,9 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
 }
 
 .dashboard__mobile-user {
@@ -306,6 +309,18 @@ a:hover {
   height: 320px;
 }
 
+@media (max-width: 991.98px) {
+  .chart-wrapper {
+    height: 280px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .chart-wrapper {
+    height: 240px;
+  }
+}
+
 .table {
   width: 100%;
 }
@@ -326,6 +341,76 @@ a:hover {
   margin: 0 4px;
 }
 
+.dataTables_wrapper .dataTables_length select {
+  border-radius: 999px;
+  padding: 6px 14px;
+  border: 1px solid rgba(15, 157, 88, 0.2);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 157, 88, 0.08);
+  color: var(--dark-color);
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  border: 1px solid rgba(15, 157, 88, 0.2);
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 157, 88, 0.08);
+  color: var(--dark-color);
+}
+
+.dataTables_wrapper .dataTables_filter label,
+.dataTables_wrapper .dataTables_length label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: rgba(31, 41, 51, 0.75);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  border: 1px solid rgba(15, 157, 88, 0.2) !important;
+  background: #ffffff !important;
+  color: var(--dark-color) !important;
+  transition: all 0.2s ease;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover:not(.disabled) {
+  background: rgba(15, 157, 88, 0.12) !important;
+  color: var(--theme-color) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: var(--theme-color) !important;
+  color: #ffffff !important;
+  border-color: var(--theme-color) !important;
+  box-shadow: 0 12px 28px rgba(15, 157, 88, 0.25);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+  opacity: 0.5 !important;
+  cursor: default !important;
+  border-color: rgba(15, 157, 88, 0.12) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .page-item .page-link {
+  border-radius: 999px;
+  border: 1px solid rgba(15, 157, 88, 0.2);
+  color: var(--dark-color);
+  transition: all 0.2s ease;
+}
+
+.dataTables_wrapper .dataTables_paginate .page-item .page-link:hover {
+  background: rgba(15, 157, 88, 0.12);
+  border-color: rgba(15, 157, 88, 0.3);
+  color: var(--theme-color);
+}
+
+.dataTables_wrapper .dataTables_paginate .page-item.active .page-link {
+  background: var(--theme-color);
+  border-color: var(--theme-color);
+  color: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 157, 88, 0.25);
+}
+
 .data-table-responsive {
   width: 100%;
   overflow-x: auto;
@@ -338,6 +423,20 @@ a:hover {
 
 .data-table-responsive .dataTables_scroll {
   width: 100% !important;
+}
+
+@media (max-width: 767.98px) {
+  .dataTables_wrapper .dataTables_filter,
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate {
+    text-align: left !important;
+  }
+
+  .dataTables_wrapper .dataTables_filter label,
+  .dataTables_wrapper .dataTables_length label {
+    justify-content: flex-start;
+  }
 }
 
 .data-table-responsive .dataTables_scrollBody {
@@ -1500,6 +1599,45 @@ a:hover {
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.menu-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.menu-pagination button {
+  border: 1px solid rgba(15, 157, 88, 0.2);
+  background: #ffffff;
+  color: var(--theme-color);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.menu-pagination button:hover,
+.menu-pagination button:focus {
+  background: rgba(15, 157, 88, 0.12);
+  color: var(--theme-color);
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(15, 157, 88, 0.1);
+}
+
+.menu-pagination button.active {
+  background: var(--theme-color);
+  color: #ffffff;
+  border-color: var(--theme-color);
+  box-shadow: 0 12px 28px rgba(15, 157, 88, 0.28);
+}
+
+.menu-pagination button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .product-card {
