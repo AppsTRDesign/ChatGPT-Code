@@ -68,7 +68,6 @@ const MenuApp = (() => {
         products: [],
         dailyMenu: [],
         selectedCategory: null,
-        categoryPageSelected: null,
         cart: [],
         baseCurrency: (document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
         currency: (document.body.dataset.currentCurrency || document.body.dataset.baseCurrency || 'TRY').toUpperCase(),
@@ -84,7 +83,6 @@ const MenuApp = (() => {
         sortOption: 'name_asc',
         contact: window.MENU_STATE?.contact || {},
         productsPage: 1,
-        categoryPage: 1,
         productsPerPage: PRODUCTS_PER_PAGE,
     };
 
@@ -98,6 +96,7 @@ const MenuApp = (() => {
         languageSelect: document.querySelector('#languageSelect'),
         waiterButton: document.querySelector('#callWaiter'),
         cartButton: document.querySelector('#cartButton'),
+        searchBar: document.querySelector('#menuSearchBar'),
         searchInput: document.querySelector('#searchMenu'),
         sortSelect: document.querySelector('#sortProducts'),
         cartDrawer: document.querySelector('#cartDrawer'),
@@ -124,9 +123,6 @@ const MenuApp = (() => {
         bottomNav: document.querySelector('#menuBottomNav'),
         contactForm: document.querySelector('#contactForm'),
         contactFeedback: document.querySelector('#contactFeedback'),
-        categoryPageList: document.querySelector('#categoryPageList'),
-        categoryPageProducts: document.querySelector('#categoryPageProducts'),
-        categoryPagination: document.querySelector('#categoryProductsPagination'),
         pages: document.querySelectorAll('.menu-page'),
     };
 
@@ -191,7 +187,6 @@ const MenuApp = (() => {
     const refreshPriceViews = () => {
         renderDailyMenu();
         renderProducts();
-        renderCategoryPageProducts();
         updateCartSummary();
         renderCart();
         updateOverlayButton();
@@ -243,12 +238,9 @@ const MenuApp = (() => {
         state.products = data.products || [];
         state.dailyMenu = data.daily_menu || data.daily || [];
         state.productsPage = 1;
-        state.categoryPage = 1;
-        state.categoryPageSelected = null;
         renderCategories();
         renderDailyMenu();
         renderProducts();
-        renderCategoryPageProducts();
         updateCartSummary();
     };
 
@@ -297,16 +289,6 @@ const MenuApp = (() => {
                 state.selectedCategory = value === null ? null : Number(value);
                 state.productsPage = 1;
                 renderProducts();
-                renderCategories();
-            },
-        });
-        renderCategoryContainer(elements.categoryPageList, sortedCategories, {
-            includeAll: true,
-            activeId: state.categoryPageSelected,
-            onSelect: (value) => {
-                state.categoryPageSelected = value === null ? null : Number(value);
-                state.categoryPage = 1;
-                renderCategoryPageProducts();
                 renderCategories();
             },
         });
@@ -500,28 +482,6 @@ const MenuApp = (() => {
         renderPagination(elements.productsPagination, totalItems, current, state.productsPerPage, (page) => {
             state.productsPage = page;
             renderProducts();
-        });
-    };
-
-    const getCategoryPageProducts = () => {
-        if (state.categoryPageSelected === null || state.categoryPageSelected === undefined) {
-            return [...state.products];
-        }
-        return state.products.filter((product) => Number(product.category_id) === Number(state.categoryPageSelected));
-    };
-
-    const renderCategoryPageProducts = () => {
-        if (!elements.categoryPageProducts) return;
-        const products = sortProducts(getCategoryPageProducts());
-        const { items, totalItems, current } = paginate(products, state.categoryPage, state.productsPerPage);
-        state.categoryPage = current;
-        const emptyMessage = state.categoryPageSelected === null || state.categoryPageSelected === undefined
-            ? t('menu.products_empty', 'No products match your filters.')
-            : t('menu.category_empty', 'No products were found in this category.');
-        renderProductList(elements.categoryPageProducts, items, emptyMessage);
-        renderPagination(elements.categoryPagination, totalItems, current, state.productsPerPage, (page) => {
-            state.categoryPage = page;
-            renderCategoryPageProducts();
         });
     };
 
@@ -794,6 +754,9 @@ const MenuApp = (() => {
         pages.forEach((page) => {
             page.classList.toggle('is-active', page.id === pageId);
         });
+        if (elements.searchBar) {
+            elements.searchBar.classList.toggle('d-none', pageId !== 'homePage');
+        }
         highlightBottomNav(pageId);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         if (pageId === 'ordersPage') {

@@ -193,14 +193,27 @@ const AdminApp = (() => {
         if (!table || !table.length) {
             return null;
         }
-        const baseOptions = {
-            destroy: true,
-            responsive: {
+        const DataTableLib = window.DataTable;
+        const responsiveOptions = DataTableLib?.Responsive
+            ? {
+                details: {
+                    display: DataTableLib.Responsive.display.childRowImmediate,
+                    renderer: DataTableLib.Responsive.renderer.tableAll({
+                        tableClass: 'table table-sm table-bordered align-middle w-100',
+                    }),
+                    type: 'column',
+                    target: 'tr',
+                },
+            }
+            : {
                 details: {
                     type: 'column',
                     target: 'tr',
                 },
-            },
+            };
+        const baseOptions = {
+            destroy: true,
+            responsive: responsiveOptions,
             autoWidth: false,
             scrollX: true,
             scrollCollapse: true,

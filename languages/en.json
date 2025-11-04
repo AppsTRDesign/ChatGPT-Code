@@ -72,10 +72,9 @@
       "page": "Page :number"
     },
     "bottom": {
-      "home": "Home",
-      "daily": "Daily",
+      "home": "Products",
+      "daily": "Daily Menu",
       "orders": "Orders",
-      "categories": "Categories",
       "contact": "Contact",
       "cart": "Cart"
     }

@@ -72,10 +72,9 @@
       "page": ":number. sayfa"
     },
     "bottom": {
-      "home": "Ana Sayfa",
-      "daily": "Günün",
+      "home": "Ürünler",
+      "daily": "Günün Yemeği",
       "orders": "Sipariş",
-      "categories": "Kategori",
       "contact": "İletişim",
       "cart": "Sepet"
     }

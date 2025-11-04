@@ -103,7 +103,7 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
             </button>
         </div>
     </div>
-    <div class="search">
+    <div class="search" id="menuSearchBar">
         <input type="search" id="searchMenu" placeholder="<?= htmlspecialchars(Language::get('menu.search', 'Search the menu')) ?>" />
         <div class="menu-filters">
             <label for="sortProducts" class="menu-filters__label"><?= htmlspecialchars(Language::get('menu.sort.label', 'Sort')) ?></label>
@@ -119,15 +119,6 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
 
 <main class="menu-container">
     <section class="menu-page is-active" id="homePage">
-        <div class="menu-block" id="dailySection">
-            <div class="menu-block__header">
-                <div>
-                    <h2><?= htmlspecialchars(Language::get('menu.sections.daily_title', "Today's Menu")) ?></h2>
-                    <p class="text-muted"><?= htmlspecialchars(Language::get('menu.sections.daily_subtitle', 'Chef recommendations and special flavours')) ?></p>
-                </div>
-            </div>
-            <div class="daily-slider" id="dailySlider"></div>
-        </div>
         <div class="menu-block" id="categorySection">
             <div class="menu-block__header">
                 <div>
@@ -148,6 +139,17 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
             <nav class="menu-pagination" id="menuProductsPagination"></nav>
         </div>
     </section>
+    <section class="menu-page" id="dailyPage">
+        <div class="menu-block" id="dailySection">
+            <div class="menu-block__header">
+                <div>
+                    <h2><?= htmlspecialchars(Language::get('menu.sections.daily_title', "Today's Menu")) ?></h2>
+                    <p class="text-muted"><?= htmlspecialchars(Language::get('menu.sections.daily_subtitle', 'Chef recommendations and special flavours')) ?></p>
+                </div>
+            </div>
+            <div class="daily-slider" id="dailySlider"></div>
+        </div>
+    </section>
     <section class="menu-page" id="ordersPage">
         <div class="order-status menu-block">
             <div class="order-status__header">
@@ -155,28 +157,6 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
                 <button type="button" id="refreshOrders" class="btn btn-light btn-sm"><?= htmlspecialchars(Language::get('menu.orders_refresh', 'Refresh')) ?></button>
             </div>
             <div id="orderStatusList" class="order-status__list"></div>
-        </div>
-    </section>
-
-    <section class="menu-page" id="categoriesPage">
-        <div class="menu-block" id="categoryPage">
-            <div class="menu-block__header">
-                <div>
-                    <h2><?= htmlspecialchars(Language::get('menu.sections.categories_title', 'Categories')) ?></h2>
-                    <p class="text-muted"><?= htmlspecialchars(Language::get('menu.sections.category_prompt', 'Select categories to explore products')) ?></p>
-                </div>
-            </div>
-            <div class="category-list category-list--grid" id="categoryPageList"></div>
-        </div>
-        <div class="menu-block" id="categoryProductsBlock">
-            <div class="menu-block__header">
-                <div>
-                    <h2><?= htmlspecialchars(Language::get('menu.sections.products_title', 'Products')) ?></h2>
-                    <p class="text-muted"><?= htmlspecialchars(Language::get('menu.sections.category_products_subtitle', 'Products in the selected category')) ?></p>
-                </div>
-            </div>
-            <div class="product-grid" id="categoryPageProducts"></div>
-            <nav class="menu-pagination" id="categoryProductsPagination"></nav>
         </div>
     </section>
 
@@ -255,20 +235,16 @@ $currentCurrencyCode = $currentCurrencyCode ?? $currentCurrency ?? $defaultCurre
 
 <nav class="menu-bottom-nav" id="menuBottomNav">
     <button type="button" class="menu-bottom-nav__item active" data-target="homePage">
-        <i class="bx bx-home-alt-2"></i>
-        <span><?= htmlspecialchars(Language::get('menu.bottom.home', 'Home')) ?></span>
+        <i class="bx bx-dish"></i>
+        <span><?= htmlspecialchars(Language::get('menu.bottom.home', 'Products')) ?></span>
     </button>
-    <button type="button" class="menu-bottom-nav__item" data-target="dailySection">
+    <button type="button" class="menu-bottom-nav__item" data-target="dailyPage">
         <i class="bx bx-star"></i>
-        <span><?= htmlspecialchars(Language::get('menu.bottom.daily', 'Daily')) ?></span>
+        <span><?= htmlspecialchars(Language::get('menu.bottom.daily', 'Daily Menu')) ?></span>
     </button>
     <button type="button" class="menu-bottom-nav__item" data-target="ordersPage">
         <i class="bx bx-receipt"></i>
         <span><?= htmlspecialchars(Language::get('menu.bottom.orders', 'Orders')) ?></span>
-    </button>
-    <button type="button" class="menu-bottom-nav__item" data-target="categoriesPage">
-        <i class="bx bx-category-alt"></i>
-        <span><?= htmlspecialchars(Language::get('menu.bottom.categories', 'Categories')) ?></span>
     </button>
     <button type="button" class="menu-bottom-nav__item" data-target="contactPage">
         <i class="bx bx-phone-call"></i>
