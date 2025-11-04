@@ -1,0 +1,43 @@
+.noasoft-qr-frontend,
+.noasoft-api-guide {
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+    box-shadow: 0 15px 40px rgba(15, 23, 42, 0.08);
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    --noasoft-primary: #2563eb;
+    --noasoft-accent: #0ea5e9;
+}
+
+.noasoft-qr-frontend .noasoft-qr-result {
+    overflow-x: auto;
+}
+
+.noasoft-qr-frontend .toast {
+    z-index: 99999;
+}
+
+.noasoft-qr-frontend .btn-primary {
+    background-color: var(--noasoft-primary);
+    border-color: var(--noasoft-primary);
+}
+
+.noasoft-qr-frontend .btn-primary:hover,
+.noasoft-qr-frontend .btn-primary:focus {
+    background-color: var(--noasoft-accent);
+    border-color: var(--noasoft-accent);
+}
+
+.noasoft-qr-frontend .dropzone {
+    border-style: dashed;
+    border-width: 2px;
+    border-color: var(--noasoft-primary);
+    background: rgba(37, 99, 235, 0.05);
+    min-height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
