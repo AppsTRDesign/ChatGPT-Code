@@ -9,11 +9,40 @@ class MenuService
 {
     private PDO $db;
     private int $restaurantId;
+    private SettingsService $settings;
+    private array $languages = [];
+    private array $languageCodes = [];
+    private string $defaultLanguage;
+    private ?string $targetLanguage;
+    private array $menuTranslations = [];
+    private bool $translationsDirty = false;
+    private array $categoryTranslationCache = [];
 
-    public function __construct(int $restaurantId = 1)
+    public function __construct(int $restaurantId = 1, ?string $language = null)
     {
         $this->db = Database::connection();
         $this->restaurantId = $restaurantId;
+        $this->settings = new SettingsService($this->restaurantId);
+        $this->languages = $this->settings->languages();
+        $this->languageCodes = array_values(array_filter(array_map(static fn($language) => strtolower($language['code'] ?? ''), $this->languages)));
+        if (empty($this->languageCodes)) {
+            $this->languageCodes = ['tr'];
+        }
+        $this->defaultLanguage = strtolower($this->settings->currentLanguage() ?: $this->languageCodes[0]);
+        if (!in_array($this->defaultLanguage, $this->languageCodes, true)) {
+            array_unshift($this->languageCodes, $this->defaultLanguage);
+            $this->languageCodes = array_values(array_unique($this->languageCodes));
+        }
+        $this->targetLanguage = $language ? strtolower($language) : null;
+        if ($this->targetLanguage && !in_array($this->targetLanguage, $this->languageCodes, true)) {
+            $this->targetLanguage = $this->defaultLanguage;
+        }
+        $this->menuTranslations = $this->settings->menuTranslations();
+        foreach (['categories', 'products', 'variants'] as $bucket) {
+            if (!isset($this->menuTranslations[$bucket]) || !is_array($this->menuTranslations[$bucket])) {
+                $this->menuTranslations[$bucket] = [];
+            }
+        }
     }
 
     public function dailyMenu(): array
@@ -38,9 +67,8 @@ class MenuService
 
         $productMap = [];
         foreach ($products as $product) {
-            $product['price'] = (float)($product['price'] ?? 0);
-            $product['image'] = $this->mediaUrl($product['image'] ?? null);
-            $productMap[(int)$product['id']] = $product;
+            $mapped = $this->mapProduct($product, false);
+            $productMap[(int)$mapped['id']] = $mapped;
         }
 
         $result = [];
@@ -82,6 +110,12 @@ class MenuService
         return array_map(function ($category) {
             $category['icon'] = $this->cleanIcon($category['icon'] ?? null);
             $category['image'] = $this->mediaUrl($category['image'] ?? null);
+            $categoryId = (int)($category['id'] ?? 0);
+            $stored = $this->getTranslations('categories', $categoryId);
+            $map = $this->buildTranslationMap($stored, ['name' => $category['name'] ?? '']);
+            $category['translations'] = $map;
+            $category['name'] = $this->resolveTranslatedValue($map, 'name', $category['name'] ?? '');
+            $this->categoryTranslationCache[$categoryId] = $map;
             return $category;
         }, $categories);
     }
@@ -89,10 +123,12 @@ class MenuService
     public function saveCategory(array $payload): array
     {
         $id = (int)($payload['id'] ?? 0);
-        $name = trim($payload['name'] ?? '');
-        if ($name === '') {
+        $translations = is_array($payload['translations'] ?? []) ? $payload['translations'] : [];
+        $defaultName = trim($translations[$this->defaultLanguage]['name'] ?? $payload['name'] ?? '');
+        if ($defaultName === '') {
             throw new \InvalidArgumentException('Kategori adı zorunludur.');
         }
+        $name = $defaultName;
 
         $icon = $this->storeIcon($payload['icon'] ?? null);
         $image = $this->normalizeMedia($payload['image'] ?? null);
@@ -117,6 +153,11 @@ class MenuService
             $id = (int)$this->db->lastInsertId();
         }
 
+        $preparedTranslations = $this->prepareStoredTranslations($translations, ['name']);
+        $this->setTranslations('categories', $id, $preparedTranslations);
+        unset($this->categoryTranslationCache[$id]);
+        $this->persistTranslations();
+
         return $this->category($id);
     }
 
@@ -131,6 +172,11 @@ class MenuService
 
         $category['icon'] = $this->cleanIcon($category['icon'] ?? null);
         $category['image'] = $this->mediaUrl($category['image'] ?? null);
+        $stored = $this->getTranslations('categories', $id);
+        $map = $this->buildTranslationMap($stored, ['name' => $category['name'] ?? '']);
+        $category['translations'] = $map;
+        $category['name'] = $this->resolveTranslatedValue($map, 'name', $category['name'] ?? '');
+        $this->categoryTranslationCache[$id] = $map;
 
         return $category;
     }
@@ -139,6 +185,9 @@ class MenuService
     {
         $statement = $this->db->prepare('DELETE FROM categories WHERE restaurant_id = ? AND id = ?');
         $statement->execute([$this->restaurantId, $id]);
+        $this->removeTranslations('categories', $id);
+        unset($this->categoryTranslationCache[$id]);
+        $this->persistTranslations();
     }
 
     public function products(): array
@@ -148,10 +197,9 @@ class MenuService
         $products = $statement->fetchAll() ?: [];
 
         foreach ($products as &$product) {
-            $product['price'] = (float)$product['price'];
-            $product['image'] = $this->mediaUrl($product['image'] ?? null);
-            $product['variants'] = $this->variants((int)$product['id']);
+            $product = $this->mapProduct($product);
         }
+        unset($product);
 
         return $products;
     }
@@ -164,19 +212,20 @@ class MenuService
         if (!$product) {
             return [];
         }
-        $product['price'] = (float)$product['price'];
-        $product['image'] = $this->mediaUrl($product['image'] ?? null);
-        $product['variants'] = $this->variants($id);
-        return $product;
+        return $this->mapProduct($product);
     }
 
     public function saveProduct(array $payload): array
     {
         $id = (int)($payload['id'] ?? 0);
-        $name = trim($payload['name'] ?? '');
-        if ($name === '') {
+        $translations = is_array($payload['translations'] ?? []) ? $payload['translations'] : [];
+        $defaultName = trim($translations[$this->defaultLanguage]['name'] ?? $payload['name'] ?? '');
+        if ($defaultName === '') {
             throw new \InvalidArgumentException('Ürün adı zorunludur.');
         }
+        $defaultDescription = trim($translations[$this->defaultLanguage]['description'] ?? $payload['description'] ?? '');
+        $name = $defaultName;
+        $description = $defaultDescription !== '' ? $defaultDescription : null;
 
         $categoryId = (int)($payload['category_id'] ?? 0);
         if ($categoryId <= 0) {
@@ -195,7 +244,7 @@ class MenuService
             $statement->execute([
                 $categoryId,
                 $name,
-                $payload['description'] ?? null,
+                $description,
                 $price,
                 $image,
                 $id,
@@ -207,33 +256,59 @@ class MenuService
                 $this->restaurantId,
                 $categoryId,
                 $name,
-                $payload['description'] ?? null,
+                $description,
                 $price,
                 $image,
             ]);
             $id = (int)$this->db->lastInsertId();
         }
 
-        $this->syncVariants($id, $payload['variants'] ?? []);
+        $preparedTranslations = $this->prepareStoredTranslations($translations, ['name', 'description']);
+        $this->setTranslations('products', $id, $preparedTranslations);
+
+        $variants = is_array($payload['variants'] ?? null) ? $payload['variants'] : [];
+        $this->syncVariants($id, $variants);
+        $this->persistTranslations();
 
         return $this->product($id);
     }
 
     public function deleteProduct(int $id): void
     {
+        $variantStatement = $this->db->prepare('SELECT id FROM product_variants WHERE product_id = ?');
+        $variantStatement->execute([$id]);
+        $variantIds = array_map('intval', $variantStatement->fetchAll(PDO::FETCH_COLUMN) ?: []);
+
         $statement = $this->db->prepare('DELETE FROM products WHERE restaurant_id = ? AND id = ?');
         $statement->execute([$this->restaurantId, $id]);
+        $this->removeTranslations('products', $id);
+        foreach ($variantIds as $variantId) {
+            $this->removeTranslations('variants', $variantId);
+        }
+        $this->persistTranslations();
     }
 
     public function variants(int $productId): array
     {
         $statement = $this->db->prepare('SELECT id, name, price FROM product_variants WHERE product_id = ? ORDER BY price');
         $statement->execute([$productId]);
-        return array_map(static fn($variant) => [
-            'id' => (int)$variant['id'],
-            'name' => $variant['name'],
-            'price' => (float)$variant['price'],
-        ], $statement->fetchAll() ?: []);
+        $variants = $statement->fetchAll() ?: [];
+
+        return array_map(function ($variant) {
+            $variantId = (int)($variant['id'] ?? 0);
+            $price = (float)($variant['price'] ?? 0);
+            $stored = $this->getTranslations('variants', $variantId);
+            $map = $this->buildTranslationMap($stored, ['name' => $variant['name'] ?? '']);
+            $variant['translations'] = $map;
+            $variant['name'] = $this->resolveTranslatedValue($map, 'name', $variant['name'] ?? '');
+
+            return [
+                'id' => $variantId,
+                'name' => $variant['name'],
+                'price' => $price,
+                'translations' => $map,
+            ];
+        }, $variants);
     }
 
     private function syncVariants(int $productId, array $variants): void
@@ -243,22 +318,25 @@ class MenuService
 
         $idsToKeep = [];
         foreach ($variants as $variant) {
-            $variantName = trim($variant['name'] ?? '');
+            $variantTranslations = is_array($variant['translations'] ?? []) ? $variant['translations'] : [];
+            $defaultName = trim($variantTranslations[$this->defaultLanguage]['name'] ?? $variant['name'] ?? '');
             $variantPrice = isset($variant['price']) ? (float)$variant['price'] : null;
-            if ($variantName === '' || $variantPrice === null) {
+            if ($defaultName === '' || $variantPrice === null) {
                 continue;
             }
 
             $variantId = (int)($variant['id'] ?? 0);
             if ($variantId > 0 && in_array($variantId, $existingIds, true)) {
                 $statement = $this->db->prepare('UPDATE product_variants SET name = ?, price = ?, updated_at = NOW() WHERE id = ? AND product_id = ?');
-                $statement->execute([$variantName, $variantPrice, $variantId, $productId]);
-                $idsToKeep[] = $variantId;
+                $statement->execute([$defaultName, $variantPrice, $variantId, $productId]);
             } else {
                 $statement = $this->db->prepare('INSERT INTO product_variants (product_id, name, price) VALUES (?, ?, ?)');
-                $statement->execute([$productId, $variantName, $variantPrice]);
-                $idsToKeep[] = (int)$this->db->lastInsertId();
+                $statement->execute([$productId, $defaultName, $variantPrice]);
+                $variantId = (int)$this->db->lastInsertId();
             }
+            $preparedVariantTranslations = $this->prepareStoredTranslations($variantTranslations, ['name']);
+            $this->setTranslations('variants', $variantId, $preparedVariantTranslations);
+            $idsToKeep[] = $variantId;
         }
 
         if (!empty($existingIds)) {
@@ -267,8 +345,199 @@ class MenuService
                 $placeholders = implode(',', array_fill(0, count($deleteIds), '?'));
                 $statement = $this->db->prepare("DELETE FROM product_variants WHERE product_id = ? AND id IN ({$placeholders})");
                 $statement->execute(array_merge([$productId], array_values($deleteIds)));
+                foreach ($deleteIds as $deleteId) {
+                    $this->removeTranslations('variants', (int)$deleteId);
+                }
             }
         }
+    }
+
+    private function mapProduct(array $product, bool $includeVariants = true): array
+    {
+        $productId = (int)($product['id'] ?? 0);
+        $baseName = $product['name'] ?? '';
+        $baseDescription = $product['description'] ?? '';
+
+        $product['price'] = isset($product['price']) ? (float)$product['price'] : 0.0;
+        $product['image'] = $this->mediaUrl($product['image'] ?? null);
+
+        $stored = $this->getTranslations('products', $productId);
+        $map = $this->buildTranslationMap($stored, [
+            'name' => $baseName,
+            'description' => $baseDescription,
+        ]);
+
+        $product['translations'] = $map;
+        $product['name'] = $this->resolveTranslatedValue($map, 'name', $baseName);
+        $product['description'] = $this->resolveTranslatedValue($map, 'description', $baseDescription);
+
+        if (array_key_exists('category_name', $product)) {
+            $product['category_name'] = $this->translateCategoryName((int)($product['category_id'] ?? 0), $product['category_name']);
+        }
+
+        if ($includeVariants) {
+            $product['variants'] = $this->variants($productId);
+        }
+
+        return $product;
+    }
+
+    private function translateCategoryName(int $categoryId, ?string $fallback = ''): string
+    {
+        $baseName = $fallback ?? '';
+        if ($categoryId <= 0) {
+            return $baseName;
+        }
+
+        if (!isset($this->categoryTranslationCache[$categoryId])) {
+            $stored = $this->getTranslations('categories', $categoryId);
+            if ($baseName === '') {
+                $statement = $this->db->prepare('SELECT name FROM categories WHERE restaurant_id = ? AND id = ?');
+                $statement->execute([$this->restaurantId, $categoryId]);
+                $baseName = (string)$statement->fetchColumn();
+            }
+            $map = $this->buildTranslationMap($stored, ['name' => $baseName]);
+            $this->categoryTranslationCache[$categoryId] = $map;
+        } else {
+            $map = $this->categoryTranslationCache[$categoryId];
+            if ($baseName !== '' && ($map[$this->defaultLanguage]['name'] ?? '') === '') {
+                $map[$this->defaultLanguage]['name'] = $baseName;
+                $this->categoryTranslationCache[$categoryId] = $map;
+            }
+        }
+
+        $map = $this->categoryTranslationCache[$categoryId];
+        return $this->resolveTranslatedValue($map, 'name', $baseName);
+    }
+
+    private function getTargetLanguage(): string
+    {
+        return $this->targetLanguage ?? $this->defaultLanguage;
+    }
+
+    private function getTranslations(string $type, int $id): array
+    {
+        if (!isset($this->menuTranslations[$type]) || !is_array($this->menuTranslations[$type])) {
+            return [];
+        }
+
+        $entry = $this->menuTranslations[$type][(string)$id] ?? [];
+        if (!is_array($entry)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($entry as $code => $fields) {
+            $langCode = strtolower((string)$code);
+            if (!in_array($langCode, $this->languageCodes, true)) {
+                continue;
+            }
+            $normalized[$langCode] = [];
+            foreach ($fields as $field => $value) {
+                $normalized[$langCode][$field] = is_scalar($value) ? (string)$value : '';
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function prepareStoredTranslations(array $translations, array $fields): array
+    {
+        $prepared = [];
+
+        foreach ($translations as $code => $values) {
+            $langCode = strtolower((string)$code);
+            if (!in_array($langCode, $this->languageCodes, true) || $langCode === $this->defaultLanguage) {
+                continue;
+            }
+
+            $entry = [];
+            foreach ($fields as $field) {
+                if (!array_key_exists($field, $values)) {
+                    continue;
+                }
+                $value = trim((string)$values[$field]);
+                if ($value !== '') {
+                    $entry[$field] = $value;
+                }
+            }
+
+            if (!empty($entry)) {
+                $prepared[$langCode] = $entry;
+            }
+        }
+
+        return $prepared;
+    }
+
+    private function buildTranslationMap(array $stored, array $base): array
+    {
+        $map = [];
+        foreach ($this->languageCodes as $code) {
+            $map[$code] = [];
+            foreach ($base as $field => $value) {
+                if ($code === $this->defaultLanguage) {
+                    $map[$code][$field] = (string)($value ?? '');
+                } elseif (isset($stored[$code][$field])) {
+                    $map[$code][$field] = (string)$stored[$code][$field];
+                } else {
+                    $map[$code][$field] = '';
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    private function resolveTranslatedValue(array $translations, string $field, ?string $fallback): string
+    {
+        $language = $this->getTargetLanguage();
+        $value = $translations[$language][$field] ?? null;
+        if ($value !== null) {
+            $trimmed = trim((string)$value);
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+
+        $defaultValue = $translations[$this->defaultLanguage][$field] ?? $fallback ?? '';
+        return is_string($defaultValue) ? $defaultValue : (string)$defaultValue;
+    }
+
+    private function setTranslations(string $type, int $id, array $translations): void
+    {
+        if (!isset($this->menuTranslations[$type]) || !is_array($this->menuTranslations[$type])) {
+            $this->menuTranslations[$type] = [];
+        }
+
+        $key = (string)$id;
+        if (empty($translations)) {
+            if (isset($this->menuTranslations[$type][$key])) {
+                unset($this->menuTranslations[$type][$key]);
+                $this->translationsDirty = true;
+            }
+            return;
+        }
+
+        $this->menuTranslations[$type][$key] = $translations;
+        $this->translationsDirty = true;
+    }
+
+    private function removeTranslations(string $type, int $id): void
+    {
+        if (isset($this->menuTranslations[$type][(string)$id])) {
+            unset($this->menuTranslations[$type][(string)$id]);
+            $this->translationsDirty = true;
+        }
+    }
+
+    private function persistTranslations(): void
+    {
+        if (!$this->translationsDirty) {
+            return;
+        }
+        $this->menuTranslations = $this->settings->saveMenuTranslations($this->menuTranslations);
+        $this->translationsDirty = false;
     }
 
     private function normalizeMedia(?string $value): ?string

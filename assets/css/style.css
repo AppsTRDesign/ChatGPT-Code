@@ -982,10 +982,58 @@ a:hover {
   gap: 10px;
 }
 
+.locale-group {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.locale-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.locale-field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(31, 41, 51, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.locale-group .form-control {
+  font-size: 14px;
+}
+
+.locale-group.locale-group--textarea .form-control {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.locale-group.locale-group--inline {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .locale-group:not(.locale-group--textarea) {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
 .variant-row {
   display: grid;
   grid-template-columns: 1fr 140px auto;
   gap: 8px;
+}
+
+.variant-row__names {
+  display: grid;
+  gap: 8px;
+}
+
+.variant-row__names .form-control {
+  font-size: 0.85rem;
 }
 
 .icon-library {
@@ -1106,6 +1154,10 @@ a:hover {
 
   .variant-row button {
     grid-column: span 2;
+  }
+
+  .locale-group {
+    grid-template-columns: 1fr;
   }
 
   .menu-hero .greeting {

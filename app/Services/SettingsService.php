@@ -264,6 +264,30 @@ class SettingsService
         return $this->dailyMenu();
     }
 
+    public function menuTranslations(): array
+    {
+        $section = $this->getSection('menu_translations');
+
+        return [
+            'categories' => $this->normalizeMenuTranslationsSection($section['categories'] ?? []),
+            'products' => $this->normalizeMenuTranslationsSection($section['products'] ?? []),
+            'variants' => $this->normalizeMenuTranslationsSection($section['variants'] ?? []),
+        ];
+    }
+
+    public function saveMenuTranslations(array $translations): array
+    {
+        $payload = [
+            'categories' => $this->normalizeMenuTranslationsSection($translations['categories'] ?? []),
+            'products' => $this->normalizeMenuTranslationsSection($translations['products'] ?? []),
+            'variants' => $this->normalizeMenuTranslationsSection($translations['variants'] ?? []),
+        ];
+
+        $this->saveSection('menu_translations', $payload);
+
+        return $this->menuTranslations();
+    }
+
     public function currencies(): array
     {
         if ($this->fileFallback) {
@@ -852,6 +876,42 @@ class SettingsService
         }, array_values($items));
 
         $this->saveSection('daily_menu', ['items' => $normalized]);
+    }
+
+    private function normalizeMenuTranslationsSection(array $entries): array
+    {
+        $normalized = [];
+
+        foreach ($entries as $id => $translations) {
+            $key = (string)$id;
+            if (!is_array($translations)) {
+                continue;
+            }
+
+            $clean = [];
+            foreach ($translations as $code => $fields) {
+                if (!is_array($fields)) {
+                    continue;
+                }
+                $codeKey = strtolower((string)$code);
+                $fieldValues = [];
+                foreach ($fields as $field => $value) {
+                    if ($value === null) {
+                        continue;
+                    }
+                    $fieldValues[$field] = is_scalar($value) ? (string)$value : '';
+                }
+                if (!empty($fieldValues)) {
+                    $clean[$codeKey] = $fieldValues;
+                }
+            }
+
+            if (!empty($clean)) {
+                $normalized[$key] = $clean;
+            }
+        }
+
+        return $normalized;
     }
 
     private function getSection(string $section): array

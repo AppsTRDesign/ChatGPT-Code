@@ -135,10 +135,12 @@
       "delete_confirm": "Günün menüsünden kaldırılacak."
     },
     "categories": {
-      "delete_confirm": "Kategori silinecek."
+      "delete_confirm": "Kategori silinecek.",
+      "name_required": "Kategori adı zorunludur."
     },
     "products": {
-      "delete_confirm": "Ürün silinecek."
+      "delete_confirm": "Ürün silinecek.",
+      "name_required": "Ürün adı zorunludur."
     },
     "tables": {
       "delete_title": "Masa silinsin mi?"

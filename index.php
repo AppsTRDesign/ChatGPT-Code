@@ -50,7 +50,9 @@ $adminTranslationKeys = [
     'admin.confirm.cancel',
     'admin.daily.delete_confirm',
     'admin.categories.delete_confirm',
+    'admin.categories.name_required',
     'admin.products.delete_confirm',
+    'admin.products.name_required',
     'admin.tables.delete_title',
     'admin.languages.delete_title',
     'admin.languages.default_updated',
@@ -796,7 +798,8 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                     <input type="hidden" name="id">
                     <div class="col-12">
                         <label class="form-label">Kategori Adı</label>
-                        <input type="text" name="name" class="form-control" required>
+                        <input type="hidden" name="name">
+                        <div id="categoryNameLocales" class="locale-group"></div>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Icon Seçimi</label>
@@ -873,11 +876,13 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Ürün Adı</label>
-                        <input type="text" name="name" class="form-control" required>
+                        <input type="hidden" name="name">
+                        <div id="productNameLocales" class="locale-group"></div>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Açıklama</label>
-                        <textarea name="description" class="form-control" rows="3"></textarea>
+                        <input type="hidden" name="description">
+                        <div id="productDescriptionLocales" class="locale-group locale-group--textarea"></div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Ana Fiyat (Varsayılan)</label>

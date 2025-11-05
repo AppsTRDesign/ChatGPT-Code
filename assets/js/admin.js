@@ -86,6 +86,169 @@ const AdminApp = (() => {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
+    const getLanguages = () => {
+        const list = state.settings?.languages || window.APP_STATE?.settings?.languages || [];
+        const normalized = list
+            .map((language) => ({
+                code: (language.code || '').toLowerCase(),
+                label: language.label || (language.code || '').toUpperCase(),
+                is_default: Number(language.is_default) === 1,
+            }))
+            .filter((language) => language.code);
+        if (normalized.length) {
+            return normalized;
+        }
+        return [{ code: 'tr', label: 'Türkçe', is_default: true }];
+    };
+
+    const getDefaultLanguageCode = () => {
+        const languages = getLanguages();
+        const fallback = languages[0]?.code || 'tr';
+        const defaultLanguage = languages.find((language) => language.is_default);
+        return defaultLanguage ? defaultLanguage.code : fallback;
+    };
+
+    const buildTranslationValues = (base = {}, translations = {}, fields = []) => {
+        const languageCodes = getLanguages().map((language) => language.code);
+        const defaultLang = getDefaultLanguageCode();
+        const values = {};
+        languageCodes.forEach((code) => {
+            values[code] = {};
+            fields.forEach((field) => {
+                const existing = translations?.[code]?.[field];
+                const normalized = existing !== undefined && existing !== null ? String(existing) : '';
+                if (normalized.trim() !== '') {
+                    values[code][field] = normalized;
+                } else if (code === defaultLang && base[field] !== undefined && base[field] !== null) {
+                    values[code][field] = String(base[field]);
+                } else {
+                    values[code][field] = '';
+                }
+            });
+        });
+        return values;
+    };
+
+    const renderLocaleFields = (container, {
+        group,
+        field = 'value',
+        type = 'text',
+        placeholder = '',
+        values = {},
+    } = {}) => {
+        if (!container) return;
+        const languages = getLanguages();
+        const defaultLang = getDefaultLanguageCode();
+        container.innerHTML = '';
+        languages.forEach((language) => {
+            const code = language.code;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'locale-field';
+            const label = language.label || code.toUpperCase();
+            const inputHtml = type === 'textarea'
+                ? `<textarea class="form-control" rows="3" data-locale-group="${group}" data-locale-field="${field}" data-locale-code="${code}" placeholder="${escapeHtml(placeholder)}"></textarea>`
+                : `<input type="text" class="form-control" data-locale-group="${group}" data-locale-field="${field}" data-locale-code="${code}" placeholder="${escapeHtml(placeholder)}">`;
+            wrapper.innerHTML = `
+                <label class="form-label locale-field__label">${escapeHtml(label)}</label>
+                ${inputHtml}
+            `;
+            container.appendChild(wrapper);
+        });
+
+        container.querySelectorAll(`[data-locale-group="${group}"]`).forEach((input) => {
+            const code = input.dataset.localeCode;
+            if (!code) return;
+            let value = values?.[code]?.[field];
+            if (value === undefined || value === null || String(value).trim() === '') {
+                if (code === defaultLang && values?.[code]?.[field] === undefined) {
+                    value = values?.[code]?.[field] ?? '';
+                } else if (code === defaultLang && values?.[code]?.[field] === '') {
+                    value = '';
+                }
+            }
+            if (value !== undefined && value !== null) {
+                input.value = String(value);
+            }
+        });
+    };
+
+    const collectLocaleGroup = (group) => {
+        const result = {};
+        document.querySelectorAll(`[data-locale-group="${group}"]`).forEach((input) => {
+            const code = (input.dataset.localeCode || '').toLowerCase();
+            if (!code) return;
+            const field = input.dataset.localeField || 'value';
+            const value = input.value.trim();
+            if (!result[code]) {
+                result[code] = {};
+            }
+            result[code][field] = value;
+        });
+        return result;
+    };
+
+    const mergeLocaleMaps = (...maps) => {
+        const merged = {};
+        maps.forEach((map) => {
+            Object.entries(map || {}).forEach(([code, fields]) => {
+                const normalizedCode = code.toLowerCase();
+                if (!merged[normalizedCode]) {
+                    merged[normalizedCode] = {};
+                }
+                Object.entries(fields || {}).forEach(([field, value]) => {
+                    merged[normalizedCode][field] = value;
+                });
+            });
+        });
+        return merged;
+    };
+
+    const renderCategoryLocales = (category = null) => {
+        if (!selectors.categoryNameLocales) return;
+        const base = { name: category?.name || '' };
+        const values = buildTranslationValues(base, category?.translations || {}, ['name']);
+        renderLocaleFields(selectors.categoryNameLocales, {
+            group: 'category-name',
+            field: 'name',
+            placeholder: 'Örn. İçecekler',
+            values,
+        });
+    };
+
+    const renderProductLocales = (product = null) => {
+        if (!selectors.productNameLocales || !selectors.productDescriptionLocales) return;
+        const base = {
+            name: product?.name || '',
+            description: product?.description || '',
+        };
+        const values = buildTranslationValues(base, product?.translations || {}, ['name', 'description']);
+        renderLocaleFields(selectors.productNameLocales, {
+            group: 'product-name',
+            field: 'name',
+            placeholder: 'Örn. Latte',
+            values,
+        });
+        renderLocaleFields(selectors.productDescriptionLocales, {
+            group: 'product-description',
+            field: 'description',
+            type: 'textarea',
+            placeholder: 'Ürün açıklaması',
+            values,
+        });
+    };
+
+    const renderVariantLocales = (container, group, variant = {}) => {
+        if (!container) return;
+        const base = { name: variant?.name || '' };
+        const values = buildTranslationValues(base, variant?.translations || {}, ['name']);
+        renderLocaleFields(container, {
+            group,
+            field: 'name',
+            placeholder: 'Örn. Büyük',
+            values,
+        });
+    };
+
     const ICON_LIBRARY = [
         { class: 'bx bx-coffee', label: 'Kahve' },
         { class: 'bx bx-bowl-hot', label: 'Çorba' },
@@ -138,10 +301,13 @@ const AdminApp = (() => {
         saveCategory: document.querySelector('#saveCategory'),
         deleteCategoryButton: document.querySelector('#deleteCategoryButton'),
         categoryForm: document.querySelector('#categoryForm'),
+        categoryNameLocales: document.querySelector('#categoryNameLocales'),
         categoryList: document.querySelector('#categoryList'),
         dailyMenuList: document.querySelector('#dailyMenuList'),
         productList: document.querySelector('#productList'),
         productForm: document.querySelector('#productForm'),
+        productNameLocales: document.querySelector('#productNameLocales'),
+        productDescriptionLocales: document.querySelector('#productDescriptionLocales'),
         saveProduct: document.querySelector('#saveProduct'),
         deleteProductButton: document.querySelector('#deleteProductButton'),
         newProductButton: document.querySelector('#newProductButton'),
@@ -976,8 +1142,8 @@ const AdminApp = (() => {
         selectors.deleteCategoryButton.classList.toggle('d-none', !id);
         resetDropzoneTargets('#categoryModal [data-dropzone]');
         const category = state.categories.find((item) => Number(item.id) === Number(id));
+        renderCategoryLocales(category);
         if (category) {
-            selectors.categoryForm.querySelector('[name="name"]').value = category.name;
             selectors.categoryForm.querySelector('[name="icon"]').value = category.icon || '';
             selectors.categoryForm.querySelector('[name="image"]').value = category.image || '';
         }
@@ -1007,8 +1173,17 @@ const AdminApp = (() => {
     };
 
     const saveCategory = async () => {
+        const translations = collectLocaleGroup('category-name');
+        const defaultLang = getDefaultLanguageCode();
+        const defaultName = (translations[defaultLang]?.name || '').trim();
+        if (!defaultName) {
+            toast.fire({ icon: 'error', title: t('admin.categories.name_required', 'Kategori adı zorunludur.') });
+            return;
+        }
         const formData = new FormData(selectors.categoryForm);
+        formData.set('name', defaultName);
         const payload = Object.fromEntries(formData.entries());
+        payload.translations = translations;
         const data = await fetchJSON('api/categories.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1051,10 +1226,9 @@ const AdminApp = (() => {
         selectors.variantList.innerHTML = '';
         resetDropzoneTargets('#productModal [data-dropzone]');
         const product = state.products.find((item) => Number(item.id) === Number(id));
+        renderProductLocales(product);
         if (product) {
             selectors.productForm.querySelector('[name="category_id"]').value = product.category_id;
-            selectors.productForm.querySelector('[name="name"]').value = product.name;
-            selectors.productForm.querySelector('[name="description"]').value = product.description || '';
             selectors.productForm.querySelector('[name="price"]').value = Number(product.price).toFixed(2);
             selectors.productForm.querySelector('[name="image"]').value = product.image || '';
             (product.variants || []).forEach((variant) => addVariantRow(variant));
@@ -1067,29 +1241,55 @@ const AdminApp = (() => {
     const addVariantRow = (variant = {}) => {
         const row = document.createElement('div');
         row.className = 'variant-row';
+        const group = variant.id ? `variant-${variant.id}` : `variant-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        row.dataset.localeGroup = group;
+        const priceValue = variant.price !== undefined && variant.price !== null && variant.price !== ''
+            ? Number(variant.price).toFixed(2)
+            : '';
         row.innerHTML = `
             <input type="hidden" name="variant_id" value="${variant.id || ''}">
-            <input type="text" class="form-control" name="variant_name" placeholder="Örn. Büyük" value="${variant.name || ''}">
-            <input type="number" step="0.01" min="0" class="form-control" name="variant_price" placeholder="Fiyat" value="${variant.price ? Number(variant.price).toFixed(2) : ''}">
+            <div class="variant-row__names"></div>
+            <input type="number" step="0.01" min="0" class="form-control" name="variant_price" placeholder="Fiyat" value="${priceValue}">
             <button type="button" class="btn btn-sm btn-outline-danger">Sil</button>
         `;
+        const namesContainer = row.querySelector('.variant-row__names');
+        renderVariantLocales(namesContainer, group, variant);
         row.querySelector('button').addEventListener('click', () => row.remove());
         selectors.variantList.appendChild(row);
     };
 
     const collectVariants = () => {
+        const defaultLang = getDefaultLanguageCode();
         return Array.from(selectors.variantList.querySelectorAll('.variant-row')).map((row) => {
+            const translations = collectLocaleGroup(row.dataset.localeGroup || '');
+            const defaultName = (translations[defaultLang]?.name || '').trim();
+            const priceInput = row.querySelector('input[name="variant_price"]');
+            const priceValue = priceInput ? priceInput.value.trim() : '';
             return {
                 id: row.querySelector('input[name="variant_id"]').value || null,
-                name: row.querySelector('input[name="variant_name"]').value,
-                price: row.querySelector('input[name="variant_price"]').value,
+                name: defaultName,
+                price: priceValue,
+                translations,
             };
-        }).filter((variant) => variant.name && variant.price);
+        }).filter((variant) => variant.name && variant.price !== '');
     };
 
     const saveProduct = async () => {
+        const nameTranslations = collectLocaleGroup('product-name');
+        const descriptionTranslations = collectLocaleGroup('product-description');
+        const translations = mergeLocaleMaps(nameTranslations, descriptionTranslations);
+        const defaultLang = getDefaultLanguageCode();
+        const defaultName = (translations[defaultLang]?.name || '').trim();
+        if (!defaultName) {
+            toast.fire({ icon: 'error', title: t('admin.products.name_required', 'Ürün adı zorunludur.') });
+            return;
+        }
+        const defaultDescription = (translations[defaultLang]?.description || '').trim();
         const formData = new FormData(selectors.productForm);
+        formData.set('name', defaultName);
+        formData.set('description', defaultDescription);
         const payload = Object.fromEntries(formData.entries());
+        payload.translations = translations;
         payload.variants = collectVariants();
         const data = await fetchJSON('api/products.php', {
             method: 'POST',

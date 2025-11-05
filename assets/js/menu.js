@@ -233,7 +233,15 @@ const MenuApp = (() => {
     };
 
     const loadMenu = async () => {
-        const data = await fetchJSON('api/menu.php');
+        const params = new URLSearchParams();
+        if (state.language) {
+            params.set('lang', state.language);
+        }
+        if (state.tableId) {
+            params.set('table', String(state.tableId));
+        }
+        const endpoint = params.toString() ? `api/menu.php?${params.toString()}` : 'api/menu.php';
+        const data = await fetchJSON(endpoint);
         state.categories = data.categories || [];
         state.products = data.products || [];
         state.dailyMenu = data.daily_menu || data.daily || [];

@@ -135,10 +135,12 @@
       "delete_confirm": "This item will be removed from the daily menu."
     },
     "categories": {
-      "delete_confirm": "The category will be deleted."
+      "delete_confirm": "The category will be deleted.",
+      "name_required": "Category name is required."
     },
     "products": {
-      "delete_confirm": "The product will be deleted."
+      "delete_confirm": "The product will be deleted.",
+      "name_required": "Product name is required."
     },
     "tables": {
       "delete_title": "Delete table?"
