@@ -69,6 +69,26 @@
                         </div>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <h5 class="text-secondary">Sunucu Kontrolü</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Sunucu Adresi / IP</label>
+                        <input type="text" name="remote_host" value="<?= htmlspecialchars($settings['remote_host'] ?? '') ?>" class="form-control" placeholder="123.45.67.89">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">SSH Portu</label>
+                        <input type="number" name="remote_port" value="<?= htmlspecialchars($settings['remote_port'] ?? '22') ?>" class="form-control" placeholder="22">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kullanıcı Adı</label>
+                        <input type="text" name="remote_username" value="<?= htmlspecialchars($settings['remote_username'] ?? '') ?>" class="form-control" placeholder="root">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Parola</label>
+                        <input type="password" name="remote_password" value="<?= htmlspecialchars($settings['remote_password'] ?? '') ?>" class="form-control" placeholder="********">
+                    </div>
+                    <p class="small text-muted">Bu bilgiler, servisleri phpseclib üzerinden uzaktan başlatıp durdurmak için kullanılır.</p>
+                </div>
             </div>
             <div class="mt-4 text-end">
                 <button class="btn btn-primary" type="submit">Ayarları Kaydet</button>

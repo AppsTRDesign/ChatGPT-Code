@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Models\Service;
+use App\Services\RemoteServiceManager;
+use Throwable;
 
 final class ServiceController extends Controller
 {
@@ -55,19 +57,16 @@ final class ServiceController extends Controller
             $this->json(['status' => 'error', 'message' => 'Geçersiz istek.'], 422);
         }
 
+        $service = Service::find($id);
+        if (!$service) {
+            $this->json(['status' => 'error', 'message' => 'Servis bulunamadı.'], 404);
+        }
+
+        $statusRequested = array_key_exists('status', $_POST);
+        $status = $statusRequested ? (string) $_POST['status'] : ($service['status'] ?? 'stopped');
         $data = [
-            'status' => $_POST['status'] ?? 'stopped',
-            'last_heartbeat_at' => $_POST['last_heartbeat_at'] ?? null,
             'updated_at' => date('Y-m-d H:i:s'),
         ];
-
-        if (!isset($_POST['last_heartbeat_at'])) {
-            if ($data['status'] === 'running') {
-                $data['last_heartbeat_at'] = date('Y-m-d H:i:s');
-            } elseif ($data['status'] === 'stopped') {
-                $data['last_heartbeat_at'] = null;
-            }
-        }
 
         if (array_key_exists('description', $_POST)) {
             $data['description'] = trim((string) $_POST['description']);
@@ -77,11 +76,44 @@ final class ServiceController extends Controller
             $data['command'] = trim((string) $_POST['command']);
         }
 
+        $manager = new RemoteServiceManager();
+        $message = 'Servis güncellendi.';
+
+        if ($statusRequested) {
+            if ($status === 'running') {
+                try {
+                    $pid = $manager->start($data['command'] ?? $service['command'] ?? '');
+                    $data['status'] = 'running';
+                    $data['last_heartbeat_at'] = date('Y-m-d H:i:s');
+                    $message = 'Servis uzaktan başlatıldı. PID: ' . $pid;
+                } catch (Throwable $e) {
+                    $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                }
+            } elseif ($status === 'stopped') {
+                try {
+                    $manager->stop($data['command'] ?? $service['command'] ?? '');
+                } catch (Throwable $e) {
+                    $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+                }
+                $data['status'] = 'stopped';
+                $data['last_heartbeat_at'] = null;
+                $message = 'Servis durduruldu.';
+            } elseif ($status === 'warning') {
+                $data['status'] = 'warning';
+                $message = 'Servis uyarı moduna alındı.';
+            } else {
+                $data['status'] = $status;
+            }
+        } else {
+            $data['status'] = $service['status'];
+            $data['last_heartbeat_at'] = $service['last_heartbeat_at'];
+        }
+
         Service::update($id, $data);
 
         $this->json([
             'status' => 'success',
-            'message' => 'Servis güncellendi.',
+            'message' => $message,
             'reload' => true,
         ]);
     }

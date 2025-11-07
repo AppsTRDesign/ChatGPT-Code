@@ -50,4 +50,10 @@ return [
             'status' => 'stopped',
         ],
     ],
+    'remote' => [
+        'host' => 'server.noasoft.org',
+        'port' => 22,
+        'username' => 'ssh_user',
+        'password' => 'ssh_password',
+    ],
 ];

@@ -24,6 +24,10 @@ final class SettingsController extends Controller
             'mail_encryption' => (string) Config::get('mail.encryption', ''),
             'mail_from_address' => (string) Config::get('mail.from_address', ''),
             'mail_from_name' => (string) Config::get('mail.from_name', ''),
+            'remote_host' => (string) Config::get('remote.host', ''),
+            'remote_port' => (string) Config::get('remote.port', '22'),
+            'remote_username' => (string) Config::get('remote.username', ''),
+            'remote_password' => (string) Config::get('remote.password', ''),
         ];
 
         $settings = array_replace($defaults, $settings);
@@ -54,6 +58,10 @@ final class SettingsController extends Controller
             'mail_encryption' => trim($_POST['mail_encryption'] ?? ''),
             'mail_from_address' => trim($_POST['mail_from_address'] ?? ''),
             'mail_from_name' => trim($_POST['mail_from_name'] ?? ''),
+            'remote_host' => trim($_POST['remote_host'] ?? ''),
+            'remote_port' => trim($_POST['remote_port'] ?? ''),
+            'remote_username' => trim($_POST['remote_username'] ?? ''),
+            'remote_password' => trim($_POST['remote_password'] ?? ''),
         ];
 
         foreach ($pairs as $key => $value) {

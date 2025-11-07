@@ -9,6 +9,7 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 - MadelineProto ile gerçek MTProto oturumu, üye keşfi ve mesaj gönderimi
 - Mesaj şablonu oluşturma, medya yükleme (Dropzone destekli) ve gönderim planlama
 - Servis durum izleme, servis başlatma/durdurma ve sağlık kontrolleri
+- phpseclib tabanlı uzaktan servis kontrolü ve arka plan süreçlerinin yönetimi
 - Telegram API kimlik bilgileri, mail ayarları ve rate-limit yapılandırması
 - Tamamen AJAX tabanlı formlar, Bootstrap 5 toasts ile durum bildirimleri
 - Başarılı işlemler sonrası tabloları otomatik yenileyen AJAX yanıtları ve ayrıntılı hata mesajları
@@ -19,13 +20,13 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 
 1. Depoyu sunucunuza klonlayın ve kök dizine yerleştirin.
 2. PHP 8 ve PDO MySQL eklentilerinin etkin olduğundan emin olun. Geliştirme için SQLite varsayılan olarak kullanılır.
-3. Proje, Composer ile yönetilen bağımlılıklar kullanır. Aşağıdaki komutla gerekli paketleri (MadelineProto dahil) kurun:
+3. Proje, Composer ile yönetilen bağımlılıklar kullanır. Aşağıdaki komutla gerekli paketleri (MadelineProto ve phpseclib dahil) kurun:
 
    ```bash
    composer install
    ```
 
-4. `config.example.php` dosyasını `config.php` olarak kopyalayın ve veritabanı, base URL, mail ve rate-limit ayarlarını güncelleyin. Ayrıca Telegram MTProto oturumları için `telegram.api_id` ve `telegram.api_hash` değerlerini Telegram geliştirici panelinden alarak girin. Panelde görüntülenen servis komutları da bu dosyada `services` anahtarında tanımlanır:
+4. `config.example.php` dosyasını `config.php` olarak kopyalayın ve veritabanı, base URL, mail, rate-limit ve `remote` bölümündeki SSH bilgilerini (sunucu adı/IP, port, kullanıcı adı ve parola) güncelleyin. Ayrıca Telegram MTProto oturumları için `telegram.api_id` ve `telegram.api_hash` değerlerini Telegram geliştirici panelinden alarak girin. Panelde görüntülenen servis komutları da bu dosyada `services` anahtarında tanımlanır:
 
    ```bash
    cp config.example.php config.php
@@ -35,6 +36,12 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 6. Plesk üzerinde `https://telegrambot.noasoft.org` alan adını projeye yönlendirin ve `.htaccess` dosyasının çalıştığından emin olun.
 
 Varsayılan olarak `services` bölümünde "Telegram Kuyruk İşleyici" kaydı bulunur. Bu servis `php /path/to/project/bin/telegram_worker.php` komutunu çalıştırarak mesaj gönderim kuyruğunu ve davet işlemlerini yürütür. Yönetim panelindeki Servisler tablosu, durum (yeşil = başladı, sarı = uyarı, kırmızı = hata/durdu) ve son heartbeat bilgisini gösterir; ihtiyaç halinde yeni servis tanımları ekleyebilir, komut ve açıklamaları güncelleyebilirsiniz. Panelde "Başlat" düğmesine bastığınızda servis durumu `running` olarak güncellenir ve son heartbeat otomatik işlenir; gerçek servis sürecini kalıcı olarak çalıştırmak için komutu Plesk üzerinden bir arka plan görevi ya da systemd servisi olarak eklemeyi unutmayın.
+
+### Uzaktaki Servis Yönetimi
+
+- `remote_host`, `remote_port`, `remote_username` ve `remote_password` değerlerini hem `config.php` dosyasından hem de yönetim panelindeki **Ayarlar → Sunucu Kontrolü** bölümünden güncelleyebilirsiniz. Panelden yapılan değişiklikler `settings` tablosuna kaydedilir ve phpseclib oturumları için otomatik olarak kullanılır.
+- Servisler sayfasındaki **Başlat** düğmesi ilgili komutu `nohup` ile arka plana alır ve PID bilgisini toast mesajında gösterir. **Durdur** düğmesi aynı komutu `pkill -f` ile sonlandırır. Komut alanını güncel tutarak gerekli script veya worker'ları uzaktan yönetebilirsiniz.
+- Bağlantı problemi yaşanması hâlinde panel ayrıntılı hata mesajını gösterir; SSH oturumunu doğrulamak için aynı bilgilerle manuel giriş yapmayı deneyebilirsiniz.
 
 ## Giriş Bilgileri
 
