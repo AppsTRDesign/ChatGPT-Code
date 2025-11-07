@@ -70,6 +70,8 @@ $adminTranslationKeys = [
     'admin.orders.toast_generic',
     'admin.orders.flash_with_table',
     'admin.orders.flash_generic',
+    'admin.orders.pending_label',
+    'admin.orders.collected_label',
     'admin.waiter.table_request',
     'admin.waiter.new_call',
     'admin.waiter.flash_with_table',
@@ -335,6 +337,7 @@ $asset = static fn(string $path): string => $baseUrl . '/' . ltrim($path, '/');
                 </div>
                 <div class="card-body">
                     <div id="waiterContainer" class="waiter-list"></div>
+                    <nav id="waiterPagination" class="pagination-bar mt-3"></nav>
                 </div>
             </div>
         </section>

@@ -65,6 +65,7 @@ const AdminApp = (() => {
         tableSearch: '',
         waiterCalls: [],
         waiterSearch: '',
+        waiterPage: 1,
         categories: [],
         products: [],
         productSearch: '',
@@ -274,6 +275,7 @@ const AdminApp = (() => {
     ];
 
     const ORDER_STATUSES = ['Beklemede', 'Hazırlanıyor', 'Hazırlandı', 'Ödeme Alındı', 'İptal'];
+    const WAITERS_PER_PAGE = 6;
     let mobileNavCollapse = null;
 
     const selectors = {
@@ -297,6 +299,7 @@ const AdminApp = (() => {
         newTableButton: document.querySelector('#newTableButton'),
         waiterSearch: document.querySelector('#waiterSearch'),
         waiterContainer: document.querySelector('#waiterContainer'),
+        waiterPagination: document.querySelector('#waiterPagination'),
         newCategoryButton: document.querySelector('#newCategoryButton'),
         saveCategory: document.querySelector('#saveCategory'),
         deleteCategoryButton: document.querySelector('#deleteCategoryButton'),
@@ -721,6 +724,9 @@ const AdminApp = (() => {
                     <span>${item.quantity} x ${item.unit_price_formatted || ''}</span>
                 </li>
             `).join('');
+            const isPaid = order.status === 'Ödeme Alındı';
+            const revenueLabel = t(isPaid ? 'admin.orders.collected_label' : 'admin.orders.pending_label', isPaid ? 'Tahsil Edildi' : 'Bekleyen Ciro');
+            const revenueClass = isPaid ? 'text-success' : 'text-warning';
 
             card.innerHTML = `
                 <div class="order-card__head">
@@ -737,6 +743,7 @@ const AdminApp = (() => {
                 <div class="order-card__footer">
                     <div>
                         <strong>${order.total_formatted || ''}</strong>
+                        <small class="d-block ${revenueClass}">${revenueLabel}</small>
                         <small class="d-block text-muted">Ürün sayısı: ${(order.items || []).length}</small>
                     </div>
                     <div class="d-flex flex-wrap gap-2 justify-content-end">
@@ -778,6 +785,7 @@ const AdminApp = (() => {
         await fetchOrders();
         await fetchTables();
         await fetchDashboard();
+        reloadReports();
         socket.emit('order:update', { order: orderId, status, table: data.order?.table || '', table_id: data.order?.table_id || null });
     };
 
@@ -866,36 +874,48 @@ const AdminApp = (() => {
     const renderWaiterCalls = () => {
         if (!selectors.waiterContainer) return;
         const search = state.waiterSearch.trim().toLowerCase();
+        const filtered = state.waiterCalls.filter((call) => {
+            if (!search) return true;
+            return (call.table || '').toLowerCase().includes(search)
+                || (call.status || '').toLowerCase().includes(search);
+        });
+
+        const totalPages = Math.max(1, Math.ceil(filtered.length / WAITERS_PER_PAGE));
+        state.waiterPage = Math.min(state.waiterPage, totalPages);
+        const start = (state.waiterPage - 1) * WAITERS_PER_PAGE;
+        const pageItems = filtered.slice(start, start + WAITERS_PER_PAGE);
+
         selectors.waiterContainer.innerHTML = '';
-        state.waiterCalls
-            .filter((call) => {
-                if (!search) return true;
-                return (call.table || '').toLowerCase().includes(search) || (call.status || '').toLowerCase().includes(search);
-            })
-            .forEach((call) => {
-                const item = document.createElement('div');
-                item.className = 'waiter-item';
-                item.innerHTML = `
-                    <div>
-                        <h3>${call.table}</h3>
-                        <small>${call.created_at}</small>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge status-${statusToClass(call.status)}">${call.status_label}</span>
-                        <select class="form-select form-select-sm" data-waiter-status="${call.id}">
-                            <option value="waiting" ${call.status === 'waiting' ? 'selected' : ''}>Beklemede</option>
-                            <option value="on_the_way" ${call.status === 'on_the_way' ? 'selected' : ''}>Yolda</option>
-                            <option value="completed" ${call.status === 'completed' ? 'selected' : ''}>Tamamlandı</option>
-                        </select>
-                    </div>
-                `;
-                selectors.waiterContainer.appendChild(item);
-            });
+        pageItems.forEach((call) => {
+            const item = document.createElement('div');
+            item.className = 'waiter-item';
+            item.innerHTML = `
+                <div>
+                    <h3>${call.table}</h3>
+                    <small>${call.created_at}</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge status-${statusToClass(call.status)}">${call.status_label}</span>
+                    <select class="form-select form-select-sm" data-waiter-status="${call.id}">
+                        <option value="waiting" ${call.status === 'waiting' ? 'selected' : ''}>Beklemede</option>
+                        <option value="on_the_way" ${call.status === 'on_the_way' ? 'selected' : ''}>Yolda</option>
+                        <option value="completed" ${call.status === 'completed' ? 'selected' : ''}>Tamamlandı</option>
+                    </select>
+                </div>
+            `;
+            selectors.waiterContainer.appendChild(item);
+        });
+
+        renderPagination(selectors.waiterPagination, totalPages, state.waiterPage, (page) => {
+            state.waiterPage = page;
+            renderWaiterCalls();
+        });
     };
 
     const fetchWaiterCalls = async () => {
         const data = await fetchJSON('api/waiter-calls.php');
         state.waiterCalls = data.calls || [];
+        state.waiterPage = 1;
         renderWaiterCalls();
     };
 
@@ -1786,6 +1806,7 @@ const AdminApp = (() => {
 
         selectors.waiterSearch?.addEventListener('input', (event) => {
             state.waiterSearch = event.target.value;
+            state.waiterPage = 1;
             renderWaiterCalls();
         });
 
@@ -1980,8 +2001,17 @@ const AdminApp = (() => {
         window.open(withBase(`api/export.php?${query.toString()}`), '_blank');
     };
 
+    const reloadReports = () => {
+        if (!window.jQuery || !$.fn?.DataTable) {
+            return;
+        }
+        if ($.fn.DataTable.isDataTable('#reportsTable')) {
+            $('#reportsTable').DataTable().ajax.reload(null, false);
+        }
+    };
+
     const fetchReports = async () => {
-        $('#reportsTable').DataTable().ajax.reload();
+        reloadReports();
     };
 
     const openLanguageModal = async (code = '') => {

@@ -795,6 +795,10 @@ const MenuApp = (() => {
             event.preventDefault();
             const formData = new FormData(elements.contactForm);
             const payload = Object.fromEntries(formData.entries());
+            const submitButton = elements.contactForm.querySelector('[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
+            }
             if (elements.contactFeedback) {
                 elements.contactFeedback.textContent = t('contact.sending', 'Sending your message...');
                 elements.contactFeedback.className = 'contact-feedback text-muted';
@@ -805,15 +809,23 @@ const MenuApp = (() => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
+                const message = data.message || t('contact.success', 'Your message has been sent successfully.');
+                toast.fire({ icon: 'success', title: message });
                 if (elements.contactFeedback) {
-                    elements.contactFeedback.textContent = data.message || t('contact.success', 'Your message has been sent successfully.');
+                    elements.contactFeedback.textContent = message;
                     elements.contactFeedback.className = 'contact-feedback text-success';
                 }
                 elements.contactForm.reset();
             } catch (error) {
+                const errorMessage = error.message || t('contact.error', 'We could not send your message.');
+                toast.fire({ icon: 'error', title: errorMessage });
                 if (elements.contactFeedback) {
-                    elements.contactFeedback.textContent = error.message;
+                    elements.contactFeedback.textContent = errorMessage;
                     elements.contactFeedback.className = 'contact-feedback text-danger';
+                }
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
                 }
             }
         });

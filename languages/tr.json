@@ -94,7 +94,8 @@
     "message_placeholder": "Mesajınızı buraya yazın",
     "submit": "Gönder",
     "sending": "Mesajınız gönderiliyor...",
-    "success": "Mesajınız başarıyla gönderildi."
+    "success": "Mesajınız başarıyla gönderildi.",
+    "error": "Mesaj gönderilirken bir hata oluştu."
   },
   "messages": {
     "error_generic": "İşlem gerçekleştirilemedi.",
@@ -167,7 +168,9 @@
       "toast_with_table": ":table - :status",
       "toast_generic": ":label :status",
       "flash_with_table": ":table - :status",
-      "flash_generic": ":label :status"
+      "flash_generic": ":label :status",
+      "pending_label": "Bekleyen Ciro",
+      "collected_label": "Tahsil Edildi"
     },
     "waiter": {
       "table_request": ":table garson istiyor.",

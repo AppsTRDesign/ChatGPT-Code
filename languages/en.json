@@ -94,7 +94,8 @@
     "message_placeholder": "Write your message here",
     "submit": "Send",
     "sending": "Sending your message...",
-    "success": "Your message has been sent successfully."
+    "success": "Your message has been sent successfully.",
+    "error": "We could not send your message."
   },
   "messages": {
     "error_generic": "The operation could not be completed.",
@@ -167,7 +168,9 @@
       "toast_with_table": ":table - :status",
       "toast_generic": ":label :status",
       "flash_with_table": ":table - :status",
-      "flash_generic": ":label :status"
+      "flash_generic": ":label :status",
+      "pending_label": "Pending Revenue",
+      "collected_label": "Collected"
     },
     "waiter": {
       "table_request": ":table is requesting a waiter.",

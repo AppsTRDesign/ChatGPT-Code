@@ -220,12 +220,13 @@ function renderOrderHtml(array $order, string $restaurantName): string
 <head>
     <meta charset="utf-8">
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; }
-        h1 { text-align: center; font-size: 20px; margin-bottom: 12px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th, td { border: 1px solid #ccc; padding: 6px; }
-        th { background: #f3f4f6; }
-        tfoot td { font-weight: bold; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; line-height: 1.4; }
+        h1 { text-align: center; font-size: 16px; margin-bottom: 8px; }
+        p { margin: 0 0 6px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; }
+        th { background: #f3f4f6; font-weight: 600; }
+        tfoot td { font-weight: 600; font-size: 12px; }
     </style>
     <title>Adisyon #{$order['id']}</title>
 </head>

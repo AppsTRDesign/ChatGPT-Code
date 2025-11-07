@@ -29,7 +29,14 @@ try {
     $mailSettings = $settings['mail'] ?? [];
     $restaurant = $settings['restaurant'] ?? [];
 
-    $recipient = $mailSettings['notification_email'] ?? ($mailSettings['from_email'] ?? '');
+    $recipient = $mailSettings['notification_email']
+        ?? ($mailSettings['from_email'] ?? '');
+    if (!$recipient) {
+        $recipient = $restaurant['email'] ?? '';
+    }
+    if (!$recipient) {
+        $recipient = $restaurant['contact_email'] ?? '';
+    }
     if (!$recipient) {
         throw new RuntimeException('İletişim e-postası yapılandırılmamış.');
     }

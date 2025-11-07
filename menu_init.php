@@ -80,6 +80,12 @@ function loadMenuContext(?string $templateOverride = null): array
 
     $currentCurrencyCode = $currentCurrency;
     $contactEmail = trim((string)($mailSettings['notification_email'] ?? $mailSettings['from_email'] ?? ''));
+    if ($contactEmail === '' && !empty($restaurant['email'])) {
+        $contactEmail = trim((string)$restaurant['email']);
+    }
+    if ($contactEmail === '' && !empty($restaurant['contact_email'])) {
+        $contactEmail = trim((string)$restaurant['contact_email']);
+    }
 
     $templateKeys = array_values(array_filter(array_map(static fn($style) => $style['id'] ?? null, $availableStyles)));
     $selectedTemplate = $menuSettings['style'] ?? ($menuSettings['template'] ?? 'menu1');

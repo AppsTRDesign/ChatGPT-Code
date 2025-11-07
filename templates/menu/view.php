@@ -25,6 +25,7 @@ $jsStrings = [
     'menu.orders_empty' => Language::get('menu.orders_empty', 'You do not have any active orders.'),
     'contact.sending' => Language::get('contact.sending', 'Sending your message...'),
     'contact.success' => Language::get('contact.success', 'Your message has been sent successfully.'),
+    'contact.error' => Language::get('contact.error', 'We could not send your message.'),
     'menu.table_missing' => Language::get('menu.table_missing', 'Table information could not be found.'),
     'menu.waiter_called' => Language::get('menu.waiter_called', 'Waiter call sent.'),
     'menu.waiter_notice' => Language::get('menu.waiter_notice', 'Your waiter request has been sent.'),
