@@ -5,7 +5,7 @@ $accepted = $extensions ? implode(',', array_map(static fn($ext) => '.' . ltrim(
 $extensionsLabel = $extensions ? implode(', ', array_map(static fn($ext) => strtoupper($ext), $extensions)) : 'Belirtilmedi';
 ?>
 <?php ob_start(); ?>
-<div class="template-card card border-0 mb-4 overflow-hidden">
+<div class="template-card card glass border-0 mb-4 overflow-hidden">
     <form data-ajax="true" action="/admin/message-templates" method="post" enctype="multipart/form-data" id="templateForm" class="row g-0 align-items-stretch">
         <input type="hidden" name="_token" value="<?= csrf_token() ?>">
         <div class="col-lg-7">

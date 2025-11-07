@@ -10,6 +10,7 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 - Mesaj şablonu oluşturma, medya yükleme (Dropzone destekli) ve gönderim planlama
 - Temaya uyumlu, iki panelli mesaj şablonu editörü; Dropzone alanı varsayılan dosya seçim kutusunu gizleyerek modern bir deneyim sunar
 - Logo ve favicon için ayrı Dropzone alanları, mobil uyumlu önizlemeler ve tek tıkla kaldırma
+- Marka Dropzone alanları ve mesaj şablonu yüklemeleri, ayarlardan yönetilen uzantı beyaz listesine göre temaya uyumlu kesik çerçeveli yüzeyler kullanır
 - Servis durum izleme, servis başlatma/durdurma ve sağlık kontrolleri
 - phpseclib tabanlı uzaktan servis kontrolü ve arka plan süreçlerinin yönetimi
 - Üyeleri ve kanalları ayrı şablonlarda gruplandırma, CSV aktarımı ve otomatik keşif sonrası şablona kaydetme
@@ -74,6 +75,7 @@ Varsayılan olarak `services` bölümünde "Telegram Kuyruk İşleyici" kaydı b
 
 - Rate limit değerleri yönetim panelinden güncellenebilir ve sistem genelinde kullanılmak üzere `settings` tablosunda saklanır.
 - Mail gönderimleri için PHPMailer kullanılacak şekilde altyapı hazırdır; SMTP bilgilerinizi ayarladıktan sonra `AuthController` içerisindeki ilgili alanı genişletebilirsiniz.
+- Paylaşımlı hosting uyumluluğu için MadelineProto'nun IPC sunucusu devre dışı bırakılmıştır; böylece "We couldn't start the IPC server" hataları önlenir.
 
 ## Lisans
 

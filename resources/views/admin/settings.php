@@ -7,6 +7,12 @@ $logoUrl = $logoFile ? asset('storage/uploads/' . $logoFile) : null;
 $faviconUrl = $faviconFile ? asset('storage/uploads/' . $faviconFile) : null;
 $allowedExtensionsValue = $settings['uploads_allowed_extensions'] ?? implode(',', $allowedExtensions);
 $allowedExtensionsLabel = $allowedExtensions ? implode(', ', array_map(static fn($ext) => strtoupper($ext), $allowedExtensions)) : 'Belirtilmedi';
+$imageWhitelist = ['svg', 'png', 'jpg', 'jpeg', 'webp', 'ico'];
+$brandingExtensions = array_values(array_intersect($allowedExtensions, $imageWhitelist));
+if (!$brandingExtensions) {
+    $brandingExtensions = $imageWhitelist;
+}
+$brandingAccepted = implode(',', array_map(static fn($ext) => '.' . ltrim($ext, '.'), $brandingExtensions));
 $csrf = csrf_token();
 ?>
 <?php ob_start(); ?>
@@ -84,10 +90,9 @@ $csrf = csrf_token();
                                         <div class="text-muted small">Logo henüz yüklenmedi.</div>
                                     <?php endif; ?>
                                 </div>
-                                <form action="/admin/settings/branding/logo/upload" method="post" class="dropzone brand-dropzone mt-2" id="logoDropzone" data-remove-url="/admin/settings/branding/logo/remove" data-preview-target="#logoPreview" data-token="<?= $csrf ?>" data-existing-name="<?= htmlspecialchars($logoFile) ?>" data-existing-url="<?= htmlspecialchars($logoUrl ?? '') ?>" data-remove-label="Logoyu Kaldır">
-                                    <input type="hidden" name="_token" value="<?= $csrf ?>">
+                                <div class="dropzone brand-dropzone mt-2" id="logoDropzone" data-upload-url="/admin/settings/branding/logo/upload" data-remove-url="/admin/settings/branding/logo/remove" data-preview-target="#logoPreview" data-token="<?= $csrf ?>" data-existing-name="<?= htmlspecialchars($logoFile) ?>" data-existing-url="<?= htmlspecialchars($logoUrl ?? '') ?>" data-remove-label="Logoyu Kaldır" data-accepted-files="<?= htmlspecialchars($brandingAccepted) ?>">
                                     <div class="dz-message small text-muted">Logo yüklemek için tıklayın veya sürükleyin.</div>
-                                </form>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="brand-card card border-0 text-center p-3" id="faviconPreview">
@@ -98,10 +103,9 @@ $csrf = csrf_token();
                                         <div class="text-muted small">Favicon henüz yüklenmedi.</div>
                                     <?php endif; ?>
                                 </div>
-                                <form action="/admin/settings/branding/favicon/upload" method="post" class="dropzone brand-dropzone mt-2" id="faviconDropzone" data-remove-url="/admin/settings/branding/favicon/remove" data-preview-target="#faviconPreview" data-token="<?= $csrf ?>" data-existing-name="<?= htmlspecialchars($faviconFile) ?>" data-existing-url="<?= htmlspecialchars($faviconUrl ?? '') ?>" data-remove-label="Faviconu Kaldır">
-                                    <input type="hidden" name="_token" value="<?= $csrf ?>">
+                                <div class="dropzone brand-dropzone mt-2" id="faviconDropzone" data-upload-url="/admin/settings/branding/favicon/upload" data-remove-url="/admin/settings/branding/favicon/remove" data-preview-target="#faviconPreview" data-token="<?= $csrf ?>" data-existing-name="<?= htmlspecialchars($faviconFile) ?>" data-existing-url="<?= htmlspecialchars($faviconUrl ?? '') ?>" data-remove-label="Faviconu Kaldır" data-accepted-files="<?= htmlspecialchars($brandingAccepted) ?>">
                                     <div class="dz-message small text-muted">Favicon yüklemek için tıklayın veya sürükleyin.</div>
-                                </form>
+                                </div>
                             </div>
                         </div>
                         <small class="text-muted d-block mt-2">Desteklenen uzantılar: <?= htmlspecialchars($allowedExtensionsLabel) ?></small>
@@ -174,26 +178,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const initBrandDropzone = (selector) => {
-        const form = document.querySelector(selector);
-        if (!form) {
+        const zone = document.querySelector(selector);
+        if (!zone) {
             return;
         }
 
-        const previewTarget = form.dataset.previewTarget;
-        const removeUrl = form.dataset.removeUrl;
-        const token = form.dataset.token;
-        const existingName = form.dataset.existingName;
-        const existingUrl = form.dataset.existingUrl;
+        const previewTarget = zone.dataset.previewTarget;
+        const removeUrl = zone.dataset.removeUrl;
+        const uploadUrl = zone.dataset.uploadUrl;
+        const token = zone.dataset.token;
+        const existingName = zone.dataset.existingName;
+        const existingUrl = zone.dataset.existingUrl;
+        const accepted = zone.dataset.acceptedFiles || null;
 
-        const removeLabel = form.dataset.removeLabel || 'Kaldır';
-        const dz = new Dropzone(form, {
+        const removeLabel = zone.dataset.removeLabel || 'Kaldır';
+        const zoneId = zone.id || `branding-zone-${Math.random().toString(16).slice(2)}`;
+        zone.id = zoneId;
+        const dz = new Dropzone(zone, {
+            url: uploadUrl,
             paramName: 'file',
             maxFiles: 1,
-            acceptedFiles: '.svg,.png,.jpg,.jpeg,.webp,.ico',
+            acceptedFiles: accepted,
             addRemoveLinks: true,
             dictRemoveFile: 'Kaldır',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            params: { '_token': token },
         });
+        zone.dropzoneInstance = dz;
 
         const updatePreview = (url, emptyMessage) => {
             const preview = document.querySelector(previewTarget);
@@ -222,37 +233,50 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!removeUrl) {
                 return;
             }
-            const container = form.parentElement;
+            const container = zone.closest('.col-md-6') || zone.parentElement;
             if (!container) {
                 return;
             }
-            let buttonForm = container.querySelector(`form[data-remove-button="${form.id}"]`);
+            let button = container.querySelector(`button[data-remove-button="${zoneId}"]`);
             if (hasFile) {
-                if (!buttonForm) {
-                    buttonForm = document.createElement('form');
-                    buttonForm.dataset.ajax = 'true';
-                    buttonForm.dataset.removeButton = form.id;
-                    buttonForm.method = 'post';
-                    buttonForm.action = removeUrl;
-                    buttonForm.className = 'mt-2';
-
-                    const tokenInput = document.createElement('input');
-                    tokenInput.type = 'hidden';
-                    tokenInput.name = '_token';
-                    tokenInput.value = token;
-                    buttonForm.appendChild(tokenInput);
-
-                    const button = document.createElement('button');
-                    button.type = 'submit';
-                    button.className = 'btn btn-outline-danger btn-sm w-100';
+                if (!button) {
+                    button = document.createElement('button');
+                    button.type = 'button';
+                    button.dataset.removeButton = zoneId;
+                    button.className = 'btn btn-outline-danger btn-sm w-100 mt-2';
                     button.textContent = removeLabel;
-                    buttonForm.appendChild(button);
-
-                    container.appendChild(buttonForm);
+                    button.addEventListener('click', () => sendRemoveRequest(true));
+                    container.appendChild(button);
                 }
-            } else if (buttonForm) {
-                buttonForm.remove();
+            } else if (button) {
+                button.remove();
             }
+        };
+
+        const sendRemoveRequest = (showToastOnSuccess = false) => {
+            if (!removeUrl) {
+                return;
+            }
+            const formData = new FormData();
+            formData.append('_token', token);
+            fetch(removeUrl, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            })
+            .then(res => res.json().catch(() => null))
+            .then(payload => {
+                if (payload?.status === 'success') {
+                    updatePreview(null, 'Dosya henüz yüklenmedi.');
+                    ensureRemoveButton(false);
+                    if (showToastOnSuccess) {
+                        showToast('success', payload.message || 'Dosya kaldırıldı.');
+                    }
+                } else if (payload?.message) {
+                    showToast('danger', payload.message);
+                }
+            })
+            .catch(() => showToast('danger', 'Dosya kaldırılamadı.'));
         };
 
         dz.on('success', (file, response) => {
@@ -278,24 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!removeUrl || !(file.uploadedFilename || file.existing)) {
                 return;
             }
-            const formData = new FormData();
-            formData.append('_token', token);
-            fetch(removeUrl, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            })
-            .then(res => res.json().catch(() => null))
-            .then(payload => {
-                if (payload?.status === 'success') {
-                    updatePreview(null, 'Dosya henüz yüklenmedi.');
-                    showToast('success', payload.message || 'Dosya kaldırıldı.');
-                    ensureRemoveButton(false);
-                } else if (payload?.message) {
-                    showToast('danger', payload.message);
-                }
-            })
-            .catch(() => showToast('danger', 'Dosya kaldırılamadı.'));
+            sendRemoveRequest(true);
         });
 
         if (existingUrl) {

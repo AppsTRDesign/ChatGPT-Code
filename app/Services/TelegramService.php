@@ -439,6 +439,21 @@ final class TelegramService
         }
 
         $settings = new Settings();
+        if (method_exists($settings, 'getIpc')) {
+            $ipcSettings = $settings->getIpc();
+            if ($ipcSettings) {
+                if (method_exists($ipcSettings, 'setEnabled')) {
+                    $ipcSettings->setEnabled(false);
+                } elseif (method_exists($ipcSettings, 'setIpcDisabled')) {
+                    $ipcSettings->setIpcDisabled(true);
+                } elseif (method_exists($ipcSettings, 'setEnableIpc')) {
+                    $ipcSettings->setEnableIpc(false);
+                }
+                if (method_exists($settings, 'setIpc')) {
+                    $settings->setIpc($ipcSettings);
+                }
+            }
+        }
         $appInfo = new AppInfo();
         $appInfo->setApiId($apiId);
         $appInfo->setApiHash($apiHash);
