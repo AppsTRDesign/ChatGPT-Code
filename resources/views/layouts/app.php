@@ -1,6 +1,8 @@
 <?php
 use App\Support\Session;
+
 $flashes = Session::allFlashes();
+$favicon = branding_favicon();
 ?>
 <!doctype html>
 <html lang="tr" data-bs-theme="dark">
@@ -11,6 +13,9 @@ $flashes = Session::allFlashes();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.css">
+    <?php if ($favicon): ?>
+        <link rel="icon" type="<?= htmlspecialchars($favicon['mime']) ?>" href="<?= htmlspecialchars($favicon['url']) ?>">
+    <?php endif; ?>
     <style>
         body { background: radial-gradient(circle at top, #141a2a, #0b0f1a); min-height: 100vh; }
         header.navbar { backdrop-filter: blur(12px); background: rgba(15, 23, 42, 0.85); }

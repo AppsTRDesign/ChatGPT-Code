@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Core\Config;
+use App\Models\Setting;
 
 function base_path(string $path = ''): string
 {
@@ -59,6 +60,51 @@ function json(array $data, int $code = 200): void
     header('Content-Type: application/json');
     echo json_encode($data, JSON_THROW_ON_ERROR);
     exit;
+}
+
+function branding_favicon(): ?array
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    $candidates = [];
+    $stored = Setting::get('branding_favicon');
+    if ($stored) {
+        $candidates[] = ltrim($stored, '/');
+    }
+    $candidates[] = 'favicon.svg';
+    $candidates = array_values(array_unique(array_filter($candidates)));
+
+    $mimeMap = [
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'ico' => 'image/x-icon',
+        'gif' => 'image/gif',
+        'bmp' => 'image/bmp',
+    ];
+
+    foreach ($candidates as $file) {
+        $relative = 'storage/uploads/' . $file;
+        $absolute = storage_path('uploads/' . $file);
+        if (!is_file($absolute)) {
+            continue;
+        }
+
+        $extension = strtolower(pathinfo($absolute, PATHINFO_EXTENSION));
+        $mime = $mimeMap[$extension] ?? 'image/x-icon';
+
+        return $cached = [
+            'url' => asset($relative),
+            'mime' => $mime,
+        ];
+    }
+
+    return $cached = null;
 }
 
 function old(string $key, string $default = ''): string
