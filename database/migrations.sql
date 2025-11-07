@@ -82,6 +82,8 @@ CREATE TABLE IF NOT EXISTS services (
     name VARCHAR(150) NOT NULL,
     slug VARCHAR(150) NOT NULL UNIQUE,
     status VARCHAR(50) NOT NULL,
+    description TEXT NULL,
+    command TEXT NULL,
     last_heartbeat_at DATETIME NULL,
     created_at DATETIME NULL,
     updated_at DATETIME NULL,

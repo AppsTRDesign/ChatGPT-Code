@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Config;
 use App\Models\DispatchJob;
 use App\Models\Member;
 use App\Models\MessageTemplate;
@@ -20,9 +21,20 @@ final class TelegramService
 {
     public function getApiCredentials(): array
     {
+        $apiId = Setting::get('telegram_api_id');
+        $apiHash = Setting::get('telegram_api_hash');
+
+        if ($apiId === null || $apiId === '') {
+            $apiId = (string) Config::get('telegram.api_id', '');
+        }
+
+        if ($apiHash === null || $apiHash === '') {
+            $apiHash = (string) Config::get('telegram.api_hash', '');
+        }
+
         return [
-            'api_id' => Setting::get('telegram_api_id', ''),
-            'api_hash' => Setting::get('telegram_api_hash', ''),
+            'api_id' => $apiId,
+            'api_hash' => $apiHash,
         ];
     }
 
@@ -299,9 +311,9 @@ final class TelegramService
         $appInfo = new AppInfo();
         $appInfo->setApiId($apiId);
         $appInfo->setApiHash($apiHash);
-        $appInfo->setDeviceModel('NoaSoft Automation Panel');
-        $appInfo->setSystemVersion('AlmaLinux 8');
-        $appInfo->setLangCode('tr');
+        $appInfo->setDeviceModel((string) Config::get('telegram.app.device_model', 'NoaSoft Automation Panel'));
+        $appInfo->setSystemVersion((string) Config::get('telegram.app.system_version', 'AlmaLinux 8'));
+        $appInfo->setLangCode((string) Config::get('telegram.app.lang_code', 'tr'));
         $settings->setAppInfo($appInfo);
 
         $loggerSettings = new LoggerSettings();
@@ -325,12 +337,15 @@ final class TelegramService
 
     private function getSessionPath(int $accountId): string
     {
-        return storage_path('sessions/account-' . $accountId . '.madeline');
+        $dir = Config::get('telegram.session_dir', storage_path('sessions'));
+        $dir = rtrim((string) $dir, '\\/');
+        return $dir . '/account-' . $accountId . '.madeline';
     }
 
     private function getLogPath(int $accountId): string
     {
-        $dir = storage_path('logs');
+        $dir = Config::get('telegram.log_dir', storage_path('logs'));
+        $dir = rtrim((string) $dir, '\\/');
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }

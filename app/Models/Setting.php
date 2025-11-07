@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use PDO;
+
 final class Setting extends Model
 {
     protected static string $table = 'settings';
@@ -10,7 +12,7 @@ final class Setting extends Model
 
     public static function get(string $key, ?string $default = null): ?string
     {
-        $stmt = self::connection()->prepare('SELECT value FROM ' . static::$table . ' WHERE key = :key LIMIT 1');
+        $stmt = self::connection()->prepare('SELECT `value` FROM ' . self::tableName() . ' WHERE `key` = :key LIMIT 1');
         $stmt->execute(['key' => $key]);
         $value = $stmt->fetchColumn();
         return $value === false ? $default : (string) $value;
@@ -32,7 +34,7 @@ final class Setting extends Model
 
     public static function updateByKey(string $key, string $value): void
     {
-        $stmt = self::connection()->prepare('UPDATE ' . static::$table . ' SET value = :value, updated_at = :updated_at WHERE key = :key');
+        $stmt = self::connection()->prepare('UPDATE ' . self::tableName() . ' SET `value` = :value, `updated_at` = :updated_at WHERE `key` = :key');
         $stmt->execute([
             'value' => $value,
             'updated_at' => date('Y-m-d H:i:s'),
@@ -42,8 +44,8 @@ final class Setting extends Model
 
     public static function allAsArray(): array
     {
-        $stmt = self::connection()->query('SELECT key, value FROM ' . static::$table);
-        $results = $stmt->fetchAll();
+        $stmt = self::connection()->query('SELECT `key`, `value` FROM ' . self::tableName());
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $data = [];
         foreach ($results as $row) {
             $data[$row['key']] = $row['value'];

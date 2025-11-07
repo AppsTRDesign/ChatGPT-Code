@@ -31,4 +31,23 @@ return [
         'per_phone' => 30,
         'per_channel' => 15,
     ],
+    'telegram' => [
+        'api_id' => '123456',
+        'api_hash' => 'your_api_hash',
+        'session_dir' => __DIR__ . '/storage/sessions',
+        'log_dir' => __DIR__ . '/storage/logs',
+        'app' => [
+            'device_model' => 'NoaSoft Automation Panel',
+            'system_version' => 'AlmaLinux 8',
+            'lang_code' => 'tr',
+        ],
+    ],
+    'services' => [
+        'telegram-worker' => [
+            'name' => 'Telegram Kuyruk İşleyici',
+            'command' => 'php ' . __DIR__ . '/bin/telegram_worker.php',
+            'description' => 'Kuyruktaki MTProto mesajlarını gönderir ve davet işlemlerini tamamlar.',
+            'status' => 'stopped',
+        ],
+    ],
 ];

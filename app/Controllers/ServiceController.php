@@ -27,10 +27,16 @@ final class ServiceController extends Controller
             $this->json(['status' => 'error', 'message' => 'Servis adı ve anahtarı gerekli.'], 422);
         }
 
+        if (Service::findBySlug($slug)) {
+            $this->json(['status' => 'error', 'message' => 'Bu servis anahtarı zaten kullanımda.'], 409);
+        }
+
         $id = Service::create([
             'name' => $name,
             'slug' => $slug,
             'status' => $_POST['status'] ?? 'stopped',
+            'description' => trim($_POST['description'] ?? ''),
+            'command' => trim($_POST['command'] ?? ''),
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
@@ -44,11 +50,21 @@ final class ServiceController extends Controller
             $this->json(['status' => 'error', 'message' => 'Geçersiz istek.'], 422);
         }
 
-        Service::update($id, [
+        $data = [
             'status' => $_POST['status'] ?? 'stopped',
             'last_heartbeat_at' => $_POST['last_heartbeat_at'] ?? null,
             'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        ];
+
+        if (array_key_exists('description', $_POST)) {
+            $data['description'] = trim((string) $_POST['description']);
+        }
+
+        if (array_key_exists('command', $_POST)) {
+            $data['command'] = trim((string) $_POST['command']);
+        }
+
+        Service::update($id, $data);
 
         $this->json(['status' => 'success']);
     }

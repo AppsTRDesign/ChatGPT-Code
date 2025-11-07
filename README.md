@@ -24,7 +24,7 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
    composer install
    ```
 
-4. `config.example.php` dosyasını `config.php` olarak kopyalayın ve veritabanı, base URL, mail ve rate-limit ayarlarını güncelleyin:
+4. `config.example.php` dosyasını `config.php` olarak kopyalayın ve veritabanı, base URL, mail ve rate-limit ayarlarını güncelleyin. Ayrıca Telegram MTProto oturumları için `telegram.api_id` ve `telegram.api_hash` değerlerini Telegram geliştirici panelinden alarak girin. Panelde görüntülenen servis komutları da bu dosyada `services` anahtarında tanımlanır:
 
    ```bash
    cp config.example.php config.php
@@ -32,6 +32,8 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 
 5. Veritabanı tabloları ilk açılışta otomatik olarak oluşturulur ve `admin / admin` bilgileriyle varsayılan bir kullanıcı eklenir.
 6. Plesk üzerinde `https://telegrambot.noasoft.org` alan adını projeye yönlendirin ve `.htaccess` dosyasının çalıştığından emin olun.
+
+Varsayılan olarak `services` bölümünde "Telegram Kuyruk İşleyici" kaydı bulunur. Bu servis `php /path/to/project/bin/telegram_worker.php` komutunu çalıştırarak mesaj gönderim kuyruğunu ve davet işlemlerini yürütür. Yönetim panelindeki Servisler tablosu, durum (yeşil = başladı, sarı = uyarı, kırmızı = hata/durdu) ve son heartbeat bilgisini gösterir; ihtiyaç halinde yeni servis tanımları ekleyebilir, komut ve açıklamaları güncelleyebilirsiniz.
 
 ## Giriş Bilgileri
 

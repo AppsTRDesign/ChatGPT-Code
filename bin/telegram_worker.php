@@ -41,6 +41,18 @@ Config::loadDefaults([
         'per_phone' => 30,
         'per_channel' => 15,
     ],
+    'telegram' => [
+        'api_id' => '',
+        'api_hash' => '',
+        'session_dir' => storage_path('sessions'),
+        'log_dir' => storage_path('logs'),
+        'app' => [
+            'device_model' => 'NoaSoft Automation Panel',
+            'system_version' => 'AlmaLinux 8',
+            'lang_code' => 'tr',
+        ],
+    ],
+    'services' => Config::get('services', []),
 ]);
 
 Config::loadFile();

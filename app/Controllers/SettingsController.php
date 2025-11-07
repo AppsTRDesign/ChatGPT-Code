@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Config;
 use App\Models\Setting;
 
 final class SettingsController extends Controller
@@ -10,6 +11,22 @@ final class SettingsController extends Controller
     public function index(): void
     {
         $settings = Setting::allAsArray();
+        $defaults = [
+            'telegram_api_id' => (string) Config::get('telegram.api_id', ''),
+            'telegram_api_hash' => (string) Config::get('telegram.api_hash', ''),
+            'rate_limit_global' => (string) Config::get('rate_limits.global', '60'),
+            'rate_limit_per_phone' => (string) Config::get('rate_limits.per_phone', '30'),
+            'rate_limit_per_channel' => (string) Config::get('rate_limits.per_channel', '15'),
+            'mail_host' => (string) Config::get('mail.host', ''),
+            'mail_port' => (string) Config::get('mail.port', ''),
+            'mail_username' => (string) Config::get('mail.username', ''),
+            'mail_password' => (string) Config::get('mail.password', ''),
+            'mail_encryption' => (string) Config::get('mail.encryption', ''),
+            'mail_from_address' => (string) Config::get('mail.from_address', ''),
+            'mail_from_name' => (string) Config::get('mail.from_name', ''),
+        ];
+
+        $settings = array_replace($defaults, $settings);
         $this->view('admin/settings', [
             'title' => 'Genel Ayarlar',
             'settings' => $settings,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Core\Database;
+use App\Models\Service;
 
 final class Migrator
 {
@@ -31,6 +32,8 @@ final class Migrator
     private static function ensureUpgrades(\PDO $connection): void
     {
         self::ensureTelegramAccountColumns($connection);
+        self::ensureServiceColumns($connection);
+        Service::ensureDefaults();
     }
 
     private static function ensureTelegramAccountColumns(\PDO $connection): void
@@ -50,6 +53,19 @@ final class Migrator
         }
     }
 
+    private static function ensureServiceColumns(\PDO $connection): void
+    {
+        $columns = array_flip(self::getTableColumns($connection, 'services'));
+
+        if (!isset($columns['description'])) {
+            $connection->exec('ALTER TABLE services ADD COLUMN description TEXT NULL AFTER status');
+        }
+
+        if (!isset($columns['command'])) {
+            $connection->exec('ALTER TABLE services ADD COLUMN command TEXT NULL AFTER description');
+        }
+    }
+
     private static function getTableColumns(\PDO $connection, string $table): array
     {
         $driver = $connection->getAttribute(\PDO::ATTR_DRIVER_NAME);
@@ -62,10 +78,14 @@ final class Migrator
             return array_map(static fn($column) => $column['name'] ?? '', $result);
         }
 
-        $stmt = $connection->prepare('SHOW COLUMNS FROM `' . $table . '`');
-        if ($stmt && $stmt->execute()) {
-            $result = $stmt->fetchAll();
-            return array_map(static fn($column) => $column['Field'] ?? '', $result);
+        try {
+            $stmt = $connection->prepare('SHOW COLUMNS FROM `' . $table . '`');
+            if ($stmt && $stmt->execute()) {
+                $result = $stmt->fetchAll();
+                return array_map(static fn($column) => $column['Field'] ?? '', $result);
+            }
+        } catch (\Throwable $e) {
+            return [];
         }
 
         return [];
