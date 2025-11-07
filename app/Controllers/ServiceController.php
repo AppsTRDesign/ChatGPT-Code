@@ -41,7 +41,12 @@ final class ServiceController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->json(['status' => 'success', 'id' => $id]);
+        $this->json([
+            'status' => 'success',
+            'id' => $id,
+            'message' => 'Servis kaydedildi.',
+            'reload' => true,
+        ]);
     }
 
     public function update(int $id): void
@@ -56,6 +61,14 @@ final class ServiceController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
+        if (!isset($_POST['last_heartbeat_at'])) {
+            if ($data['status'] === 'running') {
+                $data['last_heartbeat_at'] = date('Y-m-d H:i:s');
+            } elseif ($data['status'] === 'stopped') {
+                $data['last_heartbeat_at'] = null;
+            }
+        }
+
         if (array_key_exists('description', $_POST)) {
             $data['description'] = trim((string) $_POST['description']);
         }
@@ -66,7 +79,11 @@ final class ServiceController extends Controller
 
         Service::update($id, $data);
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Servis güncellendi.',
+            'reload' => true,
+        ]);
     }
 
     public function destroy(int $id): void
@@ -76,6 +93,10 @@ final class ServiceController extends Controller
         }
 
         Service::delete($id);
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Servis silindi.',
+            'reload' => true,
+        ]);
     }
 }

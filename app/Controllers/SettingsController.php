@@ -80,6 +80,10 @@ final class SettingsController extends Controller
             }
         }
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Ayarlar kaydedildi.',
+            'reload' => true,
+        ]);
     }
 }

@@ -85,25 +85,53 @@ $flashes = Session::allFlashes();
             const method = (form.getAttribute('method') || 'POST').toUpperCase();
             const formData = new FormData(form);
 
-            fetch(action, {
-                method,
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showToast('success', data.message || 'İşlem başarılı.');
-                    if (data.redirect) {
-                        window.location.href = data.redirect;
-                    } else if (data.reload) {
-                        window.location.reload();
+            (async () => {
+                try {
+                    const response = await fetch(action, {
+                        method,
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+
+                    let payload = null;
+                    const contentType = response.headers.get('Content-Type') || '';
+
+                    if (contentType.includes('application/json')) {
+                        try {
+                            payload = await response.json();
+                        } catch (error) {
+                            payload = null;
+                        }
+                    } else {
+                        const text = await response.text();
+                        if (text.trim() !== '') {
+                            payload = {
+                                status: response.ok ? 'success' : 'error',
+                                message: text.trim(),
+                            };
+                        }
                     }
-                } else {
-                    showToast('danger', data.message || 'Bir hata oluştu.');
+
+                    if (!payload) {
+                        throw new Error('empty-response');
+                    }
+
+                    if (payload.status === 'success') {
+                        if (payload.message) {
+                            showToast('success', payload.message);
+                        }
+                        if (payload.redirect) {
+                            window.location.href = payload.redirect;
+                        } else if (payload.reload) {
+                            window.location.reload();
+                        }
+                    } else {
+                        showToast('danger', payload.message || 'Bir hata oluştu.');
+                    }
+                } catch (error) {
+                    showToast('danger', 'Sunucu yanıtı alınamadı.');
                 }
-            })
-            .catch(() => showToast('danger', 'Sunucuya erişilemedi.'));
+            })();
         });
     });
 

@@ -9,7 +9,7 @@ final class TemplateController extends Controller
 {
     public function index(): void
     {
-        $this->view('admin/templates', [
+        $this->view('admin/message-templates', [
             'title' => 'Mesaj Şablonları',
             'templates' => MessageTemplate::all(),
         ]);
@@ -39,7 +39,11 @@ final class TemplateController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Şablon kaydedildi.',
+            'reload' => true,
+        ]);
     }
 
     public function update(int $id): void
@@ -64,7 +68,11 @@ final class TemplateController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Şablon güncellendi.',
+            'reload' => true,
+        ]);
     }
 
     public function destroy(int $id): void
@@ -82,7 +90,11 @@ final class TemplateController extends Controller
         }
 
         MessageTemplate::delete($id);
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Şablon silindi.',
+            'reload' => true,
+        ]);
     }
 
     private function handleUpload(?string $existingPath = null): array

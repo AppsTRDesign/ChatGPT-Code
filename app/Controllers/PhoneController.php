@@ -45,7 +45,12 @@ final class PhoneController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->json(['status' => 'success', 'id' => $id]);
+        $this->json([
+            'status' => 'success',
+            'id' => $id,
+            'message' => 'Telefon kaydedildi.',
+            'reload' => true,
+        ]);
     }
 
     public function update(int $id): void
@@ -68,7 +73,11 @@ final class PhoneController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Telefon güncellendi.',
+            'reload' => true,
+        ]);
     }
 
     public function destroy(int $id): void
@@ -79,7 +88,11 @@ final class PhoneController extends Controller
 
         (new TelegramService())->deleteSession($id);
         TelegramAccount::delete($id);
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Telefon silindi.',
+            'reload' => true,
+        ]);
     }
 
     public function sendCode(int $id): void
@@ -92,7 +105,11 @@ final class PhoneController extends Controller
 
         try {
             $service->sendLoginCode($id);
-            $this->json(['status' => 'success', 'message' => 'Doğrulama kodu gönderildi.']);
+            $this->json([
+                'status' => 'success',
+                'message' => 'Doğrulama kodu gönderildi.',
+                'reload' => true,
+            ]);
         } catch (Throwable $e) {
             $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
@@ -119,10 +136,15 @@ final class PhoneController extends Controller
                 $this->json([
                     'status' => 'success',
                     'message' => 'İki faktörlü doğrulama şifresini giriniz.',
+                    'reload' => false,
                 ]);
             }
 
-            $this->json(['status' => 'success', 'message' => 'Oturum başarıyla doğrulandı.']);
+            $this->json([
+                'status' => 'success',
+                'message' => 'Oturum başarıyla doğrulandı.',
+                'reload' => true,
+            ]);
         } catch (Throwable $e) {
             $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }

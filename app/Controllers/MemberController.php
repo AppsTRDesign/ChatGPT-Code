@@ -39,7 +39,11 @@ final class MemberController extends Controller
         ];
 
         Member::create($data);
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Üye kaydedildi.',
+            'reload' => true,
+        ]);
     }
 
     public function destroy(int $id): void
@@ -49,7 +53,11 @@ final class MemberController extends Controller
         }
 
         Member::delete($id);
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Üye silindi.',
+            'reload' => true,
+        ]);
     }
 
     public function export(): void
@@ -116,7 +124,11 @@ final class MemberController extends Controller
         }
         fclose($handle);
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Üyeler içe aktarıldı.',
+            'reload' => true,
+        ]);
     }
 
     public function discover(): void
@@ -139,6 +151,8 @@ final class MemberController extends Controller
             $this->json([
                 'status' => 'success',
                 'discovered' => $result['discovered'] ?? 0,
+                'message' => 'Üye keşfi kuyruğa alındı.',
+                'reload' => false,
             ]);
         } catch (Throwable $e) {
             $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);

@@ -45,7 +45,11 @@ final class MessagingController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Gönderim kuyruğa alındı.',
+            'reload' => true,
+        ]);
     }
 
     public function update(int $id): void
@@ -59,7 +63,11 @@ final class MessagingController extends Controller
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Gönderim güncellendi.',
+            'reload' => true,
+        ]);
     }
 
     public function destroy(int $id): void
@@ -69,6 +77,10 @@ final class MessagingController extends Controller
         }
 
         DispatchJob::delete($id);
-        $this->json(['status' => 'success']);
+        $this->json([
+            'status' => 'success',
+            'message' => 'Gönderim silindi.',
+            'reload' => true,
+        ]);
     }
 }

@@ -11,6 +11,7 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 - Servis durum izleme, servis başlatma/durdurma ve sağlık kontrolleri
 - Telegram API kimlik bilgileri, mail ayarları ve rate-limit yapılandırması
 - Tamamen AJAX tabanlı formlar, Bootstrap 5 toasts ile durum bildirimleri
+- Başarılı işlemler sonrası tabloları otomatik yenileyen AJAX yanıtları ve ayrıntılı hata mesajları
 - SEO uyumlu `.htaccess` yönlendirmesi ve mobil uyumlu üst menü
 - SVG formatında özel logo ve favicon
 
@@ -33,7 +34,7 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 5. Veritabanı tabloları ilk açılışta otomatik olarak oluşturulur ve `admin / admin` bilgileriyle varsayılan bir kullanıcı eklenir.
 6. Plesk üzerinde `https://telegrambot.noasoft.org` alan adını projeye yönlendirin ve `.htaccess` dosyasının çalıştığından emin olun.
 
-Varsayılan olarak `services` bölümünde "Telegram Kuyruk İşleyici" kaydı bulunur. Bu servis `php /path/to/project/bin/telegram_worker.php` komutunu çalıştırarak mesaj gönderim kuyruğunu ve davet işlemlerini yürütür. Yönetim panelindeki Servisler tablosu, durum (yeşil = başladı, sarı = uyarı, kırmızı = hata/durdu) ve son heartbeat bilgisini gösterir; ihtiyaç halinde yeni servis tanımları ekleyebilir, komut ve açıklamaları güncelleyebilirsiniz.
+Varsayılan olarak `services` bölümünde "Telegram Kuyruk İşleyici" kaydı bulunur. Bu servis `php /path/to/project/bin/telegram_worker.php` komutunu çalıştırarak mesaj gönderim kuyruğunu ve davet işlemlerini yürütür. Yönetim panelindeki Servisler tablosu, durum (yeşil = başladı, sarı = uyarı, kırmızı = hata/durdu) ve son heartbeat bilgisini gösterir; ihtiyaç halinde yeni servis tanımları ekleyebilir, komut ve açıklamaları güncelleyebilirsiniz. Panelde "Başlat" düğmesine bastığınızda servis durumu `running` olarak güncellenir ve son heartbeat otomatik işlenir; gerçek servis sürecini kalıcı olarak çalıştırmak için komutu Plesk üzerinden bir arka plan görevi ya da systemd servisi olarak eklemeyi unutmayın.
 
 ## Giriş Bilgileri
 

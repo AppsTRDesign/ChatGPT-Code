@@ -19,20 +19,47 @@
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             const formData = new FormData(form);
-            fetch(form.getAttribute('action'), {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    window.location.href = data.redirect || '/admin';
-                } else {
-                    showToast(data.message || 'Bir hata oluştu.');
+
+            (async () => {
+                try {
+                    const response = await fetch(form.getAttribute('action'), {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+
+                    let payload = null;
+                    const contentType = response.headers.get('Content-Type') || '';
+
+                    if (contentType.includes('application/json')) {
+                        try {
+                            payload = await response.json();
+                        } catch (error) {
+                            payload = null;
+                        }
+                    } else {
+                        const text = await response.text();
+                        if (text.trim() !== '') {
+                            payload = {
+                                status: response.ok ? 'success' : 'error',
+                                message: text.trim(),
+                            };
+                        }
+                    }
+
+                    if (!payload) {
+                        throw new Error('empty-response');
+                    }
+
+                    if (payload.status === 'success') {
+                        window.location.href = payload.redirect || '/admin';
+                    } else {
+                        showToast(payload.message || 'Bir hata oluştu.');
+                    }
+                } catch (error) {
+                    showToast('Sunucu yanıtı alınamadı.');
                 }
-            })
-            .catch(() => showToast('Sunucuya erişilemedi.'));
+            })();
         });
     });
 
