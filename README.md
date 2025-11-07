@@ -8,9 +8,11 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 - Üye keşfi için detaylı günlükleme ve CSV içe/dışa aktarma desteği
 - MadelineProto ile gerçek MTProto oturumu, üye keşfi ve mesaj gönderimi
 - Mesaj şablonu oluşturma, medya yükleme (Dropzone destekli) ve gönderim planlama
+- Logo ve favicon için ayrı Dropzone alanları, mobil uyumlu önizlemeler ve tek tıkla kaldırma
 - Servis durum izleme, servis başlatma/durdurma ve sağlık kontrolleri
 - phpseclib tabanlı uzaktan servis kontrolü ve arka plan süreçlerinin yönetimi
 - Telegram API kimlik bilgileri, mail ayarları ve rate-limit yapılandırması
+- Yönetilebilir dosya uzantısı beyaz listesi; şablon ve medya yüklemeleri ayarlardan tanımlanan uzantılarla sınırlandırılır
 - Tamamen AJAX tabanlı formlar, Bootstrap 5 toasts ile durum bildirimleri
 - Başarılı işlemler sonrası tabloları otomatik yenileyen AJAX yanıtları ve ayrıntılı hata mesajları
 - SEO uyumlu `.htaccess` yönlendirmesi ve mobil uyumlu üst menü
@@ -53,7 +55,8 @@ Varsayılan olarak `services` bölümünde "Telegram Kuyruk İşleyici" kaydı b
 
 - Tüm kaynak kodu `app/` dizini altında PSR-4 standardına göre düzenlenmiştir.
 - Yeni bir servis ya da özellik eklerken ilgili Controller, Model ve View dosyalarını oluşturmanız yeterlidir.
-- Dropzone entegrasyonu sayesinde mesaj şablonlarına medya ekleyebilirsiniz; yüklenen dosyalar `storage/uploads` altında saklanır.
+- Dropzone entegrasyonu sayesinde mesaj şablonlarına medya ekleyebilir ve marka görsellerini yönetebilirsiniz; yüklenen dosyalar `storage/uploads` altında saklanır.
+- Paneldeki **Ayarlar → Dosya Yükleme Ayarları** bölümünden uzantı listesini güncellediğinizde, tüm Dropzone alanları yeni beyaz liste ile otomatik olarak güncellenir.
 
 ## Telegram MTProto Kullanımı
 

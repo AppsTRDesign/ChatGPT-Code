@@ -78,12 +78,23 @@ $flashes = Session::allFlashes();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dropzone/5.9.3/dropzone.min.js"></script>
 <script>
+    if (window.Dropzone) {
+        Dropzone.autoDiscover = false;
+    }
+
     document.querySelectorAll('form[data-ajax="true"]').forEach(form => {
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             const action = form.getAttribute('action') || window.location.pathname;
             const method = (form.getAttribute('method') || 'POST').toUpperCase();
             const formData = new FormData(form);
+            const dropzoneInstance = form.dropzoneInstance || null;
+            if (dropzoneInstance) {
+                const files = dropzoneInstance.getAcceptedFiles();
+                files.forEach((file, index) => {
+                    formData.append(files.length > 1 ? `files[${index}]` : 'file', file, file.name);
+                });
+            }
 
             (async () => {
                 try {
@@ -117,6 +128,9 @@ $flashes = Session::allFlashes();
                     }
 
                     if (payload.status === 'success') {
+                        if (form.dropzoneInstance) {
+                            form.dropzoneInstance.removeAllFiles(true);
+                        }
                         if (payload.message) {
                             showToast('success', payload.message);
                         }

@@ -47,6 +47,8 @@ $router->post('/admin/message-templates/{id}/delete', [TemplateController::class
 
 $router->get('/admin/settings', [SettingsController::class, 'index'], ['auth']);
 $router->post('/admin/settings', [SettingsController::class, 'update'], ['auth']);
+$router->post('/admin/settings/branding/{type}/upload', [SettingsController::class, 'uploadBranding'], ['auth']);
+$router->post('/admin/settings/branding/{type}/remove', [SettingsController::class, 'removeBranding'], ['auth']);
 
 $router->get('/admin/services', [ServiceController::class, 'index'], ['auth']);
 $router->post('/admin/services', [ServiceController::class, 'store'], ['auth']);

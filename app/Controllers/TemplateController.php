@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Config;
 use App\Models\MessageTemplate;
+use App\Models\Setting;
 
 final class TemplateController extends Controller
 {
@@ -12,6 +14,7 @@ final class TemplateController extends Controller
         $this->view('admin/message-templates', [
             'title' => 'Mesaj Şablonları',
             'templates' => MessageTemplate::all(),
+            'allowedExtensions' => $this->allowedExtensions(),
         ]);
     }
 
@@ -103,9 +106,9 @@ final class TemplateController extends Controller
             return [];
         }
 
-        $allowed = ['image/png', 'image/jpeg', 'image/gif', 'application/zip', 'application/pdf'];
-        $type = mime_content_type($_FILES['file']['tmp_name']);
-        if (!in_array($type, $allowed, true)) {
+        $allowedExtensions = $this->allowedExtensions();
+        $extension = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+        if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
             $this->json(['status' => 'error', 'message' => 'Desteklenmeyen dosya türü.'], 422);
         }
 
@@ -114,7 +117,11 @@ final class TemplateController extends Controller
         if (!is_dir(dirname($destination))) {
             mkdir(dirname($destination), 0775, true);
         }
-        move_uploaded_file($_FILES['file']['tmp_name'], $destination);
+        if (!move_uploaded_file($_FILES['file']['tmp_name'], $destination)) {
+            $this->json(['status' => 'error', 'message' => 'Dosya kaydedilemedi.'], 500);
+        }
+
+        $mime = mime_content_type($destination) ?: 'application/octet-stream';
 
         if ($existingPath && $existingPath !== $filename) {
             $previous = storage_path('uploads/' . $existingPath);
@@ -126,7 +133,22 @@ final class TemplateController extends Controller
         return [
             'path' => $filename,
             'name' => $_FILES['file']['name'],
-            'type' => $type,
+            'type' => $mime,
         ];
+    }
+
+    private function allowedExtensions(): array
+    {
+        $default = Config::get('uploads.allowed_extensions', []);
+        $stored = Setting::get('uploads_allowed_extensions');
+        if ($stored !== null && $stored !== '') {
+            $parts = preg_split('/[\s,]+/', strtolower($stored)) ?: [];
+            $clean = array_filter(array_map(static fn($part) => trim($part, " ."), $parts));
+            if ($clean) {
+                return array_values(array_unique($clean));
+            }
+        }
+
+        return array_values(array_unique(array_map(static fn($part) => strtolower((string) $part), (array) $default)));
     }
 }

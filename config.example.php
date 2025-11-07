@@ -50,6 +50,14 @@ return [
             'status' => 'stopped',
         ],
     ],
+    'uploads' => [
+        'allowed_extensions' => [
+            'zip', 'rar', 'pdf',
+            'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+            'txt',
+            'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp',
+        ],
+    ],
     'remote' => [
         'host' => 'server.noasoft.org',
         'port' => 22,
