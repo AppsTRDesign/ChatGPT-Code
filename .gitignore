@@ -1,6 +1,6 @@
 /vendor/
 /bootstrap/cache/
-/.env
+/config.php
 /storage/logs/
 /storage/uploads/*
 !/storage/uploads/logo.svg

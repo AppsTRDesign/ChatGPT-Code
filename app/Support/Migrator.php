@@ -15,7 +15,7 @@ final class Migrator
         if (!file_exists($flag)) {
             $sql = file_get_contents(database_path('migrations.sql'));
             if ($sql !== false) {
-                $connection->exec($sql);
+                self::executeSqlStatements($connection, $sql);
             }
 
             \App\Models\AdminUser::ensureDefaultAdmin();
@@ -69,5 +69,22 @@ final class Migrator
         }
 
         return [];
+    }
+
+    private static function executeSqlStatements(\PDO $connection, string $sql): void
+    {
+        $statements = preg_split('/;\s*(?:\r?\n|$)/', $sql);
+        if (!$statements) {
+            return;
+        }
+
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+            if ($statement === '') {
+                continue;
+            }
+
+            $connection->exec($statement);
+        }
     }
 }

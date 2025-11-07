@@ -24,7 +24,12 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
    composer install
    ```
 
-4. `.env.example` dosyasını `.env` olarak kopyalayın ve veritabanı ile diğer ayarları güncelleyin.
+4. `config.example.php` dosyasını `config.php` olarak kopyalayın ve veritabanı, base URL, mail ve rate-limit ayarlarını güncelleyin:
+
+   ```bash
+   cp config.example.php config.php
+   ```
+
 5. Veritabanı tabloları ilk açılışta otomatik olarak oluşturulur ve `admin / admin` bilgileriyle varsayılan bir kullanıcı eklenir.
 6. Plesk üzerinde `https://telegrambot.noasoft.org` alan adını projeye yönlendirin ve `.htaccess` dosyasının çalıştığından emin olun.
 

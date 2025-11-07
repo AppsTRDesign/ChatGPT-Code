@@ -7,40 +7,24 @@ final class Config
 {
     private static array $items = [];
 
-    public static function loadEnv(?string $path = null): void
+    public static function loadDefaults(array $data): void
     {
-        $path ??= base_path('.env');
+        self::$items = array_replace_recursive(self::$items, $data);
+    }
+
+    public static function loadFile(?string $path = null): void
+    {
+        $path ??= base_path('config.php');
         if (!file_exists($path)) {
             return;
         }
 
-        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (!$lines) {
-            return;
+        $config = require $path;
+        if (!is_array($config)) {
+            throw new \RuntimeException('config.php dosyası geçerli bir dizi döndürmelidir.');
         }
 
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '' || str_starts_with($line, '#')) {
-                continue;
-            }
-
-            [$name, $value] = array_map('trim', explode('=', $line, 2) + ['', '']);
-            $value = trim($value, "\"' ");
-            $_ENV[$name] = $value;
-            putenv(sprintf('%s=%s', $name, $value));
-        }
-    }
-
-    public static function env(string $key, mixed $default = null): mixed
-    {
-        $value = $_ENV[$key] ?? getenv($key);
-        return $value === false ? $default : $value;
-    }
-
-    public static function loadDefaults(array $data): void
-    {
-        self::$items = array_replace_recursive(self::$items, $data);
+        self::$items = array_replace_recursive(self::$items, $config);
     }
 
     public static function get(string $key, mixed $default = null): mixed
