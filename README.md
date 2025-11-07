@@ -12,6 +12,8 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 - Logo ve favicon için ayrı Dropzone alanları, mobil uyumlu önizlemeler ve tek tıkla kaldırma
 - Servis durum izleme, servis başlatma/durdurma ve sağlık kontrolleri
 - phpseclib tabanlı uzaktan servis kontrolü ve arka plan süreçlerinin yönetimi
+- Üyeleri ve kanalları ayrı şablonlarda gruplandırma, CSV aktarımı ve otomatik keşif sonrası şablona kaydetme
+- MTProto ile kanal/grup araması, kayıtlı şablonlara ekleme ve rate-limit dostu mesaj/davet kuyrukları
 - Telegram API kimlik bilgileri, mail ayarları ve rate-limit yapılandırması
 - Yönetilebilir dosya uzantısı beyaz listesi; şablon ve medya yüklemeleri ayarlardan tanımlanan uzantılarla sınırlandırılır
 - Tamamen AJAX tabanlı formlar, Bootstrap 5 toasts ile durum bildirimleri
@@ -65,7 +67,8 @@ Varsayılan olarak `services` bölümünde "Telegram Kuyruk İşleyici" kaydı b
 - Yönetim panelinden bir telefon numarası ekledikten sonra "Kod Gönder" ve "Doğrula" aksiyonlarıyla oturum açabilir, gerekirse 2FA şifresini yine aynı formdan tanımlayabilirsiniz.
 - Üye keşfi için "Üyeleri Tara" formundan MTProto oturumu hazır olan hesabı ve taramak istediğiniz kanal/grup kullanıcı adını seçin. Sistem üyeleri doğrudan veritabanına kaydeder.
 - Mesaj şablonları ve gönderim planları oluşturulduktan sonra kuyruktaki işler `bin/telegram_worker.php` komut satırı aracı ile (örn. cron üzerinden) işlenir ve hedeflere gerçek Telegram mesajları gönderilir.
-- Rate-limit değerleri yönetim panelindeki ayarlardan güncellenebilir; MTProto servisleri varsayılan olarak keşif için 1500ms, mesaj gönderimi için 1200ms gecikme uygular.
+- Rate-limit değerleri yönetim panelindeki ayarlardan güncellenebilir; MTProto servisleri varsayılan olarak keşif için 1500ms, mesaj gönderimi için 1200ms ve davet işlemleri için 2000ms gecikme uygular.
+- Mesaj planlama ekranında manuel hedef, üye şablonu veya kanal/grup şablonu seçerek toplu gönderimler oluşturabilir; aynı ekrandan kayıtlı üyeleri hedef kanallara davet kuyruğuna alabilirsiniz.
 
 ## Notlar
 

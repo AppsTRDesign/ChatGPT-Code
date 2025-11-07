@@ -135,6 +135,14 @@ $flashes = Session::allFlashes();
                         if (payload.message) {
                             showToast('success', payload.message);
                         }
+                        if (payload.fragments && typeof payload.fragments === 'object') {
+                            Object.entries(payload.fragments).forEach(([selector, html]) => {
+                                const target = document.querySelector(selector);
+                                if (target) {
+                                    target.innerHTML = html;
+                                }
+                            });
+                        }
                         if (payload.redirect) {
                             window.location.href = payload.redirect;
                         } else if (payload.reload) {
@@ -142,6 +150,14 @@ $flashes = Session::allFlashes();
                         }
                     } else {
                         showToast('danger', payload.message || 'Bir hata oluştu.');
+                        if (payload.fragments && typeof payload.fragments === 'object') {
+                            Object.entries(payload.fragments).forEach(([selector, html]) => {
+                                const target = document.querySelector(selector);
+                                if (target) {
+                                    target.innerHTML = html;
+                                }
+                            });
+                        }
                     }
                 } catch (error) {
                     showToast('danger', 'Sunucu yanıtı alınamadı.');

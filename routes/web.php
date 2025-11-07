@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use App\Controllers\AdminController;
 use App\Controllers\AuthController;
+use App\Controllers\ChannelController;
 use App\Controllers\MemberController;
 use App\Controllers\MessagingController;
 use App\Controllers\PhoneController;
@@ -30,9 +31,15 @@ $router->post('/admin/phones/{id}/delete', [PhoneController::class, 'destroy'], 
 $router->get('/admin/members', [MemberController::class, 'index'], ['auth']);
 $router->post('/admin/members', [MemberController::class, 'store'], ['auth']);
 $router->post('/admin/members/discover', [MemberController::class, 'discover'], ['auth']);
+$router->post('/admin/members/templates', [MemberController::class, 'createTemplate'], ['auth']);
+$router->post('/admin/members/templates/{id}/delete', [MemberController::class, 'deleteTemplate'], ['auth']);
+$router->post('/admin/members/{id}/assign-template', [MemberController::class, 'assignTemplate'], ['auth']);
 $router->post('/admin/members/{id}/delete', [MemberController::class, 'destroy'], ['auth']);
 $router->get('/admin/members/export', [MemberController::class, 'export'], ['auth']);
 $router->post('/admin/members/import', [MemberController::class, 'import'], ['auth']);
+
+$router->post('/admin/channels/search', [ChannelController::class, 'search'], ['auth']);
+$router->post('/admin/channels/{id}/assign-template', [ChannelController::class, 'assignTemplate'], ['auth']);
 
 $router->get('/admin/templates', [MessagingController::class, 'index'], ['auth']);
 $router->get('/admin/messaging', [MessagingController::class, 'index'], ['auth']);

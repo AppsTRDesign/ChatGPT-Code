@@ -8,9 +8,11 @@ final class DispatchJob extends Model
     protected static string $table = 'dispatch_jobs';
     protected static array $fillable = [
         'name',
+        'action',
         'template_id',
         'target_type',
         'target_value',
+        'metadata',
         'scheduled_for',
         'status',
         'created_by',

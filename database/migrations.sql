@@ -93,13 +93,59 @@ CREATE TABLE IF NOT EXISTS services (
 CREATE TABLE IF NOT EXISTS dispatch_jobs (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(150) NOT NULL,
-    template_id INT UNSIGNED NOT NULL,
+    action VARCHAR(50) NOT NULL DEFAULT 'send_message',
+    template_id INT UNSIGNED NULL,
     target_type VARCHAR(50) NOT NULL,
-    target_value VARCHAR(150) NOT NULL,
+    target_value VARCHAR(190) NOT NULL,
+    metadata TEXT NULL,
     scheduled_for DATETIME NULL,
     status VARCHAR(50) NOT NULL,
     created_by INT UNSIGNED NULL,
     created_at DATETIME NULL,
     updated_at DATETIME NULL,
     PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audience_templates (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(150) NOT NULL,
+    entity_type VARCHAR(32) NOT NULL,
+    description TEXT NULL,
+    created_at DATETIME NULL,
+    updated_at DATETIME NULL,
+    UNIQUE KEY unique_template_name (name, entity_type),
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audience_template_members (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    template_id INT UNSIGNED NOT NULL,
+    member_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_template_member (template_id, member_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS channel_targets (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    telegram_id VARCHAR(64) NOT NULL,
+    access_hash VARCHAR(128) NULL,
+    username VARCHAR(150) NULL,
+    title VARCHAR(255) NULL,
+    type VARCHAR(32) NOT NULL,
+    is_public TINYINT(1) NOT NULL DEFAULT 0,
+    extra TEXT NULL,
+    created_at DATETIME NULL,
+    updated_at DATETIME NULL,
+    UNIQUE KEY unique_channel (telegram_id, type),
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audience_template_channels (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    template_id INT UNSIGNED NOT NULL,
+    channel_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_template_channel (template_id, channel_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

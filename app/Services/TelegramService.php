@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Config;
+use App\Models\AudienceTemplateChannel;
+use App\Models\AudienceTemplateMember;
+use App\Models\ChannelTarget;
 use App\Models\DispatchJob;
 use App\Models\Member;
 use App\Models\MessageTemplate;
@@ -128,23 +131,92 @@ final class TelegramService
     public function runDispatchJob(array $job, int $accountId): void
     {
         $account = $this->getAccount($accountId);
-        $template = MessageTemplate::find((int) $job['template_id']);
-
-        if (!$template) {
-            throw new RuntimeException('Mesaj şablonu bulunamadı.');
-        }
-
         try {
             $client = $this->buildClient($account);
-            $this->sendTemplateMessage($client, $template, $job['target_value'], $job['target_type'], $job['scheduled_for'] ?: null);
-            $this->sleepFor('rate_limit_message_delay_ms', 1200);
+            $metadata = [];
+            if (isset($job['metadata']) && $job['metadata'] !== null && $job['metadata'] !== '') {
+                try {
+                    $metadata = json_decode((string) $job['metadata'], true, 512, JSON_THROW_ON_ERROR);
+                } catch (\JsonException $exception) {
+                    $metadata = [];
+                }
+            }
+
+            $action = $job['action'] ?? 'send_message';
+
+            if ($action === 'invite_members') {
+                $this->runInviteJob($client, $job, is_array($metadata) ? $metadata : []);
+                $this->sleepFor('rate_limit_invite_delay_ms', 2000);
+            } else {
+                $this->runSendMessageJob($client, $job, is_array($metadata) ? $metadata : []);
+                $this->sleepFor('rate_limit_message_delay_ms', 1200);
+            }
         } catch (Throwable $e) {
             $this->flagAccountError($accountId, $e);
             throw $e;
         }
     }
 
-    public function queueMemberDiscovery(int $accountId, string $channelUsername): array
+    private function runSendMessageJob(API $client, array $job, array $metadata): void
+    {
+        $template = MessageTemplate::find((int) $job['template_id']);
+        if (!$template) {
+            throw new RuntimeException('Mesaj şablonu bulunamadı.');
+        }
+
+        $peer = $this->resolvePeer(
+            $client,
+            (string) ($job['target_type'] ?? ''),
+            (string) ($job['target_value'] ?? ''),
+            $metadata
+        );
+
+        $this->sendTemplateMessage($client, $template, $peer, $job['scheduled_for'] ?? null);
+    }
+
+    private function runInviteJob(API $client, array $job, array $metadata): void
+    {
+        $memberId = (int) ($metadata['member_id'] ?? 0);
+        $channelId = (int) ($metadata['channel_id'] ?? 0);
+
+        if ($memberId <= 0 || $channelId <= 0) {
+            throw new RuntimeException('Davet işlemi için üye ve kanal bilgisi gereklidir.');
+        }
+
+        $member = Member::find($memberId);
+        $channel = ChannelTarget::find($channelId);
+
+        if (!$member || !$channel) {
+            throw new RuntimeException('Davet için gerekli kayıtlar bulunamadı.');
+        }
+
+        $channelPeer = $this->resolveChannelPeer($client, ['channel' => $channel], (string) ($job['target_value'] ?? ''));
+        $memberPeer = $this->resolvePeer(
+            $client,
+            'direct',
+            $member['username'] ? '@' . ltrim((string) $member['username'], '@') : (string) $member['telegram_id'],
+            ['member' => $member]
+        );
+
+        $channelInput = $client->getInputEntity($channelPeer);
+        $memberInput = $client->getInputEntity($memberPeer);
+
+        if (in_array($channel['type'], ['channel', 'group'], true)) {
+            $client->channels->inviteToChannel([
+                'channel' => $channelInput,
+                'users' => [$memberInput],
+            ]);
+            return;
+        }
+
+        $client->messages->addChatUser([
+            'chat_id' => (int) $channel['telegram_id'],
+            'user_id' => $memberInput,
+            'fwd_limit' => 10,
+        ]);
+    }
+
+    public function queueMemberDiscovery(int $accountId, string $channelUsername, ?int $templateId = null): array
     {
         $account = $this->getAccount($accountId);
         $username = ltrim($channelUsername, '@');
@@ -190,7 +262,7 @@ final class TelegramService
                         'joined_from_channel' => '@' . $username,
                         'last_active_at' => $this->formatStatusDetail($user['status'] ?? []),
                         'online_status' => $this->formatStatusLabel($user['status'] ?? []),
-                    ]);
+                    ], $templateId);
                     $discovered++;
                 }
 
@@ -199,6 +271,59 @@ final class TelegramService
             } while (true);
 
             return ['discovered' => $discovered];
+        } catch (Throwable $e) {
+            $this->flagAccountError($accountId, $e);
+            throw $e;
+        }
+    }
+
+    public function searchChannels(int $accountId, string $query, ?int $templateId = null): array
+    {
+        $account = $this->getAccount($accountId);
+
+        try {
+            $client = $this->buildClient($account);
+            $response = $client->contacts->search([
+                'q' => $query,
+                'limit' => 50,
+            ]);
+
+            $results = [];
+            foreach ($response['chats'] ?? [] as $chat) {
+                $type = $this->determineChannelType($chat);
+                if ($type === null) {
+                    continue;
+                }
+
+                $payload = [
+                    'telegram_id' => (string) ($chat['id'] ?? ''),
+                    'access_hash' => isset($chat['access_hash']) ? (string) $chat['access_hash'] : null,
+                    'username' => $chat['username'] ?? null,
+                    'title' => $chat['title'] ?? '',
+                    'type' => $type,
+                    'is_public' => isset($chat['username']) ? 1 : 0,
+                    'extra' => json_encode([
+                        'participants_count' => $chat['participants_count'] ?? null,
+                        'verified' => $chat['verified'] ?? false,
+                    ], JSON_UNESCAPED_UNICODE),
+                ];
+
+                if ($payload['telegram_id'] === '') {
+                    continue;
+                }
+
+                $channelId = ChannelTarget::upsert($payload);
+                if ($templateId) {
+                    $this->attachChannelToTemplate($channelId, $templateId);
+                }
+
+                $stored = ChannelTarget::findWithTemplates($channelId);
+                if ($stored) {
+                    $results[] = $stored;
+                }
+            }
+
+            return $results;
         } catch (Throwable $e) {
             $this->flagAccountError($accountId, $e);
             throw $e;
@@ -230,7 +355,7 @@ final class TelegramService
         }
     }
 
-    public function logMember(array $data): void
+    public function logMember(array $data, ?int $templateId = null): void
     {
         $existing = $this->findMemberByTelegramId($data['telegram_id']);
         if ($existing) {
@@ -244,10 +369,13 @@ final class TelegramService
                 'online_status' => $data['online_status'] ?? $existing['online_status'],
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);
+            if ($templateId) {
+                $this->attachMemberToTemplate((int) $existing['id'], $templateId);
+            }
             return;
         }
 
-        Member::create([
+        $memberId = Member::create([
             'telegram_id' => $data['telegram_id'],
             'username' => $data['username'] ?? '',
             'first_name' => $data['first_name'] ?? '',
@@ -259,11 +387,14 @@ final class TelegramService
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
+
+        if ($templateId) {
+            $this->attachMemberToTemplate($memberId, $templateId);
+        }
     }
 
-    private function sendTemplateMessage(API $client, array $template, string $target, string $targetType, ?string $scheduledFor): void
+    private function sendTemplateMessage(API $client, array $template, $peer, ?string $scheduledFor): void
     {
-        $peer = $target;
         $payload = [
             'peer' => $peer,
             'message' => $template['body'],
@@ -362,6 +493,63 @@ final class TelegramService
         }
     }
 
+    private function resolvePeer(API $client, string $targetType, string $targetValue, array $metadata)
+    {
+        $targetValue = trim($targetValue);
+
+        if ($targetType === 'direct') {
+            $member = $metadata['member'] ?? $metadata;
+            if (!empty($member['username'])) {
+                return $client->getPwrChat('@' . ltrim((string) $member['username'], '@'));
+            }
+
+            if ($targetValue !== '') {
+                return $client->getPwrChat($targetValue);
+            }
+
+            if (!empty($member['telegram_id'])) {
+                return $client->getPwrChat((string) $member['telegram_id']);
+            }
+        }
+
+        if (in_array($targetType, ['channel', 'group'], true)) {
+            return $this->resolveChannelPeer($client, $metadata, $targetValue);
+        }
+
+        if ($targetValue !== '') {
+            return $client->getPwrChat($targetValue);
+        }
+
+        throw new RuntimeException('Hedef çözümlenemedi.');
+    }
+
+    private function resolveChannelPeer(API $client, array $metadata, string $targetValue)
+    {
+        $channel = $metadata['channel'] ?? $metadata;
+
+        if (!empty($channel['telegram_id']) && !empty($channel['access_hash'])) {
+            return [
+                '_' => 'inputPeerChannel',
+                'channel_id' => (int) $channel['telegram_id'],
+                'access_hash' => (int) $channel['access_hash'],
+            ];
+        }
+
+        if (!empty($channel['username'])) {
+            return $client->getPwrChat('@' . ltrim((string) $channel['username'], '@'));
+        }
+
+        if ($targetValue !== '') {
+            return $client->getPwrChat($targetValue);
+        }
+
+        if (!empty($channel['telegram_id'])) {
+            return $client->getPwrChat((string) $channel['telegram_id']);
+        }
+
+        throw new RuntimeException('Kanal bilgisi çözümlenemedi.');
+    }
+
     private function formatStatusLabel(array $status): string
     {
         return $status['_'] ?? 'bilinmiyor';
@@ -397,6 +585,33 @@ final class TelegramService
             'session_status' => 'error',
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
+    }
+
+    private function attachMemberToTemplate(int $memberId, int $templateId): void
+    {
+        AudienceTemplateMember::attach($templateId, $memberId);
+    }
+
+    private function attachChannelToTemplate(int $channelId, int $templateId): void
+    {
+        AudienceTemplateChannel::attach($templateId, $channelId);
+    }
+
+    private function determineChannelType(array $chat): ?string
+    {
+        if (!empty($chat['megagroup'])) {
+            return 'group';
+        }
+
+        if (!empty($chat['broadcast'])) {
+            return 'channel';
+        }
+
+        if (($chat['_'] ?? '') === 'channel') {
+            return !empty($chat['megagroup']) ? 'group' : 'channel';
+        }
+
+        return null;
     }
 
     private function findMemberByTelegramId(string $telegramId): ?array

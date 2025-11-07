@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Models\AudienceTemplate;
+use App\Models\AudienceTemplateChannel;
+use App\Models\AudienceTemplateMember;
+use App\Models\ChannelTarget;
 use App\Models\Member;
 use App\Models\TelegramAccount;
 use App\Services\TelegramService;
@@ -12,10 +16,22 @@ final class MemberController extends Controller
 {
     public function index(): void
     {
+        $memberTemplates = AudienceTemplate::forType('member');
+        $channelTemplates = AudienceTemplate::forType('channel');
+        $groupTemplates = AudienceTemplate::forType('group');
         $this->view('admin/members', [
             'title' => 'Üye Yönetimi',
             'members' => Member::all(),
             'accounts' => TelegramAccount::all(),
+            'memberTemplates' => $memberTemplates,
+            'memberTemplateCounts' => AudienceTemplate::countsByType('member'),
+            'memberAssignments' => AudienceTemplateMember::templatesIndex(),
+            'channelTemplates' => $channelTemplates,
+            'groupTemplates' => $groupTemplates,
+            'channelTemplateCounts' => AudienceTemplate::countsByType('channel'),
+            'groupTemplateCounts' => AudienceTemplate::countsByType('group'),
+            'savedChannels' => ChannelTarget::allWithTemplates(),
+            'channelAssignments' => AudienceTemplateChannel::templatesIndex(),
         ]);
     }
 
@@ -52,6 +68,7 @@ final class MemberController extends Controller
             $this->json(['status' => 'error', 'message' => 'Geçersiz istek.'], 422);
         }
 
+        AudienceTemplateMember::deleteByMember($id);
         Member::delete($id);
         $this->json([
             'status' => 'success',
@@ -139,6 +156,7 @@ final class MemberController extends Controller
 
         $accountId = (int) ($_POST['account_id'] ?? 0);
         $channel = trim($_POST['channel_username'] ?? '');
+        $templateId = (int) ($_POST['template_id'] ?? 0);
 
         if ($accountId <= 0 || $channel === '') {
             $this->json(['status' => 'error', 'message' => 'Hesap ve kanal bilgisi gereklidir.'], 422);
@@ -147,7 +165,7 @@ final class MemberController extends Controller
         $service = new TelegramService();
 
         try {
-            $result = $service->queueMemberDiscovery($accountId, $channel);
+            $result = $service->queueMemberDiscovery($accountId, $channel, $templateId > 0 ? $templateId : null);
             $this->json([
                 'status' => 'success',
                 'discovered' => $result['discovered'] ?? 0,
@@ -157,5 +175,83 @@ final class MemberController extends Controller
         } catch (Throwable $e) {
             $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    public function createTemplate(): void
+    {
+        if (!verify_csrf_token($_POST['_token'] ?? null)) {
+            $this->json(['status' => 'error', 'message' => 'Geçersiz istek.'], 422);
+        }
+
+        $name = trim($_POST['name'] ?? '');
+        $type = $_POST['entity_type'] ?? 'member';
+
+        if ($name === '' || !in_array($type, ['member', 'channel', 'group'], true)) {
+            $this->json(['status' => 'error', 'message' => 'Geçerli bir şablon adı ve türü seçiniz.'], 422);
+        }
+
+        if (AudienceTemplate::findByName($name, $type)) {
+            $this->json(['status' => 'error', 'message' => 'Bu adda bir şablon zaten var.'], 409);
+        }
+
+        AudienceTemplate::create([
+            'name' => $name,
+            'entity_type' => $type,
+            'description' => trim($_POST['description'] ?? ''),
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->json([
+            'status' => 'success',
+            'message' => 'Şablon oluşturuldu.',
+            'reload' => true,
+        ]);
+    }
+
+    public function deleteTemplate(int $id): void
+    {
+        if (!verify_csrf_token($_POST['_token'] ?? null)) {
+            $this->json(['status' => 'error', 'message' => 'Geçersiz istek.'], 422);
+        }
+
+        AudienceTemplate::deleteWithRelations($id);
+
+        $this->json([
+            'status' => 'success',
+            'message' => 'Şablon kaldırıldı.',
+            'reload' => true,
+        ]);
+    }
+
+    public function assignTemplate(int $id): void
+    {
+        if (!verify_csrf_token($_POST['_token'] ?? null)) {
+            $this->json(['status' => 'error', 'message' => 'Geçersiz istek.'], 422);
+        }
+
+        $member = Member::find($id);
+        if (!$member) {
+            $this->json(['status' => 'error', 'message' => 'Üye bulunamadı.'], 404);
+        }
+
+        $templateId = (int) ($_POST['template_id'] ?? 0);
+        $action = $_POST['action'] ?? 'attach';
+
+        if ($templateId <= 0) {
+            $this->json(['status' => 'error', 'message' => 'Şablon seçiniz.'], 422);
+        }
+
+        if ($action === 'detach') {
+            AudienceTemplateMember::detach($templateId, $id);
+        } else {
+            AudienceTemplateMember::attach($templateId, $id);
+        }
+
+        $this->json([
+            'status' => 'success',
+            'message' => 'Şablon bağlantısı güncellendi.',
+            'reload' => true,
+        ]);
     }
 }
