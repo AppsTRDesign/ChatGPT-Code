@@ -50,6 +50,13 @@ final class Router
             $pattern = preg_replace('#\{([^/]+)\}#', '([^/]+)', $path);
             if (preg_match('#^' . $pattern . '$#', $normalized, $matches)) {
                 array_shift($matches);
+                $matches = array_map(static function ($value) {
+                    if (is_string($value) && ctype_digit($value)) {
+                        return (int) $value;
+                    }
+
+                    return $value;
+                }, $matches);
                 if (!$this->runMiddleware($route['middleware'])) {
                     return;
                 }

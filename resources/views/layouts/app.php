@@ -19,6 +19,7 @@ $flashes = Session::allFlashes();
         .toast-container { z-index: 1200; }
         .brand-logo { width: 36px; height: 36px; }
         .nav-link.active { font-weight: 600; color: #38bdf8 !important; }
+        .dropzone input[type="file"], .dz-hidden-input { display: none !important; }
     </style>
 </head>
 <body>

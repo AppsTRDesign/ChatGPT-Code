@@ -8,6 +8,7 @@ Bu proje, Telegram hesap yönetimi, üye keşfi ve mesajlaşma operasyonlarını
 - Üye keşfi için detaylı günlükleme ve CSV içe/dışa aktarma desteği
 - MadelineProto ile gerçek MTProto oturumu, üye keşfi ve mesaj gönderimi
 - Mesaj şablonu oluşturma, medya yükleme (Dropzone destekli) ve gönderim planlama
+- Temaya uyumlu, iki panelli mesaj şablonu editörü; Dropzone alanı varsayılan dosya seçim kutusunu gizleyerek modern bir deneyim sunar
 - Logo ve favicon için ayrı Dropzone alanları, mobil uyumlu önizlemeler ve tek tıkla kaldırma
 - Servis durum izleme, servis başlatma/durdurma ve sağlık kontrolleri
 - phpseclib tabanlı uzaktan servis kontrolü ve arka plan süreçlerinin yönetimi
