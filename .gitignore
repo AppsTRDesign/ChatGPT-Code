@@ -1,0 +1,12 @@
+/vendor/
+/bootstrap/cache/
+/.env
+/storage/logs/
+/storage/uploads/*
+!/storage/uploads/logo.svg
+!/storage/uploads/favicon.svg
+/storage/temp/
+/.idea/
+/.vscode/
+/node_modules/
+.DS_Store
