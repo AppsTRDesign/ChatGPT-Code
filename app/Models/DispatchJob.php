@@ -17,4 +17,14 @@ final class DispatchJob extends Model
         'created_at',
         'updated_at',
     ];
+
+    public static function dueJobs(): array
+    {
+        $stmt = self::connection()->prepare('SELECT * FROM ' . static::$table . ' WHERE status = :status AND (scheduled_for IS NULL OR scheduled_for <= :now) ORDER BY id ASC');
+        $stmt->execute([
+            'status' => 'queued',
+            'now' => date('Y-m-d H:i:s'),
+        ]);
+        return $stmt->fetchAll();
+    }
 }

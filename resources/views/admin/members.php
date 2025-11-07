@@ -1,6 +1,37 @@
 <?php ob_start(); ?>
 <div class="card glass border-0 mb-4">
     <div class="card-body">
+        <form data-ajax="true" method="post" action="/admin/members/discover">
+            <input type="hidden" name="_token" value="<?= csrf_token() ?>">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Telegram Hesabı</label>
+                    <select name="account_id" class="form-select">
+                        <option value="">Seçiniz</option>
+                        <?php foreach ($accounts as $account): ?>
+                            <?php $label = $account['label'] ?: $account['phone_number']; ?>
+                            <option value="<?= (int) $account['id'] ?>">
+                                <?= htmlspecialchars($label . ' [' . ($account['session_status'] ?? 'bekleniyor') . ']') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Kanal / Grup Kullanıcı Adı</label>
+                    <input type="text" name="channel_username" class="form-control" placeholder="@kanaladi veya @grupadi">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100">Üyeleri Tara</button>
+                </div>
+                <div class="col-md-2">
+                    <small class="text-muted">Aktif hesaplar üzerinden üyeler MTProto ile çekilir.</small>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="card glass border-0 mb-4">
+    <div class="card-body">
         <form data-ajax="true" method="post" action="/admin/members">
             <input type="hidden" name="_token" value="<?= csrf_token() ?>">
             <div class="row g-3">

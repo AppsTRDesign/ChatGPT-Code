@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS telegram_accounts (
     banned_at DATETIME NULL,
     last_seen_at DATETIME NULL,
     session_status VARCHAR(32) NULL,
+    phone_code_hash VARCHAR(150) NULL,
+    two_factor_hint VARCHAR(150) NULL,
+    last_error TEXT NULL,
     created_at DATETIME NULL,
     updated_at DATETIME NULL
 );

@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Models\Member;
+use App\Models\TelegramAccount;
+use App\Services\TelegramService;
+use Throwable;
 
 final class MemberController extends Controller
 {
@@ -12,6 +15,7 @@ final class MemberController extends Controller
         $this->view('admin/members', [
             'title' => 'Üye Yönetimi',
             'members' => Member::all(),
+            'accounts' => TelegramAccount::all(),
         ]);
     }
 
@@ -113,5 +117,31 @@ final class MemberController extends Controller
         fclose($handle);
 
         $this->json(['status' => 'success']);
+    }
+
+    public function discover(): void
+    {
+        if (!verify_csrf_token($_POST['_token'] ?? null)) {
+            $this->json(['status' => 'error', 'message' => 'Geçersiz istek.'], 422);
+        }
+
+        $accountId = (int) ($_POST['account_id'] ?? 0);
+        $channel = trim($_POST['channel_username'] ?? '');
+
+        if ($accountId <= 0 || $channel === '') {
+            $this->json(['status' => 'error', 'message' => 'Hesap ve kanal bilgisi gereklidir.'], 422);
+        }
+
+        $service = new TelegramService();
+
+        try {
+            $result = $service->queueMemberDiscovery($accountId, $channel);
+            $this->json([
+                'status' => 'success',
+                'discovered' => $result['discovered'] ?? 0,
+            ]);
+        } catch (Throwable $e) {
+            $this->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
     }
 }

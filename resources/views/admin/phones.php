@@ -36,6 +36,7 @@
                     <th>Telefon</th>
                     <th>Etiket</th>
                     <th>Durum</th>
+                    <th>Oturum</th>
                     <th>Ban</th>
                     <th>Son Görülme</th>
                     <th>İşlemler</th>
@@ -52,19 +53,42 @@
                                 <?= (int) $account['is_active'] === 1 ? 'Aktif' : 'Pasif' ?>
                             </span>
                         </td>
+                        <td>
+                            <div class="d-flex flex-column gap-1">
+                                <span class="badge bg-info text-dark text-uppercase"><?= htmlspecialchars($account['session_status'] ?: 'bekleniyor') ?></span>
+                                <?php if (!empty($account['two_factor_hint'])): ?>
+                                    <small class="text-warning">2FA ipucu: <?= htmlspecialchars($account['two_factor_hint']) ?></small>
+                                <?php endif; ?>
+                                <?php if (!empty($account['last_error'])): ?>
+                                    <small class="text-danger">Hata: <?= htmlspecialchars($account['last_error']) ?></small>
+                                <?php endif; ?>
+                            </div>
+                        </td>
                         <td><?= $account['banned_at'] ? '<span class="badge bg-danger">Banlı</span>' : '<span class="badge bg-success">Temiz</span>' ?></td>
                         <td><?= $account['last_seen_at'] ? htmlspecialchars($account['last_seen_at']) : '—' ?></td>
                         <td>
-                            <form class="d-inline" data-ajax="true" action="/admin/phones/<?= (int) $account['id'] ?>/delete" method="post">
-                                <input type="hidden" name="_token" value="<?= csrf_token() ?>">
-                                <button class="btn btn-sm btn-outline-danger">Sil</button>
-                            </form>
+                            <div class="d-flex flex-column flex-md-row gap-2">
+                                <form data-ajax="true" action="/admin/phones/<?= (int) $account['id'] ?>/send-code" method="post">
+                                    <input type="hidden" name="_token" value="<?= csrf_token() ?>">
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">Kod Gönder</button>
+                                </form>
+                                <form data-ajax="true" action="/admin/phones/<?= (int) $account['id'] ?>/confirm-code" method="post" class="d-flex flex-column flex-lg-row gap-2">
+                                    <input type="hidden" name="_token" value="<?= csrf_token() ?>">
+                                    <input type="text" name="code" class="form-control form-control-sm" placeholder="Kod">
+                                    <input type="password" name="password" class="form-control form-control-sm" placeholder="2FA (varsa)">
+                                    <button class="btn btn-sm btn-outline-success" type="submit">Doğrula</button>
+                                </form>
+                                <form class="d-inline" data-ajax="true" action="/admin/phones/<?= (int) $account['id'] ?>/delete" method="post">
+                                    <input type="hidden" name="_token" value="<?= csrf_token() ?>">
+                                    <button class="btn btn-sm btn-outline-danger">Sil</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if (!$accounts): ?>
                     <tr>
-                        <td colspan="7" class="text-center text-muted">Kayıtlı telefon bulunmuyor.</td>
+                        <td colspan="8" class="text-center text-muted">Kayıtlı telefon bulunmuyor.</td>
                     </tr>
                 <?php endif; ?>
                 </tbody>

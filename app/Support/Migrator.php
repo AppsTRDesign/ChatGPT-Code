@@ -10,20 +10,64 @@ final class Migrator
     public static function run(): void
     {
         $flag = storage_path('data/.migrated');
-        if (file_exists($flag)) {
-            return;
-        }
-
         $connection = Database::connection();
-        $sql = file_get_contents(database_path('migrations.sql'));
-        if ($sql !== false) {
-            $connection->exec($sql);
+
+        if (!file_exists($flag)) {
+            $sql = file_get_contents(database_path('migrations.sql'));
+            if ($sql !== false) {
+                $connection->exec($sql);
+            }
+
+            \App\Models\AdminUser::ensureDefaultAdmin();
+            if (!is_dir(dirname($flag))) {
+                mkdir(dirname($flag), 0775, true);
+            }
+            file_put_contents($flag, 'migrated: ' . date('c'));
         }
 
-        \App\Models\AdminUser::ensureDefaultAdmin();
-        if (!is_dir(dirname($flag))) {
-            mkdir(dirname($flag), 0775, true);
+        self::ensureUpgrades($connection);
+    }
+
+    private static function ensureUpgrades(\PDO $connection): void
+    {
+        self::ensureTelegramAccountColumns($connection);
+    }
+
+    private static function ensureTelegramAccountColumns(\PDO $connection): void
+    {
+        $columns = array_flip(self::getTableColumns($connection, 'telegram_accounts'));
+
+        if (!isset($columns['phone_code_hash'])) {
+            $connection->exec('ALTER TABLE telegram_accounts ADD COLUMN phone_code_hash VARCHAR(150) NULL');
         }
-        file_put_contents($flag, 'migrated: ' . date('c'));
+
+        if (!isset($columns['two_factor_hint'])) {
+            $connection->exec('ALTER TABLE telegram_accounts ADD COLUMN two_factor_hint VARCHAR(150) NULL');
+        }
+
+        if (!isset($columns['last_error'])) {
+            $connection->exec('ALTER TABLE telegram_accounts ADD COLUMN last_error TEXT NULL');
+        }
+    }
+
+    private static function getTableColumns(\PDO $connection, string $table): array
+    {
+        $driver = $connection->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            $stmt = $connection->query("PRAGMA table_info('" . $table . "')");
+            if (!$stmt) {
+                return [];
+            }
+            $result = $stmt->fetchAll();
+            return array_map(static fn($column) => $column['name'] ?? '', $result);
+        }
+
+        $stmt = $connection->prepare('SHOW COLUMNS FROM `' . $table . '`');
+        if ($stmt && $stmt->execute()) {
+            $result = $stmt->fetchAll();
+            return array_map(static fn($column) => $column['Field'] ?? '', $result);
+        }
+
+        return [];
     }
 }

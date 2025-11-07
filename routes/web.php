@@ -23,10 +23,13 @@ $router->get('/admin', [AdminController::class, 'dashboard'], ['auth']);
 $router->get('/admin/phones', [PhoneController::class, 'index'], ['auth']);
 $router->post('/admin/phones', [PhoneController::class, 'store'], ['auth']);
 $router->post('/admin/phones/{id}', [PhoneController::class, 'update'], ['auth']);
+$router->post('/admin/phones/{id}/send-code', [PhoneController::class, 'sendCode'], ['auth']);
+$router->post('/admin/phones/{id}/confirm-code', [PhoneController::class, 'confirmCode'], ['auth']);
 $router->post('/admin/phones/{id}/delete', [PhoneController::class, 'destroy'], ['auth']);
 
 $router->get('/admin/members', [MemberController::class, 'index'], ['auth']);
 $router->post('/admin/members', [MemberController::class, 'store'], ['auth']);
+$router->post('/admin/members/discover', [MemberController::class, 'discover'], ['auth']);
 $router->post('/admin/members/{id}/delete', [MemberController::class, 'destroy'], ['auth']);
 $router->get('/admin/members/export', [MemberController::class, 'export'], ['auth']);
 $router->post('/admin/members/import', [MemberController::class, 'import'], ['auth']);
