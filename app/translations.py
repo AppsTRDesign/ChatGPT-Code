@@ -21,7 +21,7 @@ TRANSLATIONS: Dict[str, Translation] = {
             "app_title": "Telegram Automation Suite",
             "tab_sessions": "Sessions",
             "tab_ban": "Ban Check",
-            "tab_scan": "Scan Members",
+            "tab_scan": "Group Member Scan",
             "tab_add": "Add Members",
             "tab_settings": "Settings",
             "tab_group_search": "Group Search",
@@ -29,6 +29,7 @@ TRANSLATIONS: Dict[str, Translation] = {
             "tab_active_messages": "Active Senders",
             "tab_dm": "Send DMs",
             "tab_group_broadcast": "Group Broadcast",
+            "timezone_label": "Timezone",
             "language_label": "Language",
             "rate_limits": "Rate Limits",
             "delay_between_actions": "Delay between actions (seconds)",
@@ -149,7 +150,7 @@ TRANSLATIONS: Dict[str, Translation] = {
             "member_flag_fake": "Fake",
             "member_flag_restricted": "Restricted",
             "join_new": "Joined {name}",
-            "join_existing": "Already in {name}",
+            "join_existing": "Already a member of {name}",
             "sending_phase": "Sending messages",
         }
     ),
@@ -158,7 +159,7 @@ TRANSLATIONS: Dict[str, Translation] = {
             "app_title": "Telegram Otomasyon Paketi",
             "tab_sessions": "Oturumlar",
             "tab_ban": "Ban Kontrol",
-            "tab_scan": "Üye Tara",
+            "tab_scan": "Gruptan Üye Tara",
             "tab_add": "Üye Ekle",
             "tab_settings": "Ayarlar",
             "tab_group_search": "Grup Taraması",
@@ -166,6 +167,7 @@ TRANSLATIONS: Dict[str, Translation] = {
             "tab_active_messages": "Aktif Mesajcılar",
             "tab_dm": "DM Gönder",
             "tab_group_broadcast": "Grup Mesajı",
+            "timezone_label": "Saat Dilimi",
             "language_label": "Dil",
             "rate_limits": "Hız Sınırları",
             "delay_between_actions": "İşlem arası gecikme (saniye)",
@@ -286,10 +288,25 @@ TRANSLATIONS: Dict[str, Translation] = {
             "member_flag_fake": "Sahte",
             "member_flag_restricted": "Kısıtlı",
             "join_new": "{name} grubuna katıldı",
-            "join_existing": "{name} zaten kullanılıyor",
+            "join_existing": "{name} zaten üyeydi",
             "sending_phase": "Mesaj gönderme aşaması",
         }
     ),
+}
+
+ERROR_TRANSLATIONS = {
+    "chat admin privileges are required": {
+        "en": "Chat admin privileges are required for this action.",
+        "tr": "Bu işlem için sohbet yöneticisi yetkileri gerekiyor.",
+    },
+    "invalid permissions used for the channel": {
+        "en": "You do not have permission to perform this action in the channel.",
+        "tr": "Bu kanalda bu işlemi yapmak için yetkiniz yok.",
+    },
+    "you can't write in this chat": {
+        "en": "You cannot send messages to this chat.",
+        "tr": "Bu sohbete mesaj gönderemezsiniz.",
+    },
 }
 
 
@@ -317,3 +334,10 @@ class Translator:
 
     def current_language(self) -> str:
         return self.language
+
+    def localize_error(self, message: str) -> str:
+        lowered = message.lower()
+        for key, translations in ERROR_TRANSLATIONS.items():
+            if key in lowered:
+                return translations.get(self.language, translations.get("en", message))
+        return message

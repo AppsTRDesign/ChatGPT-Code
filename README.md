@@ -12,6 +12,8 @@ Bu proje PySide6 ve Telethon kullanılarak geliştirilmiş, Türkçe ve İngiliz
 - `users/` dosyalarındaki üyelere toplu DM gönderme. Görev, seçilen oturumlara eşit bölünür ve her oturum için progress bar ile flood geri sayımı gösterilir.
 - `groups/` dosyalarındaki gruplara mesaj yayını. İşlem başlamadan önce her oturum ilgili gruplara katılır, katılma ve gönderim aşamaları ayrı ayrı izlenir.
 - Flood ve kısıtlamaları en aza indirmek için önerilen gecikme değerleri; bu değerler ayarlar sekmesinden değiştirilebilir.
+- Sistem saat dilimi otomatik algılanır; 30 popüler saat dilimi arasından seçim yaparak tüm süre hesaplarını özelleştirebilirsiniz.
+- Telethon tarafından döndürülen hata mesajları, seçili dile göre günlüklerde ve uyarılarda otomatik çevrilir.
 
 ## Proje Dizini
 
@@ -25,7 +27,7 @@ requirements.txt      # Bağımlılıklar
 session/              # OTP ile alınan .session dosyaları
 users/                # Tarama sonuçları ve DM listeleri
 groups/               # Grup tarama sonuçları
-config.json           # API bilgileri ve hız limitleri (çalışma anında oluşur)
+config.json           # API bilgileri, hız limitleri ve seçili saat dilimi (çalışma anında oluşur)
 ```
 
 ## Gerekli Kurulumlar
@@ -79,14 +81,16 @@ py -3.13 main.py
 - Kullanıcı adı olan/olmayan filtreleri, limit ve sayfalama desteği mevcuttur.
 - Sonuçlar tabloya akar, kopyalanabilir ve `users/` klasörüne kaydedilebilir.
 
-### Üye Tara (Hedef Grup)
-- Hedef grup/kana l bağlantısını girin, dakika/saat/gün bazında aktiflik filtresi belirleyin.
+### Gruptan Üye Tara
+- Hedef grup/kanal bağlantısını girin, dakika/saat/gün bazında aktiflik filtresi belirleyin.
 - Oturumlar gruba katılmamışsa otomatik katılır, durum çubuğu “Katılıyor” olarak güncellenir.
+- Bot hesaplar ve yönetici/kurucu roller otomatik olarak hariç tutulur.
 - Flood bekleme süreleri sayaç ile gösterilir.
 
 ### Aktif Mesajcılar
 - Belirli bir zaman aralığında mesaj atan üyeleri toplar.
 - Otomatik katılım, flood yönetimi ve sonuçların `users/` klasörüne kaydedilmesi desteklenir.
+- Mesaj tarihleri seçtiğiniz saat dilimine göre yorumlanır; UTC ve yerel saat farkları otomatik dengelenir.
 
 ### Üye Ekle
 - `users/` klasöründen bir liste seçin, hedef grubu belirtin.
@@ -105,13 +109,14 @@ py -3.13 main.py
 ### Ayarlar
 - İşlem, oturum, DM ve grup mesajı gecikmelerini düzenleyin.
 - Türkçe ve İngilizce arayüz arasında anında geçiş yapın.
+- Otomatik algılanan saat dilimini görüntüleyip 30 popüler seçenekten birini seçerek tüm zaman hesaplamalarını güncelleyin.
 
 ## Çalışma Sırasında Oluşan Klasörler
 
 - `session/` – OTP ile alınan `.session` dosyaları.
 - `users/` – Üye taramaları ve DM listeleri.
 - `groups/` – Grup tarama sonuçları ve grup yayınına temel oluşturan JSON dosyaları.
-- `config.json` – API bilgileri ve hız limitleri.
+- `config.json` – API bilgileri, hız limitleri ve seçilen saat dilimi.
 
 ## Flood Beklemeleri
 

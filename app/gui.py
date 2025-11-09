@@ -136,7 +136,11 @@ class SessionsTab(QWidget):
         try:
             client = await self.manager.send_login_code(phone)
         except Exception as exc:
-            QMessageBox.critical(self, self.translator.tr("app_title"), str(exc))
+            QMessageBox.critical(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.localize_error(str(exc)),
+            )
             return
         code, ok = QInputDialog.getText(
             self,
@@ -160,10 +164,11 @@ class SessionsTab(QWidget):
                 return
             await self.manager.complete_sign_in(client, phone, code, password=password)
         except Exception as exc:
+            localized = self.translator.localize_error(str(exc))
             QMessageBox.critical(
                 self,
                 self.translator.tr("app_title"),
-                self.translator.tr("login_failure", phone=phone, error=str(exc)),
+                self.translator.tr("login_failure", phone=phone, error=localized),
             )
             return
         self.log.append(self.translator.tr("login_success", phone=phone))
@@ -453,7 +458,7 @@ class GroupSearchTab(QWidget):
         if isinstance(detail, dict):
             return detail.get("title", "")
         if isinstance(detail, str):
-            return detail
+            return self.translator.localize_error(detail)
         return ""
 
     def _add_result(self, data: Dict[str, object]) -> None:
@@ -1112,7 +1117,7 @@ class ScanTab(QWidget):
             self.group_label.setText(group_text)
             self.log.append(group_text)
         except Exception as exc:
-            self.log.append(str(exc))
+            self.log.append(self.translator.localize_error(str(exc)))
         self.stop_event = asyncio.Event()
         self.progress_widgets.clear()
         while self.progress_layout.count():
@@ -1173,9 +1178,23 @@ class ScanTab(QWidget):
             return self.translator.tr("session_joined")
         if isinstance(detail, str) and detail.startswith("__join_error__:"):
             message = detail.split(":", 1)[1]
-            return self.translator.tr("session_join_error", error=message)
-        if status == "error" and not detail:
-            return self.translator.tr("status_error")
+            return self.translator.tr(
+                "session_join_error", error=self.translator.localize_error(message)
+            )
+        if isinstance(detail, str) and detail.startswith("__join_new__:"):
+            name = detail.split(":", 1)[1]
+            return self.translator.tr("join_new", name=name)
+        if isinstance(detail, str) and detail.startswith("__join_existing__:"):
+            name = detail.split(":", 1)[1]
+            return self.translator.tr("join_existing", name=name)
+        if detail == "__sending__":
+            return self.translator.tr("sending_phase")
+        if status == "error":
+            if not detail:
+                return self.translator.tr("status_error")
+            return self.translator.localize_error(detail)
+        if isinstance(detail, str):
+            return self.translator.localize_error(detail)
         return detail
 
     def retranslate_ui(self) -> None:
@@ -1333,7 +1352,7 @@ class MessageActivityTab(QWidget):
             self.group_label.setText(group_text)
             self.log.append(group_text)
         except Exception as exc:
-            self.log.append(str(exc))
+            self.log.append(self.translator.localize_error(str(exc)))
 
         self.stop_event = asyncio.Event()
         self.progress_widgets.clear()
@@ -1396,9 +1415,23 @@ class MessageActivityTab(QWidget):
             return self.translator.tr("session_joined")
         if isinstance(detail, str) and detail.startswith("__join_error__:"):
             message = detail.split(":", 1)[1]
-            return self.translator.tr("session_join_error", error=message)
-        if status == "error" and not detail:
-            return self.translator.tr("status_error")
+            return self.translator.tr(
+                "session_join_error", error=self.translator.localize_error(message)
+            )
+        if isinstance(detail, str) and detail.startswith("__join_new__:"):
+            name = detail.split(":", 1)[1]
+            return self.translator.tr("join_new", name=name)
+        if isinstance(detail, str) and detail.startswith("__join_existing__:"):
+            name = detail.split(":", 1)[1]
+            return self.translator.tr("join_existing", name=name)
+        if detail == "__sending__":
+            return self.translator.tr("sending_phase")
+        if status == "error":
+            if not detail:
+                return self.translator.tr("status_error")
+            return self.translator.localize_error(detail)
+        if isinstance(detail, str):
+            return self.translator.localize_error(detail)
         return detail
 
     def retranslate_ui(self) -> None:
@@ -1707,7 +1740,11 @@ class DirectMessageTab(QWidget):
         try:
             users = json.loads(users_path.read_text(encoding="utf-8"))
         except ValueError as exc:
-            QMessageBox.warning(self, self.translator.tr("app_title"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.localize_error(str(exc)),
+            )
             return
 
         self.stop_event = asyncio.Event()
@@ -1750,6 +1787,10 @@ class DirectMessageTab(QWidget):
                     elif detail == "__sending__":
                         label = self.translator.tr("status_sending")
                         display_detail = self.translator.tr("sending_phase")
+                    elif status == "error":
+                        display_detail = self.translator.localize_error(detail)
+                    else:
+                        display_detail = self.translator.localize_error(detail)
                 widget.setStatus(label, display_detail, total or 0, processed)
                 if isinstance(display_detail, str) and display_detail:
                     self.log.append(f"{session.phone}: {display_detail}")
@@ -1913,7 +1954,11 @@ class GroupBroadcastTab(QWidget):
         try:
             groups = json.loads(groups_path.read_text(encoding="utf-8"))
         except ValueError as exc:
-            QMessageBox.warning(self, self.translator.tr("app_title"), str(exc))
+            QMessageBox.warning(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.localize_error(str(exc)),
+            )
             return
 
         self.stop_event = asyncio.Event()
@@ -1988,6 +2033,8 @@ class GroupBroadcastTab(QWidget):
     def _format_detail(self, detail: str) -> str:
         if detail == "already":
             return self.translator.tr("member_already")
+        if isinstance(detail, str):
+            return self.translator.localize_error(detail)
         return detail
 
 
@@ -2009,6 +2056,16 @@ class SettingsTab(QWidget):
             self.language_combo.setCurrentIndex(current_index)
         layout.addWidget(self.language_label)
         layout.addWidget(self.language_combo)
+
+        self.timezone_label = QLabel(self.translator.tr("timezone_label"))
+        self.timezone_combo = QComboBox()
+        tz_options = list(self.manager.available_timezones())
+        if self.manager.timezone_name not in tz_options:
+            tz_options.insert(0, self.manager.timezone_name)
+        for tz in tz_options:
+            self.timezone_combo.addItem(tz)
+        layout.addWidget(self.timezone_label)
+        layout.addWidget(self.timezone_combo)
 
         self.rate_box = QGroupBox(self.translator.tr("rate_limits"))
         rate_layout = QFormLayout(self.rate_box)
@@ -2042,6 +2099,9 @@ class SettingsTab(QWidget):
         self.delay_sessions.setValue(int(limits.delay_between_sessions))
         self.delay_messages.setValue(int(limits.delay_between_messages))
         self.delay_group_messages.setValue(int(limits.delay_between_group_messages))
+        tz_index = self.timezone_combo.findText(self.manager.timezone_name)
+        if tz_index >= 0:
+            self.timezone_combo.setCurrentIndex(tz_index)
 
     def save_settings(self) -> None:
         self.manager.rate_limits.delay_between_actions = float(self.delay_actions.value())
@@ -2051,12 +2111,16 @@ class SettingsTab(QWidget):
             self.delay_group_messages.value()
         )
         self.manager.rate_limits.save()
+        selected_tz = self.timezone_combo.currentText()
+        if selected_tz:
+            self.manager.set_timezone(selected_tz)
         QMessageBox.information(self, self.translator.tr("app_title"), self.translator.tr("settings_saved"))
 
     def retranslate_ui(self) -> None:
         self.rate_box.setTitle(self.translator.tr("rate_limits"))
         self.save_btn.setText(self.translator.tr("save_settings"))
         self.language_label.setText(self.translator.tr("language_label"))
+        self.timezone_label.setText(self.translator.tr("timezone_label"))
         self.delay_actions_label.setText(self.translator.tr("delay_between_actions"))
         self.delay_sessions_label.setText(self.translator.tr("delay_between_sessions"))
         self.delay_messages_label.setText(self.translator.tr("delay_between_messages"))

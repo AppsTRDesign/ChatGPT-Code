@@ -4,17 +4,25 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from telethon import TelegramClient, errors, functions
 from telethon.errors import FloodWaitError
 from telethon.tl.types import (
     Channel,
     ChannelForbidden,
+    ChannelParticipantAdmin,
+    ChannelParticipantCreator,
+    ChannelParticipants,
+    ChannelParticipantsSearch,
     Chat,
     ChatForbidden,
+    ChatParticipantAdmin,
+    ChatParticipantCreator,
     InputPeerUser,
     Message,
     User,
@@ -30,6 +38,40 @@ SESSION_DIR = Path("session")
 USERS_DIR = Path("users")
 GROUPS_DIR = Path("groups")
 CONFIG_FILE = Path("config.json")
+
+POPULAR_TIMEZONES: Tuple[str, ...] = (
+    "UTC",
+    "Europe/Istanbul",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Europe/Madrid",
+    "Europe/Rome",
+    "Europe/Moscow",
+    "Europe/Amsterdam",
+    "Europe/Warsaw",
+    "Europe/Kyiv",
+    "Europe/Bucharest",
+    "Asia/Dubai",
+    "Asia/Kolkata",
+    "Asia/Tokyo",
+    "Asia/Shanghai",
+    "Asia/Singapore",
+    "Asia/Hong_Kong",
+    "Asia/Bangkok",
+    "Asia/Jakarta",
+    "Australia/Sydney",
+    "Australia/Melbourne",
+    "America/New_York",
+    "America/Toronto",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/Mexico_City",
+    "America/Sao_Paulo",
+    "Africa/Cairo",
+    "Africa/Johannesburg",
+)
 
 DEFAULT_RATE_LIMITS = {
     "delay_between_actions": 2.0,
@@ -127,12 +169,64 @@ class TelethonManager:
         self.api_hash = api_hash
         self.loop = loop
         self.rate_limits = RateLimits.load()
+        self.timezone_name, self.timezone = self._load_timezone()
 
     def list_sessions(self) -> List[SessionInfo]:
         sessions: List[SessionInfo] = []
         for path in SESSION_DIR.glob("*.session"):
             sessions.append(SessionInfo(phone=path.stem, path=path))
         return sorted(sessions, key=lambda s: s.phone)
+
+    def available_timezones(self) -> Tuple[str, ...]:
+        return POPULAR_TIMEZONES
+
+    def _detect_timezone(self) -> str:
+        guess = datetime.now().astimezone().tzinfo
+        if guess is not None:
+            key = getattr(guess, "key", None)
+            if key:
+                return key
+            name = getattr(guess, "zone", None)
+            if name:
+                return name
+        return "UTC"
+
+    def _load_timezone(self) -> Tuple[str, ZoneInfo]:
+        tz_name = None
+        if CONFIG_FILE.exists():
+            try:
+                data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+                tz_name = data.get("timezone")
+            except (ValueError, OSError):
+                tz_name = None
+        if not tz_name:
+            tz_name = self._detect_timezone()
+        try:
+            tz = ZoneInfo(tz_name)
+        except ZoneInfoNotFoundError:
+            tz_name = "UTC"
+            tz = ZoneInfo(tz_name)
+        self._save_timezone(tz_name)
+        return tz_name, tz
+
+    def _save_timezone(self, tz_name: str) -> None:
+        data: Dict[str, object] = {}
+        if CONFIG_FILE.exists():
+            try:
+                data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                data = {}
+        data["timezone"] = tz_name
+        CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def set_timezone(self, tz_name: str) -> None:
+        try:
+            tz = ZoneInfo(tz_name)
+        except ZoneInfoNotFoundError:
+            return
+        self.timezone_name = tz_name
+        self.timezone = tz
+        self._save_timezone(tz_name)
 
     def _client(self, session: SessionInfo) -> TelegramClient:
         return TelegramClient(session.path, self.api_id, self.api_hash, loop=self.loop)
@@ -192,23 +286,33 @@ class TelethonManager:
         stop_event: asyncio.Event,
         total_members: Optional[int] = None,
     ) -> List[Dict[str, object]]:
-        results: List[Dict[str, object]] = []
         sessions_list = list(sessions)
+        if not sessions_list:
+            return []
+        limit = limit if limit and limit > 0 else None
         portions = self._portion_counts_sessions(
-            sessions_list,
-            limit if limit else total_members,
+            sessions_list, limit if limit else total_members
         )
-        offsets: Dict[str, int] = {}
-        running_offset = 0
-        for session in sessions_list:
-            expected = portions.get(session.phone)
-            offsets[session.phone] = running_offset
-            if expected:
-                running_offset += expected
+        results: List[Dict[str, object]] = []
+        results_lock = asyncio.Lock()
+        offset_lock = asyncio.Lock()
+        shared_state = {"offset": 0, "exhausted": False}
+        basic_lock = asyncio.Lock()
+        basic_state = {"done": False}
+
+        async def append_user(user: User) -> bool:
+            async with results_lock:
+                if limit and len(results) >= limit:
+                    return False
+                results.append(self._serialize_user(user))
+                if limit and len(results) >= limit:
+                    async with offset_lock:
+                        shared_state["exhausted"] = True
+                return True
 
         async def process(session: SessionInfo, expected: Optional[int]) -> None:
             processed = 0
-            total = expected or 0
+            total = expected or (total_members or 0)
             client = self._client(session)
             update_cb(session, processed, total, "running", "")
             try:
@@ -226,44 +330,115 @@ class TelethonManager:
                         f"__join_error__:{join_exc}",
                     )
                     return
-                users_iterable: Iterable[User]
-                if expected is not None:
-                    offset = offsets.get(session.phone, 0)
-                    participants = await client.get_participants(
-                        entity,
-                        limit=expected,
-                        offset=offset,
-                    )
-                    users_iterable = getattr(participants, "users", participants)
+                if isinstance(entity, Channel):
+                    while not stop_event.is_set():
+                        if limit and len(results) >= limit:
+                            break
+                        if expected and processed >= expected:
+                            break
+                        batch_size = 200
+                        if expected:
+                            batch_size = max(1, min(batch_size, expected - processed))
+                        async with offset_lock:
+                            if shared_state["exhausted"]:
+                                break
+                            offset = shared_state["offset"]
+                            shared_state["offset"] += batch_size
+                        try:
+                            response: ChannelParticipants = await client(
+                                functions.channels.GetParticipants(
+                                    entity,
+                                    ChannelParticipantsSearch(""),
+                                    offset,
+                                    batch_size,
+                                    hash=0,
+                                )
+                            )
+                        except FloodWaitError as exc:
+                            update_cb(
+                                session,
+                                processed,
+                                total,
+                                "running",
+                                "",
+                                FloodInfo(seconds=exc.seconds, message=str(exc)),
+                            )
+                            await asyncio.sleep(exc.seconds)
+                            continue
+                        except Exception as exc:
+                            update_cb(session, processed, total, "error", str(exc))
+                            break
+                        if not response.users:
+                            async with offset_lock:
+                                shared_state["exhausted"] = True
+                            break
+                        user_map = {
+                            user.id: user for user in response.users if isinstance(user, User)
+                        }
+                        for participant in response.participants:
+                            if stop_event.is_set():
+                                break
+                            user_id = getattr(participant, "user_id", None)
+                            if user_id is None:
+                                continue
+                            user = user_map.get(user_id)
+                            if not isinstance(user, User):
+                                continue
+                            if user.bot:
+                                continue
+                            if isinstance(participant, (ChannelParticipantCreator, ChannelParticipantAdmin)):
+                                continue
+                            if timeframe and not self._within_timeframe(user, timeframe):
+                                continue
+                            added = await append_user(user)
+                            if not added:
+                                break
+                            processed += 1
+                            update_cb(session, processed, total, "running", f"{user.id}")
+                            await asyncio.sleep(self.rate_limits.delay_between_actions)
+                            if expected and processed >= expected:
+                                break
+                        if stop_event.is_set():
+                            break
                 else:
-                    participants = await client.get_participants(entity)
+                    async with basic_lock:
+                        if basic_state["done"]:
+                            update_cb(session, processed, total, "completed", "")
+                            return
+                        try:
+                            participants = await client.get_participants(entity)
+                        except Exception as exc:
+                            update_cb(session, processed, total, "error", str(exc))
+                            return
+                        basic_state["done"] = True
                     users_iterable = getattr(participants, "users", participants)
-                for user in users_iterable:
+                    participant_roles = {
+                        getattr(p, "user_id", None): p
+                        for p in getattr(participants, "participants", [])
+                    }
+                    for user in users_iterable:
+                        if stop_event.is_set():
+                            break
+                        if not isinstance(user, User):
+                            continue
+                        if user.bot:
+                            continue
+                        role = participant_roles.get(user.id)
+                        if isinstance(role, (ChatParticipantCreator, ChatParticipantAdmin)):
+                            continue
+                        if timeframe and not self._within_timeframe(user, timeframe):
+                            continue
+                        added = await append_user(user)
+                        if not added:
+                            break
+                        processed += 1
+                        update_cb(session, processed, total, "running", f"{user.id}")
+                        await asyncio.sleep(self.rate_limits.delay_between_actions)
                     if stop_event.is_set():
                         update_cb(session, processed, total, "stopped", "")
-                        break
-                    if timeframe and not self._within_timeframe(user, timeframe):
-                        continue
-                    results.append(self._serialize_user(user))
-                    processed += 1
-                    update_cb(session, processed, total, "running", f"{user.id}")
-                    await asyncio.sleep(self.rate_limits.delay_between_actions)
-                    if expected and processed >= expected:
-                        break
+                        return
                 if not stop_event.is_set():
                     update_cb(session, processed, total, "completed", "")
-            except FloodWaitError as exc:
-                update_cb(
-                    session,
-                    processed,
-                    total,
-                    "running",
-                    "",
-                    FloodInfo(seconds=exc.seconds, message=str(exc)),
-                )
-                await asyncio.sleep(exc.seconds)
-            except Exception as exc:
-                update_cb(session, processed, total, "error", str(exc))
             finally:
                 await client.disconnect()
 
@@ -560,7 +735,11 @@ class TelethonManager:
             return []
         limit = limit if limit and limit > 0 else None
         portions = self._portion_counts_sessions(sessions_list, limit)
-        cutoff = datetime.utcnow() - timeframe if timeframe else None
+        if timeframe:
+            now_local = datetime.now(self.timezone)
+            cutoff = (now_local - timeframe).astimezone(timezone.utc)
+        else:
+            cutoff = None
         results: List[Dict[str, object]] = []
         seen_ids: set[int] = set()
         lock = asyncio.Lock()
@@ -608,9 +787,12 @@ class TelethonManager:
                             continue
                         seen_ids.add(sender.id)
                         serialized = self._serialize_user(sender)
-                        serialized["last_message_date"] = (
-                            message.date.isoformat() if message.date else None
-                        )
+                        if message.date:
+                            serialized["last_message_date"] = (
+                                message.date.astimezone(self.timezone).isoformat()
+                            )
+                        else:
+                            serialized["last_message_date"] = None
                         results.append(serialized)
                     processed += 1
                     update_cb(session, processed, total, "running", str(sender.id))
@@ -861,12 +1043,13 @@ class TelethonManager:
             ]
         )
 
-    @staticmethod
-    def _within_timeframe(user: User, timeframe: timedelta) -> bool:
+    def _within_timeframe(self, user: User, timeframe: timedelta) -> bool:
         status = user.status
         if status is None or isinstance(status, (UserStatusEmpty,)):
             return False
-        now = datetime.utcnow()
+        if timeframe <= timedelta(0):
+            return True
+        now_local = datetime.now(self.timezone)
         if isinstance(status, UserStatusRecently):
             return timeframe >= timedelta(days=2)
         if isinstance(status, UserStatusLastWeek):
@@ -876,8 +1059,10 @@ class TelethonManager:
         if isinstance(status, UserStatusOnline):
             return True
         if isinstance(status, UserStatusOffline):
-            last_online = datetime.utcfromtimestamp(status.was_online)
-            return now - last_online <= timeframe
+            last_online = datetime.fromtimestamp(
+                status.was_online, tz=timezone.utc
+            ).astimezone(self.timezone)
+            return now_local - last_online <= timeframe
         return False
 
     @staticmethod
