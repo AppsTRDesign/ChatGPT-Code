@@ -6,12 +6,17 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from telethon import TelegramClient, errors, functions
 from telethon.errors import FloodWaitError
 from telethon.tl.types import (
+    Channel,
+    ChannelForbidden,
+    Chat,
+    ChatForbidden,
     InputPeerUser,
+    Message,
     User,
     UserStatusEmpty,
     UserStatusLastMonth,
@@ -23,17 +28,21 @@ from telethon.tl.types import (
 
 SESSION_DIR = Path("session")
 USERS_DIR = Path("users")
+GROUPS_DIR = Path("groups")
 CONFIG_FILE = Path("config.json")
 
 DEFAULT_RATE_LIMITS = {
     "delay_between_actions": 2.0,
     "delay_between_sessions": 5.0,
+    "delay_between_messages": 4.0,
+    "delay_between_group_messages": 6.0,
 }
 
 
 def ensure_directories() -> None:
     SESSION_DIR.mkdir(exist_ok=True)
     USERS_DIR.mkdir(exist_ok=True)
+    GROUPS_DIR.mkdir(exist_ok=True)
 
 
 @dataclass
@@ -46,6 +55,10 @@ class SessionInfo:
 class RateLimits:
     delay_between_actions: float = DEFAULT_RATE_LIMITS["delay_between_actions"]
     delay_between_sessions: float = DEFAULT_RATE_LIMITS["delay_between_sessions"]
+    delay_between_messages: float = DEFAULT_RATE_LIMITS["delay_between_messages"]
+    delay_between_group_messages: float = DEFAULT_RATE_LIMITS[
+        "delay_between_group_messages"
+    ]
 
     @classmethod
     def load(cls) -> "RateLimits":
@@ -55,10 +68,28 @@ class RateLimits:
                 payload = data.get("rate_limits", data)
                 return cls(
                     delay_between_actions=float(
-                        payload.get("delay_between_actions", DEFAULT_RATE_LIMITS["delay_between_actions"])
+                        payload.get(
+                            "delay_between_actions",
+                            DEFAULT_RATE_LIMITS["delay_between_actions"],
+                        )
                     ),
                     delay_between_sessions=float(
-                        payload.get("delay_between_sessions", DEFAULT_RATE_LIMITS["delay_between_sessions"])
+                        payload.get(
+                            "delay_between_sessions",
+                            DEFAULT_RATE_LIMITS["delay_between_sessions"],
+                        )
+                    ),
+                    delay_between_messages=float(
+                        payload.get(
+                            "delay_between_messages",
+                            DEFAULT_RATE_LIMITS["delay_between_messages"],
+                        )
+                    ),
+                    delay_between_group_messages=float(
+                        payload.get(
+                            "delay_between_group_messages",
+                            DEFAULT_RATE_LIMITS["delay_between_group_messages"],
+                        )
                     ),
                 )
             except (ValueError, OSError):
@@ -75,6 +106,8 @@ class RateLimits:
         data["rate_limits"] = {
             "delay_between_actions": self.delay_between_actions,
             "delay_between_sessions": self.delay_between_sessions,
+            "delay_between_messages": self.delay_between_messages,
+            "delay_between_group_messages": self.delay_between_group_messages,
         }
         CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
@@ -180,17 +213,30 @@ class TelethonManager:
             update_cb(session, processed, total, "running", "")
             try:
                 await client.connect()
+                try:
+                    entity, joined = await self._prepare_target(client, target)
+                    if joined:
+                        update_cb(session, processed, total, "running", "__joined__")
+                except Exception as join_exc:
+                    update_cb(
+                        session,
+                        processed,
+                        total,
+                        "error",
+                        f"__join_error__:{join_exc}",
+                    )
+                    return
                 users_iterable: Iterable[User]
                 if expected is not None:
                     offset = offsets.get(session.phone, 0)
                     participants = await client.get_participants(
-                        target,
+                        entity,
                         limit=expected,
                         offset=offset,
                     )
                     users_iterable = getattr(participants, "users", participants)
                 else:
-                    participants = await client.get_participants(target)
+                    participants = await client.get_participants(entity)
                     users_iterable = getattr(participants, "users", participants)
                 for user in users_iterable:
                     if stop_event.is_set():
@@ -303,6 +349,376 @@ class TelethonManager:
         )
         return processed_ids
 
+    async def search_groups(
+        self,
+        sessions: Sequence[SessionInfo],
+        keywords: Sequence[str],
+        limit: Optional[int],
+        visibility: str,
+        country: Optional[str],
+        update_cb,
+        stop_event: asyncio.Event,
+    ) -> List[Dict[str, object]]:
+        sessions_list = list(sessions)
+        if not sessions_list:
+            return []
+        keywords = [kw.strip() for kw in keywords if kw.strip()]
+        if not keywords:
+            return []
+        limit = limit if limit and limit > 0 else None
+        portions = self._portion_counts_sessions(sessions_list, limit)
+        results: List[Dict[str, object]] = []
+        seen: set[Tuple[int, str]] = set()
+        lock = asyncio.Lock()
+
+        async def process(session: SessionInfo, expected: Optional[int]) -> None:
+            processed = 0
+            total = expected or (limit or 0)
+            client = self._client(session)
+            update_cb(session, processed, total, "running", "")
+            try:
+                await client.connect()
+                for keyword in keywords:
+                    if stop_event.is_set():
+                        update_cb(session, processed, total, "stopped", "")
+                        break
+                    try:
+                        response = await client(
+                            functions.contacts.SearchRequest(
+                                q=keyword,
+                                limit=expected or limit or 50,
+                            )
+                        )
+                    except FloodWaitError as exc:
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            "",
+                            FloodInfo(seconds=exc.seconds, message=str(exc)),
+                        )
+                        await asyncio.sleep(exc.seconds)
+                        continue
+                    for chat in response.chats:
+                        if stop_event.is_set():
+                            break
+                        if not isinstance(chat, (Channel, Chat)):
+                            continue
+                        if isinstance(chat, ChannelForbidden):
+                            continue
+                        if isinstance(chat, ChatForbidden):
+                            continue
+                        is_public = bool(getattr(chat, "username", None))
+                        if visibility == "public" and not is_public:
+                            continue
+                        if visibility == "private" and is_public:
+                            continue
+                        identifier = (int(chat.id), chat.__class__.__name__)
+                        async with lock:
+                            if identifier in seen:
+                                continue
+                        info = await self._enrich_chat(client, chat)
+                        if country and info.get("country"):
+                            if info["country"].lower() != country.lower():
+                                continue
+                        async with lock:
+                            if limit and len(results) >= limit:
+                                break
+                            seen.add(identifier)
+                            results.append(info)
+                        processed += 1
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            info,
+                        )
+                        await asyncio.sleep(self.rate_limits.delay_between_actions)
+                        if expected and processed >= expected:
+                            break
+                    if expected and processed >= expected:
+                        break
+                if not stop_event.is_set():
+                    update_cb(session, processed, total, "completed", "")
+            except Exception as exc:
+                update_cb(session, processed, total, "error", str(exc))
+            finally:
+                await client.disconnect()
+
+        await asyncio.gather(
+            *[
+                process(session, portions.get(session.phone))
+                for session in sessions_list
+            ]
+        )
+        return results
+
+    async def scan_active_senders(
+        self,
+        sessions: Iterable[SessionInfo],
+        target: str,
+        timeframe: Optional[timedelta],
+        limit: Optional[int],
+        update_cb,
+        stop_event: asyncio.Event,
+    ) -> List[Dict[str, object]]:
+        sessions_list = list(sessions)
+        if not sessions_list:
+            return []
+        limit = limit if limit and limit > 0 else None
+        portions = self._portion_counts_sessions(sessions_list, limit)
+        cutoff = datetime.utcnow() - timeframe if timeframe else None
+        results: List[Dict[str, object]] = []
+        seen_ids: set[int] = set()
+        lock = asyncio.Lock()
+
+        async def process(session: SessionInfo, expected: Optional[int]) -> None:
+            processed = 0
+            total = expected or (limit or 0)
+            client = self._client(session)
+            update_cb(session, processed, total, "running", "")
+            try:
+                await client.connect()
+                try:
+                    entity, joined = await self._prepare_target(client, target)
+                    if joined:
+                        update_cb(session, processed, total, "running", "__joined__")
+                except Exception as join_exc:
+                    update_cb(
+                        session,
+                        processed,
+                        total,
+                        "error",
+                        f"__join_error__:{join_exc}",
+                    )
+                    return
+                async for message in client.iter_messages(entity):
+                    if stop_event.is_set():
+                        update_cb(session, processed, total, "stopped", "")
+                        break
+                    if not isinstance(message, Message):
+                        continue
+                    if cutoff and message.date and message.date < cutoff:
+                        break
+                    if not message.sender_id:
+                        continue
+                    sender = message.sender
+                    if sender is None:
+                        try:
+                            sender = await client.get_entity(message.sender_id)
+                        except Exception:
+                            continue
+                    if not isinstance(sender, User):
+                        continue
+                    async with lock:
+                        if sender.id in seen_ids:
+                            continue
+                        seen_ids.add(sender.id)
+                        serialized = self._serialize_user(sender)
+                        serialized["last_message_date"] = (
+                            message.date.isoformat() if message.date else None
+                        )
+                        results.append(serialized)
+                    processed += 1
+                    update_cb(session, processed, total, "running", str(sender.id))
+                    await asyncio.sleep(self.rate_limits.delay_between_actions)
+                    if expected and processed >= expected:
+                        break
+                if not stop_event.is_set():
+                    update_cb(session, processed, total, "completed", "")
+            except FloodWaitError as exc:
+                update_cb(
+                    session,
+                    processed,
+                    total,
+                    "running",
+                    "",
+                    FloodInfo(seconds=exc.seconds, message=str(exc)),
+                )
+                await asyncio.sleep(exc.seconds)
+            except Exception as exc:
+                update_cb(session, processed, total, "error", str(exc))
+            finally:
+                await client.disconnect()
+
+        await asyncio.gather(
+            *[
+                process(session, portions.get(session.phone))
+                for session in sessions_list
+            ]
+        )
+        return results
+
+    async def send_direct_messages(
+        self,
+        sessions: Iterable[SessionInfo],
+        users: List[Dict[str, object]],
+        message: str,
+        media_path: Optional[Path],
+        link_preview: bool,
+        update_cb,
+        stop_event: asyncio.Event,
+    ) -> None:
+        sessions_list = list(sessions)
+        assignments = self._split_users(sessions_list, users)
+        portions = self._portion_counts_sessions(sessions_list, len(users))
+
+        async def process(session: SessionInfo, expected: Optional[int]) -> None:
+            processed = 0
+            user_list = assignments.get(session.phone, [])
+            total = expected or len(user_list)
+            client = self._client(session)
+            update_cb(session, processed, total, "running", "")
+            try:
+                await client.connect()
+                for user in user_list:
+                    if stop_event.is_set():
+                        update_cb(session, processed, total, "stopped", "")
+                        break
+                    try:
+                        if user.get("access_hash"):
+                            peer = InputPeerUser(
+                                int(user["id"]), int(user["access_hash"])
+                            )
+                        else:
+                            peer = await client.get_input_entity(int(user["id"]))
+                    except Exception as exc:
+                        update_cb(session, processed, total, "error", str(exc))
+                        continue
+                    try:
+                        if media_path:
+                            await client.send_file(
+                                peer,
+                                file=str(media_path),
+                                caption=message,
+                            )
+                        else:
+                            await client.send_message(
+                                peer,
+                                message,
+                                link_preview=link_preview,
+                            )
+                        processed += 1
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            str(user.get("id")),
+                        )
+                    except FloodWaitError as exc:
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            "",
+                            FloodInfo(seconds=exc.seconds, message=str(exc)),
+                        )
+                        await asyncio.sleep(exc.seconds)
+                        continue
+                    except errors.PeerFloodError as exc:
+                        update_cb(session, processed, total, "error", str(exc))
+                        break
+                    except Exception as exc:
+                        update_cb(session, processed, total, "error", str(exc))
+                    await asyncio.sleep(self.rate_limits.delay_between_messages)
+                if not stop_event.is_set():
+                    update_cb(session, processed, total, "completed", "")
+            finally:
+                await client.disconnect()
+
+        await asyncio.gather(
+            *[
+                process(session, portions.get(session.phone))
+                for session in sessions_list
+            ]
+        )
+
+    async def send_group_messages(
+        self,
+        sessions: Iterable[SessionInfo],
+        groups: List[Dict[str, object]],
+        message: str,
+        media_path: Optional[Path],
+        link_preview: bool,
+        update_cb,
+        stop_event: asyncio.Event,
+    ) -> None:
+        sessions_list = list(sessions)
+        assignments = self._split_users(sessions_list, groups)
+        portions = self._portion_counts_sessions(sessions_list, len(groups))
+
+        async def process(session: SessionInfo, expected: Optional[int]) -> None:
+            processed = 0
+            group_list = assignments.get(session.phone, [])
+            total = expected or len(group_list)
+            client = self._client(session)
+            update_cb(session, processed, total, "running", "")
+            try:
+                await client.connect()
+                for group in group_list:
+                    if stop_event.is_set():
+                        update_cb(session, processed, total, "stopped", "")
+                        break
+                    identifier = group.get("username") or group.get("id")
+                    if not identifier:
+                        continue
+                    try:
+                        entity = await client.get_entity(identifier)
+                    except Exception as exc:
+                        update_cb(session, processed, total, "error", str(exc))
+                        continue
+                    try:
+                        await self._prepare_target(client, identifier)
+                        if media_path:
+                            await client.send_file(
+                                entity,
+                                file=str(media_path),
+                                caption=message,
+                            )
+                        else:
+                            await client.send_message(
+                                entity,
+                                message,
+                                link_preview=link_preview,
+                            )
+                        processed += 1
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            str(group.get("title", identifier)),
+                        )
+                    except FloodWaitError as exc:
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            "",
+                            FloodInfo(seconds=exc.seconds, message=str(exc)),
+                        )
+                        await asyncio.sleep(exc.seconds)
+                        continue
+                    except Exception as exc:
+                        update_cb(session, processed, total, "error", str(exc))
+                    await asyncio.sleep(self.rate_limits.delay_between_group_messages)
+                if not stop_event.is_set():
+                    update_cb(session, processed, total, "completed", "")
+            finally:
+                await client.disconnect()
+
+        await asyncio.gather(
+            *[
+                process(session, portions.get(session.phone))
+                for session in sessions_list
+            ]
+        )
+
     @staticmethod
     def _within_timeframe(user: User, timeframe: timedelta) -> bool:
         status = user.status
@@ -364,3 +780,71 @@ class TelethonManager:
             assignments[session.phone].append(user)
             index += 1
         return assignments
+
+    async def _prepare_target(
+        self, client: TelegramClient, target: object
+    ) -> Tuple[object, bool]:
+        entity = await client.get_entity(target)
+        joined = False
+        if isinstance(entity, Channel):
+            try:
+                await client(functions.channels.JoinChannelRequest(entity))
+                joined = True
+                entity = await client.get_entity(target)
+            except errors.UserAlreadyParticipantError:
+                joined = False
+            except errors.InviteHashExpiredError:
+                raise
+            except errors.InviteHashInvalidError:
+                raise
+            except errors.ChannelPrivateError:
+                raise
+            except errors.ChatAdminRequiredError:
+                pass
+        elif isinstance(entity, ChannelForbidden):
+            raise errors.ChannelPrivateError(target)
+        elif isinstance(entity, Chat):
+            if getattr(entity, "left", False):
+                raise RuntimeError("Session must be invited to the target chat")
+        elif isinstance(entity, ChatForbidden):
+            raise RuntimeError("Session cannot access the target chat")
+        return entity, joined
+
+    async def _enrich_chat(
+        self, client: TelegramClient, chat: object
+    ) -> Dict[str, object]:
+        info: Dict[str, object] = {
+            "id": getattr(chat, "id", None),
+            "access_hash": getattr(chat, "access_hash", None),
+            "title": getattr(chat, "title", ""),
+            "username": getattr(chat, "username", None),
+            "is_public": bool(getattr(chat, "username", None)),
+            "megagroup": getattr(chat, "megagroup", False),
+            "participants": getattr(chat, "participants_count", None),
+            "country": None,
+            "link": None,
+        }
+        if info["username"]:
+            info["link"] = f"https://t.me/{info['username']}"
+        try:
+            if isinstance(chat, Channel):
+                full = await client(functions.channels.GetFullChannelRequest(chat))
+                info["participants"] = getattr(full.full_chat, "participants_count", info["participants"])
+                about = getattr(full.full_chat, "about", None)
+                if about:
+                    info["about"] = about
+                location = getattr(full.full_chat, "location", None)
+                address = getattr(location, "address", None) if location else None
+                if isinstance(address, str):
+                    info["country"] = address
+                elif address is not None:
+                    info["country"] = getattr(address, "country", None)
+            elif isinstance(chat, Chat):
+                full = await client(functions.messages.GetFullChatRequest(chat.id))
+                info["participants"] = getattr(full.full_chat, "participants_count", info["participants"])
+                about = getattr(full.full_chat, "about", None)
+                if about:
+                    info["about"] = about
+        except Exception:
+            pass
+        return info
