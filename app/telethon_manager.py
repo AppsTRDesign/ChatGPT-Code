@@ -17,7 +17,6 @@ from telethon.tl.types import (
     ChannelForbidden,
     ChannelParticipantAdmin,
     ChannelParticipantCreator,
-    ChannelParticipants,
     ChannelParticipantsSearch,
     Chat,
     ChatForbidden,
@@ -33,6 +32,7 @@ from telethon.tl.types import (
     UserStatusOnline,
     UserStatusRecently,
 )
+from telethon.tl.types.channels import ChannelParticipants
 
 SESSION_DIR = Path("session")
 USERS_DIR = Path("users")
