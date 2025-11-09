@@ -1,129 +1,126 @@
-# Telegram Automation Suite
+# Telegram Otomasyon Paketi
 
-This project provides a multilingual (TR/EN) desktop application built with PySide6 and Telethon. It targets Python **3.13** on Windows 11 and offers the following automation tools:
+Bu proje PySide6 ve Telethon kullanılarak geliştirilmiş, Türkçe ve İngilizce arasında anlık geçiş yapabilen bir masaüstü uygulamasıdır. Windows 11 üzerinde Python **3.13** ile çalışacak şekilde hazırlanmıştır ve aşağıdaki otomasyon araçlarını içerir:
 
-* Multi-account OTP login with session storage.
-* Ban checking to automatically prune unusable sessions.
-* Activity-based member scanning from target groups/channels with per-session progress indicators.
-* Advanced group discovery with keyword search, visibility filters, and paginated results stored under `groups/`.
-* Active-message scanning that collects recently chatting members and automatically joins the target if needed.
-* Bulk member invitations that respect Telegram flood limits and keep the saved user list in sync.
-* Direct-message and group-broadcast automation with optional media attachments and adjustable delays.
-* Adjustable rate-limit settings (actions, sessions, direct messages, and group messages) to help avoid bans.
+- Birden fazla numara için OTP ile oturum açma, `session/` klasöründe oturum dosyalarının saklanması ve aktif oturum listesinin canlı olarak güncellenmesi.
+- Kayıtlı oturumlar için ban kontrolü yapma ve banlı oturumları otomatik silme.
+- Anahtar kelimeler, görünürlük filtresi ve sayfalama desteğiyle gelişmiş grup taraması. Sonuçlar tabloda sıralanabilir, kopyalanabilir ve `groups/` klasörüne kaydedilebilir.
+- Anahtar kelimelerle genel üye araması. Kullanıcı adı olan/olmayan filtreleri, sayfalama ve kopyalanabilir tablo desteği bulunur; sonuçlar `users/` klasörüne kaydedilir.
+- Hedef gruptaki üyeleri; dakika/saat/gün bazında aktiflik koşullarına göre tarama. Oturumlar hedefe gerekirse otomatik katılır ve flood beklemeleri sayaçla gösterilir.
+- Hedef grupta mesaj atan üyeleri toplama. Oturum bazlı yük dağıtımı, ilerleme çubukları ve flood bekleme yönetimi dahildir.
+- Toplu üye daveti. Başarılı eklenen üyeler `users/` dosyasından silinir; “zaten ekli” kullanıcılar da otomatik temizlenir.
+- `users/` dosyalarındaki üyelere toplu DM gönderme. Görev, seçilen oturumlara eşit bölünür ve her oturum için progress bar ile flood geri sayımı gösterilir.
+- `groups/` dosyalarındaki gruplara mesaj yayını. İşlem başlamadan önce her oturum ilgili gruplara katılır, katılma ve gönderim aşamaları ayrı ayrı izlenir.
+- Flood ve kısıtlamaları en aza indirmek için önerilen gecikme değerleri; bu değerler ayarlar sekmesinden değiştirilebilir.
 
-The GUI dynamically switches between Turkish and English without restarting the application.
-
-## Project Structure
+## Proje Dizini
 
 ```
 app/
-  gui.py              # Qt user interface widgets
-  telethon_manager.py # Async helpers wrapping Telethon
-  translations.py     # Translation dictionaries and helper
-main.py               # Application entry-point
-requirements.txt      # Python dependencies
-session/              # Generated Telethon session files (OTP logins)
-users/                # Saved user JSON files from scans
-config.json           # Generated on first run (API credentials + rate limits)
+  gui.py              # PySide6 arayüz bileşenleri
+  telethon_manager.py # Telethon işlemlerini yöneten yardımcılar
+  translations.py     # TR/EN metinleri ve çeviri yardımcıları
+main.py               # Uygulamanın giriş noktası
+requirements.txt      # Bağımlılıklar
+session/              # OTP ile alınan .session dosyaları
+users/                # Tarama sonuçları ve DM listeleri
+groups/               # Grup tarama sonuçları
+config.json           # API bilgileri ve hız limitleri (çalışma anında oluşur)
 ```
 
-## Prerequisites
+## Gerekli Kurulumlar
 
-1. Install **Python 3.13** for Windows from [python.org](https://www.python.org/downloads/windows/). During installation, enable the option to “Add Python to PATH”.
-2. Install the Microsoft Visual C++ Redistributable (required by PySide6) if it is not already present. You can download it from [aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe).
-3. Install Git (optional but recommended) from [git-scm.com](https://git-scm.com/downloads).
-4. Create a Telegram application at <https://my.telegram.org>. Note your **API ID** and **API Hash**.
+1. [python.org](https://www.python.org/downloads/windows/) adresinden **Python 3.13** kurun ve kurulum sırasında “Add Python to PATH” seçeneğini işaretleyin.
+2. PySide6 için gerekli olan Microsoft Visual C++ Redistributable paketini yükleyin: [aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+3. (Opsiyonel) Git kurmak için [git-scm.com](https://git-scm.com/downloads) adresini kullanın.
+4. <https://my.telegram.org> üzerinden bir Telegram uygulaması oluşturup **API ID** ve **API Hash** değerlerini alın.
 
-## Installation
+## Kurulum Adımları
 
-Open **PowerShell** and run the following commands:
+PowerShell’i açıp şu komutları çalıştırın:
 
 ```powershell
-git clone https://github.com/your-user/telegram-automation-suite.git
-cd telegram-automation-suite
+git clone https://github.com/kullanici/telegram-otomasyon.git
+cd telegram-otomasyon
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-> Replace the GitHub URL with your fork or local path if needed.
+Gerekirse depo adresini kendi ortamınıza göre değiştirin.
 
-## Running the Application
+## Uygulamayı Çalıştırma
 
 ```powershell
 py -3.13 main.py
 ```
 
-On the first launch the app will prompt for your Telegram API credentials. They are stored in `config.json` alongside the rate-limit preferences.
+İlk açılışta Telegram API kimlik bilgileri istenir ve `config.json` dosyasına kaydedilir. Aynı dosyada hız limitleri de saklanır.
 
-### OTP Login & Session Management
+## Sekmeler ve Özellikler
 
-* Open the **Sessions** tab.
-* Enter a phone number and click **Send Code**. Provide the OTP (and 2FA password if required).
-* Successful logins create `.session` files under the `session/` folder and the list updates instantly.
+### Oturumlar
+- Telefon numarasını girip **Kod Gönder** düğmesiyle OTP isteyin.
+- Kod (ve gerekirse 2FA şifresi) girildiğinde `.session` dosyası oluşturulur ve liste anında yenilenir.
 
-### Ban Checking
+### Ban Kontrolü
+- Kayıtlı tüm oturumları taramak için **Ban Kontrolü** düğmesine basın.
+- Banlı oturumlar silinir ve sonuçlar günlük bölümüne yazılır.
 
-* Navigate to **Ban Check** and click the button to test all stored sessions.
-* Invalid or banned sessions are removed automatically and reported in the log.
+### Grup Taraması
+- Bir veya daha fazla anahtar kelime girin, görünürlük filtresini seçin (**Hepsi / Public / Private**).
+- Birden fazla oturum seçebilirsiniz; her oturum için ayrı ilerleme çubuğu bulunur.
+- Tablo sonuçları sıralanabilir ve seçili satırlar kopyalanabilir (Ctrl+C).
+- **Kaydet** düğmesiyle sonuçlar `groups/` klasörüne JSON olarak yazılır.
 
-### Group Discovery
+### Üye Taraması
+- Anahtar kelimeler ile global üye araması yapın.
+- Kullanıcı adı olan/olmayan filtreleri, limit ve sayfalama desteği mevcuttur.
+- Sonuçlar tabloya akar, kopyalanabilir ve `users/` klasörüne kaydedilebilir.
 
-1. Open **Group Search** and enter one or more keywords (comma separated). Optional filters let you limit results by visibility or country keyword.
-2. Select the sessions to use and click **Start**. Each session receives its own progress widget and flood-wait indicators.
-3. Use the sort and pagination controls to browse the discovered groups in real time. Click **Save Results** to export the current list into the `groups/` directory.
+### Üye Tara (Hedef Grup)
+- Hedef grup/kana l bağlantısını girin, dakika/saat/gün bazında aktiflik filtresi belirleyin.
+- Oturumlar gruba katılmamışsa otomatik katılır, durum çubuğu “Katılıyor” olarak güncellenir.
+- Flood bekleme süreleri sayaç ile gösterilir.
 
-### Scanning Members
+### Aktif Mesajcılar
+- Belirli bir zaman aralığında mesaj atan üyeleri toplar.
+- Otomatik katılım, flood yönetimi ve sonuçların `users/` klasörüne kaydedilmesi desteklenir.
 
-1. Choose one or more sessions, enter the target group/channel username or invite link, and set activity filters (minutes/hours/days).
-2. Optionally set a member limit.
-3. Click **Start** to begin. Sessions automatically join the target if possible. Progress bars appear per session and flood-wait timers display below the affected session.
-4. The resulting members are saved as JSON in the `users/` directory. The log shows the save location.
+### Üye Ekle
+- `users/` klasöründen bir liste seçin, hedef grubu belirtin.
+- Başarılı eklenen ve zaten grupta olan kullanıcılar JSON’dan silinir.
 
-### Scanning Active Message Senders
+### DM Gönder
+- `users/` dosyalarındaki üyeleri seçilen oturumlara eşit paylaştırarak DM gönderir.
+- Mesaj gövdesi, bağlantı ön izlemesi ve opsiyonel medya desteği vardır.
+- Her oturum için ilerleme çubuğu ve flood geri sayımı gösterilir.
 
-1. Navigate to **Active Senders**, set the timeframe (minutes/hours/days) and an optional user limit.
-2. Pick the target group/channel and the sessions to operate with, then click **Start**.
-3. The app joins the target when required and streams the collected senders per session. Results are saved to `users/` with the last-message timestamps.
+### Grup Mesajı
+- `groups/` dosyalarındaki gruplar oturumlara bölünür.
+- Mesaj göndermeden önce oturumlar gruplara katılır; katılma aşaması ve mesaj gönderme aşaması ayrı olarak takip edilir.
+- Flood beklemeleri sayaç olarak gösterilir; günlük panelinde oturum bazlı durumlar kaydedilir.
 
-### Adding Members to a Group
+### Ayarlar
+- İşlem, oturum, DM ve grup mesajı gecikmelerini düzenleyin.
+- Türkçe ve İngilizce arayüz arasında anında geçiş yapın.
 
-1. Choose target group/channel and select a saved users JSON file.
-2. Pick the sessions you want to use and click **Start**.
-3. Progress bars track each session. Successfully added users (and already-in-group users) are removed from the JSON file to avoid reprocessing.
+## Çalışma Sırasında Oluşan Klasörler
 
-### Sending Direct Messages
+- `session/` – OTP ile alınan `.session` dosyaları.
+- `users/` – Üye taramaları ve DM listeleri.
+- `groups/` – Grup tarama sonuçları ve grup yayınına temel oluşturan JSON dosyaları.
+- `config.json` – API bilgileri ve hız limitleri.
 
-1. Open **Send DMs**, pick a `users/` JSON file, and enter the message body (attach optional media).
-2. Select the sessions to split the workload and press **Start**. Each session displays per-user progress and flood-wait timers.
+## Flood Beklemeleri
 
-### Broadcasting to Groups
+Telethon `FloodWaitError` döndürdüğünde ilgili oturumun altında geri sayım başlatılır. Sayaç sıfırlandığında görev otomatik devam eder.
 
-1. Switch to **Group Broadcast**, select a `groups/` JSON file created via the group search tab, and compose the message (with optional media).
-2. Choose the sessions that should send the broadcast and start the job. Groups are divided evenly across sessions and flood-wait timers are shown automatically.
+## Sorun Giderme
 
-### Rate Limits & Language
+- API ID / Hash bilgileri hatalıysa uygulama açılmaz; değerleri `config.json` üzerinden güncelleyebilirsiniz.
+- Windows Defender uyarı verirse “More info” → “Run anyway” adımlarını izleyin.
+- Sürekli flood uyarısı alıyorsanız **Ayarlar** sekmesindeki gecikmeleri artırın.
 
-* The **Settings** tab lets you adjust the delays between actions, sessions, direct messages, and group broadcasts, and swap the interface language between Turkish and English. Changes apply instantly.
-
-## Directories Created at Runtime
-
-* `session/` – contains `.session` files generated via OTP login. Delete entries here to remove accounts.
-* `users/` – receives JSON exports from the scanners. The adder and DM sender consume these files.
-* `groups/` – stores group discovery JSON files used by the group broadcast module.
-* `config.json` – stores API credentials and rate limit preferences.
-
-## Flood-Wait Handling
-
-When Telegram enforces a flood-wait, the GUI displays a countdown under the affected session. Operations automatically resume after the timer expires.
-
-## Troubleshooting
-
-* Ensure that the API credentials are correct; wrong values prevent the app from starting.
-* If Windows Defender SmartScreen blocks the app, click “More info” and “Run anyway”.
-* When Telethon raises `FloodWaitError`, increase the delay values under **Settings**.
-
-## License
-
-This project is provided as-is for educational purposes.
+Bu proje eğitim amaçlıdır ve tüm sorumluluk kullanıcıya aittir.

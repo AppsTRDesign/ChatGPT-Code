@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
+    QAction,
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -233,6 +236,7 @@ class GroupSearchTab(QWidget):
         layout = QVBoxLayout(self)
         form = QFormLayout()
         self.keyword_input = QLineEdit()
+        self.keyword_input.setPlaceholderText(self.translator.tr("group_keywords_placeholder"))
         form.addRow(QLabel(self.translator.tr("group_keywords")), self.keyword_input)
         self.limit_input = QLineEdit()
         form.addRow(QLabel(self.translator.tr("group_limit")), self.limit_input)
@@ -245,8 +249,6 @@ class GroupSearchTab(QWidget):
             ]
         )
         form.addRow(QLabel(self.translator.tr("group_visibility")), self.visibility_combo)
-        self.country_input = QLineEdit()
-        form.addRow(QLabel(self.translator.tr("group_country")), self.country_input)
         layout.addLayout(form)
 
         self.session_label = QLabel(self.translator.tr("select_sessions"))
@@ -314,6 +316,15 @@ class GroupSearchTab(QWidget):
         )
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.table.setContextMenuPolicy(Qt.ActionsContextMenu)
+        self.copy_action = QAction(self.translator.tr("copy_selected"), self.table)
+        self.copy_action.setShortcut(QKeySequence.Copy)
+        self.copy_action.triggered.connect(self.copy_selected_rows)
+        self.table.addAction(self.copy_action)
+        self.table.setSortingEnabled(False)
+        self.table.horizontalHeader().sectionClicked.connect(self._on_header_clicked)
         layout.addWidget(self.table)
 
         self.log = QTextEdit()
@@ -383,8 +394,6 @@ class GroupSearchTab(QWidget):
             visibility = "public"
         elif visibility_index == 2:
             visibility = "private"
-        country = self.country_input.text().strip() or None
-
         self.stop_event = asyncio.Event()
         self.progress_widgets.clear()
         while self.progress_layout.count():
@@ -430,7 +439,6 @@ class GroupSearchTab(QWidget):
                     keywords=keywords,
                     limit=limit,
                     visibility=visibility,
-                    country=country,
                     update_cb=update_cb,
                     stop_event=self.stop_event,
                 )
@@ -510,6 +518,26 @@ class GroupSearchTab(QWidget):
     def _change_page(self, delta: int) -> None:
         self._display_page(self.current_page + delta)
 
+    def copy_selected_rows(self) -> None:
+        selection = self.table.selectionModel()
+        if not selection:
+            return
+        rows = []
+        for index in selection.selectedRows():
+            values = []
+            for column in range(self.table.columnCount()):
+                item = self.table.item(index.row(), column)
+                values.append(item.text() if item else "")
+            rows.append("\t".join(values))
+        if rows:
+            QGuiApplication.clipboard().setText("\n".join(rows))
+
+    def _on_header_clicked(self, logical_index: int) -> None:
+        if logical_index == 0:
+            self.sort_combo.setCurrentIndex(0)
+        elif logical_index == 2:
+            self.sort_combo.setCurrentIndex(1)
+
     def save_results(self) -> None:
         if not self.results:
             QMessageBox.information(
@@ -557,7 +585,400 @@ class GroupSearchTab(QWidget):
             ]
         )
         self.keyword_input.setPlaceholderText(self.translator.tr("group_keywords_placeholder"))
-        self.country_input.setPlaceholderText(self.translator.tr("group_country_placeholder"))
+        if hasattr(self, "copy_action"):
+            self.copy_action.setText(self.translator.tr("copy_selected"))
+        self._apply_sort()
+
+class MemberSearchTab(QWidget):
+    def __init__(
+        self,
+        manager: TelethonManager,
+        translator: Translator,
+        loop: asyncio.AbstractEventLoop,
+    ) -> None:
+        super().__init__()
+        self.manager = manager
+        self.translator = translator
+        self.loop = loop
+        self.stop_event = asyncio.Event()
+        self.current_task: Optional[asyncio.Task] = None
+        self.progress_widgets: Dict[str, SessionProgressWidget] = {}
+        self.results: List[Dict[str, object]] = []
+        self.result_ids: set[int] = set()
+        self.page_size = 20
+        self.current_page = 1
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self.keyword_input = QLineEdit()
+        self.keyword_input.setPlaceholderText(self.translator.tr("member_keywords_placeholder"))
+        form.addRow(QLabel(self.translator.tr("member_keywords")), self.keyword_input)
+        self.limit_input = QLineEdit()
+        form.addRow(QLabel(self.translator.tr("member_limit")), self.limit_input)
+        self.visibility_combo = QComboBox()
+        self.visibility_combo.addItems(
+            [
+                self.translator.tr("member_visibility_all"),
+                self.translator.tr("member_visibility_public"),
+                self.translator.tr("member_visibility_private"),
+            ]
+        )
+        form.addRow(QLabel(self.translator.tr("member_visibility")), self.visibility_combo)
+        layout.addLayout(form)
+
+        self.session_label = QLabel(self.translator.tr("select_sessions"))
+        layout.addWidget(self.session_label)
+        self.session_list = QListWidget()
+        layout.addWidget(self.session_list)
+
+        button_layout = QHBoxLayout()
+        self.start_btn = QPushButton(self.translator.tr("start"))
+        self.stop_btn = QPushButton(self.translator.tr("stop"))
+        self.start_btn.clicked.connect(self._on_start_clicked)
+        self.stop_btn.clicked.connect(self.stop_search)
+        button_layout.addWidget(self.start_btn)
+        button_layout.addWidget(self.stop_btn)
+        layout.addLayout(button_layout)
+
+        self.info_label = QLabel(self.translator.tr("status_ready"))
+        layout.addWidget(self.info_label)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.progress_container = QWidget()
+        self.progress_layout = QVBoxLayout(self.progress_container)
+        self.scroll.setWidget(self.progress_container)
+        layout.addWidget(self.scroll)
+
+        controls_layout = QHBoxLayout()
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems(
+            [
+                self.translator.tr("member_sort_name"),
+                self.translator.tr("member_sort_username"),
+            ]
+        )
+        self.sort_combo.currentIndexChanged.connect(self._apply_sort)
+        self.save_btn = QPushButton(self.translator.tr("member_save"))
+        self.save_btn.clicked.connect(self.save_results)
+        controls_layout.addWidget(QLabel(self.translator.tr("member_sort_label")))
+        controls_layout.addWidget(self.sort_combo)
+        controls_layout.addStretch(1)
+        controls_layout.addWidget(self.save_btn)
+        layout.addLayout(controls_layout)
+
+        pagination = QHBoxLayout()
+        self.prev_btn = QPushButton(self.translator.tr("previous_page"))
+        self.next_btn = QPushButton(self.translator.tr("next_page"))
+        self.prev_btn.clicked.connect(lambda: self._change_page(-1))
+        self.next_btn.clicked.connect(lambda: self._change_page(1))
+        self.page_label = QLabel(self.translator.tr("member_page", current=1, total=1))
+        pagination.addWidget(self.prev_btn)
+        pagination.addWidget(self.next_btn)
+        pagination.addWidget(self.page_label)
+        pagination.addStretch(1)
+        layout.addLayout(pagination)
+
+        self.table = QTableWidget(0, 8)
+        self.table.setHorizontalHeaderLabels(
+            [
+                self.translator.tr("member_column_first_name"),
+                self.translator.tr("member_column_last_name"),
+                self.translator.tr("member_column_username"),
+                self.translator.tr("member_column_phone"),
+                self.translator.tr("member_column_status"),
+                self.translator.tr("member_column_language"),
+                self.translator.tr("member_column_verified"),
+                self.translator.tr("member_column_flags"),
+            ]
+        )
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.table.setContextMenuPolicy(Qt.ActionsContextMenu)
+        self.copy_action = QAction(self.translator.tr("copy_selected"), self.table)
+        self.copy_action.setShortcut(QKeySequence.Copy)
+        self.copy_action.triggered.connect(self.copy_selected_rows)
+        self.table.addAction(self.copy_action)
+        self.table.horizontalHeader().sectionClicked.connect(self._on_header_clicked)
+        layout.addWidget(self.table)
+
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+        layout.addWidget(self.log)
+
+        self.refresh_sessions()
+
+    def refresh_sessions(self) -> None:
+        self.session_list.clear()
+        for session in self.manager.list_sessions():
+            item = QListWidgetItem(session.phone)
+            item.setCheckState(Qt.Unchecked)
+            self.session_list.addItem(item)
+
+    def selected_sessions(self) -> List[SessionInfo]:
+        sessions: List[SessionInfo] = []
+        for index in range(self.session_list.count()):
+            item = self.session_list.item(index)
+            if item.checkState() == Qt.Checked:
+                sessions.append(
+                    SessionInfo(phone=item.text(), path=Path(f"session/{item.text()}.session"))
+                )
+        return sessions
+
+    def stop_search(self) -> None:
+        self.stop_event.set()
+        self.info_label.setText(self.translator.tr("status_stopped"))
+
+    def _on_start_clicked(self) -> None:
+        if not self.current_task or self.current_task.done():
+            self.loop.create_task(self.start_search())
+
+    async def start_search(self) -> None:
+        if self.current_task and not self.current_task.done():
+            return
+        sessions = self.selected_sessions()
+        if not sessions:
+            QMessageBox.warning(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.tr("no_sessions_selected"),
+            )
+            return
+        keywords = [kw.strip() for kw in self.keyword_input.text().split(",") if kw.strip()]
+        if not keywords:
+            QMessageBox.warning(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.tr("member_keywords_warning"),
+            )
+            return
+        limit_text = self.limit_input.text().strip()
+        limit = None
+        if limit_text:
+            if not limit_text.isdigit() or int(limit_text) <= 0:
+                QMessageBox.warning(
+                    self,
+                    self.translator.tr("app_title"),
+                    self.translator.tr("invalid_limit"),
+                )
+                return
+            limit = int(limit_text)
+        visibility_index = self.visibility_combo.currentIndex()
+        visibility = "all"
+        if visibility_index == 1:
+            visibility = "public"
+        elif visibility_index == 2:
+            visibility = "private"
+
+        self.stop_event = asyncio.Event()
+        self.progress_widgets.clear()
+        while self.progress_layout.count():
+            item = self.progress_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        for session in sessions:
+            widget = SessionProgressWidget(
+                self.translator.tr("session_progress", phone=session.phone)
+            )
+            self.progress_layout.addWidget(widget)
+            self.progress_widgets[session.phone] = widget
+
+        self.info_label.setText(self.translator.tr("status_running"))
+        self.log.clear()
+        self.table.setRowCount(0)
+        self.results = []
+        self.result_ids.clear()
+        self.current_page = 1
+        self._update_page_label()
+
+        def update_cb(session: SessionInfo, processed: int, total: int, status: str, detail, flood=None):
+            widget = self.progress_widgets.get(session.phone)
+            if widget:
+                status_map = {
+                    "running": self.translator.tr("status_running"),
+                    "completed": self.translator.tr("status_completed"),
+                    "stopped": self.translator.tr("status_stopped"),
+                    "error": self.translator.tr("status_error"),
+                }
+                display_text = ""
+                if isinstance(detail, dict):
+                    display_text = detail.get("username") or detail.get("first_name") or str(
+                        detail.get("id", "")
+                    )
+                else:
+                    display_text = str(detail or "")
+                widget.setStatus(
+                    status_map.get(status, status), display_text, total or 0, processed
+                )
+                if flood:
+                    widget.setFlood(self.translator.tr("flood_wait", seconds=flood.seconds))
+            if isinstance(detail, dict):
+                self._add_result(detail)
+
+        async def run_search() -> None:
+            try:
+                data = await self.manager.search_users(
+                    sessions=sessions,
+                    keywords=keywords,
+                    limit=limit,
+                    visibility=visibility,
+                    update_cb=update_cb,
+                    stop_event=self.stop_event,
+                )
+                for item in data:
+                    self._add_result(item)
+            finally:
+                self.info_label.setText(self.translator.tr("status_completed"))
+
+        self.current_task = self.loop.create_task(run_search())
+
+    def _add_result(self, data: Dict[str, object]) -> None:
+        identifier = int(data.get("id", 0))
+        if identifier in self.result_ids:
+            return
+        self.result_ids.add(identifier)
+        self.results.append(data)
+        self._apply_sort()
+
+    def _apply_sort(self) -> None:
+        if not self.results:
+            self.table.setRowCount(0)
+            self._update_page_label()
+            return
+        index = self.sort_combo.currentIndex()
+        if index == 1:
+            sorted_results = sorted(
+                self.results,
+                key=lambda item: str(item.get("username") or "").lower(),
+            )
+        else:
+            sorted_results = sorted(
+                self.results,
+                key=lambda item: (
+                    str(item.get("first_name") or "").lower(),
+                    str(item.get("last_name") or "").lower(),
+                ),
+            )
+        self.results = sorted_results
+        self._display_page(self.current_page)
+
+    def _display_page(self, page: int) -> None:
+        total_pages = max(1, (len(self.results) + self.page_size - 1) // self.page_size)
+        page = max(1, min(page, total_pages))
+        self.current_page = page
+        start = (page - 1) * self.page_size
+        end = start + self.page_size
+        subset = self.results[start:end]
+        self.table.setRowCount(len(subset))
+        for row, item in enumerate(subset):
+            self.table.setItem(row, 0, QTableWidgetItem(str(item.get("first_name", ""))))
+            self.table.setItem(row, 1, QTableWidgetItem(str(item.get("last_name", ""))))
+            self.table.setItem(row, 2, QTableWidgetItem(str(item.get("username", ""))))
+            self.table.setItem(row, 3, QTableWidgetItem(str(item.get("phone", ""))))
+            self.table.setItem(row, 4, QTableWidgetItem(str(item.get("status", ""))))
+            self.table.setItem(row, 5, QTableWidgetItem(str(item.get("language_code", ""))))
+            verified_text = self.translator.tr("yes") if item.get("is_verified") else self.translator.tr("no")
+            self.table.setItem(row, 6, QTableWidgetItem(verified_text))
+            flags = []
+            if item.get("mutual_contact"):
+                flags.append(self.translator.tr("member_flag_mutual"))
+            if item.get("is_scam"):
+                flags.append(self.translator.tr("member_flag_scam"))
+            if item.get("is_fake"):
+                flags.append(self.translator.tr("member_flag_fake"))
+            if item.get("is_restricted"):
+                flags.append(self.translator.tr("member_flag_restricted"))
+            self.table.setItem(row, 7, QTableWidgetItem(", ".join(flags)))
+        self._update_page_label(total_pages)
+
+    def _update_page_label(self, total_pages: Optional[int] = None) -> None:
+        if total_pages is None:
+            total_pages = max(1, (len(self.results) + self.page_size - 1) // self.page_size)
+        self.page_label.setText(
+            self.translator.tr("member_page", current=self.current_page, total=total_pages)
+        )
+        self.prev_btn.setEnabled(self.current_page > 1)
+        self.next_btn.setEnabled(self.current_page < total_pages)
+
+    def _change_page(self, delta: int) -> None:
+        self._display_page(self.current_page + delta)
+
+    def copy_selected_rows(self) -> None:
+        selection = self.table.selectionModel()
+        if not selection:
+            return
+        rows = []
+        for index in selection.selectedRows():
+            values = []
+            for column in range(self.table.columnCount()):
+                item = self.table.item(index.row(), column)
+                values.append(item.text() if item else "")
+            rows.append("\t".join(values))
+        if rows:
+            QGuiApplication.clipboard().setText("\n".join(rows))
+
+    def _on_header_clicked(self, logical_index: int) -> None:
+        if logical_index == 0:
+            self.sort_combo.setCurrentIndex(0)
+        elif logical_index == 2:
+            self.sort_combo.setCurrentIndex(1)
+
+    def save_results(self) -> None:
+        if not self.results:
+            QMessageBox.information(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.tr("member_no_results"),
+            )
+            return
+        default_name = self.keyword_input.text().strip() or "users"
+        name, ok = QInputDialog.getText(
+            self,
+            self.translator.tr("member_save"),
+            self.translator.tr("member_filename_prompt", default=default_name),
+            text=default_name,
+        )
+        if not ok or not name.strip():
+            return
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name.strip())
+        path = Path("users") / f"{safe_name}.json"
+        path.write_text(json.dumps(self.results, indent=2), encoding="utf-8")
+        QMessageBox.information(
+            self,
+            self.translator.tr("app_title"),
+            self.translator.tr("member_saved", path=str(path)),
+        )
+
+    def retranslate_ui(self) -> None:
+        self.session_label.setText(self.translator.tr("select_sessions"))
+        self.start_btn.setText(self.translator.tr("start"))
+        self.stop_btn.setText(self.translator.tr("stop"))
+        self.info_label.setText(self.translator.tr("status_ready"))
+        self.sort_combo.setItemText(0, self.translator.tr("member_sort_name"))
+        self.sort_combo.setItemText(1, self.translator.tr("member_sort_username"))
+        self.save_btn.setText(self.translator.tr("member_save"))
+        self.prev_btn.setText(self.translator.tr("previous_page"))
+        self.next_btn.setText(self.translator.tr("next_page"))
+        self.page_label.setText(self.translator.tr("member_page", current=1, total=1))
+        self.table.setHorizontalHeaderLabels(
+            [
+                self.translator.tr("member_column_first_name"),
+                self.translator.tr("member_column_last_name"),
+                self.translator.tr("member_column_username"),
+                self.translator.tr("member_column_phone"),
+                self.translator.tr("member_column_status"),
+                self.translator.tr("member_column_language"),
+                self.translator.tr("member_column_verified"),
+                self.translator.tr("member_column_flags"),
+            ]
+        )
+        self.keyword_input.setPlaceholderText(self.translator.tr("member_keywords_placeholder"))
+        self.copy_action.setText(self.translator.tr("copy_selected"))
         self._apply_sort()
 
 class ScanTab(QWidget):
@@ -1311,8 +1732,27 @@ class DirectMessageTab(QWidget):
                     "completed": self.translator.tr("status_completed"),
                     "stopped": self.translator.tr("status_stopped"),
                     "error": self.translator.tr("status_error"),
+                    "joining": self.translator.tr("status_joining"),
                 }
-                widget.setStatus(status_map.get(status, status), detail, total, processed)
+                label = status_map.get(status, status)
+                display_detail = detail
+                if isinstance(detail, str):
+                    if detail.startswith("__join_new__:"):
+                        label = self.translator.tr("status_joining")
+                        display_detail = self.translator.tr(
+                            "join_new", name=detail.split(":", 1)[1]
+                        )
+                    elif detail.startswith("__join_existing__:"):
+                        label = self.translator.tr("status_joining")
+                        display_detail = self.translator.tr(
+                            "join_existing", name=detail.split(":", 1)[1]
+                        )
+                    elif detail == "__sending__":
+                        label = self.translator.tr("status_sending")
+                        display_detail = self.translator.tr("sending_phase")
+                widget.setStatus(label, display_detail, total or 0, processed)
+                if isinstance(display_detail, str) and display_detail:
+                    self.log.append(f"{session.phone}: {display_detail}")
                 if flood:
                     widget.setFlood(self.translator.tr("flood_wait", seconds=flood.seconds))
 
@@ -1498,8 +1938,27 @@ class GroupBroadcastTab(QWidget):
                     "completed": self.translator.tr("status_completed"),
                     "stopped": self.translator.tr("status_stopped"),
                     "error": self.translator.tr("status_error"),
+                    "joining": self.translator.tr("status_joining"),
                 }
-                widget.setStatus(status_map.get(status, status), detail, total, processed)
+                label = status_map.get(status, status)
+                display_detail = detail
+                if isinstance(detail, str):
+                    if detail.startswith("__join_new__:"):
+                        label = self.translator.tr("status_joining")
+                        display_detail = self.translator.tr(
+                            "join_new", name=detail.split(":", 1)[1]
+                        )
+                    elif detail.startswith("__join_existing__:"):
+                        label = self.translator.tr("status_joining")
+                        display_detail = self.translator.tr(
+                            "join_existing", name=detail.split(":", 1)[1]
+                        )
+                    elif detail == "__sending__":
+                        label = self.translator.tr("status_sending")
+                        display_detail = self.translator.tr("sending_phase")
+                widget.setStatus(label, display_detail, total or 0, processed)
+                if isinstance(display_detail, str) and display_detail:
+                    self.log.append(f"{session.phone}: {display_detail}")
                 if flood:
                     widget.setFlood(self.translator.tr("flood_wait", seconds=flood.seconds))
 
@@ -1615,6 +2074,7 @@ class MainWindow(QMainWindow):
         self.sessions_tab = SessionsTab(manager, translator, loop, self._on_sessions_updated)
         self.ban_tab = BanTab(manager, translator, loop)
         self.group_search_tab = GroupSearchTab(manager, translator, loop)
+        self.member_search_tab = MemberSearchTab(manager, translator, loop)
         self.scan_tab = ScanTab(manager, translator, loop)
         self.message_activity_tab = MessageActivityTab(manager, translator, loop)
         self.add_tab = AddTab(manager, translator, loop)
@@ -1624,6 +2084,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.sessions_tab, self.translator.tr("tab_sessions"))
         self.tabs.addTab(self.ban_tab, self.translator.tr("tab_ban"))
         self.tabs.addTab(self.group_search_tab, self.translator.tr("tab_group_search"))
+        self.tabs.addTab(self.member_search_tab, self.translator.tr("tab_member_search"))
         self.tabs.addTab(self.scan_tab, self.translator.tr("tab_scan"))
         self.tabs.addTab(self.message_activity_tab, self.translator.tr("tab_active_messages"))
         self.tabs.addTab(self.add_tab, self.translator.tr("tab_add"))
@@ -1645,14 +2106,16 @@ class MainWindow(QMainWindow):
         if index == 2:
             self.group_search_tab.refresh_sessions()
         elif index == 3:
-            self.scan_tab.refresh_sessions()
+            self.member_search_tab.refresh_sessions()
         elif index == 4:
-            self.message_activity_tab.refresh_sessions()
+            self.scan_tab.refresh_sessions()
         elif index == 5:
-            self.add_tab.refresh_sessions()
+            self.message_activity_tab.refresh_sessions()
         elif index == 6:
-            self.direct_tab.refresh_sessions()
+            self.add_tab.refresh_sessions()
         elif index == 7:
+            self.direct_tab.refresh_sessions()
+        elif index == 8:
             self.broadcast_tab.refresh_sessions()
 
     def retranslate_ui(self) -> None:
@@ -1660,15 +2123,17 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(0, self.translator.tr("tab_sessions"))
         self.tabs.setTabText(1, self.translator.tr("tab_ban"))
         self.tabs.setTabText(2, self.translator.tr("tab_group_search"))
-        self.tabs.setTabText(3, self.translator.tr("tab_scan"))
-        self.tabs.setTabText(4, self.translator.tr("tab_active_messages"))
-        self.tabs.setTabText(5, self.translator.tr("tab_add"))
-        self.tabs.setTabText(6, self.translator.tr("tab_dm"))
-        self.tabs.setTabText(7, self.translator.tr("tab_group_broadcast"))
-        self.tabs.setTabText(8, self.translator.tr("tab_settings"))
+        self.tabs.setTabText(3, self.translator.tr("tab_member_search"))
+        self.tabs.setTabText(4, self.translator.tr("tab_scan"))
+        self.tabs.setTabText(5, self.translator.tr("tab_active_messages"))
+        self.tabs.setTabText(6, self.translator.tr("tab_add"))
+        self.tabs.setTabText(7, self.translator.tr("tab_dm"))
+        self.tabs.setTabText(8, self.translator.tr("tab_group_broadcast"))
+        self.tabs.setTabText(9, self.translator.tr("tab_settings"))
         self.sessions_tab.retranslate_ui()
         self.ban_tab.retranslate_ui()
         self.group_search_tab.retranslate_ui()
+        self.member_search_tab.retranslate_ui()
         self.scan_tab.retranslate_ui()
         self.message_activity_tab.retranslate_ui()
         self.add_tab.retranslate_ui()
@@ -1678,6 +2143,7 @@ class MainWindow(QMainWindow):
 
     def _on_sessions_updated(self) -> None:
         self.group_search_tab.refresh_sessions()
+        self.member_search_tab.refresh_sessions()
         self.scan_tab.refresh_sessions()
         self.add_tab.refresh_sessions()
         self.message_activity_tab.refresh_sessions()

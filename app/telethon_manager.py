@@ -355,7 +355,6 @@ class TelethonManager:
         keywords: Sequence[str],
         limit: Optional[int],
         visibility: str,
-        country: Optional[str],
         update_cb,
         stop_event: asyncio.Event,
     ) -> List[Dict[str, object]]:
@@ -383,10 +382,108 @@ class TelethonManager:
                         update_cb(session, processed, total, "stopped", "")
                         break
                     try:
+                        async for dialog in client.iter_dialogs(
+                            search=keyword,
+                            limit=expected or limit or 300,
+                        ):
+                            if stop_event.is_set():
+                                break
+                            chat = dialog.entity
+                            if not isinstance(chat, (Channel, Chat)):
+                                continue
+                            if isinstance(chat, (ChannelForbidden, ChatForbidden)):
+                                continue
+                            is_public = bool(getattr(chat, "username", None))
+                            if visibility == "public" and not is_public:
+                                continue
+                            if visibility == "private" and is_public:
+                                continue
+                            identifier = (int(chat.id), chat.__class__.__name__)
+                            async with lock:
+                                if identifier in seen:
+                                    continue
+                                if limit and len(results) >= limit:
+                                    break
+                                seen.add(identifier)
+                            info = await self._enrich_chat(client, chat)
+                            async with lock:
+                                results.append(info)
+                            processed += 1
+                            update_cb(
+                                session,
+                                processed,
+                                total,
+                                "running",
+                                info,
+                            )
+                            await asyncio.sleep(self.rate_limits.delay_between_actions)
+                            if expected and processed >= expected:
+                                break
+                    except FloodWaitError as exc:
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            "",
+                            FloodInfo(seconds=exc.seconds, message=str(exc)),
+                        )
+                        await asyncio.sleep(exc.seconds)
+                        continue
+                    if expected and processed >= expected:
+                        break
+                if not stop_event.is_set():
+                    update_cb(session, processed, total, "completed", "")
+            except Exception as exc:
+                update_cb(session, processed, total, "error", str(exc))
+            finally:
+                await client.disconnect()
+
+        await asyncio.gather(
+            *[
+                process(session, portions.get(session.phone))
+                for session in sessions_list
+            ]
+        )
+        return results
+
+    async def search_users(
+        self,
+        sessions: Sequence[SessionInfo],
+        keywords: Sequence[str],
+        limit: Optional[int],
+        visibility: str,
+        update_cb,
+        stop_event: asyncio.Event,
+    ) -> List[Dict[str, object]]:
+        sessions_list = list(sessions)
+        if not sessions_list:
+            return []
+        keywords = [kw.strip() for kw in keywords if kw.strip()]
+        if not keywords:
+            return []
+        limit = limit if limit and limit > 0 else None
+        portions = self._portion_counts_sessions(sessions_list, limit)
+        results: List[Dict[str, object]] = []
+        seen_ids: set[int] = set()
+        lock = asyncio.Lock()
+
+        async def process(session: SessionInfo, expected: Optional[int]) -> None:
+            processed = 0
+            total = expected or (limit or 0)
+            client = self._client(session)
+            update_cb(session, processed, total, "running", "")
+            try:
+                await client.connect()
+                for keyword in keywords:
+                    if stop_event.is_set():
+                        update_cb(session, processed, total, "stopped", "")
+                        break
+                    try:
                         response = await client(
                             functions.contacts.SearchRequest(
                                 q=keyword,
-                                limit=expected or limit or 50,
+                                limit=expected or limit or 100,
                             )
                         )
                     except FloodWaitError as exc:
@@ -400,32 +497,26 @@ class TelethonManager:
                         )
                         await asyncio.sleep(exc.seconds)
                         continue
-                    for chat in response.chats:
+                    for user in response.users:
                         if stop_event.is_set():
                             break
-                        if not isinstance(chat, (Channel, Chat)):
+                        if not isinstance(user, User):
                             continue
-                        if isinstance(chat, ChannelForbidden):
+                        if user.bot:
                             continue
-                        if isinstance(chat, ChatForbidden):
-                            continue
-                        is_public = bool(getattr(chat, "username", None))
+                        is_public = bool(getattr(user, "username", None))
                         if visibility == "public" and not is_public:
                             continue
                         if visibility == "private" and is_public:
                             continue
-                        identifier = (int(chat.id), chat.__class__.__name__)
                         async with lock:
-                            if identifier in seen:
+                            if user.id in seen_ids:
                                 continue
-                        info = await self._enrich_chat(client, chat)
-                        if country and info.get("country"):
-                            if info["country"].lower() != country.lower():
-                                continue
-                        async with lock:
                             if limit and len(results) >= limit:
                                 break
-                            seen.add(identifier)
+                            seen_ids.add(user.id)
+                        info = self._serialize_user(user)
+                        async with lock:
                             results.append(info)
                         processed += 1
                         update_cb(
@@ -659,20 +750,65 @@ class TelethonManager:
             update_cb(session, processed, total, "running", "")
             try:
                 await client.connect()
+                joined_entities: List[Tuple[Dict[str, object], object]] = []
+                join_progress = 0
+                update_cb(session, join_progress, total, "joining", "")
                 for group in group_list:
                     if stop_event.is_set():
-                        update_cb(session, processed, total, "stopped", "")
+                        update_cb(session, join_progress, total, "stopped", "")
                         break
                     identifier = group.get("username") or group.get("id")
                     if not identifier:
                         continue
+                    display_name = group.get("title") or str(identifier)
                     try:
-                        entity = await client.get_entity(identifier)
+                        entity, joined = await self._prepare_target(client, identifier)
+                        joined_entities.append((group, entity))
+                        join_progress += 1
+                        status_key = "__join_new__" if joined else "__join_existing__"
+                        update_cb(
+                            session,
+                            join_progress,
+                            total,
+                            "joining",
+                            f"{status_key}:{display_name}",
+                        )
+                    except FloodWaitError as exc:
+                        update_cb(
+                            session,
+                            join_progress,
+                            total,
+                            "joining",
+                            "",
+                            FloodInfo(seconds=exc.seconds, message=str(exc)),
+                        )
+                        await asyncio.sleep(exc.seconds)
                     except Exception as exc:
-                        update_cb(session, processed, total, "error", str(exc))
-                        continue
+                        update_cb(
+                            session,
+                            join_progress,
+                            total,
+                            "error",
+                            f"{display_name}:{exc}",
+                        )
+                    await asyncio.sleep(self.rate_limits.delay_between_actions)
+                    if expected and join_progress >= expected:
+                        break
+                if stop_event.is_set():
+                    return
+                send_total = len(joined_entities)
+                processed = 0
+                update_cb(session, processed, send_total, "running", "__sending__")
+                for group, entity in joined_entities:
+                    if stop_event.is_set():
+                        update_cb(session, processed, send_total, "stopped", "")
+                        break
+                    display_name = (
+                        group.get("title")
+                        or group.get("username")
+                        or str(group.get("id"))
+                    )
                     try:
-                        await self._prepare_target(client, identifier)
                         if media_path:
                             await client.send_file(
                                 entity,
@@ -689,7 +825,7 @@ class TelethonManager:
                         update_cb(
                             session,
                             processed,
-                            total,
+                            send_total,
                             "running",
                             str(group.get("title", identifier)),
                         )
@@ -697,7 +833,7 @@ class TelethonManager:
                         update_cb(
                             session,
                             processed,
-                            total,
+                            send_total,
                             "running",
                             "",
                             FloodInfo(seconds=exc.seconds, message=str(exc)),
@@ -705,10 +841,16 @@ class TelethonManager:
                         await asyncio.sleep(exc.seconds)
                         continue
                     except Exception as exc:
-                        update_cb(session, processed, total, "error", str(exc))
-                    await asyncio.sleep(self.rate_limits.delay_between_group_messages)
+                        update_cb(
+                            session,
+                            processed,
+                            send_total,
+                            "error",
+                            f"{display_name}:{exc}",
+                        )
+                        await asyncio.sleep(self.rate_limits.delay_between_group_messages)
                 if not stop_event.is_set():
-                    update_cb(session, processed, total, "completed", "")
+                    update_cb(session, processed, send_total, "completed", "")
             finally:
                 await client.disconnect()
 
@@ -740,6 +882,8 @@ class TelethonManager:
 
     @staticmethod
     def _serialize_user(user: User) -> Dict[str, object]:
+        status = getattr(user, "status", None)
+        status_name = status.__class__.__name__ if status else None
         return {
             "id": user.id,
             "access_hash": getattr(user, "access_hash", None),
@@ -749,6 +893,12 @@ class TelethonManager:
             "phone": user.phone,
             "bot": user.bot,
             "is_verified": user.verified,
+            "is_scam": getattr(user, "scam", False),
+            "is_fake": getattr(user, "fake", False),
+            "is_restricted": getattr(user, "restricted", False),
+            "mutual_contact": getattr(user, "mutual_contact", False),
+            "language_code": getattr(user, "lang_code", None),
+            "status": status_name,
         }
 
     @staticmethod
