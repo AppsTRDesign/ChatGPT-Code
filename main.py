@@ -17,6 +17,18 @@ from app.translations import Translator
 CONFIG_FILE = Path("config.json")
 
 
+def load_language_preference() -> str:
+    if CONFIG_FILE.exists():
+        try:
+            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            language = data.get("language")
+            if isinstance(language, str):
+                return language
+        except (ValueError, OSError, TypeError):
+            return "tr"
+    return "tr"
+
+
 def load_api_credentials(translator: Translator) -> Tuple[int, str]:
     api_id: int | None = None
     api_hash: str | None = None
@@ -60,7 +72,7 @@ def load_api_credentials(translator: Translator) -> Tuple[int, str]:
 
 def main() -> None:
     app = QApplication(sys.argv)
-    translator = Translator("en")
+    translator = Translator(load_language_preference())
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
     try:

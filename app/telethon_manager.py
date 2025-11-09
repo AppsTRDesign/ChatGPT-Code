@@ -32,7 +32,6 @@ from telethon.tl.types import (
     UserStatusOnline,
     UserStatusRecently,
 )
-from telethon.tl.types.channels import ChannelParticipants
 
 SESSION_DIR = Path("session")
 USERS_DIR = Path("users")
@@ -191,8 +190,14 @@ class TelethonManager:
                 return name
         return "UTC"
 
-    def _load_timezone(self) -> Tuple[str, ZoneInfo]:
-        tz_name = None
+    def _resolve_timezone(self, tz_name: str) -> Optional[ZoneInfo]:
+        try:
+            return ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ModuleNotFoundError):
+            return None
+
+    def _load_timezone(self) -> Tuple[str, ZoneInfo | timezone]:
+        tz_name: Optional[str] = None
         if CONFIG_FILE.exists():
             try:
                 data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -201,11 +206,12 @@ class TelethonManager:
                 tz_name = None
         if not tz_name:
             tz_name = self._detect_timezone()
-        try:
-            tz = ZoneInfo(tz_name)
-        except ZoneInfoNotFoundError:
+        tz = self._resolve_timezone(tz_name)
+        if tz is None:
             tz_name = "UTC"
-            tz = ZoneInfo(tz_name)
+            tz = self._resolve_timezone(tz_name)
+        if tz is None:
+            tz = timezone.utc
         self._save_timezone(tz_name)
         return tz_name, tz
 
@@ -220,13 +226,22 @@ class TelethonManager:
         CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def set_timezone(self, tz_name: str) -> None:
-        try:
-            tz = ZoneInfo(tz_name)
-        except ZoneInfoNotFoundError:
+        tz = self._resolve_timezone(tz_name)
+        if tz is None:
             return
         self.timezone_name = tz_name
         self.timezone = tz
         self._save_timezone(tz_name)
+
+    def save_language_preference(self, language: str) -> None:
+        data: Dict[str, object] = {}
+        if CONFIG_FILE.exists():
+            try:
+                data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                data = {}
+        data["language"] = language
+        CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     def _client(self, session: SessionInfo) -> TelegramClient:
         return TelegramClient(session.path, self.api_id, self.api_hash, loop=self.loop)
@@ -345,7 +360,7 @@ class TelethonManager:
                             offset = shared_state["offset"]
                             shared_state["offset"] += batch_size
                         try:
-                            response: ChannelParticipants = await client(
+                            response = await client(
                                 functions.channels.GetParticipants(
                                     entity,
                                     ChannelParticipantsSearch(""),

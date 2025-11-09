@@ -313,8 +313,8 @@ ERROR_TRANSLATIONS = {
 class Translator:
     """Simple runtime translator for GUI labels."""
 
-    def __init__(self, language: str = "en") -> None:
-        self.language = language if language in TRANSLATIONS else "en"
+    def __init__(self, language: str = "tr") -> None:
+        self.language = language if language in TRANSLATIONS else "tr"
 
     def set_language(self, language: str) -> None:
         if language in TRANSLATIONS:

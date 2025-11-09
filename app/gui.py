@@ -2163,6 +2163,7 @@ class MainWindow(QMainWindow):
         lang = self.settings_tab.language_combo.currentData()
         if lang:
             self.translator.set_language(lang)
+            self.manager.save_language_preference(lang)
             self.retranslate_ui()
 
     def handle_tab_change(self, index: int) -> None:
