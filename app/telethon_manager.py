@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -75,8 +75,9 @@ POPULAR_TIMEZONES: Tuple[str, ...] = (
 DEFAULT_RATE_LIMITS = {
     "delay_between_actions": 2.0,
     "delay_between_sessions": 5.0,
-    "delay_between_messages": 4.0,
-    "delay_between_group_messages": 6.0,
+    "delay_between_messages": 6.0,
+    "delay_between_group_messages": 8.0,
+    "delay_between_join_requests": 10.0,
 }
 
 
@@ -99,6 +100,9 @@ class RateLimits:
     delay_between_messages: float = DEFAULT_RATE_LIMITS["delay_between_messages"]
     delay_between_group_messages: float = DEFAULT_RATE_LIMITS[
         "delay_between_group_messages"
+    ]
+    delay_between_join_requests: float = DEFAULT_RATE_LIMITS[
+        "delay_between_join_requests"
     ]
 
     @classmethod
@@ -132,6 +136,12 @@ class RateLimits:
                             DEFAULT_RATE_LIMITS["delay_between_group_messages"],
                         )
                     ),
+                    delay_between_join_requests=float(
+                        payload.get(
+                            "delay_between_join_requests",
+                            DEFAULT_RATE_LIMITS["delay_between_join_requests"],
+                        )
+                    ),
                 )
             except (ValueError, OSError):
                 pass
@@ -149,6 +159,7 @@ class RateLimits:
             "delay_between_sessions": self.delay_between_sessions,
             "delay_between_messages": self.delay_between_messages,
             "delay_between_group_messages": self.delay_between_group_messages,
+            "delay_between_join_requests": self.delay_between_join_requests,
         }
         CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
@@ -366,14 +377,11 @@ class TelethonManager:
                             offset = shared_state["offset"]
                             shared_state["offset"] += batch_size
                         try:
-                            response = await client(
-                                functions.channels.GetParticipantsRequest(
-                                    entity,
-                                    ChannelParticipantsSearch(""),
-                                    offset,
-                                    batch_size,
-                                    hash=0,
-                                )
+                            response = await client.get_participants(
+                                entity,
+                                filter=ChannelParticipantsSearch(""),
+                                offset=offset,
+                                limit=batch_size,
                             )
                         except FloodWaitError as exc:
                             update_cb(
@@ -389,14 +397,24 @@ class TelethonManager:
                         except Exception as exc:
                             update_cb(session, processed, total, "error", str(exc))
                             break
-                        if not response.users:
+                        users = getattr(response, "users", None)
+                        participants = getattr(response, "participants", None)
+                        if not users and not participants:
                             async with offset_lock:
                                 shared_state["exhausted"] = True
                             break
+                        actual_count = len(participants or [])
+                        if actual_count:
+                            async with offset_lock:
+                                shared_state["offset"] = max(
+                                    shared_state["offset"], offset + actual_count
+                                )
                         user_map = {
-                            user.id: user for user in response.users if isinstance(user, User)
+                            user.id: user
+                            for user in (users or [])
+                            if isinstance(user, User)
                         }
-                        for participant in response.participants:
+                        for participant in participants or []:
                             if stop_event.is_set():
                                 break
                             user_id = getattr(participant, "user_id", None)
@@ -407,7 +425,10 @@ class TelethonManager:
                                 continue
                             if user.bot:
                                 continue
-                            if isinstance(participant, (ChannelParticipantCreator, ChannelParticipantAdmin)):
+                            if isinstance(
+                                participant,
+                                (ChannelParticipantCreator, ChannelParticipantAdmin),
+                            ):
                                 continue
                             if timeframe and not self._within_timeframe(user, timeframe):
                                 continue
@@ -415,7 +436,9 @@ class TelethonManager:
                             if serialized:
                                 processed += 1
                                 update_cb(session, processed, total, "running", serialized)
-                                await asyncio.sleep(self.rate_limits.delay_between_actions)
+                                await asyncio.sleep(
+                                    self.rate_limits.delay_between_actions
+                                )
                             if limit_hit:
                                 break
                             if expected and processed >= expected:
@@ -530,7 +553,27 @@ class TelethonManager:
                         async with lock:
                             processed_ids.append(int(user["id"]))
                         index += 1
-                    except errors.RpcError as exc:
+                    except errors.PeerFloodError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(
+                                max(60, self.rate_limits.delay_between_actions * 10)
+                            ),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                processed,
+                                total,
+                                "running",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
+                        update_cb(session, processed, total, "error", str(exc))
+                        index += 1
+                    except errors.RPCError as exc:
                         flood = self._flood_from_rpc(
                             exc,
                             default_wait=int(max(60, self.rate_limits.delay_between_actions * 5)),
@@ -941,9 +984,25 @@ class TelethonManager:
                         await asyncio.sleep(exc.seconds)
                         continue
                     except errors.PeerFloodError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(
+                                max(60, self.rate_limits.delay_between_messages * 10)
+                            ),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                processed,
+                                total,
+                                "running",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
                         update_cb(session, processed, total, "error", str(exc))
-                        break
-                    except errors.RpcError as exc:
+                    except errors.RPCError as exc:
                         flood = self._flood_from_rpc(
                             exc,
                             default_wait=int(max(60, self.rate_limits.delay_between_messages * 5)),
@@ -1030,7 +1089,32 @@ class TelethonManager:
                             FloodInfo(seconds=exc.seconds, message=str(exc)),
                         )
                         await asyncio.sleep(exc.seconds)
-                    except errors.RpcError as exc:
+                    except errors.PeerFloodError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(
+                                max(60, self.rate_limits.delay_between_join_requests * 5)
+                            ),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                join_progress,
+                                total,
+                                "joining",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
+                        update_cb(
+                            session,
+                            join_progress,
+                            total,
+                            "error",
+                            f"{display_name}:{exc}",
+                        )
+                    except errors.RPCError as exc:
                         flood = self._flood_from_rpc(
                             exc,
                             default_wait=int(max(60, self.rate_limits.delay_between_actions * 5)),
@@ -1061,7 +1145,7 @@ class TelethonManager:
                             "error",
                             f"{display_name}:{exc}",
                         )
-                    await asyncio.sleep(self.rate_limits.delay_between_actions)
+                    await asyncio.sleep(self.rate_limits.delay_between_join_requests)
                     if expected and join_progress >= expected:
                         break
                 if stop_event.is_set():
@@ -1110,7 +1194,32 @@ class TelethonManager:
                         )
                         await asyncio.sleep(exc.seconds)
                         continue
-                    except errors.RpcError as exc:
+                    except errors.PeerFloodError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(
+                                max(60, self.rate_limits.delay_between_group_messages * 10)
+                            ),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                processed,
+                                send_total,
+                                "running",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
+                        update_cb(
+                            session,
+                            processed,
+                            send_total,
+                            "error",
+                            f"{display_name}:{exc}",
+                        )
+                    except errors.RPCError as exc:
                         flood = self._flood_from_rpc(
                             exc,
                             default_wait=int(max(60, self.rate_limits.delay_between_group_messages * 5)),
@@ -1170,9 +1279,16 @@ class TelethonManager:
         if isinstance(status, UserStatusOnline):
             return True
         if isinstance(status, UserStatusOffline):
-            last_online = datetime.fromtimestamp(
-                status.was_online, tz=timezone.utc
-            ).astimezone(self.timezone)
+            was_online: Union[int, float, datetime] = getattr(status, "was_online", 0)
+            if isinstance(was_online, datetime):
+                last_online_dt = was_online
+                if last_online_dt.tzinfo is None:
+                    last_online_dt = last_online_dt.replace(tzinfo=timezone.utc)
+            else:
+                last_online_dt = datetime.fromtimestamp(
+                    float(was_online), tz=timezone.utc
+                )
+            last_online = last_online_dt.astimezone(self.timezone)
             return now_local - last_online <= timeframe
         return False
 
@@ -1247,6 +1363,7 @@ class TelethonManager:
             try:
                 await client(functions.channels.JoinChannelRequest(entity))
                 joined = True
+                await asyncio.sleep(self.rate_limits.delay_between_join_requests)
                 entity = await client.get_entity(target)
             except errors.UserAlreadyParticipantError:
                 joined = False

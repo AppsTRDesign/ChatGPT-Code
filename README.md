@@ -11,7 +11,7 @@ Bu proje PySide6 ve Telethon kullanılarak geliştirilmiş, Türkçe ve İngiliz
 - Toplu üye daveti. Başarılı eklenen üyeler `users/` dosyasından silinir; “zaten ekli” kullanıcılar da otomatik temizlenir.
 - `users/` dosyalarındaki üyelere toplu DM gönderme. Görev, seçilen oturumlara eşit bölünür ve her oturum için progress bar ile flood geri sayımı gösterilir.
 - `groups/` dosyalarındaki gruplara mesaj yayını. İşlem başlamadan önce her oturum ilgili gruplara katılır, katılma ve gönderim aşamaları ayrı ayrı izlenir.
-- Flood ve kısıtlamaları en aza indirmek için önerilen gecikme değerleri; bu değerler ayarlar sekmesinden değiştirilebilir.
+- Flood ve kısıtlamaları en aza indirmek için DM, grup mesajı ve gruba katılım gecikmeleri varsayılan olarak ayarlanır; bu değerler ayarlar sekmesinden değiştirilebilir.
 - Sistem saat dilimi otomatik algılanır; 30 popüler saat dilimi arasından seçim yaparak tüm süre hesaplarını özelleştirebilirsiniz.
 - Telethon tarafından döndürülen hata mesajları, seçili dile göre günlüklerde ve uyarılarda otomatik çevrilir.
 
@@ -109,7 +109,7 @@ py -3.13 main.py
 - Flood beklemeleri sayaç olarak gösterilir; günlük panelinde oturum bazlı durumlar kaydedilir.
 
 ### Ayarlar
-- İşlem, oturum, DM ve grup mesajı gecikmelerini düzenleyin.
+- İşlem, oturum, DM, grup mesajı ve katılım isteği gecikmelerini düzenleyin.
 - Türkçe ve İngilizce arayüz arasında anında geçiş yapın.
 - Otomatik algılanan saat dilimini görüntüleyip 30 popüler seçenekten birini seçerek tüm zaman hesaplamalarını güncelleyin.
 

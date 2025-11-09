@@ -2570,14 +2570,20 @@ class SettingsTab(QWidget):
         self.delay_messages.setRange(1, 600)
         self.delay_group_messages = QSpinBox()
         self.delay_group_messages.setRange(1, 600)
+        self.delay_join_requests = QSpinBox()
+        self.delay_join_requests.setRange(1, 600)
         self.delay_actions_label = QLabel(self.translator.tr("delay_between_actions"))
         self.delay_sessions_label = QLabel(self.translator.tr("delay_between_sessions"))
         self.delay_messages_label = QLabel(self.translator.tr("delay_between_messages"))
         self.delay_group_messages_label = QLabel(self.translator.tr("delay_between_group_messages"))
+        self.delay_join_requests_label = QLabel(
+            self.translator.tr("delay_between_join_requests")
+        )
         rate_layout.addRow(self.delay_actions_label, self.delay_actions)
         rate_layout.addRow(self.delay_sessions_label, self.delay_sessions)
         rate_layout.addRow(self.delay_messages_label, self.delay_messages)
         rate_layout.addRow(self.delay_group_messages_label, self.delay_group_messages)
+        rate_layout.addRow(self.delay_join_requests_label, self.delay_join_requests)
         layout.addWidget(self.rate_box)
 
         self.save_btn = QPushButton(self.translator.tr("save_settings"))
@@ -2592,6 +2598,7 @@ class SettingsTab(QWidget):
         self.delay_sessions.setValue(int(limits.delay_between_sessions))
         self.delay_messages.setValue(int(limits.delay_between_messages))
         self.delay_group_messages.setValue(int(limits.delay_between_group_messages))
+        self.delay_join_requests.setValue(int(limits.delay_between_join_requests))
         tz_index = self.timezone_combo.findText(self.manager.timezone_name)
         if tz_index >= 0:
             self.timezone_combo.setCurrentIndex(tz_index)
@@ -2602,6 +2609,9 @@ class SettingsTab(QWidget):
         self.manager.rate_limits.delay_between_messages = float(self.delay_messages.value())
         self.manager.rate_limits.delay_between_group_messages = float(
             self.delay_group_messages.value()
+        )
+        self.manager.rate_limits.delay_between_join_requests = float(
+            self.delay_join_requests.value()
         )
         self.manager.rate_limits.save()
         selected_tz = self.timezone_combo.currentText()
@@ -2617,7 +2627,12 @@ class SettingsTab(QWidget):
         self.delay_actions_label.setText(self.translator.tr("delay_between_actions"))
         self.delay_sessions_label.setText(self.translator.tr("delay_between_sessions"))
         self.delay_messages_label.setText(self.translator.tr("delay_between_messages"))
-        self.delay_group_messages_label.setText(self.translator.tr("delay_between_group_messages"))
+        self.delay_group_messages_label.setText(
+            self.translator.tr("delay_between_group_messages")
+        )
+        self.delay_join_requests_label.setText(
+            self.translator.tr("delay_between_join_requests")
+        )
 
 
 class MainWindow(QMainWindow):
