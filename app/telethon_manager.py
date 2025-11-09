@@ -314,16 +314,22 @@ class TelethonManager:
         shared_state = {"offset": 0, "exhausted": False}
         basic_lock = asyncio.Lock()
         basic_state = {"done": False}
+        seen_ids: set[int] = set()
 
-        async def append_user(user: User) -> bool:
+        async def append_user(user: User) -> tuple[Optional[Dict[str, object]], bool]:
             async with results_lock:
+                if user.id in seen_ids:
+                    return None, False
                 if limit and len(results) >= limit:
-                    return False
-                results.append(self._serialize_user(user))
-                if limit and len(results) >= limit:
-                    async with offset_lock:
-                        shared_state["exhausted"] = True
-                return True
+                    return None, True
+                serialized = self._serialize_user(user)
+                results.append(serialized)
+                seen_ids.add(user.id)
+                limit_hit = bool(limit and len(results) >= limit)
+            if limit_hit:
+                async with offset_lock:
+                    shared_state["exhausted"] = True
+            return serialized, limit_hit
 
         async def process(session: SessionInfo, expected: Optional[int]) -> None:
             processed = 0
@@ -361,7 +367,7 @@ class TelethonManager:
                             shared_state["offset"] += batch_size
                         try:
                             response = await client(
-                                functions.channels.GetParticipants(
+                                functions.channels.GetParticipantsRequest(
                                     entity,
                                     ChannelParticipantsSearch(""),
                                     offset,
@@ -405,12 +411,13 @@ class TelethonManager:
                                 continue
                             if timeframe and not self._within_timeframe(user, timeframe):
                                 continue
-                            added = await append_user(user)
-                            if not added:
+                            serialized, limit_hit = await append_user(user)
+                            if serialized:
+                                processed += 1
+                                update_cb(session, processed, total, "running", serialized)
+                                await asyncio.sleep(self.rate_limits.delay_between_actions)
+                            if limit_hit:
                                 break
-                            processed += 1
-                            update_cb(session, processed, total, "running", f"{user.id}")
-                            await asyncio.sleep(self.rate_limits.delay_between_actions)
                             if expected and processed >= expected:
                                 break
                         if stop_event.is_set():
@@ -443,15 +450,16 @@ class TelethonManager:
                             continue
                         if timeframe and not self._within_timeframe(user, timeframe):
                             continue
-                        added = await append_user(user)
-                        if not added:
+                        serialized, limit_hit = await append_user(user)
+                        if serialized:
+                            processed += 1
+                            update_cb(session, processed, total, "running", serialized)
+                            await asyncio.sleep(self.rate_limits.delay_between_actions)
+                        if limit_hit:
                             break
-                        processed += 1
-                        update_cb(session, processed, total, "running", f"{user.id}")
-                        await asyncio.sleep(self.rate_limits.delay_between_actions)
-                    if stop_event.is_set():
-                        update_cb(session, processed, total, "stopped", "")
-                        return
+                        if stop_event.is_set():
+                            update_cb(session, processed, total, "stopped", "")
+                            return
                 if not stop_event.is_set():
                     update_cb(session, processed, total, "completed", "")
             finally:
@@ -522,6 +530,24 @@ class TelethonManager:
                         async with lock:
                             processed_ids.append(int(user["id"]))
                         index += 1
+                    except errors.RpcError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(max(60, self.rate_limits.delay_between_actions * 5)),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                processed,
+                                total,
+                                "running",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
+                        update_cb(session, processed, total, "error", str(exc))
+                        index += 1
                     except Exception as exc:
                         update_cb(session, processed, total, "error", str(exc))
                         index += 1
@@ -571,44 +597,13 @@ class TelethonManager:
                     if stop_event.is_set():
                         update_cb(session, processed, total, "stopped", "")
                         break
+                    remaining = expected - processed if expected else None
+                    batch_limit = remaining if remaining and remaining > 0 else (limit or 100)
+                    batch_limit = min(max(batch_limit, 1), 100)
                     try:
-                        async for dialog in client.iter_dialogs(
-                            search=keyword,
-                            limit=expected or limit or 300,
-                        ):
-                            if stop_event.is_set():
-                                break
-                            chat = dialog.entity
-                            if not isinstance(chat, (Channel, Chat)):
-                                continue
-                            if isinstance(chat, (ChannelForbidden, ChatForbidden)):
-                                continue
-                            is_public = bool(getattr(chat, "username", None))
-                            if visibility == "public" and not is_public:
-                                continue
-                            if visibility == "private" and is_public:
-                                continue
-                            identifier = (int(chat.id), chat.__class__.__name__)
-                            async with lock:
-                                if identifier in seen:
-                                    continue
-                                if limit and len(results) >= limit:
-                                    break
-                                seen.add(identifier)
-                            info = await self._enrich_chat(client, chat)
-                            async with lock:
-                                results.append(info)
-                            processed += 1
-                            update_cb(
-                                session,
-                                processed,
-                                total,
-                                "running",
-                                info,
-                            )
-                            await asyncio.sleep(self.rate_limits.delay_between_actions)
-                            if expected and processed >= expected:
-                                break
+                        response = await client(
+                            functions.contacts.SearchRequest(q=keyword, limit=batch_limit)
+                        )
                     except FloodWaitError as exc:
                         update_cb(
                             session,
@@ -620,6 +615,39 @@ class TelethonManager:
                         )
                         await asyncio.sleep(exc.seconds)
                         continue
+                    for chat in response.chats:
+                        if stop_event.is_set():
+                            break
+                        if not isinstance(chat, (Channel, Chat)):
+                            continue
+                        if isinstance(chat, (ChannelForbidden, ChatForbidden)):
+                            continue
+                        is_public = bool(getattr(chat, "username", None))
+                        if visibility == "public" and not is_public:
+                            continue
+                        if visibility == "private" and is_public:
+                            continue
+                        identifier = (int(chat.id), chat.__class__.__name__)
+                        async with lock:
+                            if identifier in seen:
+                                continue
+                            if limit and len(results) >= limit:
+                                break
+                            seen.add(identifier)
+                        info = await self._enrich_chat(client, chat)
+                        async with lock:
+                            results.append(info)
+                        processed += 1
+                        update_cb(
+                            session,
+                            processed,
+                            total,
+                            "running",
+                            info,
+                        )
+                        await asyncio.sleep(self.rate_limits.delay_between_actions)
+                        if expected and processed >= expected:
+                            break
                     if expected and processed >= expected:
                         break
                 if not stop_event.is_set():
@@ -797,6 +825,7 @@ class TelethonManager:
                             continue
                     if not isinstance(sender, User):
                         continue
+                    limit_hit = False
                     async with lock:
                         if sender.id in seen_ids:
                             continue
@@ -809,10 +838,14 @@ class TelethonManager:
                         else:
                             serialized["last_message_date"] = None
                         results.append(serialized)
+                        if limit and len(results) >= limit:
+                            limit_hit = True
                     processed += 1
-                    update_cb(session, processed, total, "running", str(sender.id))
+                    update_cb(session, processed, total, "running", serialized)
                     await asyncio.sleep(self.rate_limits.delay_between_actions)
                     if expected and processed >= expected:
+                        break
+                    if limit_hit:
                         break
                 if not stop_event.is_set():
                     update_cb(session, processed, total, "completed", "")
@@ -910,6 +943,23 @@ class TelethonManager:
                     except errors.PeerFloodError as exc:
                         update_cb(session, processed, total, "error", str(exc))
                         break
+                    except errors.RpcError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(max(60, self.rate_limits.delay_between_messages * 5)),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                processed,
+                                total,
+                                "running",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
+                        update_cb(session, processed, total, "error", str(exc))
                     except Exception as exc:
                         update_cb(session, processed, total, "error", str(exc))
                     await asyncio.sleep(self.rate_limits.delay_between_messages)
@@ -980,6 +1030,29 @@ class TelethonManager:
                             FloodInfo(seconds=exc.seconds, message=str(exc)),
                         )
                         await asyncio.sleep(exc.seconds)
+                    except errors.RpcError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(max(60, self.rate_limits.delay_between_actions * 5)),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                join_progress,
+                                total,
+                                "joining",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
+                        update_cb(
+                            session,
+                            join_progress,
+                            total,
+                            "error",
+                            f"{display_name}:{exc}",
+                        )
                     except Exception as exc:
                         update_cb(
                             session,
@@ -1037,6 +1110,29 @@ class TelethonManager:
                         )
                         await asyncio.sleep(exc.seconds)
                         continue
+                    except errors.RpcError as exc:
+                        flood = self._flood_from_rpc(
+                            exc,
+                            default_wait=int(max(60, self.rate_limits.delay_between_group_messages * 5)),
+                        )
+                        if flood:
+                            update_cb(
+                                session,
+                                processed,
+                                send_total,
+                                "running",
+                                "",
+                                flood,
+                            )
+                            await asyncio.sleep(flood.seconds)
+                            continue
+                        update_cb(
+                            session,
+                            processed,
+                            send_total,
+                            "error",
+                            f"{display_name}:{exc}",
+                        )
                     except Exception as exc:
                         update_cb(
                             session,
@@ -1130,6 +1226,17 @@ class TelethonManager:
             assignments[session.phone].append(user)
             index += 1
         return assignments
+
+    def _flood_from_rpc(self, exc: Exception, default_wait: int = 60) -> Optional[FloodInfo]:
+        if isinstance(exc, FloodWaitError):
+            return FloodInfo(exc.seconds, str(exc))
+        seconds = getattr(exc, "seconds", None) or getattr(exc, "retry_after", None)
+        if isinstance(seconds, (int, float)) and seconds > 0:
+            return FloodInfo(int(seconds), str(exc))
+        message = getattr(exc, "message", str(exc))
+        if isinstance(message, str) and "too many requests" in message.lower():
+            return FloodInfo(default_wait, message)
+        return None
 
     async def _prepare_target(
         self, client: TelegramClient, target: object

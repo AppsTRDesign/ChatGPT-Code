@@ -6,8 +6,8 @@ Bu proje PySide6 ve Telethon kullanılarak geliştirilmiş, Türkçe ve İngiliz
 - Kayıtlı oturumlar için ban kontrolü yapma ve banlı oturumları otomatik silme.
 - Anahtar kelimeler, görünürlük filtresi ve sayfalama desteğiyle gelişmiş grup taraması. Sonuçlar tabloda sıralanabilir, kopyalanabilir ve `groups/` klasörüne kaydedilebilir.
 - Anahtar kelimelerle genel üye araması. Kullanıcı adı olan/olmayan filtreleri, sayfalama ve kopyalanabilir tablo desteği bulunur; sonuçlar `users/` klasörüne kaydedilir.
-- Hedef gruptaki üyeleri; dakika/saat/gün bazında aktiflik koşullarına göre tarama. Oturumlar hedefe gerekirse otomatik katılır ve flood beklemeleri sayaçla gösterilir.
-- Hedef grupta mesaj atan üyeleri toplama. Oturum bazlı yük dağıtımı, ilerleme çubukları ve flood bekleme yönetimi dahildir.
+- Hedef gruptaki üyeleri; dakika/saat/gün bazında aktiflik koşullarına göre tarama. Sonuçlar ad/kullanıcı adı/durum kolonlarıyla tabloda listelenir, oturumlar hedefe gerekirse otomatik katılır ve flood beklemeleri sayaçla gösterilir.
+- Hedef grupta mesaj atan üyeleri toplama. Oturum bazlı yük dağıtımı, sıralanabilir tablo, ilerleme çubukları ve flood bekleme yönetimi dahildir.
 - Toplu üye daveti. Başarılı eklenen üyeler `users/` dosyasından silinir; “zaten ekli” kullanıcılar da otomatik temizlenir.
 - `users/` dosyalarındaki üyelere toplu DM gönderme. Görev, seçilen oturumlara eşit bölünür ve her oturum için progress bar ile flood geri sayımı gösterilir.
 - `groups/` dosyalarındaki gruplara mesaj yayını. İşlem başlamadan önce her oturum ilgili gruplara katılır, katılma ve gönderim aşamaları ayrı ayrı izlenir.
@@ -85,21 +85,23 @@ py -3.13 main.py
 - Hedef grup/kanal bağlantısını girin, dakika/saat/gün bazında aktiflik filtresi belirleyin.
 - Oturumlar gruba katılmamışsa otomatik katılır, durum çubuğu “Katılıyor” olarak güncellenir.
 - Bot hesaplar ve yönetici/kurucu roller otomatik olarak hariç tutulur.
+- Taranan üyeler tabloya düşer; ad, kullanıcı adı/ID ve durum sütunlarına göre sıralama ve kopyalama desteklenir.
 - Flood bekleme süreleri sayaç ile gösterilir.
 
 ### Aktif Mesajcılar
 - Belirli bir zaman aralığında mesaj atan üyeleri toplar.
+- Sonuçlar kullanıcı adı/ID, durum ve son mesaj tarihi içeren tabloda gösterilir; sütunlar ad, kullanıcı adı ve duruma göre sıralanabilir.
 - Otomatik katılım, flood yönetimi ve sonuçların `users/` klasörüne kaydedilmesi desteklenir.
 - Mesaj tarihleri seçtiğiniz saat dilimine göre yorumlanır; UTC ve yerel saat farkları otomatik dengelenir.
 
-### Üye Ekle
+### Gruba Üye Ekle
 - `users/` klasöründen bir liste seçin, hedef grubu belirtin.
 - Başarılı eklenen ve zaten grupta olan kullanıcılar JSON’dan silinir.
 
 ### DM Gönder
 - `users/` dosyalarındaki üyeleri seçilen oturumlara eşit paylaştırarak DM gönderir.
 - Mesaj gövdesi, bağlantı ön izlemesi ve opsiyonel medya desteği vardır.
-- Her oturum için ilerleme çubuğu ve flood geri sayımı gösterilir.
+- Her oturum için ilerleme çubuğu ve flood geri sayımı gösterilir; “Too many requests” uyarıları otomatik olarak beklemeye alınır.
 
 ### Grup Mesajı
 - `groups/` dosyalarındaki gruplar oturumlara bölünür.
