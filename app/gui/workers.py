@@ -62,6 +62,9 @@ class SessionWorkerThread(QThread):
         def progress_handler(update: ProgressUpdate) -> None:
             self.progress.emit(update)
 
+        def status_handler(status: str) -> None:
+            self.status.emit(self.request.session_name, status)
+
         try:
             if self.request.task_type == "scan":
                 await task.scan_members(
@@ -70,12 +73,14 @@ class SessionWorkerThread(QThread):
                     self.request.interval,
                     progress_handler,
                     self.request.persist_results,
+                    status_handler,
                 )
             elif self.request.task_type == "add":
                 await task.add_members(
                     self.request.entity,
                     self.request.users or [],
                     progress_handler,
+                    status_handler,
                 )
             elif self.request.task_type == "active":
                 await task.fetch_active_senders(
@@ -84,6 +89,7 @@ class SessionWorkerThread(QThread):
                     self.request.interval,
                     progress_handler,
                     self.request.persist_results,
+                    status_handler,
                 )
             else:
                 raise ValueError(f"Unknown task type {self.request.task_type}")

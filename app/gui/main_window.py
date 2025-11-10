@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -53,7 +54,10 @@ class MainWindow(QMainWindow):
         translator.set_language(self.settings.language)
         self.settings.ensure_directories()
         self.session_manager = SessionManager(self.settings)
-        self.user_storage = UserStorage(self.settings.user_directory / "users.json")
+        self.user_storage = UserStorage(
+            self.settings.user_directory / "users.json",
+            timezone_name=self.settings.timezone,
+        )
         self.orchestrator = TaskOrchestrator(self.settings, self.user_storage)
         configure_logging()
 
@@ -485,6 +489,7 @@ class MainWindow(QMainWindow):
                 persist_results=persist,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
+            thread.setParent(self)
             thread.progress.connect(partial(self.on_progress, widget))
             thread.finished.connect(partial(self.on_finished, widget))
             thread.status.connect(partial(self.on_status_update, widget))
@@ -520,6 +525,10 @@ class MainWindow(QMainWindow):
         widget.update_state(widget.state.processed, total, status_key="status.error")
         widget.append_user(message)
         self.worker_threads.pop(session_name, None)
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: D401
+        self.stop_all_tasks()
+        super().closeEvent(event)
 
     def stop_all_tasks(self) -> None:
         threads = list(self.worker_threads.values())
@@ -625,7 +634,9 @@ class MainWindow(QMainWindow):
 
     def change_timezone(self, timezone: str) -> None:
         self.settings.timezone = timezone
+        self.user_storage.set_timezone(timezone)
         self.settings_repo.save(self.settings)
+        self.populate_user_table()
 
     def retranslate_ui(self) -> None:
         self.setWindowTitle(translator.translate("app.title"))

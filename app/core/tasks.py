@@ -12,6 +12,7 @@ from telethon.tl import functions, types
 
 from app.core.settings import AppSettings
 from app.data.user_storage import StoredUser, UserStorage
+from app.i18n.strings import translator
 
 logger = logging.getLogger(__name__)
 
@@ -73,13 +74,30 @@ class SessionTask:
         active_within: Optional[timedelta],
         progress_callback: Callable[[ProgressUpdate], None],
         persist: bool,
+        status_callback: Optional[Callable[[str], None]] = None,
     ) -> None:
         await self._check_cancelled()
+        status_cb = status_callback or (lambda _: None)
+        status_cb("status.running")
         total = limit or 0
         processed = 0
-        async for participant in self.client.iter_participants(entity, limit=limit):
+        iterator = self.client.iter_participants(entity, limit=limit)
+        while True:
             await self._check_cancelled()
-            user = await self.client.get_entity(participant.id)
+            try:
+                participant = await iterator.__anext__()
+            except StopAsyncIteration:
+                break
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                await self._throttle(self.settings.rate_limit.scan_interval)
+                continue
+            try:
+                user = await self.client.get_entity(participant.id)
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                await self._throttle(self.settings.rate_limit.scan_interval)
+                continue
             last_seen = None
             if isinstance(user.status, types.UserStatusOffline):
                 was_online = user.status.was_online
@@ -105,15 +123,17 @@ class SessionTask:
                 access_hash=user.access_hash,
                 first_name=user.first_name,
                 last_name=user.last_name,
-                last_seen=UserStorage.serialize_datetime(last_seen),
+                last_seen=None,
                 status=type(user.status).__name__ if user.status else None,
                 source=str(entity),
                 is_bot=bool(getattr(user, "bot", False)),
+                last_seen_utc=UserStorage.to_iso(last_seen),
             )
+            stored = self.storage.prepare_user(stored)
             if persist:
                 self.storage.add_users([stored])
             processed += 1
-            progress_callback(self.build_progress(total or processed, stored, status="log.scan_finished"))
+            progress_callback(self.build_progress(total or processed, stored, status="status.running"))
             if limit and processed >= limit:
                 break
             await self._throttle(self.settings.rate_limit.scan_interval)
@@ -124,9 +144,12 @@ class SessionTask:
         entity: str,
         users: Iterable[StoredUser],
         progress_callback: Callable[[ProgressUpdate], None],
+        status_callback: Optional[Callable[[str], None]] = None,
     ) -> None:
         users_list = list(users)
         total = len(users_list)
+        status_cb = status_callback or (lambda _: None)
+        status_cb("status.running")
         for user in users_list:
             await self._check_cancelled()
             if user.is_bot:
@@ -134,14 +157,20 @@ class SessionTask:
                 self.storage.remove_user(user.user_id)
                 continue
             try:
-                await self.client(functions.channels.InviteToChannelRequest(channel=entity, users=[types.InputUser(user_id=user.user_id, access_hash=user.access_hash or 0)]))
-                progress_callback(self.build_progress(total, user, status="log.add_finished"))
+                await self.client(
+                    functions.channels.InviteToChannelRequest(
+                        channel=entity,
+                        users=[types.InputUser(user_id=user.user_id, access_hash=user.access_hash or 0)],
+                    )
+                )
+                progress_callback(self.build_progress(total, user, status="status.running"))
                 self.storage.remove_user(user.user_id)
             except UserPrivacyRestrictedError:
                 progress_callback(self.build_progress(total, user, status="status.error"))
             except FloodWaitError as exc:
-                logger.warning("log.flood_wait")
-                await asyncio.sleep(exc.seconds + 1)
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                await self._throttle(self.settings.rate_limit.join_interval)
+                continue
             await self._throttle(self.settings.rate_limit.join_interval)
         logger.info("log.add_finished")
 
@@ -152,21 +181,37 @@ class SessionTask:
         active_within: Optional[timedelta],
         progress_callback: Callable[[ProgressUpdate], None],
         persist: bool,
+        status_callback: Optional[Callable[[str], None]] = None,
     ) -> None:
         cutoff = datetime.now(tz=timezone.utc) - active_within if active_within else None
         messages = self.client.iter_messages(entity, limit=limit)
         processed = 0
         total = limit or 0
         seen_users: set[int] = set()
-        async for message in messages:
+        status_cb = status_callback or (lambda _: None)
+        status_cb("status.running")
+        while True:
             await self._check_cancelled()
+            try:
+                message = await messages.__anext__()
+            except StopAsyncIteration:
+                break
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                await self._throttle(self.settings.rate_limit.scan_interval)
+                continue
             if cutoff and message.date and message.date.replace(tzinfo=timezone.utc) < cutoff:
                 continue
             if not message.sender_id:
                 continue
             if message.sender_id in seen_users:
                 continue
-            sender = await self.client.get_entity(message.sender_id)
+            try:
+                sender = await self.client.get_entity(message.sender_id)
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                await self._throttle(self.settings.rate_limit.scan_interval)
+                continue
             if getattr(sender, "bot", False):
                 continue
             seen_users.add(message.sender_id)
@@ -177,19 +222,32 @@ class SessionTask:
                 access_hash=getattr(sender, "access_hash", None),
                 first_name=sender.first_name,
                 last_name=sender.last_name,
-                last_seen=UserStorage.serialize_datetime(message.date.replace(tzinfo=timezone.utc) if message.date else None),
+                last_seen=None,
                 status=type(sender.status).__name__ if getattr(sender, "status", None) else None,
                 source=str(entity),
                 is_bot=False,
+                last_seen_utc=UserStorage.to_iso(message.date.replace(tzinfo=timezone.utc) if message.date else None),
             )
+            stored = self.storage.prepare_user(stored)
             if persist:
                 self.storage.add_users([stored])
             processed += 1
-            progress_callback(self.build_progress(total or processed, stored, status="log.active_finished"))
+            progress_callback(self.build_progress(total or processed, stored, status="status.running"))
             if limit and processed >= limit:
                 break
             await self._throttle(self.settings.rate_limit.scan_interval)
         logger.info("log.active_finished")
+
+    async def _handle_flood_wait(
+        self, seconds: int, status_callback: Callable[[str], None]
+    ) -> None:
+        logger.warning("log.flood_wait")
+        for remaining in range(int(seconds), 0, -1):
+            await self._check_cancelled()
+            message = f"{translator.translate('status.waiting_flood')} ({remaining}s)"
+            status_callback(message)
+            await asyncio.sleep(1)
+        status_callback("status.running")
 
 
 class TaskOrchestrator:
