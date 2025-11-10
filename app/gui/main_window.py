@@ -11,9 +11,14 @@ from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QGridLayout,
     QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -150,10 +155,13 @@ class MainWindow(QMainWindow):
         )
         self.scan_interval_value = QSpinBox()
         self.scan_interval_value.setRange(1, 10000)
+        self.scan_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
+        self.scan_save_checkbox.setChecked(True)
         form_layout.addRow(translator.translate("label.target_group"), self.scan_target_input)
         form_layout.addRow(translator.translate("label.limit"), self.scan_limit_input)
         form_layout.addRow(translator.translate("label.interval"), self.scan_interval_combo)
         form_layout.addRow(translator.translate("label.interval"), self.scan_interval_value)
+        form_layout.addRow(self.scan_save_checkbox)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.scan_start_button = QPushButton(translator.translate("button.start"))
@@ -220,10 +228,13 @@ class MainWindow(QMainWindow):
         )
         self.active_interval_value = QSpinBox()
         self.active_interval_value.setRange(1, 10000)
+        self.active_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
+        self.active_save_checkbox.setChecked(True)
         form_layout.addRow(translator.translate("label.target_group"), self.active_target_input)
         form_layout.addRow(translator.translate("label.limit"), self.active_limit_input)
         form_layout.addRow(translator.translate("label.interval"), self.active_interval_combo)
         form_layout.addRow(translator.translate("label.interval"), self.active_interval_value)
+        form_layout.addRow(self.active_save_checkbox)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.active_start_button = QPushButton(translator.translate("button.start"))
@@ -304,7 +315,23 @@ class MainWindow(QMainWindow):
         self.user_table.setHorizontalHeaderLabels(headers)
         self.user_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.user_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.user_table.setSortingEnabled(True)
+        header = self.user_table.horizontalHeader()
+        if header:
+            header.setSectionsClickable(True)
+            header.setSectionResizeMode(QHeaderView.Stretch)
+        button_layout = QHBoxLayout()
+        self.export_users_button = QPushButton(translator.translate("button.export_users"))
+        self.export_users_button.clicked.connect(self.export_users)
+        self.import_users_button = QPushButton(translator.translate("button.import_users"))
+        self.import_users_button.clicked.connect(self.import_users)
+        self.add_user_button = QPushButton(translator.translate("button.add_user"))
+        self.add_user_button.clicked.connect(self.add_user_manual)
+        button_layout.addWidget(self.export_users_button)
+        button_layout.addWidget(self.import_users_button)
+        button_layout.addWidget(self.add_user_button)
         layout.addWidget(QLabel(translator.translate("label.user_table")))
+        layout.addLayout(button_layout)
         layout.addWidget(self.user_table)
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("label.user_table"))
@@ -401,18 +428,21 @@ class MainWindow(QMainWindow):
             limit = self._parse_int(self.scan_limit_input.text())
             interval = self._build_interval(self.scan_interval_combo.currentIndex(), self.scan_interval_value.value())
             container = self.scan_progress_container
+            persist = self.scan_save_checkbox.isChecked()
         elif task_type == "add":
             sessions = self.get_selected_sessions(self.add_session_list)
             target = self.add_target_input.text().strip()
             limit = None
             interval = None
             container = self.add_progress_container
+            persist = True
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
             limit = self._parse_int(self.active_limit_input.text())
             interval = self._build_interval(self.active_interval_combo.currentIndex(), self.active_interval_value.value())
             container = self.active_progress_container
+            persist = self.active_save_checkbox.isChecked()
 
         if not sessions or not target:
             QMessageBox.warning(self, self.windowTitle(), "Oturum ve hedef girilmeli")
@@ -452,6 +482,7 @@ class MainWindow(QMainWindow):
                 limit=limit_per_session if limit_per_session else limit,
                 interval=interval,
                 users=subset,
+                persist_results=persist,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.progress.connect(partial(self.on_progress, widget))
@@ -478,6 +509,7 @@ class MainWindow(QMainWindow):
     def on_finished(self, widget: SessionProgressWidget, session_name: str) -> None:
         total = widget.state.total or widget.state.processed
         widget.update_state(widget.state.processed, total, status_key="label.completed")
+        self.worker_threads.pop(session_name, None)
 
     def on_status_update(self, widget: SessionProgressWidget, session_name: str, status_key: str) -> None:
         total = widget.state.total or widget.state.processed
@@ -487,12 +519,16 @@ class MainWindow(QMainWindow):
         total = widget.state.total or widget.state.processed
         widget.update_state(widget.state.processed, total, status_key="status.error")
         widget.append_user(message)
+        self.worker_threads.pop(session_name, None)
 
     def stop_all_tasks(self) -> None:
-        for thread in self.worker_threads.values():
+        threads = list(self.worker_threads.values())
+        for thread in threads:
             thread.stop()
-        self.worker_threads.clear()
         self.orchestrator.cancel_all()
+        for thread in threads:
+            thread.wait(5000)
+        self.worker_threads.clear()
 
     def _build_interval(self, index: int, value: int) -> Optional[timedelta]:
         if value <= 0:
@@ -526,6 +562,52 @@ class MainWindow(QMainWindow):
             self.user_table.setItem(row, 2, QTableWidgetItem(user.phone or ""))
             self.user_table.setItem(row, 3, QTableWidgetItem(user.last_seen or ""))
             self.user_table.setItem(row, 4, QTableWidgetItem(user.status or ""))
+
+    def export_users(self) -> None:
+        default_path = self.settings.user_directory / "exported_users.json"
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            translator.translate("dialog.export_title"),
+            str(default_path),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        try:
+            self.user_storage.export_to_file(Path(path))
+        except Exception as exc:  # pragma: no cover - file system errors
+            QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.export_failure')}: {exc}")
+        else:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.export_success"))
+
+    def import_users(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            translator.translate("dialog.import_title"),
+            str(self.settings.user_directory),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        try:
+            self.user_storage.import_from_file(Path(path))
+        except Exception as exc:  # pragma: no cover - file system errors
+            QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.import_failure')}: {exc}")
+        else:
+            self.populate_user_table()
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.import_success"))
+
+    def add_user_manual(self) -> None:
+        dialog = ManualUserDialog(self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        user = dialog.build_user()
+        if not user:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.add_user_invalid"))
+            return
+        self.user_storage.add_users([user])
+        self.populate_user_table()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.add_user_success"))
 
     def save_rate_limits(self) -> None:
         self.settings.rate_limit.join_interval = float(self.join_interval_input.value())
@@ -562,6 +644,11 @@ class MainWindow(QMainWindow):
         # Sessions tab controls
         self._update_sessions_tab_labels()
         self._update_user_table_headers()
+        self.scan_save_checkbox.setText(translator.translate("checkbox.save_results"))
+        self.active_save_checkbox.setText(translator.translate("checkbox.save_results"))
+        self.export_users_button.setText(translator.translate("button.export_users"))
+        self.import_users_button.setText(translator.translate("button.import_users"))
+        self.add_user_button.setText(translator.translate("button.add_user"))
         for container in [self.scan_progress_container, self.add_progress_container, self.active_progress_container]:
             for i in range(container.count()):
                 widget = container.itemAt(i).widget()
@@ -601,6 +688,62 @@ class MainWindow(QMainWindow):
         ]
         for index, title in enumerate(headers):
             self.user_table.setHorizontalHeaderItem(index, QTableWidgetItem(title))
+
+
+class ManualUserDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle(translator.translate("dialog.add_user_title"))
+        layout = QVBoxLayout()
+        form_layout = QFormLayout()
+        self.user_id_input = QLineEdit()
+        self.username_input = QLineEdit()
+        self.phone_input = QLineEdit()
+        self.access_hash_input = QLineEdit()
+        self.first_name_input = QLineEdit()
+        self.last_name_input = QLineEdit()
+        self.last_seen_input = QLineEdit()
+        self.status_input = QLineEdit()
+        self.source_input = QLineEdit()
+        self.is_bot_checkbox = QCheckBox(translator.translate("label.is_bot"))
+
+        form_layout.addRow("ID", self.user_id_input)
+        form_layout.addRow(translator.translate("table.column.username"), self.username_input)
+        form_layout.addRow(translator.translate("table.column.phone"), self.phone_input)
+        form_layout.addRow(translator.translate("label.access_hash"), self.access_hash_input)
+        form_layout.addRow(translator.translate("label.first_name"), self.first_name_input)
+        form_layout.addRow(translator.translate("label.last_name"), self.last_name_input)
+        form_layout.addRow(translator.translate("table.column.last_seen"), self.last_seen_input)
+        form_layout.addRow(translator.translate("table.column.status"), self.status_input)
+        form_layout.addRow(translator.translate("label.target_group"), self.source_input)
+        form_layout.addRow(self.is_bot_checkbox)
+
+        layout.addLayout(form_layout)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def build_user(self) -> Optional[StoredUser]:
+        try:
+            user_id = int(self.user_id_input.text())
+        except ValueError:
+            return None
+        access_hash_text = self.access_hash_input.text().strip()
+        access_hash = int(access_hash_text) if access_hash_text else None
+        return StoredUser(
+            user_id=user_id,
+            username=self.username_input.text().strip() or None,
+            phone=self.phone_input.text().strip() or None,
+            access_hash=access_hash,
+            first_name=self.first_name_input.text().strip() or None,
+            last_name=self.last_name_input.text().strip() or None,
+            last_seen=self.last_seen_input.text().strip() or None,
+            status=self.status_input.text().strip() or None,
+            source=self.source_input.text().strip() or None,
+            is_bot=self.is_bot_checkbox.isChecked(),
+        )
 
 
 def create_app() -> QApplication:

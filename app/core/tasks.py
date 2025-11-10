@@ -72,6 +72,7 @@ class SessionTask:
         limit: Optional[int],
         active_within: Optional[timedelta],
         progress_callback: Callable[[ProgressUpdate], None],
+        persist: bool,
     ) -> None:
         await self._check_cancelled()
         total = limit or 0
@@ -81,8 +82,12 @@ class SessionTask:
             user = await self.client.get_entity(participant.id)
             last_seen = None
             if isinstance(user.status, types.UserStatusOffline):
-                last_seen = datetime.fromtimestamp(user.status.was_online, tz=timezone.utc)
-            elif isinstance(user.status, types.UserStatusRecently):
+                was_online = user.status.was_online
+                if isinstance(was_online, datetime):
+                    last_seen = was_online.astimezone(timezone.utc)
+                else:
+                    last_seen = datetime.fromtimestamp(was_online, tz=timezone.utc)
+            elif isinstance(user.status, (types.UserStatusOnline, types.UserStatusRecently)):
                 last_seen = datetime.now(tz=timezone.utc)
             elif isinstance(user.status, types.UserStatusLastMonth):
                 last_seen = datetime.now(tz=timezone.utc) - timedelta(days=30)
@@ -103,8 +108,10 @@ class SessionTask:
                 last_seen=UserStorage.serialize_datetime(last_seen),
                 status=type(user.status).__name__ if user.status else None,
                 source=str(entity),
+                is_bot=bool(getattr(user, "bot", False)),
             )
-            self.storage.add_users([stored])
+            if persist:
+                self.storage.add_users([stored])
             processed += 1
             progress_callback(self.build_progress(total or processed, stored, status="log.scan_finished"))
             if limit and processed >= limit:
@@ -122,6 +129,10 @@ class SessionTask:
         total = len(users_list)
         for user in users_list:
             await self._check_cancelled()
+            if user.is_bot:
+                progress_callback(self.build_progress(total or 1, user, status="status.skipped_bot"))
+                self.storage.remove_user(user.user_id)
+                continue
             try:
                 await self.client(functions.channels.InviteToChannelRequest(channel=entity, users=[types.InputUser(user_id=user.user_id, access_hash=user.access_hash or 0)]))
                 progress_callback(self.build_progress(total, user, status="log.add_finished"))
@@ -140,18 +151,25 @@ class SessionTask:
         limit: Optional[int],
         active_within: Optional[timedelta],
         progress_callback: Callable[[ProgressUpdate], None],
+        persist: bool,
     ) -> None:
         cutoff = datetime.now(tz=timezone.utc) - active_within if active_within else None
-        messages = self.client.iter_messages(entity, limit=limit, reverse=True)
+        messages = self.client.iter_messages(entity, limit=limit)
         processed = 0
         total = limit or 0
+        seen_users: set[int] = set()
         async for message in messages:
             await self._check_cancelled()
             if cutoff and message.date and message.date.replace(tzinfo=timezone.utc) < cutoff:
                 continue
             if not message.sender_id:
                 continue
+            if message.sender_id in seen_users:
+                continue
             sender = await self.client.get_entity(message.sender_id)
+            if getattr(sender, "bot", False):
+                continue
+            seen_users.add(message.sender_id)
             stored = StoredUser(
                 user_id=sender.id,
                 username=sender.username,
@@ -162,8 +180,10 @@ class SessionTask:
                 last_seen=UserStorage.serialize_datetime(message.date.replace(tzinfo=timezone.utc) if message.date else None),
                 status=type(sender.status).__name__ if getattr(sender, "status", None) else None,
                 source=str(entity),
+                is_bot=False,
             )
-            self.storage.add_users([stored])
+            if persist:
+                self.storage.add_users([stored])
             processed += 1
             progress_callback(self.build_progress(total or processed, stored, status="log.active_finished"))
             if limit and processed >= limit:
@@ -182,6 +202,15 @@ class TaskOrchestrator:
         task = SessionTask(session_name, client, self.settings, self.storage)
         self._tasks[session_name] = task
         return task
+
+    def complete_task(self, session_name: str) -> None:
+        self._tasks.pop(session_name, None)
+
+    def cancel_task(self, session_name: str) -> None:
+        task = self._tasks.get(session_name)
+        if task:
+            task.cancel()
+            self._tasks.pop(session_name, None)
 
     def cancel_all(self) -> None:
         for task in self._tasks.values():

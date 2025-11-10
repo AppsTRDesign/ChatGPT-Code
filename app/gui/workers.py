@@ -23,6 +23,7 @@ class TaskRequest:
     limit: Optional[int]
     interval: Optional[timedelta]
     users: Optional[List[StoredUser]] = None
+    persist_results: bool = True
 
 
 class SessionWorkerThread(QThread):
@@ -41,10 +42,9 @@ class SessionWorkerThread(QThread):
         self.session_manager = session_manager
         self.orchestrator = orchestrator
         self.request = request
-        self._cancel_event = asyncio.Event()
 
     def stop(self) -> None:
-        self._cancel_event.set()
+        self.orchestrator.cancel_task(self.request.session_name)
 
     def run(self) -> None:  # noqa: D401
         asyncio.run(self._run())
@@ -57,7 +57,7 @@ class SessionWorkerThread(QThread):
         except Exception as exc:  # pragma: no cover - network failure
             self.error.emit(self.request.session_name, str(exc))
             return
-        task = SessionTask(self.request.session_name, client, self.orchestrator.settings, self.orchestrator.storage)
+        task = self.orchestrator.create_task(self.request.session_name, client)
 
         def progress_handler(update: ProgressUpdate) -> None:
             self.progress.emit(update)
@@ -69,6 +69,7 @@ class SessionWorkerThread(QThread):
                     self.request.limit,
                     self.request.interval,
                     progress_handler,
+                    self.request.persist_results,
                 )
             elif self.request.task_type == "add":
                 await task.add_members(
@@ -82,6 +83,7 @@ class SessionWorkerThread(QThread):
                     self.request.limit,
                     self.request.interval,
                     progress_handler,
+                    self.request.persist_results,
                 )
             else:
                 raise ValueError(f"Unknown task type {self.request.task_type}")
@@ -93,4 +95,5 @@ class SessionWorkerThread(QThread):
         else:
             self.finished.emit(self.request.session_name)
         finally:
+            self.orchestrator.complete_task(self.request.session_name)
             await client.disconnect()

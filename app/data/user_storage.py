@@ -18,6 +18,7 @@ class StoredUser:
     last_seen: Optional[str]
     status: Optional[str]
     source: Optional[str]
+    is_bot: bool = False
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
@@ -36,10 +37,24 @@ class UserStorage:
             return
         with self.path.open("r", encoding="utf-8") as fp:
             data = json.load(fp)
-        self._users = {
-            int(item["user_id"]): StoredUser(**item)
-            for item in data
-        }
+        self._users = {}
+        for item in data:
+            payload = {
+                "user_id": item.get("user_id"),
+                "username": item.get("username"),
+                "phone": item.get("phone"),
+                "access_hash": item.get("access_hash"),
+                "first_name": item.get("first_name"),
+                "last_name": item.get("last_name"),
+                "last_seen": item.get("last_seen"),
+                "status": item.get("status"),
+                "source": item.get("source"),
+                "is_bot": bool(item.get("is_bot", False)),
+            }
+            user_id = payload["user_id"]
+            if user_id is None:
+                continue
+            self._users[int(user_id)] = StoredUser(**payload)
 
     def save(self) -> None:
         with self.path.open("w", encoding="utf-8") as fp:
@@ -57,6 +72,35 @@ class UserStorage:
 
     def get_users(self) -> List[StoredUser]:
         return list(self._users.values())
+
+    def import_from_file(self, file_path: Path) -> None:
+        if not file_path.exists():
+            return
+        with file_path.open("r", encoding="utf-8") as fp:
+            data = json.load(fp)
+        imported: List[StoredUser] = []
+        for item in data:
+            if not isinstance(item, dict) or "user_id" not in item:
+                continue
+            payload = {
+                "user_id": item.get("user_id"),
+                "username": item.get("username"),
+                "phone": item.get("phone"),
+                "access_hash": item.get("access_hash"),
+                "first_name": item.get("first_name"),
+                "last_name": item.get("last_name"),
+                "last_seen": item.get("last_seen"),
+                "status": item.get("status"),
+                "source": item.get("source"),
+                "is_bot": bool(item.get("is_bot", False)),
+            }
+            imported.append(StoredUser(**payload))
+        self.add_users(imported)
+
+    def export_to_file(self, file_path: Path) -> None:
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with file_path.open("w", encoding="utf-8") as fp:
+            json.dump([user.to_dict() for user in self._users.values()], fp, indent=2, ensure_ascii=False)
 
     @staticmethod
     def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
