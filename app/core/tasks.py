@@ -53,8 +53,13 @@ class SessionTask:
         if self._cancel_event.is_set():
             raise TaskCancelled()
 
-    def build_progress(self, total: int, user: Optional[StoredUser] = None, status: Optional[str] = None) -> ProgressUpdate:
-        self._total = total
+    def build_progress(
+        self, total: int, user: Optional[StoredUser] = None, status: Optional[str] = None
+    ) -> ProgressUpdate:
+        if total:
+            self._total = total
+        elif not self._total:
+            self._total = max(self._processed, 1)
         self._processed += 1
         return ProgressUpdate(
             session_name=self.session_name,
@@ -82,6 +87,7 @@ class SessionTask:
         total = limit or 0
         processed = 0
         iterator = self.client.iter_participants(entity, limit=limit)
+        seen_ids: set[int] = set()
         while True:
             await self._check_cancelled()
             try:
@@ -92,12 +98,17 @@ class SessionTask:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.scan_interval)
                 continue
+            if participant.id in seen_ids:
+                continue
             try:
                 user = await self.client.get_entity(participant.id)
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.scan_interval)
                 continue
+            if getattr(user, "bot", False):
+                continue
+            seen_ids.add(participant.id)
             last_seen = None
             if isinstance(user.status, types.UserStatusOffline):
                 was_online = user.status.was_online
@@ -112,8 +123,11 @@ class SessionTask:
             elif isinstance(user.status, types.UserStatusLastWeek):
                 last_seen = datetime.now(tz=timezone.utc) - timedelta(days=7)
 
-            if active_within and last_seen:
-                if last_seen < datetime.now(tz=timezone.utc) - active_within:
+            if active_within:
+                if not last_seen:
+                    continue
+                now_utc = datetime.now(tz=timezone.utc)
+                if last_seen < now_utc - active_within:
                     continue
 
             stored = StoredUser(
@@ -200,8 +214,10 @@ class SessionTask:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.scan_interval)
                 continue
-            if cutoff and message.date and message.date.replace(tzinfo=timezone.utc) < cutoff:
-                continue
+            if cutoff and message.date:
+                message_dt = message.date.replace(tzinfo=timezone.utc)
+                if message_dt < cutoff:
+                    break
             if not message.sender_id:
                 continue
             if message.sender_id in seen_users:

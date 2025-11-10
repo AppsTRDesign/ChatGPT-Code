@@ -308,10 +308,12 @@ class MainWindow(QMainWindow):
     def _build_user_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout()
-        self.user_table = QTableWidget(0, 5)
+        self.user_table = QTableWidget(0, 7)
         headers = [
             "ID",
             translator.translate("table.column.username"),
+            translator.translate("table.column.first_name"),
+            translator.translate("table.column.last_name"),
             translator.translate("table.column.phone"),
             translator.translate("table.column.last_seen"),
             translator.translate("table.column.status"),
@@ -564,13 +566,18 @@ class MainWindow(QMainWindow):
 
     def populate_user_table(self) -> None:
         users = self.user_storage.get_users()
+        self.user_table.setSortingEnabled(False)
+        self.user_table.clearContents()
         self.user_table.setRowCount(len(users))
         for row, user in enumerate(users):
             self.user_table.setItem(row, 0, QTableWidgetItem(str(user.user_id)))
             self.user_table.setItem(row, 1, QTableWidgetItem(user.username or ""))
-            self.user_table.setItem(row, 2, QTableWidgetItem(user.phone or ""))
-            self.user_table.setItem(row, 3, QTableWidgetItem(user.last_seen or ""))
-            self.user_table.setItem(row, 4, QTableWidgetItem(user.status or ""))
+            self.user_table.setItem(row, 2, QTableWidgetItem(user.first_name or ""))
+            self.user_table.setItem(row, 3, QTableWidgetItem(user.last_name or ""))
+            self.user_table.setItem(row, 4, QTableWidgetItem(user.phone or ""))
+            self.user_table.setItem(row, 5, QTableWidgetItem(user.last_seen or ""))
+            self.user_table.setItem(row, 6, QTableWidgetItem(user.status or ""))
+        self.user_table.setSortingEnabled(True)
 
     def export_users(self) -> None:
         default_path = self.settings.user_directory / "exported_users.json"
@@ -693,6 +700,8 @@ class MainWindow(QMainWindow):
         headers = [
             "ID",
             translator.translate("table.column.username"),
+            translator.translate("table.column.first_name"),
+            translator.translate("table.column.last_name"),
             translator.translate("table.column.phone"),
             translator.translate("table.column.last_seen"),
             translator.translate("table.column.status"),

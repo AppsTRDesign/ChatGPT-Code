@@ -77,7 +77,7 @@ class UserStorage:
             self.save()
 
     def get_users(self) -> List[StoredUser]:
-        return list(self._users.values())
+        return sorted(self._users.values(), key=lambda user: user.user_id)
 
     def import_from_file(self, file_path: Path) -> None:
         if not file_path.exists():
