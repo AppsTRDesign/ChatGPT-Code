@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 class PendingLogin:
     phone: str
     phone_code_hash: str
-    client: TelegramClient
 
 
 @dataclass
@@ -53,20 +52,22 @@ class SessionManager:
     async def start_login(self, session_name: str, phone: str) -> PendingLogin:
         async with self._lock:
             client = await self._create_client(session_name)
-            if await client.is_user_authorized():
+            try:
+                if await client.is_user_authorized():
+                    raise ValueError("log.login_success")
+                sent = await client.send_code_request(phone)
+                pending = PendingLogin(phone=phone, phone_code_hash=sent.phone_code_hash)
+                self._pending[session_name] = pending
+                return pending
+            finally:
                 await client.disconnect()
-                raise ValueError("log.login_success")
-            sent = await client.send_code_request(phone)
-            pending = PendingLogin(phone=phone, phone_code_hash=sent.phone_code_hash, client=client)
-            self._pending[session_name] = pending
-            return pending
 
     async def confirm_code(self, session_name: str, code: str, password: Optional[str] = None) -> None:
         async with self._lock:
             pending = self._pending.get(session_name)
             if not pending:
                 raise ValueError("No pending login")
-            client = pending.client
+            client = await self._create_client(session_name)
             try:
                 try:
                     await client.sign_in(phone=pending.phone, code=code, phone_code_hash=pending.phone_code_hash)
@@ -75,21 +76,18 @@ class SessionManager:
                         raise
                     await client.sign_in(password=password)
             except PasswordHashInvalidError as exc:
-                await client.disconnect()
                 raise ValueError("log.login_failure") from exc
             except Exception as exc:  # pragma: no cover - network errors
-                await client.disconnect()
                 raise
             else:
                 logger.info("log.login_success")
             finally:
                 self._pending.pop(session_name, None)
+                await client.disconnect()
 
     async def close_pending(self, session_name: str) -> None:
         async with self._lock:
-            pending = self._pending.pop(session_name, None)
-            if pending:
-                await pending.client.disconnect()
+            self._pending.pop(session_name, None)
 
     async def remove_session(self, session_name: str) -> None:
         session_path = self.settings.session_directory / f"{session_name}.session"

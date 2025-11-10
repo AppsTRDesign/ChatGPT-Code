@@ -52,6 +52,8 @@ class SessionWorkerThread(QThread):
     async def _run(self) -> None:
         try:
             client = await self.session_manager._create_client(self.request.session_name)
+            if not await client.is_user_authorized():
+                raise ValueError("log.session_not_authorized")
         except Exception as exc:  # pragma: no cover - network failure
             self.error.emit(self.request.session_name, str(exc))
             return

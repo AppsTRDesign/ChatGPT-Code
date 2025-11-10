@@ -372,6 +372,7 @@ class MainWindow(QMainWindow):
                 self.refresh_sessions()
 
         asyncio.run(run_confirm())
+        self.pending_login = None
 
     def handle_ban_check(self) -> None:
         sessions = self.get_selected_sessions(self.session_list)
