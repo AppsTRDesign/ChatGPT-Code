@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -106,4 +106,5 @@ class UserStorage:
     def serialize_datetime(dt: Optional[datetime]) -> Optional[str]:
         if dt is None:
             return None
-        return dt.isoformat()
+        aware = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        return aware.astimezone(timezone.utc).strftime("%d/%m/%Y %H:%M")
