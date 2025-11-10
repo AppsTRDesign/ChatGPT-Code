@@ -503,11 +503,11 @@ class TelethonManager:
         users: List[Dict[str, object]],
         update_cb,
         stop_event: asyncio.Event,
-    ) -> List[int]:
+    ) -> Dict[int, Dict[str, str]]:
         sessions_list = list(sessions)
         assignments = self._split_users(sessions_list, users)
         portions = self._portion_counts_sessions(sessions_list, len(users))
-        processed_ids: List[int] = []
+        processed_info: Dict[int, Dict[str, str]] = {}
         lock = asyncio.Lock()
 
         async def process(session: SessionInfo, expected: Optional[int]) -> None:
@@ -536,7 +536,7 @@ class TelethonManager:
                         processed += 1
                         update_cb(session, processed, total, "running", str(user["id"]))
                         async with lock:
-                            processed_ids.append(int(user["id"]))
+                            processed_info[int(user["id"])] = {"status": "added"}
                         index += 1
                     except FloodWaitError as exc:
                         update_cb(
@@ -551,7 +551,7 @@ class TelethonManager:
                     except errors.UserAlreadyParticipantError:
                         update_cb(session, processed, total, "running", "already")
                         async with lock:
-                            processed_ids.append(int(user["id"]))
+                            processed_info[int(user["id"])] = {"status": "already"}
                         index += 1
                     except errors.PeerFloodError as exc:
                         flood = self._flood_from_rpc(
@@ -571,7 +571,13 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
-                        update_cb(session, processed, total, "error", str(exc))
+                        message = str(exc)
+                        update_cb(session, processed, total, "error", message)
+                        async with lock:
+                            processed_info[int(user["id"])] = {
+                                "status": "error",
+                                "detail": message,
+                            }
                         index += 1
                     except errors.RPCError as exc:
                         flood = self._flood_from_rpc(
@@ -589,10 +595,22 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
-                        update_cb(session, processed, total, "error", str(exc))
+                        message = str(exc)
+                        update_cb(session, processed, total, "error", message)
+                        async with lock:
+                            processed_info[int(user["id"])] = {
+                                "status": "error",
+                                "detail": message,
+                            }
                         index += 1
                     except Exception as exc:
-                        update_cb(session, processed, total, "error", str(exc))
+                        message = str(exc)
+                        update_cb(session, processed, total, "error", message)
+                        async with lock:
+                            processed_info[int(user["id"])] = {
+                                "status": "error",
+                                "detail": message,
+                            }
                         index += 1
                     await asyncio.sleep(self.rate_limits.delay_between_actions)
                 if not stop_event.is_set():
@@ -606,7 +624,7 @@ class TelethonManager:
                 for session in sessions_list
             ]
         )
-        return processed_ids
+        return processed_info
 
     async def search_groups(
         self,
@@ -924,10 +942,12 @@ class TelethonManager:
         link_preview: bool,
         update_cb,
         stop_event: asyncio.Event,
-    ) -> None:
+    ) -> Dict[int, Dict[str, str]]:
         sessions_list = list(sessions)
         assignments = self._split_users(sessions_list, users)
         portions = self._portion_counts_sessions(sessions_list, len(users))
+        processed_info: Dict[int, Dict[str, str]] = {}
+        lock = asyncio.Lock()
 
         async def process(session: SessionInfo, expected: Optional[int]) -> None:
             processed = 0
@@ -972,6 +992,8 @@ class TelethonManager:
                             "running",
                             str(user.get("id")),
                         )
+                        async with lock:
+                            processed_info[int(user.get("id", 0))] = {"status": "sent"}
                     except FloodWaitError as exc:
                         update_cb(
                             session,
@@ -1001,7 +1023,13 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
-                        update_cb(session, processed, total, "error", str(exc))
+                        message = str(exc)
+                        update_cb(session, processed, total, "error", message)
+                        async with lock:
+                            processed_info[int(user.get("id", 0))] = {
+                                "status": "error",
+                                "detail": message,
+                            }
                     except errors.RPCError as exc:
                         flood = self._flood_from_rpc(
                             exc,
@@ -1018,9 +1046,21 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
-                        update_cb(session, processed, total, "error", str(exc))
+                        message = str(exc)
+                        update_cb(session, processed, total, "error", message)
+                        async with lock:
+                            processed_info[int(user.get("id", 0))] = {
+                                "status": "error",
+                                "detail": message,
+                            }
                     except Exception as exc:
-                        update_cb(session, processed, total, "error", str(exc))
+                        message = str(exc)
+                        update_cb(session, processed, total, "error", message)
+                        async with lock:
+                            processed_info[int(user.get("id", 0))] = {
+                                "status": "error",
+                                "detail": message,
+                            }
                     await asyncio.sleep(self.rate_limits.delay_between_messages)
                 if not stop_event.is_set():
                     update_cb(session, processed, total, "completed", "")
@@ -1033,6 +1073,7 @@ class TelethonManager:
                 for session in sessions_list
             ]
         )
+        return processed_info
 
     async def send_group_messages(
         self,
@@ -1043,10 +1084,19 @@ class TelethonManager:
         link_preview: bool,
         update_cb,
         stop_event: asyncio.Event,
-    ) -> None:
+    ) -> Dict[str, object]:
         sessions_list = list(sessions)
         assignments = self._split_users(sessions_list, groups)
         portions = self._portion_counts_sessions(sessions_list, len(groups))
+        results = {
+            "joined": set(),
+            "already": set(),
+            "join_failed": {},
+            "removed": set(),
+            "sent": set(),
+            "send_failed": {},
+        }
+        lock = asyncio.Lock()
 
         async def process(session: SessionInfo, expected: Optional[int]) -> None:
             processed = 0
@@ -1067,6 +1117,7 @@ class TelethonManager:
                     if not identifier:
                         continue
                     display_name = group.get("title") or str(identifier)
+                    source_key = self._group_key(group)
                     try:
                         entity, joined = await self._prepare_target(client, identifier)
                         joined_entities.append((group, entity))
@@ -1079,6 +1130,11 @@ class TelethonManager:
                             "joining",
                             f"{status_key}:{display_name}",
                         )
+                        async with lock:
+                            if joined:
+                                results["joined"].add(source_key)
+                            else:
+                                results["already"].add(source_key)
                     except FloodWaitError as exc:
                         update_cb(
                             session,
@@ -1089,6 +1145,7 @@ class TelethonManager:
                             FloodInfo(seconds=exc.seconds, message=str(exc)),
                         )
                         await asyncio.sleep(exc.seconds)
+                        continue
                     except errors.PeerFloodError as exc:
                         flood = self._flood_from_rpc(
                             exc,
@@ -1107,6 +1164,25 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
+                        async with lock:
+                            results["join_failed"][source_key] = str(exc)
+                        update_cb(
+                            session,
+                            join_progress,
+                            total,
+                            "error",
+                            f"{display_name}:{exc}",
+                        )
+                    except (
+                        errors.ChatAdminRequiredError,
+                        errors.InviteHashExpiredError,
+                        errors.InviteHashInvalidError,
+                        errors.ChannelPrivateError,
+                        RuntimeError,
+                    ) as exc:
+                        async with lock:
+                            results["join_failed"][source_key] = str(exc)
+                            results["removed"].add(source_key)
                         update_cb(
                             session,
                             join_progress,
@@ -1130,6 +1206,8 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
+                        async with lock:
+                            results["join_failed"][source_key] = str(exc)
                         update_cb(
                             session,
                             join_progress,
@@ -1138,6 +1216,9 @@ class TelethonManager:
                             f"{display_name}:{exc}",
                         )
                     except Exception as exc:
+                        async with lock:
+                            results["join_failed"][source_key] = str(exc)
+                            results["removed"].add(source_key)
                         update_cb(
                             session,
                             join_progress,
@@ -1162,6 +1243,7 @@ class TelethonManager:
                         or group.get("username")
                         or str(group.get("id"))
                     )
+                    source_key = self._group_key(group)
                     try:
                         if media_path:
                             await client.send_file(
@@ -1181,8 +1263,10 @@ class TelethonManager:
                             processed,
                             send_total,
                             "running",
-                            str(group.get("title", identifier)),
+                            display_name,
                         )
+                        async with lock:
+                            results["sent"].add(source_key)
                     except FloodWaitError as exc:
                         update_cb(
                             session,
@@ -1212,6 +1296,8 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
+                        async with lock:
+                            results["send_failed"][source_key] = str(exc)
                         update_cb(
                             session,
                             processed,
@@ -1235,6 +1321,8 @@ class TelethonManager:
                             )
                             await asyncio.sleep(flood.seconds)
                             continue
+                        async with lock:
+                            results["send_failed"][source_key] = str(exc)
                         update_cb(
                             session,
                             processed,
@@ -1243,6 +1331,8 @@ class TelethonManager:
                             f"{display_name}:{exc}",
                         )
                     except Exception as exc:
+                        async with lock:
+                            results["send_failed"][source_key] = str(exc)
                         update_cb(
                             session,
                             processed,
@@ -1262,6 +1352,15 @@ class TelethonManager:
                 for session in sessions_list
             ]
         )
+
+        return {
+            "joined": sorted(results["joined"]),
+            "already": sorted(results["already"]),
+            "join_failed": results["join_failed"],
+            "removed": sorted(results["removed"]),
+            "sent": sorted(results["sent"]),
+            "send_failed": results["send_failed"],
+        }
 
     def _within_timeframe(self, user: User, timeframe: timedelta) -> bool:
         status = user.status
@@ -1342,6 +1441,21 @@ class TelethonManager:
             assignments[session.phone].append(user)
             index += 1
         return assignments
+
+    @staticmethod
+    def _group_key(group: Dict[str, object]) -> str:
+        if "_source_key" in group:
+            return str(group["_source_key"])
+        identifier = group.get("id")
+        if identifier is not None:
+            return f"id:{identifier}"
+        username = group.get("username")
+        if username:
+            return f"username:{str(username).lower()}"
+        title = group.get("title")
+        if title:
+            return f"title:{str(title).lower()}"
+        return str(hash(tuple(sorted(group.items()))))
 
     def _flood_from_rpc(self, exc: Exception, default_wait: int = 60) -> Optional[FloodInfo]:
         if isinstance(exc, FloodWaitError):

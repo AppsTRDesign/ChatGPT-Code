@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -1943,6 +1943,7 @@ class AddTab(QWidget):
         self.current_task: Optional[asyncio.Task] = None
         self.progress_widgets: Dict[str, SessionProgressWidget] = {}
         self.users: List[Dict[str, object]] = []
+        self.users_data: List[Dict[str, object]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -2034,7 +2035,34 @@ class AddTab(QWidget):
         if not file_path.exists():
             QMessageBox.warning(self, self.translator.tr("app_title"), self.translator.tr("file_not_found"))
             return
-        self.users = json.loads(file_path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(file_path.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            QMessageBox.warning(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.localize_error(str(exc)),
+            )
+            return
+        if isinstance(data, dict):
+            candidates = data.get("users") or data.get("data") or []
+        elif isinstance(data, list):
+            candidates = data
+        else:
+            candidates = []
+        self.users_data = [u for u in candidates if isinstance(u, dict)]
+        self.users = [
+            u
+            for u in self.users_data
+            if str(u.get("add_status", "")).lower() not in {"added", "already"}
+        ]
+        if not self.users:
+            QMessageBox.information(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.tr("no_users_pending"),
+            )
+            return
         self.stop_event = asyncio.Event()
         self.progress_widgets.clear()
         while self.progress_layout.count():
@@ -2068,7 +2096,7 @@ class AddTab(QWidget):
                     widget.setFlood(self.translator.tr("flood_wait", seconds=flood.seconds))
 
         async def run_add() -> None:
-            processed_ids = await self.manager.add_members(
+            processed_map = await self.manager.add_members(
                 sessions=sessions,
                 target=target,
                 users=self.users,
@@ -2077,9 +2105,29 @@ class AddTab(QWidget):
             )
             self.info_label.setText(self.translator.tr("status_completed"))
             self.log.append(self.translator.tr("adding_done"))
-            remaining = [u for u in self.users if int(u.get("id", 0)) not in processed_ids]
-            file_path.write_text(json.dumps(remaining, indent=2), encoding="utf-8")
-            self.users = remaining
+            now_iso = datetime.now(self.manager.timezone).isoformat()
+            for entry in self.users_data:
+                try:
+                    uid = int(entry.get("id"))
+                except (TypeError, ValueError):
+                    continue
+                info = processed_map.get(uid)
+                if not info:
+                    continue
+                entry["add_status"] = info.get("status")
+                entry["add_updated_at"] = now_iso
+                detail = info.get("detail")
+                if detail:
+                    entry["add_detail"] = detail
+            self.users = [
+                u
+                for u in self.users_data
+                if str(u.get("add_status", "")).lower() not in {"added", "already"}
+            ]
+            file_path.write_text(
+                json.dumps(self.users_data, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
 
         self.current_task = self.loop.create_task(run_add())
 
@@ -2109,6 +2157,7 @@ class DirectMessageTab(QWidget):
         self.stop_event = asyncio.Event()
         self.current_task: Optional[asyncio.Task] = None
         self.progress_widgets: Dict[str, SessionProgressWidget] = {}
+        self.users_data: List[Dict[str, object]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -2231,12 +2280,31 @@ class DirectMessageTab(QWidget):
             )
             return
         try:
-            users = json.loads(users_path.read_text(encoding="utf-8"))
+            data = json.loads(users_path.read_text(encoding="utf-8"))
         except ValueError as exc:
             QMessageBox.warning(
                 self,
                 self.translator.tr("app_title"),
                 self.translator.localize_error(str(exc)),
+            )
+            return
+        if isinstance(data, dict):
+            candidates = data.get("users") or data.get("data") or []
+        elif isinstance(data, list):
+            candidates = data
+        else:
+            candidates = []
+        self.users_data = [u for u in candidates if isinstance(u, dict)]
+        pending_users = [
+            u
+            for u in self.users_data
+            if str(u.get("dm_status", "")).lower() != "sent"
+        ]
+        if not pending_users:
+            QMessageBox.information(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.tr("no_dm_pending"),
             )
             return
 
@@ -2291,9 +2359,9 @@ class DirectMessageTab(QWidget):
                     widget.setFlood(self.translator.tr("flood_wait", seconds=flood.seconds))
 
         async def run_send() -> None:
-            await self.manager.send_direct_messages(
+            processed_map = await self.manager.send_direct_messages(
                 sessions=sessions,
-                users=users,
+                users=pending_users,
                 message=message,
                 media_path=media_path,
                 link_preview=self.link_preview.isChecked(),
@@ -2301,6 +2369,24 @@ class DirectMessageTab(QWidget):
                 stop_event=self.stop_event,
             )
             self.info_label.setText(self.translator.tr("status_completed"))
+            now_iso = datetime.now(self.manager.timezone).isoformat()
+            for entry in self.users_data:
+                try:
+                    uid = int(entry.get("id"))
+                except (TypeError, ValueError):
+                    continue
+                info = processed_map.get(uid)
+                if not info:
+                    continue
+                entry["dm_status"] = info.get("status")
+                entry["dm_updated_at"] = now_iso
+                detail = info.get("detail")
+                if detail:
+                    entry["dm_detail"] = detail
+            users_path.write_text(
+                json.dumps(self.users_data, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
 
         self.current_task = self.loop.create_task(run_send())
 
@@ -2323,6 +2409,7 @@ class GroupBroadcastTab(QWidget):
         self.stop_event = asyncio.Event()
         self.current_task: Optional[asyncio.Task] = None
         self.progress_widgets: Dict[str, SessionProgressWidget] = {}
+        self.groups_data: List[Dict[str, object]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -2445,12 +2532,37 @@ class GroupBroadcastTab(QWidget):
             )
             return
         try:
-            groups = json.loads(groups_path.read_text(encoding="utf-8"))
+            data = json.loads(groups_path.read_text(encoding="utf-8"))
         except ValueError as exc:
             QMessageBox.warning(
                 self,
                 self.translator.tr("app_title"),
                 self.translator.localize_error(str(exc)),
+            )
+            return
+        if isinstance(data, dict):
+            candidates = data.get("groups") or data.get("data") or []
+        elif isinstance(data, list):
+            candidates = data
+        else:
+            candidates = []
+        self.groups_data = [g for g in candidates if isinstance(g, dict)]
+        pending_groups: List[Dict[str, object]] = []
+        key_map: Dict[str, Dict[str, object]] = {}
+        for entry in self.groups_data:
+            status = str(entry.get("broadcast_status", "")).lower()
+            if status == "sent":
+                continue
+            key = self.manager._group_key(entry)
+            key_map[key] = entry
+            clone = dict(entry)
+            clone["_source_key"] = key
+            pending_groups.append(clone)
+        if not pending_groups:
+            QMessageBox.information(
+                self,
+                self.translator.tr("app_title"),
+                self.translator.tr("no_groups_pending"),
             )
             return
 
@@ -2501,9 +2613,9 @@ class GroupBroadcastTab(QWidget):
                     widget.setFlood(self.translator.tr("flood_wait", seconds=flood.seconds))
 
         async def run_send() -> None:
-            await self.manager.send_group_messages(
+            result_map = await self.manager.send_group_messages(
                 sessions=sessions,
-                groups=groups,
+                groups=pending_groups,
                 message=message,
                 media_path=media_path,
                 link_preview=self.link_preview.isChecked(),
@@ -2511,6 +2623,51 @@ class GroupBroadcastTab(QWidget):
                 stop_event=self.stop_event,
             )
             self.info_label.setText(self.translator.tr("status_completed"))
+            now_iso = datetime.now(self.manager.timezone).isoformat()
+            removed = set(result_map.get("removed", []))
+            joined = set(result_map.get("joined", [])) | set(result_map.get("already", []))
+            join_failed = result_map.get("join_failed", {})
+            sent = set(result_map.get("sent", []))
+            send_failed = result_map.get("send_failed", {})
+            updated: List[Dict[str, object]] = []
+            for entry in self.groups_data:
+                key = self.manager._group_key(entry)
+                if key in removed:
+                    original = key_map.get(key, entry)
+                    name = (
+                        original.get("title")
+                        or original.get("username")
+                        or str(original.get("id"))
+                    )
+                    self.log.append(self.translator.tr("group_removed", name=name))
+                    continue
+                if key in joined:
+                    entry["join_status"] = "joined"
+                    entry["last_joined_at"] = now_iso
+                elif key in join_failed:
+                    entry["join_status"] = "failed"
+                    entry["last_joined_at"] = now_iso
+                    entry["join_error"] = join_failed[key]
+                if key in sent:
+                    entry["broadcast_status"] = "sent"
+                    entry["last_sent_at"] = now_iso
+                    original = key_map.get(key, entry)
+                    name = (
+                        original.get("title")
+                        or original.get("username")
+                        or str(original.get("id"))
+                    )
+                    self.log.append(self.translator.tr("group_marked_sent", name=name))
+                elif key in send_failed:
+                    entry["broadcast_status"] = "failed"
+                    entry["last_sent_at"] = now_iso
+                    entry["broadcast_error"] = send_failed[key]
+                updated.append(entry)
+            self.groups_data = updated
+            groups_path.write_text(
+                json.dumps(self.groups_data, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
 
         self.current_task = self.loop.create_task(run_send())
 

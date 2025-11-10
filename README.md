@@ -96,17 +96,19 @@ py -3.13 main.py
 
 ### Gruba Üye Ekle
 - `users/` klasöründen bir liste seçin, hedef grubu belirtin.
-- Başarılı eklenen ve zaten grupta olan kullanıcılar JSON’dan silinir.
+- Başarılı eklenen veya zaten grupta olduğu saptanan hesaplar JSON içinde `add_status` alanıyla işaretlenir ve tekrar işleme alınmaz.
 
 ### DM Gönder
 - `users/` dosyalarındaki üyeleri seçilen oturumlara eşit paylaştırarak DM gönderir.
 - Mesaj gövdesi, bağlantı ön izlemesi ve opsiyonel medya desteği vardır.
 - Her oturum için ilerleme çubuğu ve flood geri sayımı gösterilir; “Too many requests” uyarıları otomatik olarak beklemeye alınır.
+- Gönderilen kullanıcılar `dm_status` alanıyla “sent” olarak işaretlenir; böylece sonraki çalıştırmalarda yalnızca eksik veya hatalı kayıtlar yeniden gönderilir.
 
 ### Grup Mesajı
 - `groups/` dosyalarındaki gruplar oturumlara bölünür.
 - Mesaj göndermeden önce oturumlar gruplara katılır; katılma aşaması ve mesaj gönderme aşaması ayrı olarak takip edilir.
 - Flood beklemeleri sayaç olarak gösterilir; günlük panelinde oturum bazlı durumlar kaydedilir.
+- Katılım isteği reddedilen gruplar dosyadan otomatik silinir; başarıyla katılan gruplar `join_status`, mesaj gönderilenler ise `broadcast_status` alanlarıyla işaretlenir ve tekrar işleme alınmaz.
 
 ### Ayarlar
 - İşlem, oturum, DM, grup mesajı ve katılım isteği gecikmelerini düzenleyin.
