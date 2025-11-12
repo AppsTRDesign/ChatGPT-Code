@@ -7,6 +7,8 @@ tasarlandı ve hem Google Places API'yi hem de Selenium tabanlı bir bot tarayı
 - Türkçe ve İngilizce arayüz desteği
 - Google Places API Text Search ve Details uç noktaları ile veri çekme
 - Selenium + Google Chrome kullanarak canlı Google Haritalar üzerinden bot ile tarama
+- Bot taraması sırasında Google Haritalar üzerindeki işaretlere yapay bir fare imleciyle tıklama
+- Harita ekran görüntülerini canlı olarak gösteren önizleme paneli
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
 - API veya bot ile alınan verileri JSON ya da CSV formatında dışa aktarma
 - İnternet ve API hataları için kullanıcı dostu uyarılar
@@ -59,25 +61,24 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 ### API ile Tara
 
 1. "API Anahtarı" alanına Google Cloud'dan aldığınız anahtarı girin.
-2. "Arama Sorgusu" alanına aramak istediğiniz işletme türünü (ör. "kafe", "diş hekimi" vb.) yazın.
-3. Sonuçları belirli bir bölgeye daraltmak isterseniz "Konum" alanına şehir/bölge bilgisini ekleyin.
-4. Sağdaki açılır menüden arayüz dilini (Türkçe veya İngilizce) seçin. Dil seçimi aynı zamanda API'den dönen verilerin dilini de etkiler.
-5. "İşletme Sayısı" alanından kaç sonucun getirileceğini belirleyin (varsayılan 5).
-6. "Ara" butonuna tıklayın. Sonuçlar sol taraftaki listede görüntülenecektir.
-7. Listeden bir işletme seçtiğinizde, sağ tarafta işletmeye ait ayrıntılar (adres, telefon, çalışma saatleri ve müşteri yorumları) gösterilir.
-8. Sonuçları kaydetmek için "JSON Kaydet" veya "CSV Kaydet" butonlarından birine basın.
+2. "Arama Sorgusu" alanına aramak istediğiniz işletme türünü (ör. "kafe", "diş hekimi" vb.) yazın. Belirli bir bölge hedefliyorsanız şehir veya semt adını sorguya ekleyebilirsiniz (ör. "Ankara kuaför").
+3. Sağdaki açılır menüden arayüz dilini (Türkçe veya İngilizce) seçin. Dil seçimi aynı zamanda API'den dönen verilerin dilini de etkiler.
+4. "İşletme Sayısı" alanından kaç sonucun getirileceğini belirleyin (varsayılan 5).
+5. "Ara" butonuna tıklayın. Sonuçlar sol taraftaki listede görüntülenecektir.
+6. Listeden bir işletme seçtiğinizde, sağ tarafta işletmeye ait ayrıntılar (adres, telefon, çalışma saatleri ve müşteri yorumları) gösterilir.
+7. Sonuçları kaydetmek için "JSON Kaydet" veya "CSV Kaydet" butonlarından birine basın.
 
 ### Bot ile Tara
 
-1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi (ör. "İstanbul restoran") yazın.
-2. İsteğe bağlı olarak "Konum" alanına ek bir bölge veya şehir bilgisi girin. Sorgu, Google Haritalar arama çubuğunda birleştirilerek kullanılır.
-3. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
-4. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
-5. "Ara" butonuna bastığınızda Google Chrome açılır ve bot aramayı gerçek zamanlı olarak gerçekleştirir. Lütfen tarama sırasında tarayıcıyı kapatmayın.
-6. Bulunan işletmeler sol taraftaki listede, ayrıntıları ise sağ panelde görüntülenir.
+1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi yazın (örn. "İstanbul kuaför"). Konum bilgisini sorgu metnine eklemek yeterlidir.
+2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
+3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
+4. "Ara" butonuna bastığınızda Google Chrome hemen açılır; bot yapay bir fare imleciyle haritadaki işaretlere tek tek tıklayarak işletme kartlarını getirir. Tarama boyunca tarayıcı penceresini kapatmayın.
+5. Bot çalışırken harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak güncellenir.
+6. Bulunan işletmeler sol taraftaki listede, ayrıntıları ise alt panelde görüntülenir.
 7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
-> Bot sekmesinde Selenium taraması sırasında tarayıcı açık kalır. İşlem tamamlandıktan sonra otomatik olarak kapatılır.
+> Bot sekmesinde Selenium taraması sırasında tarayıcı açık kalır ve işlem tamamlandığında otomatik olarak kapatılır.
 
 > Hata mesajı aldığınızda ayrıntıları `google_maps_gui.log` dosyasında bulabilirsiniz.
 

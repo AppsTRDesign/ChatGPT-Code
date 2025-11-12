@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 import logging
 import threading
+import time
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import requests
 import tkinter as tk
@@ -20,6 +22,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
+
+from PIL import Image, ImageTk, UnidentifiedImageError
 
 
 logging.basicConfig(
@@ -164,58 +168,203 @@ class GoogleMapsSeleniumScraper:
         self.limit = limit
         self.max_reviews = max_reviews
 
-    def search(self, query: str, location: str = "") -> List[PlaceResult]:
-        LOGGER.info("Starting Selenium scrape for query='%s' location='%s'", query, location)
+    def search(
+        self,
+        query: str,
+        progress_callback: Optional[Callable[[bytes], None]] = None,
+    ) -> List[PlaceResult]:
+        LOGGER.info("Starting Selenium scrape for query='%s'", query)
         options = webdriver.ChromeOptions()
         options.add_argument("--start-maximized")
         options.add_argument("--disable-notifications")
         options.add_argument("--disable-infobars")
+        options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option("useAutomationExtension", False)
 
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
-        wait = WebDriverWait(driver, 30)
+        wait = WebDriverWait(driver, 45)
         results: List[PlaceResult] = []
-        composed_query = f"{query} {location}".strip() if location else query
+        seen_names: set[str] = set()
 
         try:
             driver.get(f"https://www.google.com/maps?hl={self.language}")
-            search_box = wait.until(EC.element_to_be_clickable((By.ID, "searchboxinput")))
-            search_box.clear()
-            search_box.send_keys(composed_query)
-            search_box.send_keys(Keys.ENTER)
-
-            wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[role="article"]')))
+            self._inject_fake_cursor(driver)
+            self._send_progress_screenshot(driver, progress_callback)
+            self._perform_search(driver, wait, query)
+            self._wait_for_result_list(driver, wait)
+            self._send_progress_screenshot(driver, progress_callback)
 
             for index in range(self.limit):
-                articles = driver.find_elements(By.CSS_SELECTOR, 'div[role="article"]')
-                if index >= len(articles):
-                    break
-                article = articles[index]
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", article)
-                wait.until(lambda drv: article.is_displayed())
                 try:
-                    article.click()
-                except WebDriverException:
-                    continue
-
-                try:
-                    wait.until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]'))
-                    )
+                    article = self._get_article_by_index(driver, wait, index)
                 except TimeoutException:
+                    LOGGER.warning("Timed out while waiting for result #%d", index + 1)
+                    break
+
+                name = self._extract_article_name(article)
+                if not name or name in seen_names:
+                    LOGGER.debug("Skipping duplicate or unnamed result at index %d", index)
                     continue
 
+                marker = self._find_map_marker(driver, name)
+                target = marker or article
+                self._animate_cursor_to_element(driver, target)
+                self._human_pause(0.45)
+                self._click_element(driver, target)
+
                 try:
-                    results.append(self._extract_details(driver, wait))
-                except WebDriverException as exc:
-                    LOGGER.exception("Failed to extract place details: %s", exc)
+                    self._wait_for_place_panel(wait)
+                except TimeoutException:
+                    LOGGER.warning("Details panel did not appear for '%s'", name)
                     continue
+
+                self._send_progress_screenshot(driver, progress_callback)
+
+                try:
+                    place = self._extract_details(driver, wait)
+                except WebDriverException as exc:
+                    LOGGER.exception("Failed to extract place details for '%s': %s", name, exc)
+                    continue
+
+                results.append(place)
+                seen_names.add(place.name)
+                self._human_pause(0.35)
+
         finally:
+            self._send_progress_screenshot(driver, progress_callback)
             driver.quit()
         LOGGER.info("Selenium scrape finished with %d results", len(results))
         return results
+
+    def _perform_search(self, driver: webdriver.Chrome, wait: WebDriverWait, query: str) -> None:
+        search_box = wait.until(EC.element_to_be_clickable((By.ID, "searchboxinput")))
+        search_box.clear()
+        search_box.send_keys(query)
+        search_box.send_keys(Keys.ENTER)
+
+    def _wait_for_result_list(self, driver: webdriver.Chrome, wait: WebDriverWait) -> None:
+        wait.until(
+            EC.any_of(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="article"]')),
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="feed"] div.Nv2PK')),
+            )
+        )
+        time.sleep(1.0)
+
+    def _get_article_by_index(
+        self, driver: webdriver.Chrome, wait: WebDriverWait, index: int
+    ):
+        wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[role="article"]')))
+        articles = driver.find_elements(By.CSS_SELECTOR, 'div[role="article"]')
+        if index >= len(articles):
+            raise TimeoutException("Not enough search results")
+        article = articles[index]
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", article)
+        wait.until(lambda drv: article.is_displayed())
+        return article
+
+    def _extract_article_name(self, article) -> str:
+        try:
+            heading = article.find_element(By.CSS_SELECTOR, '[role="heading"]')
+            name = heading.text.strip()
+            if name:
+                return name
+        except NoSuchElementException:
+            pass
+        text = article.text.strip()
+        return text.split("\n")[0] if text else ""
+
+    def _find_map_marker(self, driver: webdriver.Chrome, name: str):
+        normalized = self._normalize_text(name)
+        if not normalized:
+            return None
+        selectors = [
+            'button[jsaction*="pane.wfvdle"]',
+            'div[jsaction*="pane.wfvdle"]',
+        ]
+        for selector in selectors:
+            for marker in driver.find_elements(By.CSS_SELECTOR, selector):
+                label = self._normalize_text(marker.get_attribute("aria-label") or "")
+                if not label or "konum" in label:
+                    continue
+                if normalized in label:
+                    return marker
+        return None
+
+    def _animate_cursor_to_element(self, driver: webdriver.Chrome, element) -> None:
+        self._inject_fake_cursor(driver)
+        driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'});",
+            element,
+        )
+        driver.execute_script(
+            """
+            const rect = arguments[0].getBoundingClientRect();
+            const cursor = document.getElementById('bot-fake-cursor');
+            if (!cursor) return;
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            cursor.style.transition = 'transform 0.35s ease-out';
+            cursor.style.transform = `translate(${x}px, ${y}px)`;
+            """,
+            element,
+        )
+
+    def _click_element(self, driver: webdriver.Chrome, element) -> None:
+        try:
+            element.click()
+        except WebDriverException:
+            driver.execute_script("arguments[0].click();", element)
+
+    def _wait_for_place_panel(self, wait: WebDriverWait) -> None:
+        wait.until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]'))
+        )
+
+    def _send_progress_screenshot(
+        self, driver: webdriver.Chrome, callback: Optional[Callable[[bytes], None]]
+    ) -> None:
+        if not callback:
+            return
+        try:
+            png = driver.get_screenshot_as_png()
+        except WebDriverException:
+            return
+        callback(png)
+
+    def _human_pause(self, delay: float) -> None:
+        time.sleep(delay)
+
+    def _normalize_text(self, value: str) -> str:
+        return " ".join(value.lower().split())
+
+    def _inject_fake_cursor(self, driver: webdriver.Chrome) -> None:
+        driver.execute_script(
+            """
+            if (document.getElementById('bot-fake-cursor')) return;
+            const cursor = document.createElement('div');
+            cursor.id = 'bot-fake-cursor';
+            cursor.style.position = 'fixed';
+            cursor.style.width = '26px';
+            cursor.style.height = '26px';
+            cursor.style.borderRadius = '50%';
+            cursor.style.background = 'rgba(0, 123, 255, 0.9)';
+            cursor.style.boxShadow = '0 0 12px rgba(0,0,0,0.35)';
+            cursor.style.zIndex = '2147483647';
+            cursor.style.pointerEvents = 'none';
+            cursor.style.transform = 'translate(-9999px, -9999px)';
+            cursor.style.display = 'flex';
+            cursor.style.alignItems = 'center';
+            cursor.style.justifyContent = 'center';
+            cursor.style.color = '#fff';
+            cursor.style.fontSize = '12px';
+            cursor.style.fontWeight = 'bold';
+            cursor.textContent = '●';
+            document.body.appendChild(cursor);
+        """
+        )
 
     def _extract_details(self, driver: webdriver.Chrome, wait: WebDriverWait) -> PlaceResult:
         def get_text(by: tuple[str, str]) -> str:
@@ -359,8 +508,6 @@ TRANSLATIONS = {
         "tab_bot": "Bot ile Tara",
         "api_key": "API Anahtarı",
         "query": "Arama Sorgusu",
-        "location_hint": "(Şehir veya bölge ekleyebilirsiniz)",
-        "location": "Konum",
         "language": "Dil",
         "search": "Ara",
         "results": "Sonuçlar",
@@ -392,6 +539,9 @@ TRANSLATIONS = {
         "result_limit": "İşletme Sayısı",
         "error_check_logs": "Detaylı bilgi için google_maps_gui.log dosyasını kontrol edin.",
         "error_unknown": "Bilinmeyen bir hata oluştu.",
+        "map_preview": "Harita Önizleme",
+        "map_preview_placeholder": "Ekran görüntüsü tarama sırasında burada görünecek.",
+        "address": "Adres",
     },
     "en": {
         "app_title": "Google Maps Business Tool",
@@ -399,8 +549,6 @@ TRANSLATIONS = {
         "tab_bot": "Scan with Bot",
         "api_key": "API Key",
         "query": "Search Query",
-        "location_hint": "(You may add a city or region)",
-        "location": "Location",
         "language": "Language",
         "search": "Search",
         "results": "Results",
@@ -432,6 +580,9 @@ TRANSLATIONS = {
         "result_limit": "Business Count",
         "error_check_logs": "Check google_maps_gui.log for full details.",
         "error_unknown": "An unknown error occurred.",
+        "map_preview": "Map Preview",
+        "map_preview_placeholder": "Screenshots from the bot will appear here while it runs.",
+        "address": "Address",
     },
 }
 
@@ -445,6 +596,7 @@ class Application(tk.Tk):
 
         self._api_results: List[PlaceResult] = []
         self._bot_results: List[PlaceResult] = []
+        self._bot_map_photo: Optional[ImageTk.PhotoImage] = None
 
         self._create_widgets()
         self._layout_widgets()
@@ -461,10 +613,6 @@ class Application(tk.Tk):
 
         self.api_query_label = ttk.Label(self.api_tab, text="")
         self.api_query_entry = ttk.Entry(self.api_tab)
-
-        self.api_location_label = ttk.Label(self.api_tab, text="")
-        self.api_location_entry = ttk.Entry(self.api_tab)
-        self.api_location_hint_label = ttk.Label(self.api_tab, text="", foreground="gray")
 
         self.language_label = ttk.Label(self.api_tab, text="")
         self.language_combo = ttk.Combobox(
@@ -521,10 +669,6 @@ class Application(tk.Tk):
         self.bot_query_label = ttk.Label(self.bot_tab, text="")
         self.bot_query_entry = ttk.Entry(self.bot_tab)
 
-        self.bot_location_label = ttk.Label(self.bot_tab, text="")
-        self.bot_location_entry = ttk.Entry(self.bot_tab)
-        self.bot_location_hint_label = ttk.Label(self.bot_tab, text="", foreground="gray")
-
         self.bot_language_label = ttk.Label(self.bot_tab, text="")
         self.bot_language_combo = ttk.Combobox(
             self.bot_tab,
@@ -567,6 +711,18 @@ class Application(tk.Tk):
         )
         self.bot_details_text.configure(yscrollcommand=self.bot_details_scroll.set)
 
+        self.bot_map_label = ttk.Label(self.bot_tab, text="")
+        self.bot_map_canvas = ttk.Label(
+            self.bot_tab,
+            text="",
+            anchor=tk.CENTER,
+            relief=tk.SUNKEN,
+            borderwidth=1,
+            width=40,
+            padding=5,
+            wraplength=260,
+        )
+
         self.bot_save_json_button = ttk.Button(
             self.bot_tab, text="", command=lambda: self._save_results(self._bot_results, "json")
         )
@@ -585,7 +741,7 @@ class Application(tk.Tk):
         self.api_tab.columnconfigure(2, weight=1)
         self.api_tab.columnconfigure(3, weight=1)
         self.api_tab.columnconfigure(4, weight=0)
-        self.api_tab.rowconfigure(5, weight=1)
+        self.api_tab.rowconfigure(4, weight=1)
 
         self.api_key_label.grid(row=0, column=0, sticky=tk.W, **api_padding)
         self.api_key_entry.grid(row=0, column=1, columnspan=3, sticky=tk.EW, **api_padding)
@@ -593,55 +749,52 @@ class Application(tk.Tk):
         self.api_query_label.grid(row=1, column=0, sticky=tk.W, **api_padding)
         self.api_query_entry.grid(row=1, column=1, columnspan=3, sticky=tk.EW, **api_padding)
 
-        self.api_location_label.grid(row=2, column=0, sticky=tk.W, **api_padding)
-        self.api_location_entry.grid(row=2, column=1, sticky=tk.EW, **api_padding)
-        self.api_location_hint_label.grid(row=2, column=2, sticky=tk.W, **api_padding)
+        self.language_label.grid(row=2, column=0, sticky=tk.W, **api_padding)
+        self.language_combo.grid(row=2, column=1, sticky=tk.W, **api_padding)
+        self.api_limit_label.grid(row=2, column=2, sticky=tk.W, **api_padding)
+        self.api_limit_spin.grid(row=2, column=3, sticky=tk.W, **api_padding)
+        self.api_search_button.grid(row=2, column=4, sticky=tk.E, **api_padding)
 
-        self.language_label.grid(row=3, column=0, sticky=tk.W, **api_padding)
-        self.language_combo.grid(row=3, column=1, sticky=tk.W, **api_padding)
-        self.api_limit_label.grid(row=3, column=2, sticky=tk.W, **api_padding)
-        self.api_limit_spin.grid(row=3, column=3, sticky=tk.W, **api_padding)
-        self.api_search_button.grid(row=3, column=4, sticky=tk.E, **api_padding)
+        self.api_results_label.grid(row=3, column=0, sticky=tk.W, **api_padding)
+        self.api_results_tree.grid(row=4, column=0, columnspan=3, sticky=tk.NSEW, padx=(10, 0), pady=5)
+        self.api_details_label.grid(row=3, column=3, sticky=tk.W, **api_padding)
+        self.api_details_text.grid(row=4, column=3, sticky=tk.NSEW, padx=(0, 10), pady=5)
+        self.api_details_scroll.grid(row=4, column=4, sticky=tk.NS, pady=5)
 
-        self.api_results_label.grid(row=4, column=0, sticky=tk.W, **api_padding)
-        self.api_results_tree.grid(row=5, column=0, columnspan=3, sticky=tk.NSEW, padx=(10, 0), pady=5)
-        self.api_details_label.grid(row=4, column=3, sticky=tk.W, **api_padding)
-        self.api_details_text.grid(row=5, column=3, sticky=tk.NSEW, padx=(0, 10), pady=5)
-        self.api_details_scroll.grid(row=5, column=4, sticky=tk.NS, pady=5)
-
-        self.api_save_json_button.grid(row=6, column=0, sticky=tk.W, **api_padding)
-        self.api_save_csv_button.grid(row=6, column=1, sticky=tk.W, **api_padding)
-        self.api_status_label.grid(row=6, column=3, columnspan=2, sticky=tk.E, **api_padding)
+        self.api_save_json_button.grid(row=5, column=0, sticky=tk.W, **api_padding)
+        self.api_save_csv_button.grid(row=5, column=1, sticky=tk.W, **api_padding)
+        self.api_status_label.grid(row=5, column=3, columnspan=2, sticky=tk.E, **api_padding)
 
         bot_padding = {"padx": 10, "pady": 5}
+        self.bot_tab.columnconfigure(0, weight=0)
         self.bot_tab.columnconfigure(1, weight=1)
-        self.bot_tab.columnconfigure(2, weight=1)
-        self.bot_tab.columnconfigure(3, weight=1)
-        self.bot_tab.columnconfigure(4, weight=0)
+        self.bot_tab.columnconfigure(2, weight=0)
+        self.bot_tab.columnconfigure(3, weight=0)
+        self.bot_tab.columnconfigure(4, weight=1)
+        self.bot_tab.rowconfigure(3, weight=1)
         self.bot_tab.rowconfigure(5, weight=1)
 
         self.bot_query_label.grid(row=0, column=0, sticky=tk.W, **bot_padding)
-        self.bot_query_entry.grid(row=0, column=1, columnspan=3, sticky=tk.EW, **bot_padding)
+        self.bot_query_entry.grid(row=0, column=1, columnspan=2, sticky=tk.EW, **bot_padding)
+        self.bot_search_button.grid(row=0, column=3, sticky=tk.E, **bot_padding)
+        self.bot_map_label.grid(row=0, column=4, sticky=tk.W, **bot_padding)
 
-        self.bot_location_label.grid(row=1, column=0, sticky=tk.W, **bot_padding)
-        self.bot_location_entry.grid(row=1, column=1, sticky=tk.EW, **bot_padding)
-        self.bot_location_hint_label.grid(row=1, column=2, sticky=tk.W, **bot_padding)
+        self.bot_language_label.grid(row=1, column=0, sticky=tk.W, **bot_padding)
+        self.bot_language_combo.grid(row=1, column=1, sticky=tk.W, **bot_padding)
+        self.bot_limit_label.grid(row=1, column=2, sticky=tk.W, **bot_padding)
+        self.bot_limit_spin.grid(row=1, column=3, sticky=tk.W, **bot_padding)
+        self.bot_map_canvas.grid(row=1, column=4, rowspan=3, sticky=tk.NSEW, padx=(0, 10), pady=5)
 
-        self.bot_language_label.grid(row=2, column=0, sticky=tk.W, **bot_padding)
-        self.bot_language_combo.grid(row=2, column=1, sticky=tk.W, **bot_padding)
-        self.bot_limit_label.grid(row=2, column=2, sticky=tk.W, **bot_padding)
-        self.bot_limit_spin.grid(row=2, column=3, sticky=tk.W, **bot_padding)
-        self.bot_search_button.grid(row=2, column=4, sticky=tk.E, **bot_padding)
+        self.bot_results_label.grid(row=2, column=0, sticky=tk.W, **bot_padding)
+        self.bot_results_tree.grid(row=3, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
 
-        self.bot_results_label.grid(row=3, column=0, sticky=tk.W, **bot_padding)
-        self.bot_results_tree.grid(row=4, column=0, columnspan=3, sticky=tk.NSEW, padx=(10, 0), pady=5)
-        self.bot_details_label.grid(row=3, column=3, sticky=tk.W, **bot_padding)
-        self.bot_details_text.grid(row=4, column=3, sticky=tk.NSEW, padx=(0, 10), pady=5)
-        self.bot_details_scroll.grid(row=4, column=4, sticky=tk.NS, pady=5)
+        self.bot_details_label.grid(row=4, column=0, sticky=tk.W, **bot_padding)
+        self.bot_details_text.grid(row=5, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
+        self.bot_details_scroll.grid(row=5, column=4, sticky=tk.NS, pady=5)
 
-        self.bot_save_json_button.grid(row=5, column=0, sticky=tk.W, **bot_padding)
-        self.bot_save_csv_button.grid(row=5, column=1, sticky=tk.W, **bot_padding)
-        self.bot_status_label.grid(row=5, column=3, columnspan=2, sticky=tk.E, **bot_padding)
+        self.bot_save_json_button.grid(row=6, column=0, sticky=tk.W, **bot_padding)
+        self.bot_save_csv_button.grid(row=6, column=1, sticky=tk.W, **bot_padding)
+        self.bot_status_label.grid(row=6, column=3, columnspan=2, sticky=tk.E, **bot_padding)
 
     def _bind_events(self) -> None:
         self.language_combo.bind("<<ComboboxSelected>>", lambda _: self._update_translations())
@@ -651,7 +804,6 @@ class Application(tk.Tk):
     def _on_api_search(self) -> None:
         api_key = self.api_key_entry.get().strip()
         query = self.api_query_entry.get().strip()
-        location = self.api_location_entry.get().strip()
         if not api_key:
             messagebox.showerror(self._("error_title"), self._("error_missing_key"))
             return
@@ -660,7 +812,6 @@ class Application(tk.Tk):
             return
 
         language = self.selected_language.get()
-        search_query = f"{query} {location}".strip() if location else query
         try:
             limit = int(self.api_limit_spin.get())
         except (ValueError, tk.TclError):
@@ -673,7 +824,7 @@ class Application(tk.Tk):
         def worker() -> None:
             try:
                 client = GoogleMapsClient(api_key)
-                results = client.search_places(search_query, language=language, limit=limit)
+                results = client.search_places(query, language=language, limit=limit)
             except requests.RequestException as exc:
                 LOGGER.exception("HTTP error while calling Places API: %s", exc)
                 self._handle_api_error(str(exc))
@@ -689,7 +840,6 @@ class Application(tk.Tk):
 
     def _on_bot_search(self) -> None:
         query = self.bot_query_entry.get().strip()
-        location = self.bot_location_entry.get().strip()
         if not query:
             messagebox.showerror(self._("error_title"), self._("error_missing_query"))
             return
@@ -703,11 +853,12 @@ class Application(tk.Tk):
         self._set_spin_value(self.bot_limit_spin, str(limit))
         self.bot_status_var.set(self._("status_scraping"))
         self.bot_search_button.config(state=tk.DISABLED)
+        self._set_bot_map_placeholder()
 
         def worker() -> None:
             try:
                 scraper = GoogleMapsSeleniumScraper(language=language, limit=limit)
-                results = scraper.search(query, location)
+                results = scraper.search(query, progress_callback=self._queue_bot_map_update)
             except WebDriverException as exc:
                 LOGGER.exception("Selenium WebDriver error: %s", exc)
                 self._handle_bot_error(str(exc))
@@ -814,6 +965,26 @@ class Application(tk.Tk):
         self.bot_details_text.delete("1.0", tk.END)
         self.bot_details_text.config(state=tk.DISABLED)
 
+    def _queue_bot_map_update(self, image_bytes: bytes) -> None:
+        self.after(0, lambda: self._update_bot_map_image(image_bytes))
+
+    def _update_bot_map_image(self, image_bytes: bytes) -> None:
+        if not image_bytes:
+            self._set_bot_map_placeholder()
+            return
+        try:
+            screenshot = Image.open(io.BytesIO(image_bytes))
+        except (UnidentifiedImageError, OSError):
+            self._set_bot_map_placeholder()
+            return
+        screenshot.thumbnail((520, 360))
+        self._bot_map_photo = ImageTk.PhotoImage(screenshot)
+        self.bot_map_canvas.configure(image=self._bot_map_photo, text="")
+
+    def _set_bot_map_placeholder(self) -> None:
+        self._bot_map_photo = None
+        self.bot_map_canvas.configure(image="", text=self._("map_preview_placeholder"))
+
     def _on_select_api_result(self) -> None:
         selection = self.api_results_tree.selection()
         if not selection:
@@ -848,7 +1019,7 @@ class Application(tk.Tk):
         ]
         if result.user_ratings_total is not None:
             lines.append(f"{self._('ratings_total')}: {result.user_ratings_total}")
-        lines.append(f"{self._('location')}: {result.formatted_address or '-'}")
+        lines.append(f"{self._('address')}: {result.formatted_address or '-'}")
         lines.append("")
         lines.append(f"{self._('opening_hours')}:")
         if result.opening_hours:
@@ -928,8 +1099,6 @@ class Application(tk.Tk):
 
         self.api_key_label.config(text=self._("api_key"))
         self.api_query_label.config(text=self._("query"))
-        self.api_location_label.config(text=self._("location"))
-        self.api_location_hint_label.config(text=self._("location_hint"))
         self.language_label.config(text=self._("language"))
         self.api_search_button.config(text=self._("search"))
         self.api_limit_label.config(text=self._("result_limit"))
@@ -942,13 +1111,14 @@ class Application(tk.Tk):
         self.api_save_csv_button.config(text=self._("save_csv"))
 
         self.bot_query_label.config(text=self._("query"))
-        self.bot_location_label.config(text=self._("location"))
-        self.bot_location_hint_label.config(text=self._("location_hint"))
         self.bot_language_label.config(text=self._("language"))
         self.bot_search_button.config(text=self._("search"))
         self.bot_limit_label.config(text=self._("result_limit"))
         self.bot_results_label.config(text=self._("results"))
         self.bot_details_label.config(text=self._("details"))
+        self.bot_map_label.config(text=self._("map_preview"))
+        if self._bot_map_photo is None:
+            self._set_bot_map_placeholder()
         self.bot_results_tree.heading("name", text=self._("column_name"))
         self.bot_results_tree.heading("phone", text=self._("column_phone"))
         self.bot_results_tree.heading("rating", text=self._("column_rating"))
