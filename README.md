@@ -10,6 +10,8 @@ tasarlandı ve hem Google Places API'yi hem de Selenium tabanlı bir bot tarayı
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
 - API veya bot ile alınan verileri JSON ya da CSV formatında dışa aktarma
 - İnternet ve API hataları için kullanıcı dostu uyarılar
+- Her iki sekmede de taranacak işletme sayısını belirleyebilme
+- Olası hataları `google_maps_gui.log` dosyasına kaydetme
 
 ## Gereksinimler
 
@@ -60,20 +62,24 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 2. "Arama Sorgusu" alanına aramak istediğiniz işletme türünü (ör. "kafe", "diş hekimi" vb.) yazın.
 3. Sonuçları belirli bir bölgeye daraltmak isterseniz "Konum" alanına şehir/bölge bilgisini ekleyin.
 4. Sağdaki açılır menüden arayüz dilini (Türkçe veya İngilizce) seçin. Dil seçimi aynı zamanda API'den dönen verilerin dilini de etkiler.
-5. "Ara" butonuna tıklayın. Sonuçlar sol taraftaki listede görüntülenecektir.
-6. Listeden bir işletme seçtiğinizde, sağ tarafta işletmeye ait ayrıntılar (adres, telefon, çalışma saatleri ve müşteri yorumları) gösterilir.
-7. Sonuçları kaydetmek için "JSON Kaydet" veya "CSV Kaydet" butonlarından birine basın.
+5. "İşletme Sayısı" alanından kaç sonucun getirileceğini belirleyin (varsayılan 5).
+6. "Ara" butonuna tıklayın. Sonuçlar sol taraftaki listede görüntülenecektir.
+7. Listeden bir işletme seçtiğinizde, sağ tarafta işletmeye ait ayrıntılar (adres, telefon, çalışma saatleri ve müşteri yorumları) gösterilir.
+8. Sonuçları kaydetmek için "JSON Kaydet" veya "CSV Kaydet" butonlarından birine basın.
 
 ### Bot ile Tara
 
 1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi (ör. "İstanbul restoran") yazın.
 2. İsteğe bağlı olarak "Konum" alanına ek bir bölge veya şehir bilgisi girin. Sorgu, Google Haritalar arama çubuğunda birleştirilerek kullanılır.
 3. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
-4. "Ara" butonuna bastığınızda Google Chrome açılır ve bot aramayı gerçek zamanlı olarak gerçekleştirir. Lütfen tarama sırasında tarayıcıyı kapatmayın.
-5. Bulunan işletmeler sol taraftaki listede, ayrıntıları ise sağ panelde görüntülenir.
-6. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
+4. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
+5. "Ara" butonuna bastığınızda Google Chrome açılır ve bot aramayı gerçek zamanlı olarak gerçekleştirir. Lütfen tarama sırasında tarayıcıyı kapatmayın.
+6. Bulunan işletmeler sol taraftaki listede, ayrıntıları ise sağ panelde görüntülenir.
+7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
 > Bot sekmesinde Selenium taraması sırasında tarayıcı açık kalır. İşlem tamamlandıktan sonra otomatik olarak kapatılır.
+
+> Hata mesajı aldığınızda ayrıntıları `google_maps_gui.log` dosyasında bulabilirsiniz.
 
 ## Çıktı Biçimleri
 

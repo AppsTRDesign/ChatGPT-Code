@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
 import threading
 from dataclasses import asdict, dataclass
 from typing import Dict, List, Optional
@@ -19,6 +20,13 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
+
+
+logging.basicConfig(
+    filename="google_maps_gui.log",
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 
 
 @dataclass
@@ -145,6 +153,9 @@ class GoogleMapsClient:
         return data
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 class GoogleMapsSeleniumScraper:
     """Automates Google Maps searches via Selenium and extracts business details."""
 
@@ -154,6 +165,7 @@ class GoogleMapsSeleniumScraper:
         self.max_reviews = max_reviews
 
     def search(self, query: str, location: str = "") -> List[PlaceResult]:
+        LOGGER.info("Starting Selenium scrape for query='%s' location='%s'", query, location)
         options = webdriver.ChromeOptions()
         options.add_argument("--start-maximized")
         options.add_argument("--disable-notifications")
@@ -196,14 +208,16 @@ class GoogleMapsSeleniumScraper:
                     continue
 
                 try:
-                    results.append(self._extract_details(driver))
-                except WebDriverException:
+                    results.append(self._extract_details(driver, wait))
+                except WebDriverException as exc:
+                    LOGGER.exception("Failed to extract place details: %s", exc)
                     continue
         finally:
             driver.quit()
+        LOGGER.info("Selenium scrape finished with %d results", len(results))
         return results
 
-    def _extract_details(self, driver: webdriver.Chrome) -> PlaceResult:
+    def _extract_details(self, driver: webdriver.Chrome, wait: WebDriverWait) -> PlaceResult:
         def get_text(by: tuple[str, str]) -> str:
             try:
                 element = driver.find_element(*by)
@@ -375,6 +389,9 @@ TRANSLATIONS = {
         "error_no_results_to_save": "Kaydedilecek veri bulunamadı.",
         "status_scraping": "Tarama yapılıyor...",
         "info_title": "Bilgi",
+        "result_limit": "İşletme Sayısı",
+        "error_check_logs": "Detaylı bilgi için google_maps_gui.log dosyasını kontrol edin.",
+        "error_unknown": "Bilinmeyen bir hata oluştu.",
     },
     "en": {
         "app_title": "Google Maps Business Tool",
@@ -412,6 +429,9 @@ TRANSLATIONS = {
         "error_no_results_to_save": "No data available to save.",
         "status_scraping": "Scraping...",
         "info_title": "Info",
+        "result_limit": "Business Count",
+        "error_check_logs": "Check google_maps_gui.log for full details.",
+        "error_unknown": "An unknown error occurred.",
     },
 }
 
@@ -453,6 +473,15 @@ class Application(tk.Tk):
             values=["tr", "en"],
             state="readonly",
         )
+
+        self.api_limit_label = ttk.Label(self.api_tab, text="")
+        self.api_limit_spin = ttk.Spinbox(
+            self.api_tab,
+            from_=1,
+            to=20,
+            width=5,
+        )
+        self._set_spin_value(self.api_limit_spin, "5")
 
         self.api_search_button = ttk.Button(self.api_tab, text="", command=self._on_api_search)
 
@@ -504,6 +533,15 @@ class Application(tk.Tk):
         )
         self.bot_language_combo.set("tr")
 
+        self.bot_limit_label = ttk.Label(self.bot_tab, text="")
+        self.bot_limit_spin = ttk.Spinbox(
+            self.bot_tab,
+            from_=1,
+            to=20,
+            width=5,
+        )
+        self._set_spin_value(self.bot_limit_spin, "5")
+
         self.bot_search_button = ttk.Button(self.bot_tab, text="", command=self._on_bot_search)
         self.bot_status_var = tk.StringVar(value=self._("status_ready"))
         self.bot_status_label = ttk.Label(self.bot_tab, textvariable=self.bot_status_var)
@@ -546,6 +584,7 @@ class Application(tk.Tk):
         self.api_tab.columnconfigure(1, weight=1)
         self.api_tab.columnconfigure(2, weight=1)
         self.api_tab.columnconfigure(3, weight=1)
+        self.api_tab.columnconfigure(4, weight=0)
         self.api_tab.rowconfigure(5, weight=1)
 
         self.api_key_label.grid(row=0, column=0, sticky=tk.W, **api_padding)
@@ -560,7 +599,9 @@ class Application(tk.Tk):
 
         self.language_label.grid(row=3, column=0, sticky=tk.W, **api_padding)
         self.language_combo.grid(row=3, column=1, sticky=tk.W, **api_padding)
-        self.api_search_button.grid(row=3, column=3, sticky=tk.E, **api_padding)
+        self.api_limit_label.grid(row=3, column=2, sticky=tk.W, **api_padding)
+        self.api_limit_spin.grid(row=3, column=3, sticky=tk.W, **api_padding)
+        self.api_search_button.grid(row=3, column=4, sticky=tk.E, **api_padding)
 
         self.api_results_label.grid(row=4, column=0, sticky=tk.W, **api_padding)
         self.api_results_tree.grid(row=5, column=0, columnspan=3, sticky=tk.NSEW, padx=(10, 0), pady=5)
@@ -576,6 +617,7 @@ class Application(tk.Tk):
         self.bot_tab.columnconfigure(1, weight=1)
         self.bot_tab.columnconfigure(2, weight=1)
         self.bot_tab.columnconfigure(3, weight=1)
+        self.bot_tab.columnconfigure(4, weight=0)
         self.bot_tab.rowconfigure(5, weight=1)
 
         self.bot_query_label.grid(row=0, column=0, sticky=tk.W, **bot_padding)
@@ -587,7 +629,9 @@ class Application(tk.Tk):
 
         self.bot_language_label.grid(row=2, column=0, sticky=tk.W, **bot_padding)
         self.bot_language_combo.grid(row=2, column=1, sticky=tk.W, **bot_padding)
-        self.bot_search_button.grid(row=2, column=3, sticky=tk.E, **bot_padding)
+        self.bot_limit_label.grid(row=2, column=2, sticky=tk.W, **bot_padding)
+        self.bot_limit_spin.grid(row=2, column=3, sticky=tk.W, **bot_padding)
+        self.bot_search_button.grid(row=2, column=4, sticky=tk.E, **bot_padding)
 
         self.bot_results_label.grid(row=3, column=0, sticky=tk.W, **bot_padding)
         self.bot_results_tree.grid(row=4, column=0, columnspan=3, sticky=tk.NSEW, padx=(10, 0), pady=5)
@@ -617,19 +661,28 @@ class Application(tk.Tk):
 
         language = self.selected_language.get()
         search_query = f"{query} {location}".strip() if location else query
+        try:
+            limit = int(self.api_limit_spin.get())
+        except (ValueError, tk.TclError):
+            limit = 5
+        limit = max(1, min(limit, 20))
+        self._set_spin_value(self.api_limit_spin, str(limit))
         self.api_status_var.set(self._("status_searching"))
         self.api_search_button.config(state=tk.DISABLED)
 
         def worker() -> None:
             try:
                 client = GoogleMapsClient(api_key)
-                results = client.search_places(search_query, language=language)
+                results = client.search_places(search_query, language=language, limit=limit)
             except requests.RequestException as exc:
+                LOGGER.exception("HTTP error while calling Places API: %s", exc)
                 self._handle_api_error(str(exc))
                 return
             except GoogleMapsError as exc:
+                LOGGER.exception("Places API returned an error: %s", exc)
                 self._handle_api_error(str(exc))
                 return
+            LOGGER.info("Places API request completed with %d results", len(results))
             self.after(0, lambda: self._update_api_results(results))
 
         threading.Thread(target=worker, daemon=True).start()
@@ -642,17 +695,25 @@ class Application(tk.Tk):
             return
 
         language = self.bot_language_combo.get() or "tr"
+        try:
+            limit = int(self.bot_limit_spin.get())
+        except (ValueError, tk.TclError):
+            limit = 5
+        limit = max(1, min(limit, 20))
+        self._set_spin_value(self.bot_limit_spin, str(limit))
         self.bot_status_var.set(self._("status_scraping"))
         self.bot_search_button.config(state=tk.DISABLED)
 
         def worker() -> None:
             try:
-                scraper = GoogleMapsSeleniumScraper(language=language)
+                scraper = GoogleMapsSeleniumScraper(language=language, limit=limit)
                 results = scraper.search(query, location)
             except WebDriverException as exc:
+                LOGGER.exception("Selenium WebDriver error: %s", exc)
                 self._handle_bot_error(str(exc))
                 return
             except Exception as exc:  # broad for Selenium edge cases
+                LOGGER.exception("Unexpected Selenium error: %s", exc)
                 self._handle_bot_error(str(exc))
                 return
             self.after(0, lambda: self._update_bot_results(results))
@@ -660,17 +721,29 @@ class Application(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def _handle_api_error(self, message: str) -> None:
+        LOGGER.error("API error surfaced to UI: %s", message or "(empty message)")
+
         def callback() -> None:
             self.api_status_var.set(self._("status_error"))
-            messagebox.showerror(self._("error_title"), message)
+            display_message = message or self._("error_unknown")
+            messagebox.showerror(
+                self._("error_title"),
+                f"{display_message}\n\n{self._('error_check_logs')}",
+            )
             self.api_search_button.config(state=tk.NORMAL)
 
         self.after(0, callback)
 
     def _handle_bot_error(self, message: str) -> None:
+        LOGGER.error("Bot error surfaced to UI: %s", message or "(empty message)")
+
         def callback() -> None:
             self.bot_status_var.set(self._("status_error"))
-            messagebox.showerror(self._("error_title"), message)
+            display_message = message or self._("error_unknown")
+            messagebox.showerror(
+                self._("error_title"),
+                f"{display_message}\n\n{self._('error_check_logs')}",
+            )
             self.bot_search_button.config(state=tk.NORMAL)
 
         self.after(0, callback)
@@ -805,6 +878,13 @@ class Application(tk.Tk):
         text_widget.insert(tk.END, "\n".join(lines))
         text_widget.config(state=tk.DISABLED)
 
+    def _set_spin_value(self, spinbox: ttk.Spinbox, value: str) -> None:
+        try:
+            spinbox.set(value)
+        except (AttributeError, tk.TclError):
+            spinbox.delete(0, tk.END)
+            spinbox.insert(0, value)
+
     def _save_results(self, results: List[PlaceResult], file_format: str) -> None:
         if not results:
             messagebox.showinfo(self._("info_title"), self._("error_no_results_to_save"))
@@ -852,6 +932,7 @@ class Application(tk.Tk):
         self.api_location_hint_label.config(text=self._("location_hint"))
         self.language_label.config(text=self._("language"))
         self.api_search_button.config(text=self._("search"))
+        self.api_limit_label.config(text=self._("result_limit"))
         self.api_results_label.config(text=self._("results"))
         self.api_details_label.config(text=self._("details"))
         self.api_results_tree.heading("name", text=self._("column_name"))
@@ -865,6 +946,7 @@ class Application(tk.Tk):
         self.bot_location_hint_label.config(text=self._("location_hint"))
         self.bot_language_label.config(text=self._("language"))
         self.bot_search_button.config(text=self._("search"))
+        self.bot_limit_label.config(text=self._("result_limit"))
         self.bot_results_label.config(text=self._("results"))
         self.bot_details_label.config(text=self._("details"))
         self.bot_results_tree.heading("name", text=self._("column_name"))
