@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 @dataclass
@@ -158,8 +158,55 @@ class UserStorage:
             parsed = parsed.replace(tzinfo=timezone.utc)
         return parsed
 
-    def _current_timezone(self) -> ZoneInfo:
+    def _current_timezone(self) -> tzinfo:
         try:
             return ZoneInfo(self.timezone_name)
+        except ZoneInfoNotFoundError:
+            fallback = _FALLBACK_TIMEZONES.get(self.timezone_name)
+            if fallback:
+                return fallback
+            try:
+                return ZoneInfo("UTC")
+            except ZoneInfoNotFoundError:
+                return timezone.utc
         except Exception:
-            return ZoneInfo("UTC")
+            return timezone.utc
+
+
+_FALLBACK_TIMEZONES: Dict[str, tzinfo] = {
+    "UTC": timezone.utc,
+    "Europe/Istanbul": timezone(timedelta(hours=3)),
+    "Europe/London": timezone.utc,
+    "Europe/Paris": timezone(timedelta(hours=1)),
+    "Europe/Berlin": timezone(timedelta(hours=1)),
+    "Europe/Moscow": timezone(timedelta(hours=3)),
+    "Europe/Madrid": timezone(timedelta(hours=1)),
+    "Europe/Rome": timezone(timedelta(hours=1)),
+    "Europe/Amsterdam": timezone(timedelta(hours=1)),
+    "Europe/Athens": timezone(timedelta(hours=2)),
+    "Europe/Zurich": timezone(timedelta(hours=1)),
+    "Europe/Vienna": timezone(timedelta(hours=1)),
+    "Europe/Warsaw": timezone(timedelta(hours=1)),
+    "Europe/Prague": timezone(timedelta(hours=1)),
+    "Europe/Stockholm": timezone(timedelta(hours=1)),
+    "Asia/Dubai": timezone(timedelta(hours=4)),
+    "Asia/Tehran": timezone(timedelta(hours=3, minutes=30)),
+    "Asia/Tokyo": timezone(timedelta(hours=9)),
+    "Asia/Shanghai": timezone(timedelta(hours=8)),
+    "Asia/Singapore": timezone(timedelta(hours=8)),
+    "Asia/Hong_Kong": timezone(timedelta(hours=8)),
+    "Asia/Kuala_Lumpur": timezone(timedelta(hours=8)),
+    "Asia/Seoul": timezone(timedelta(hours=9)),
+    "Asia/Jakarta": timezone(timedelta(hours=7)),
+    "Asia/Karachi": timezone(timedelta(hours=5)),
+    "Asia/Calcutta": timezone(timedelta(hours=5, minutes=30)),
+    "Asia/Bangkok": timezone(timedelta(hours=7)),
+    "America/New_York": timezone(-timedelta(hours=5)),
+    "America/Chicago": timezone(-timedelta(hours=6)),
+    "America/Los_Angeles": timezone(-timedelta(hours=8)),
+    "America/Sao_Paulo": timezone(-timedelta(hours=3)),
+    "America/Mexico_City": timezone(-timedelta(hours=6)),
+    "America/Toronto": timezone(-timedelta(hours=5)),
+    "Australia/Sydney": timezone(timedelta(hours=10)),
+    "Australia/Melbourne": timezone(timedelta(hours=10)),
+}

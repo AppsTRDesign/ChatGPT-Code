@@ -228,6 +228,8 @@ class SessionTask:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.scan_interval)
                 continue
+            if not isinstance(sender, types.User):
+                continue
             if getattr(sender, "bot", False):
                 continue
             seen_users.add(message.sender_id)

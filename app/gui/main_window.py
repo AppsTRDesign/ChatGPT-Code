@@ -516,7 +516,9 @@ class MainWindow(QMainWindow):
     def on_finished(self, widget: SessionProgressWidget, session_name: str) -> None:
         total = widget.state.total or widget.state.processed
         widget.update_state(widget.state.processed, total, status_key="label.completed")
-        self.worker_threads.pop(session_name, None)
+        thread = self.worker_threads.pop(session_name, None)
+        if thread:
+            thread.wait(1000)
 
     def on_status_update(self, widget: SessionProgressWidget, session_name: str, status_key: str) -> None:
         total = widget.state.total or widget.state.processed
@@ -526,7 +528,9 @@ class MainWindow(QMainWindow):
         total = widget.state.total or widget.state.processed
         widget.update_state(widget.state.processed, total, status_key="status.error")
         widget.append_user(message)
-        self.worker_threads.pop(session_name, None)
+        thread = self.worker_threads.pop(session_name, None)
+        if thread:
+            thread.wait(1000)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: D401
         self.stop_all_tasks()
