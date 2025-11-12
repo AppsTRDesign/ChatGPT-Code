@@ -175,16 +175,25 @@ class MainWindow(QMainWindow):
         self.scan_interval_value.setRange(1, 10000)
         self.scan_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
         self.scan_save_checkbox.setChecked(True)
+        self.scan_include_no_username_checkbox = QCheckBox(
+            translator.translate("checkbox.include_no_username")
+        )
         form_layout.addRow(translator.translate("label.target_group"), self.scan_target_input)
         form_layout.addRow(translator.translate("label.limit"), self.scan_limit_input)
         form_layout.addRow(translator.translate("label.interval"), self.scan_interval_combo)
         form_layout.addRow(translator.translate("label.interval"), self.scan_interval_value)
         form_layout.addRow(self.scan_save_checkbox)
+        form_layout.addRow(self.scan_include_no_username_checkbox)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.scan_start_button = QPushButton(translator.translate("button.start"))
         self.scan_start_button.clicked.connect(partial(self.start_task, task_type="scan"))
-        layout.addWidget(self.scan_start_button, 1, 1, 1, 2)
+        self.scan_cancel_button = QPushButton(translator.translate("button.cancel"))
+        self.scan_cancel_button.clicked.connect(partial(self.cancel_tasks, task_type="scan"))
+        control_layout = QHBoxLayout()
+        control_layout.addWidget(self.scan_start_button)
+        control_layout.addWidget(self.scan_cancel_button)
+        layout.addLayout(control_layout, 1, 1, 1, 2)
 
         self.scan_progress_container = QVBoxLayout()
         progress_group = QGroupBox(translator.translate("label.progress"))
@@ -217,7 +226,12 @@ class MainWindow(QMainWindow):
 
         self.add_start_button = QPushButton(translator.translate("button.start"))
         self.add_start_button.clicked.connect(partial(self.start_task, task_type="add"))
-        layout.addWidget(self.add_start_button, 1, 1, 1, 2)
+        self.add_cancel_button = QPushButton(translator.translate("button.cancel"))
+        self.add_cancel_button.clicked.connect(partial(self.cancel_tasks, task_type="add"))
+        add_control_layout = QHBoxLayout()
+        add_control_layout.addWidget(self.add_start_button)
+        add_control_layout.addWidget(self.add_cancel_button)
+        layout.addLayout(add_control_layout, 1, 1, 1, 2)
 
         self.add_progress_container = QVBoxLayout()
         progress_group = QGroupBox(translator.translate("label.progress"))
@@ -250,16 +264,25 @@ class MainWindow(QMainWindow):
         self.active_interval_value.setRange(1, 10000)
         self.active_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
         self.active_save_checkbox.setChecked(True)
+        self.active_include_no_username_checkbox = QCheckBox(
+            translator.translate("checkbox.include_no_username")
+        )
         form_layout.addRow(translator.translate("label.target_group"), self.active_target_input)
         form_layout.addRow(translator.translate("label.limit"), self.active_limit_input)
         form_layout.addRow(translator.translate("label.interval"), self.active_interval_combo)
         form_layout.addRow(translator.translate("label.interval"), self.active_interval_value)
         form_layout.addRow(self.active_save_checkbox)
+        form_layout.addRow(self.active_include_no_username_checkbox)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.active_start_button = QPushButton(translator.translate("button.start"))
         self.active_start_button.clicked.connect(partial(self.start_task, task_type="active"))
-        layout.addWidget(self.active_start_button, 1, 1, 1, 2)
+        self.active_cancel_button = QPushButton(translator.translate("button.cancel"))
+        self.active_cancel_button.clicked.connect(partial(self.cancel_tasks, task_type="active"))
+        active_control_layout = QHBoxLayout()
+        active_control_layout.addWidget(self.active_start_button)
+        active_control_layout.addWidget(self.active_cancel_button)
+        layout.addLayout(active_control_layout, 1, 1, 1, 2)
 
         self.active_progress_container = QVBoxLayout()
         progress_group = QGroupBox(translator.translate("label.progress"))
@@ -460,6 +483,7 @@ class MainWindow(QMainWindow):
             )
             return
 
+        include_no_username = True
         if task_type == "scan":
             sessions = self.get_selected_sessions(self.scan_session_list)
             target = self.scan_target_input.text().strip()
@@ -468,6 +492,7 @@ class MainWindow(QMainWindow):
             container = self.scan_progress_container
             persist = self.scan_save_checkbox.isChecked()
             storage_key = "scanned"
+            include_no_username = self.scan_include_no_username_checkbox.isChecked()
         elif task_type == "add":
             sessions = self.get_selected_sessions(self.add_session_list)
             target = self.add_target_input.text().strip()
@@ -484,6 +509,7 @@ class MainWindow(QMainWindow):
             container = self.active_progress_container
             persist = self.active_save_checkbox.isChecked()
             storage_key = "active"
+            include_no_username = self.active_include_no_username_checkbox.isChecked()
 
         if not sessions or not target:
             QMessageBox.warning(self, self.windowTitle(), "Oturum ve hedef girilmeli")
@@ -559,6 +585,7 @@ class MainWindow(QMainWindow):
                 users=session_users,
                 persist_results=persist,
                 storage=storage,
+                include_no_username=include_no_username,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -575,6 +602,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_remaining_work"))
         else:
             self._pending_completion_notifications.add(task_type)
+
+    def cancel_tasks(self, task_type: str) -> None:
+        self._cancel_running_tasks(task_type=task_type, notify=True)
 
     def _remove_progress_widget(self, container: QVBoxLayout, widget: SessionProgressWidget) -> None:
         index = container.indexOf(widget)
@@ -628,20 +658,52 @@ class MainWindow(QMainWindow):
         self._notify_completion_if_ready()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: D401
-        self._cancel_running_tasks()
+        self._cancel_running_tasks(notify=False)
         super().closeEvent(event)
 
-    def _cancel_running_tasks(self) -> None:
+    def _cancel_running_tasks(self, task_type: Optional[str] = None, notify: bool = False) -> None:
         if not self.worker_threads:
+            if notify:
+                self._reset_progress_widgets(task_type)
             return
-        threads = list(self.worker_threads.values())
+        keys = [key for key in list(self.worker_threads.keys()) if task_type is None or key[0] == task_type]
+        if not keys:
+            if notify:
+                self._reset_progress_widgets(task_type)
+            return
+        threads = []
+        for key in keys:
+            thread = self.worker_threads.pop(key, None)
+            if thread:
+                threads.append(thread)
         for thread in threads:
             thread.stop()
-        self.orchestrator.cancel_all()
+        if task_type is None:
+            self.orchestrator.cancel_all()
         for thread in threads:
             thread.wait(5000)
-        self.worker_threads.clear()
-        self._pending_completion_notifications.clear()
+        if task_type:
+            self._pending_completion_notifications.discard(task_type)
+        else:
+            self._pending_completion_notifications.clear()
+        self._reset_progress_widgets(task_type)
+        if notify and threads:
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                translator.translate("dialog.task_cancelled"),
+            )
+
+    def _reset_progress_widgets(self, task_type: Optional[str]) -> None:
+        if task_type is None:
+            targets = self.progress_widgets.values()
+        else:
+            targets = [self.progress_widgets.get(task_type, {})]
+        for widgets in targets:
+            if not widgets:
+                continue
+            for widget in widgets.values():
+                widget.reset()
 
     def _build_interval(self, index: int, value: int) -> Optional[timedelta]:
         if value <= 0:
@@ -842,6 +904,18 @@ class MainWindow(QMainWindow):
         self._update_user_table_headers()
         self.scan_save_checkbox.setText(translator.translate("checkbox.save_results"))
         self.active_save_checkbox.setText(translator.translate("checkbox.save_results"))
+        self.scan_include_no_username_checkbox.setText(
+            translator.translate("checkbox.include_no_username")
+        )
+        self.active_include_no_username_checkbox.setText(
+            translator.translate("checkbox.include_no_username")
+        )
+        self.scan_start_button.setText(translator.translate("button.start"))
+        self.scan_cancel_button.setText(translator.translate("button.cancel"))
+        self.add_start_button.setText(translator.translate("button.start"))
+        self.add_cancel_button.setText(translator.translate("button.cancel"))
+        self.active_start_button.setText(translator.translate("button.start"))
+        self.active_cancel_button.setText(translator.translate("button.cancel"))
         self.export_users_button.setText(translator.translate("button.export_users"))
         self.import_users_button.setText(translator.translate("button.import_users"))
         self.add_user_button.setText(translator.translate("button.add_user"))

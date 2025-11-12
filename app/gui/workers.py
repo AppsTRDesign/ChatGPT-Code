@@ -26,6 +26,7 @@ class TaskRequest:
     users: Optional[List[StoredUser]] = None
     persist_results: bool = True
     storage: Optional[UserStorage] = None
+    include_no_username: bool = True
 
 
 class SessionWorkerThread(QThread):
@@ -88,6 +89,7 @@ class SessionWorkerThread(QThread):
                     progress_handler,
                     self.request.persist_results,
                     status_handler,
+                    include_no_username=self.request.include_no_username,
                 )
             elif self.request.task_type == "add":
                 await task.add_members(
@@ -104,6 +106,7 @@ class SessionWorkerThread(QThread):
                     progress_handler,
                     self.request.persist_results,
                     status_handler,
+                    include_no_username=self.request.include_no_username,
                 )
             else:
                 raise ValueError(f"Unknown task type {self.request.task_type}")

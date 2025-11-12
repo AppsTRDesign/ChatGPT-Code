@@ -49,23 +49,29 @@ class SessionProgressWidget(QWidget):
         self.log_view.clear()
 
     def update_state(self, processed: int, total: int, status_key: Optional[str] = None) -> None:
-        self.state.processed = processed
-        self.state.total = total
-        if total > 0:
-            self.progress_bar.setMaximum(total)
-        self.progress_bar.setValue(processed)
         if status_key:
             self.state.status = status_key
+        if total <= 0:
+            total = processed if processed else 1
+        if processed > total:
+            total = processed
+        self.state.processed = processed
+        self.state.total = total
+        self.progress_bar.setMaximum(max(total, 1))
+        self.progress_bar.setValue(processed)
         self.status_label.setText(
-            f"{self._translate_status(self.state.status)} - {processed}/{total if total else processed}"
+            f"{self._translate_status(self.state.status)} - {processed}/{total}"
         )
 
     def append_user(self, description: str) -> None:
         self.log_view.appendPlainText(description)
 
     def retranslate(self) -> None:
+        total = self.state.total if self.state.total else (self.state.processed or 1)
+        if self.state.processed > total:
+            total = self.state.processed
         self.status_label.setText(
-            f"{self._translate_status(self.state.status)} - {self.state.processed}/{self.state.total if self.state.total else self.state.processed}"
+            f"{self._translate_status(self.state.status)} - {self.state.processed}/{total}"
         )
         # Title remains session name
 

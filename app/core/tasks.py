@@ -63,9 +63,9 @@ class SessionTask:
     ) -> ProgressUpdate:
         if total:
             self._total = total
-        elif not self._total:
-            self._total = max(self._processed, 1)
         self._processed += 1
+        if not self._total or self._processed > self._total:
+            self._total = self._processed
         return ProgressUpdate(
             session_name=self.session_name,
             processed=self._processed,
@@ -85,6 +85,7 @@ class SessionTask:
         progress_callback: Callable[[ProgressUpdate], None],
         persist: bool,
         status_callback: Optional[Callable[[str], None]] = None,
+        include_no_username: bool = True,
     ) -> None:
         await self._check_cancelled()
         status_cb = status_callback or (lambda _: None)
@@ -113,6 +114,8 @@ class SessionTask:
                 continue
             if getattr(user, "bot", False):
                 continue
+            if not include_no_username and not getattr(user, "username", None):
+                continue
             seen_ids.add(participant.id)
             last_seen = None
             if isinstance(user.status, types.UserStatusOffline):
@@ -135,11 +138,27 @@ class SessionTask:
                 if last_seen < now_utc - active_within:
                     continue
 
+            access_hash = getattr(user, "access_hash", None)
+            if access_hash is None:
+                try:
+                    input_entity = await self.client.get_input_entity(types.PeerUser(user.id))
+                except FloodWaitError as exc:
+                    await self._handle_flood_wait(exc.seconds, status_cb)
+                    await self._throttle(self.settings.rate_limit.scan_interval)
+                    continue
+                except (TypeError, ValueError):
+                    try:
+                        input_entity = await self.client.get_input_entity(user.id)
+                    except (TypeError, ValueError):
+                        input_entity = None
+                if isinstance(input_entity, (types.InputPeerUser, types.InputUser)):
+                    access_hash = input_entity.access_hash
+
             stored = StoredUser(
                 user_id=user.id,
                 username=user.username,
                 phone=user.phone,
-                access_hash=user.access_hash,
+                access_hash=access_hash,
                 first_name=user.first_name,
                 last_name=user.last_name,
                 last_seen=None,
@@ -224,6 +243,7 @@ class SessionTask:
         progress_callback: Callable[[ProgressUpdate], None],
         persist: bool,
         status_callback: Optional[Callable[[str], None]] = None,
+        include_no_username: bool = True,
     ) -> None:
         cutoff = datetime.now(tz=timezone.utc) - active_within if active_within else None
         messages = self.client.iter_messages(entity, limit=limit)
@@ -272,17 +292,23 @@ class SessionTask:
                 continue
             if sender.id in seen_users:
                 continue
+            if not include_no_username and not getattr(sender, "username", None):
+                continue
             seen_users.add(sender.id)
             access_hash = getattr(sender, "access_hash", None)
             if access_hash is None:
                 try:
-                    input_peer = await self.client.get_input_entity(sender)
-                except (TypeError, ValueError):
-                    logger.warning("log.active_sender_missing_entity")
+                    input_peer = await self.client.get_input_entity(types.PeerUser(sender.id))
+                except FloodWaitError as exc:
+                    await self._handle_flood_wait(exc.seconds, status_cb)
+                    await self._throttle(self.settings.rate_limit.scan_interval)
                     continue
-                if isinstance(input_peer, types.InputPeerUser):
-                    access_hash = input_peer.access_hash
-                elif isinstance(input_peer, types.InputUser):
+                except (TypeError, ValueError):
+                    try:
+                        input_peer = await self.client.get_input_entity(sender.id)
+                    except (TypeError, ValueError):
+                        input_peer = None
+                if isinstance(input_peer, (types.InputPeerUser, types.InputUser)):
                     access_hash = input_peer.access_hash
                 else:
                     logger.warning("log.active_sender_missing_entity")
@@ -314,8 +340,6 @@ class SessionTask:
         logger.info("log.active_finished")
 
     async def _resolve_input_user(self, user: StoredUser) -> Optional[types.InputUser]:
-        if user.access_hash:
-            return types.InputUser(user_id=user.user_id, access_hash=user.access_hash)
         try:
             entity = await self.client.get_input_entity(types.PeerUser(user.user_id))
         except (TypeError, ValueError):
@@ -324,16 +348,15 @@ class SessionTask:
             except (TypeError, ValueError):
                 return None
         if isinstance(entity, types.InputPeerUser):
-            user.access_hash = entity.access_hash
-            if hasattr(self.storage, "has_user") and self.storage.has_user(user.user_id):
-                self.storage.update_user(user)
-            return types.InputUser(user_id=entity.user_id, access_hash=entity.access_hash)
-        if isinstance(entity, types.InputUser):
-            user.access_hash = entity.access_hash
-            if hasattr(self.storage, "has_user") and self.storage.has_user(user.user_id):
-                self.storage.update_user(user)
-            return entity
-        return None
+            resolved = types.InputUser(user_id=entity.user_id, access_hash=entity.access_hash)
+        elif isinstance(entity, types.InputUser):
+            resolved = entity
+        else:
+            return None
+        user.access_hash = resolved.access_hash
+        if hasattr(self.storage, "has_user") and self.storage.has_user(user.user_id):
+            self.storage.update_user(user)
+        return resolved
 
     async def _handle_flood_wait(
         self, seconds: int, status_callback: Callable[[str], None]
