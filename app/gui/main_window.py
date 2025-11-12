@@ -74,8 +74,6 @@ class MainWindow(QMainWindow):
             "add": {},
             "active": {},
         }
-        self.progress_offsets: Dict[tuple[str, str], int] = {}
-        self.active_task_storage: Dict[tuple[str, str], str] = {}
         self._pending_completion_notifications: set[str] = set()
 
         self.setWindowTitle(translator.translate("app.title"))
@@ -183,11 +181,8 @@ class MainWindow(QMainWindow):
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.scan_start_button = QPushButton(translator.translate("button.start"))
-        self.scan_stop_button = QPushButton(translator.translate("button.stop"))
         self.scan_start_button.clicked.connect(partial(self.start_task, task_type="scan"))
-        self.scan_stop_button.clicked.connect(self.stop_all_tasks)
-        layout.addWidget(self.scan_start_button, 1, 1)
-        layout.addWidget(self.scan_stop_button, 1, 2)
+        layout.addWidget(self.scan_start_button, 1, 1, 1, 2)
 
         self.scan_progress_container = QVBoxLayout()
         progress_group = QGroupBox(translator.translate("label.progress"))
@@ -219,11 +214,8 @@ class MainWindow(QMainWindow):
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.add_start_button = QPushButton(translator.translate("button.start"))
-        self.add_stop_button = QPushButton(translator.translate("button.stop"))
         self.add_start_button.clicked.connect(partial(self.start_task, task_type="add"))
-        self.add_stop_button.clicked.connect(self.stop_all_tasks)
-        layout.addWidget(self.add_start_button, 1, 1)
-        layout.addWidget(self.add_stop_button, 1, 2)
+        layout.addWidget(self.add_start_button, 1, 1, 1, 2)
 
         self.add_progress_container = QVBoxLayout()
         progress_group = QGroupBox(translator.translate("label.progress"))
@@ -264,11 +256,8 @@ class MainWindow(QMainWindow):
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.active_start_button = QPushButton(translator.translate("button.start"))
-        self.active_stop_button = QPushButton(translator.translate("button.stop"))
         self.active_start_button.clicked.connect(partial(self.start_task, task_type="active"))
-        self.active_stop_button.clicked.connect(self.stop_all_tasks)
-        layout.addWidget(self.active_start_button, 1, 1)
-        layout.addWidget(self.active_stop_button, 1, 2)
+        layout.addWidget(self.active_start_button, 1, 1, 1, 2)
 
         self.active_progress_container = QVBoxLayout()
         progress_group = QGroupBox(translator.translate("label.progress"))
@@ -461,6 +450,14 @@ class MainWindow(QMainWindow):
         self.refresh_sessions()
 
     def start_task(self, task_type: str) -> None:
+        if self.worker_threads:
+            QMessageBox.warning(
+                self,
+                self.windowTitle(),
+                translator.translate("dialog.task_in_progress"),
+            )
+            return
+
         if task_type == "scan":
             sessions = self.get_selected_sessions(self.scan_session_list)
             target = self.scan_target_input.text().strip()
@@ -495,15 +492,11 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, self.windowTitle(), translator.translate("dialog.storage_missing"))
             return
 
-        self.stop_all_tasks()
-
         progress_map = self.progress_widgets[task_type]
         for session_name in list(progress_map.keys()):
             if session_name not in sessions:
                 widget = progress_map.pop(session_name)
                 self._remove_progress_widget(container, widget)
-                self.progress_offsets.pop((task_type, session_name), None)
-                self.active_task_storage.pop((task_type, session_name), None)
 
         session_count = len(sessions)
         limit_distribution: List[int] = []
@@ -531,35 +524,37 @@ class MainWindow(QMainWindow):
                 widget = SessionProgressWidget(session_name, task_type)
                 progress_map[session_name] = widget
                 container.addWidget(widget)
+            else:
+                widget.reset()
 
-            offset = widget.state.processed
-            self.progress_offsets[(task_type, session_name)] = offset
             per_session_limit = limit_distribution[idx]
             if limit and per_session_limit == 0:
-                widget.update_state(offset, offset or 0, status_key="label.completed")
-                self.progress_offsets[(task_type, session_name)] = offset
-                continue
-            remaining_limit = per_session_limit - offset if per_session_limit else None
-            if remaining_limit is not None and remaining_limit <= 0:
-                widget.update_state(per_session_limit, per_session_limit, status_key="label.completed")
-                self.progress_offsets[(task_type, session_name)] = per_session_limit
+                widget.update_state(0, 0, status_key="status.completed")
                 continue
 
-            if task_type == "add" and not user_chunks[idx]:
-                widget.update_state(offset, offset or 0, status_key="label.completed")
-                self.progress_offsets[(task_type, session_name)] = offset
-                continue
+            if task_type == "add":
+                session_users = user_chunks[idx] or []
+                total_target = len(session_users)
+                if total_target == 0:
+                    widget.update_state(0, 0, status_key="status.completed")
+                    continue
+            else:
+                session_users = None
+                total_target = per_session_limit
 
-            display_total = per_session_limit if per_session_limit else widget.state.total
-            widget.update_state(offset, display_total or offset, status_key="status.running")
+            widget.update_state(0, total_target or 0, status_key="status.running")
+
+            request_limit = per_session_limit or None
+            if task_type == "add":
+                request_limit = None
 
             request = TaskRequest(
                 task_type=task_type,
                 session_name=session_name,
                 entity=target,
-                limit=remaining_limit,
+                limit=request_limit,
                 interval=interval,
-                users=user_chunks[idx],
+                users=session_users,
                 persist_results=persist,
                 storage=storage,
             )
@@ -571,7 +566,6 @@ class MainWindow(QMainWindow):
             thread.error.connect(partial(self.on_error, widget))
             key = (task_type, session_name)
             self.worker_threads[key] = thread
-            self.active_task_storage[key] = storage_key
             thread.start()
             requests_started += 1
 
@@ -597,13 +591,10 @@ class MainWindow(QMainWindow):
             )
 
     def on_progress(self, widget: SessionProgressWidget, update: ProgressUpdate) -> None:
-        key = (widget.task_type, update.session_name)
-        offset = self.progress_offsets.get(key, 0)
-        processed = offset + update.processed
-        total_component = update.total or update.processed
-        total = max(offset + total_component, processed)
-        widget.update_state(processed, total, update.status)
-        self.progress_offsets[key] = processed
+        processed = update.processed
+        total = update.total or processed
+        status_key = update.status or widget.state.status
+        widget.update_state(processed, total, status_key)
         if update.user:
             widget.append_user(self._format_user(update.user))
             self.populate_user_tables()
@@ -612,13 +603,12 @@ class MainWindow(QMainWindow):
 
     def on_finished(self, widget: SessionProgressWidget, session_name: str, task_type: str) -> None:
         key = (task_type, session_name)
-        final_total = max(widget.state.total, widget.state.processed)
-        widget.update_state(final_total, final_total, status_key="label.completed")
-        self.progress_offsets[key] = final_total
+        processed_total = widget.state.processed
+        final_total = processed_total or widget.state.total
+        widget.update_state(final_total, final_total, status_key="status.completed")
         thread = self.worker_threads.pop(key, None)
         if thread:
             thread.wait(1000)
-        self.active_task_storage.pop(key, None)
         self._notify_completion_if_ready()
 
     def on_status_update(self, widget: SessionProgressWidget, session_name: str, task_type: str, status_key: str) -> None:
@@ -633,14 +623,15 @@ class MainWindow(QMainWindow):
         thread = self.worker_threads.pop(key, None)
         if thread:
             thread.wait(1000)
-        self.active_task_storage.pop(key, None)
         self._notify_completion_if_ready()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: D401
-        self.stop_all_tasks()
+        self._cancel_running_tasks()
         super().closeEvent(event)
 
-    def stop_all_tasks(self) -> None:
+    def _cancel_running_tasks(self) -> None:
+        if not self.worker_threads:
+            return
         threads = list(self.worker_threads.values())
         for thread in threads:
             thread.stop()
@@ -648,7 +639,6 @@ class MainWindow(QMainWindow):
         for thread in threads:
             thread.wait(5000)
         self.worker_threads.clear()
-        self.active_task_storage.clear()
         self._pending_completion_notifications.clear()
 
     def _build_interval(self, index: int, value: int) -> Optional[timedelta]:
