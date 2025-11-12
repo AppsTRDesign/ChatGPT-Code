@@ -251,6 +251,7 @@ class GoogleMapsSeleniumScraper:
                 self._send_progress_screenshot(driver, progress_callback)
                 self._human_pause(0.45)
                 self._click_element(driver, click_target)
+                self._human_pause(0.6)
                 self._send_progress_screenshot(driver, progress_callback)
 
                 try:
@@ -356,7 +357,6 @@ class GoogleMapsSeleniumScraper:
 
     def _resolve_click_target(self, article) -> Tuple[WebElement, WebElement]:
         heading: Optional[WebElement]
-        anchor: Optional[WebElement]
         try:
             heading = article.find_element(By.CSS_SELECTOR, '[role="heading"]')
             if not heading.is_displayed():
@@ -364,34 +364,13 @@ class GoogleMapsSeleniumScraper:
         except (NoSuchElementException, WebDriverException):
             heading = None
 
-        if heading is not None:
-            try:
-                anchor = heading.find_element(By.XPATH, "./ancestor::a[1]")
-                if not anchor.is_displayed():
-                    anchor = None
-            except (NoSuchElementException, WebDriverException):
-                anchor = None
-        else:
-            anchor = None
-
-        if anchor is None:
-            try:
-                anchor = article.find_element(By.CSS_SELECTOR, 'a.hfpxzc')
-                if not anchor.is_displayed():
-                    anchor = None
-            except (NoSuchElementException, WebDriverException):
-                anchor = None
-
         if heading is None:
             try:
                 heading = article.find_element(By.CSS_SELECTOR, 'div.Nv2PK')
             except NoSuchElementException:
                 heading = article
 
-        if anchor is None:
-            anchor = heading
-
-        return heading, anchor
+        return heading, article
 
     def _first_non_empty_text(self, driver: webdriver.Chrome, selectors: List[tuple[str, str]]) -> str:
         for by in selectors:
@@ -612,9 +591,36 @@ class GoogleMapsSeleniumScraper:
 
     def _click_element(self, driver: webdriver.Chrome, element) -> None:
         try:
+            tag_name = (element.tag_name or "").lower()
+        except WebDriverException:
+            tag_name = ""
+        if tag_name == "a":
+            try:
+                driver.execute_script("arguments[0].removeAttribute('target');", element)
+            except WebDriverException:
+                pass
+        try:
+            driver.execute_script("arguments[0].focus();", element)
+        except WebDriverException:
+            pass
+        try:
             element.click()
         except WebDriverException:
-            driver.execute_script("arguments[0].click();", element)
+            try:
+                driver.execute_script("arguments[0].click();", element)
+            except WebDriverException:
+                try:
+                    element.send_keys(Keys.ENTER)
+                except WebDriverException:
+                    fallback = None
+                    try:
+                        fallback = element.find_element(By.CSS_SELECTOR, 'a.hfpxzc')
+                    except NoSuchElementException:
+                        pass
+                    if fallback is not None and fallback is not element:
+                        self._click_element(driver, fallback)
+                    else:
+                        raise
 
     def _get_active_place_name(self, driver: webdriver.Chrome) -> str:
         try:
