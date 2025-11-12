@@ -75,9 +75,9 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi yazın (örn. "İstanbul kuaför"). Konum bilgisini sorgu metnine eklemek yeterlidir.
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
 3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
-4. "Ara" butonuna bastığınızda Google Chrome hemen açılır; bot sol menüdeki işletme kartlarını yapay bir fare imleciyle seçer ve gerekirse haritadaki işaretlere tıklayarak ayrıntı panelini açar. Tarama boyunca tarayıcı penceresini kapatmayın.
-5. Bot çalışırken her tıklamada harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir.
-6. Bulunan işletmeler bot işlemesiyle eşzamanlı olarak sol taraftaki listede görünür ve alt paneldeki "Detaylar" bölümü en son işletmenin adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" verileriyle otomatik güncellenir.
+4. "Ara" butonuna bastığınızda Google Chrome hemen açılır; bot yalnızca sol menüdeki işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Tarama boyunca tarayıcı penceresini kapatmayın.
+5. Bot çalışırken her imleç hareketinde ve kart seçildiğinde harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir.
+6. Her işletme açılır açılmaz bilgiler eşzamanlı olarak sonuç listesine eklenir ve alt paneldeki "Detaylar" bölümü en son işletmenin adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" verileriyle otomatik güncellenir.
 7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
 > Bot sekmesinde Selenium taraması sırasında tarayıcı açık kalır ve işlem tamamlandığında otomatik olarak kapatılır.

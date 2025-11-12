@@ -8,7 +8,7 @@ import logging
 import threading
 import time
 from dataclasses import asdict, dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import requests
 import tkinter as tk
@@ -24,6 +24,7 @@ from selenium.common.exceptions import (
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
@@ -243,34 +244,26 @@ class GoogleMapsSeleniumScraper:
                     LOGGER.debug("Skipping duplicate or unnamed result at index %d", index)
                     continue
 
-                primary_target = self._resolve_click_target(article)
-                self._animate_cursor_to_element(driver, primary_target)
+                cursor_target, click_target = self._resolve_click_target(article)
+                previous_panel_name = self._get_active_place_name(driver)
+
+                self._animate_cursor_to_element(driver, cursor_target)
                 self._send_progress_screenshot(driver, progress_callback)
                 self._human_pause(0.45)
-                self._click_element(driver, primary_target)
+                self._click_element(driver, click_target)
                 self._send_progress_screenshot(driver, progress_callback)
 
                 try:
                     self._dismiss_media_overlay(driver, wait)
-                    self._wait_for_place_panel(wait)
+                    self._wait_for_place_panel(
+                        driver,
+                        wait,
+                        expected_name=name,
+                        previous_name=previous_panel_name,
+                    )
                 except TimeoutException:
-                    marker = self._find_map_marker(driver, name)
-                    if marker:
-                        LOGGER.info("Retrying click on map marker for '%s'", name)
-                        self._animate_cursor_to_element(driver, marker)
-                        self._send_progress_screenshot(driver, progress_callback)
-                        self._human_pause(0.45)
-                        self._click_element(driver, marker)
-                        self._send_progress_screenshot(driver, progress_callback)
-                        try:
-                            self._dismiss_media_overlay(driver, wait)
-                            self._wait_for_place_panel(wait)
-                        except TimeoutException:
-                            LOGGER.warning("Details panel did not appear for '%s'", name)
-                            continue
-                    else:
-                        LOGGER.warning("Details panel did not appear for '%s'", name)
-                        continue
+                    LOGGER.warning("Details panel did not appear for '%s'", name)
+                    continue
 
                 self._dismiss_media_overlay(driver, wait)
                 self._send_progress_screenshot(driver, progress_callback)
@@ -361,21 +354,44 @@ class GoogleMapsSeleniumScraper:
         except WebDriverException:
             return False
 
-    def _resolve_click_target(self, article):
-        clickable_selectors = [
-            'div.Nv2PK.Q7Pnwc',
-            'div.Nv2PK',
-            'div[role="article"]',
-            'a.hfpxzc',
-        ]
-        for selector in clickable_selectors:
+    def _resolve_click_target(self, article) -> Tuple[WebElement, WebElement]:
+        heading: Optional[WebElement]
+        anchor: Optional[WebElement]
+        try:
+            heading = article.find_element(By.CSS_SELECTOR, '[role="heading"]')
+            if not heading.is_displayed():
+                heading = None
+        except (NoSuchElementException, WebDriverException):
+            heading = None
+
+        if heading is not None:
             try:
-                element = article.find_element(By.CSS_SELECTOR, selector)
-                if element.is_displayed():
-                    return element
+                anchor = heading.find_element(By.XPATH, "./ancestor::a[1]")
+                if not anchor.is_displayed():
+                    anchor = None
+            except (NoSuchElementException, WebDriverException):
+                anchor = None
+        else:
+            anchor = None
+
+        if anchor is None:
+            try:
+                anchor = article.find_element(By.CSS_SELECTOR, 'a.hfpxzc')
+                if not anchor.is_displayed():
+                    anchor = None
+            except (NoSuchElementException, WebDriverException):
+                anchor = None
+
+        if heading is None:
+            try:
+                heading = article.find_element(By.CSS_SELECTOR, 'div.Nv2PK')
             except NoSuchElementException:
-                continue
-        return article
+                heading = article
+
+        if anchor is None:
+            anchor = heading
+
+        return heading, anchor
 
     def _first_non_empty_text(self, driver: webdriver.Chrome, selectors: List[tuple[str, str]]) -> str:
         for by in selectors:
@@ -575,23 +591,6 @@ class GoogleMapsSeleniumScraper:
         text = article.text.strip()
         return text.split("\n")[0] if text else ""
 
-    def _find_map_marker(self, driver: webdriver.Chrome, name: str):
-        normalized = self._normalize_text(name)
-        if not normalized:
-            return None
-        selectors = [
-            'button[jsaction*="pane.wfvdle"]',
-            'div[jsaction*="pane.wfvdle"]',
-        ]
-        for selector in selectors:
-            for marker in driver.find_elements(By.CSS_SELECTOR, selector):
-                label = self._normalize_text(marker.get_attribute("aria-label") or "")
-                if not label or "konum" in label:
-                    continue
-                if normalized in label:
-                    return marker
-        return None
-
     def _animate_cursor_to_element(self, driver: webdriver.Chrome, element) -> None:
         self._inject_fake_cursor(driver)
         driver.execute_script(
@@ -617,10 +616,53 @@ class GoogleMapsSeleniumScraper:
         except WebDriverException:
             driver.execute_script("arguments[0].click();", element)
 
-    def _wait_for_place_panel(self, wait: WebDriverWait) -> None:
-        wait.until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]'))
+    def _get_active_place_name(self, driver: webdriver.Chrome) -> str:
+        try:
+            header = driver.find_element(By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]')
+            return header.text.strip()
+        except NoSuchElementException:
+            return ""
+
+    def _wait_for_place_panel(
+        self,
+        driver: webdriver.Chrome,
+        wait: WebDriverWait,
+        expected_name: Optional[str] = None,
+        previous_name: Optional[str] = None,
+    ) -> None:
+        expected_normalized = (
+            self._normalize_text(expected_name) if expected_name else None
         )
+        previous_normalized = (
+            self._normalize_text(previous_name) if previous_name else None
+        )
+
+        def panel_ready(drv: webdriver.Chrome) -> bool:
+            try:
+                header = drv.find_element(
+                    By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]'
+                )
+            except NoSuchElementException:
+                return False
+            text = header.text.strip()
+            if not text:
+                return False
+            normalized = self._normalize_text(text)
+            matches_expected = False
+            if expected_normalized:
+                matches_expected = (
+                    expected_normalized in normalized
+                    or normalized in expected_normalized
+                )
+                if matches_expected:
+                    return True
+            if previous_normalized and normalized == previous_normalized:
+                return False
+            if expected_normalized and not matches_expected:
+                return False
+            return True
+
+        wait.until(panel_ready)
 
     def _dismiss_media_overlay(self, driver: webdriver.Chrome, wait: WebDriverWait) -> bool:
         overlay_selectors = [
