@@ -10,6 +10,7 @@ tasarlandı ve hem Google Places API'yi hem de Selenium tabanlı bir bot tarayı
 - Bot taraması sırasında Google Haritalar üzerindeki işaretlere yapay bir fare imleciyle tıklama
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" sekmesindeki olanakları toplama
 - Harita ekran görüntülerini canlı olarak gösteren önizleme paneli
+- Her tıklamada harita önizlemesini yenileyen ve sonuç listesini anlık güncelleyen canlı ilerleme
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
 - API veya bot ile alınan verileri JSON ya da CSV formatında dışa aktarma
 - İnternet ve API hataları için kullanıcı dostu uyarılar
@@ -75,11 +76,13 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
 3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
 4. "Ara" butonuna bastığınızda Google Chrome hemen açılır; bot sol menüdeki işletme kartlarını yapay bir fare imleciyle seçer ve gerekirse haritadaki işaretlere tıklayarak ayrıntı panelini açar. Tarama boyunca tarayıcı penceresini kapatmayın.
-5. Bot çalışırken harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak güncellenir.
-6. Bulunan işletmeler sol taraftaki listede, ayrıntıları ise alt panelde görüntülenir.
+5. Bot çalışırken her tıklamada harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir.
+6. Bulunan işletmeler bot işlemesiyle eşzamanlı olarak sol taraftaki listede görünür ve alt paneldeki "Detaylar" bölümü en son işletmenin adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" verileriyle otomatik güncellenir.
 7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
 > Bot sekmesinde Selenium taraması sırasında tarayıcı açık kalır ve işlem tamamlandığında otomatik olarak kapatılır.
+
+> Bot, fotoğraf galerisi gibi açılır pencereleri otomatik kapatarak veri toplamaya devam eder.
 
 > Hata mesajı aldığınızda ayrıntıları `google_maps_gui.log` dosyasında bulabilirsiniz.
 

@@ -206,6 +206,7 @@ class GoogleMapsSeleniumScraper:
         self,
         query: str,
         progress_callback: Optional[Callable[[bytes], None]] = None,
+        result_callback: Optional[Callable[[PlaceResult], None]] = None,
     ) -> List[PlaceResult]:
         LOGGER.info("Starting Selenium scrape for query='%s'", query)
         options = webdriver.ChromeOptions()
@@ -244,19 +245,25 @@ class GoogleMapsSeleniumScraper:
 
                 primary_target = self._resolve_click_target(article)
                 self._animate_cursor_to_element(driver, primary_target)
+                self._send_progress_screenshot(driver, progress_callback)
                 self._human_pause(0.45)
                 self._click_element(driver, primary_target)
+                self._send_progress_screenshot(driver, progress_callback)
 
                 try:
+                    self._dismiss_media_overlay(driver, wait)
                     self._wait_for_place_panel(wait)
                 except TimeoutException:
                     marker = self._find_map_marker(driver, name)
                     if marker:
                         LOGGER.info("Retrying click on map marker for '%s'", name)
                         self._animate_cursor_to_element(driver, marker)
+                        self._send_progress_screenshot(driver, progress_callback)
                         self._human_pause(0.45)
                         self._click_element(driver, marker)
+                        self._send_progress_screenshot(driver, progress_callback)
                         try:
+                            self._dismiss_media_overlay(driver, wait)
                             self._wait_for_place_panel(wait)
                         except TimeoutException:
                             LOGGER.warning("Details panel did not appear for '%s'", name)
@@ -265,6 +272,7 @@ class GoogleMapsSeleniumScraper:
                         LOGGER.warning("Details panel did not appear for '%s'", name)
                         continue
 
+                self._dismiss_media_overlay(driver, wait)
                 self._send_progress_screenshot(driver, progress_callback)
 
                 try:
@@ -274,6 +282,11 @@ class GoogleMapsSeleniumScraper:
                     continue
 
                 results.append(place)
+                if result_callback is not None:
+                    try:
+                        result_callback(place)
+                    except Exception:
+                        LOGGER.exception("Result callback failed for '%s'", place.name)
                 seen_names.add(place.name)
                 self._human_pause(0.35)
 
@@ -350,9 +363,10 @@ class GoogleMapsSeleniumScraper:
 
     def _resolve_click_target(self, article):
         clickable_selectors = [
-            'a.hfpxzc',
+            'div.Nv2PK.Q7Pnwc',
             'div.Nv2PK',
             'div[role="article"]',
+            'a.hfpxzc',
         ]
         for selector in clickable_selectors:
             try:
@@ -608,6 +622,62 @@ class GoogleMapsSeleniumScraper:
             EC.presence_of_element_located((By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]'))
         )
 
+    def _dismiss_media_overlay(self, driver: webdriver.Chrome, wait: WebDriverWait) -> bool:
+        overlay_selectors = [
+            (By.CSS_SELECTOR, 'div[role="dialog"][aria-label*="foto"]'),
+            (By.CSS_SELECTOR, 'div[role="dialog"][aria-label*="resim"]'),
+            (By.CSS_SELECTOR, 'div[role="dialog"][aria-label*="görsel"]'),
+            (By.CSS_SELECTOR, 'div[role="dialog"][aria-label*="image"]'),
+            (By.CSS_SELECTOR, 'div[role="dialog"][aria-label*="photo"]'),
+        ]
+        for by in overlay_selectors:
+            try:
+                overlays = driver.find_elements(*by)
+            except WebDriverException:
+                continue
+            for overlay in overlays:
+                try:
+                    if not overlay.is_displayed():
+                        continue
+                except WebDriverException:
+                    continue
+                closed = False
+                try:
+                    close_buttons = overlay.find_elements(
+                        By.CSS_SELECTOR,
+                        'button[aria-label*="Kapat"], button[aria-label*="Close"], button[jsaction*="close"], button[aria-label*="Çıkış"], button[aria-label*="Exit"]',
+                    )
+                except WebDriverException:
+                    close_buttons = []
+                for button in close_buttons:
+                    try:
+                        if not button.is_displayed():
+                            continue
+                        button.click()
+                        closed = True
+                        break
+                    except WebDriverException:
+                        try:
+                            driver.execute_script("arguments[0].click();", button)
+                            closed = True
+                            break
+                        except WebDriverException:
+                            continue
+                if not closed:
+                    try:
+                        driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                        closed = True
+                        time.sleep(0.2)
+                    except WebDriverException:
+                        pass
+                if closed:
+                    try:
+                        wait.until(lambda drv: not overlay.is_displayed())
+                    except Exception:
+                        pass
+                    return True
+        return False
+
     def _send_progress_screenshot(
         self, driver: webdriver.Chrome, callback: Optional[Callable[[bytes], None]]
     ) -> None:
@@ -838,6 +908,7 @@ TRANSLATIONS = {
         "save_error": "Dosya kaydedilirken bir hata oluştu.",
         "error_no_results_to_save": "Kaydedilecek veri bulunamadı.",
         "status_scraping": "Tarama yapılıyor...",
+        "status_scraping_progress": "{} / {} işletme işlendi",
         "info_title": "Bilgi",
         "result_limit": "İşletme Sayısı",
         "error_check_logs": "Detaylı bilgi için google_maps_gui.log dosyasını kontrol edin.",
@@ -881,6 +952,7 @@ TRANSLATIONS = {
         "save_error": "An error occurred while saving the file.",
         "error_no_results_to_save": "No data available to save.",
         "status_scraping": "Scraping...",
+        "status_scraping_progress": "{} / {} businesses processed",
         "info_title": "Info",
         "result_limit": "Business Count",
         "error_check_logs": "Check google_maps_gui.log for full details.",
@@ -902,6 +974,7 @@ class Application(tk.Tk):
         self._api_results: List[PlaceResult] = []
         self._bot_results: List[PlaceResult] = []
         self._bot_map_photo: Optional[ImageTk.PhotoImage] = None
+        self._bot_active_limit: int = 0
 
         self._create_widgets()
         self._layout_widgets()
@@ -1156,14 +1229,23 @@ class Application(tk.Tk):
             limit = 5
         limit = max(1, min(limit, 20))
         self._set_spin_value(self.bot_limit_spin, str(limit))
-        self.bot_status_var.set(self._("status_scraping"))
+        self._bot_active_limit = limit
+        self.bot_status_var.set(self._("status_scraping_progress").format(0, limit))
         self.bot_search_button.config(state=tk.DISABLED)
         self._set_bot_map_placeholder()
+        self._clear_bot_details()
+        for item in self.bot_results_tree.get_children():
+            self.bot_results_tree.delete(item)
+        self._bot_results.clear()
 
         def worker() -> None:
             try:
                 scraper = GoogleMapsSeleniumScraper(language=language, limit=limit)
-                results = scraper.search(query, progress_callback=self._queue_bot_map_update)
+                results = scraper.search(
+                    query,
+                    progress_callback=self._queue_bot_map_update,
+                    result_callback=self._queue_bot_result_append,
+                )
             except WebDriverException as exc:
                 LOGGER.exception("Selenium WebDriver error: %s", exc)
                 self._handle_bot_error(str(exc))
@@ -1233,32 +1315,55 @@ class Application(tk.Tk):
         self._show_api_details(0)
 
     def _update_bot_results(self, results: List[PlaceResult]) -> None:
+        existing_items = self.bot_results_tree.get_children()
         self._bot_results = results
-        for item in self.bot_results_tree.get_children():
-            self.bot_results_tree.delete(item)
         if not results:
+            for item in existing_items:
+                self.bot_results_tree.delete(item)
             self.bot_status_var.set(self._("no_results"))
             self.bot_search_button.config(state=tk.NORMAL)
             self._clear_bot_details()
             return
-        for index, result in enumerate(results):
-            phone = result.formatted_phone_number or "-"
-            rating_display = "-"
-            if result.rating is not None:
-                rating_display = f"{result.rating:.1f}"
-                if result.user_ratings_total is not None:
-                    rating_display = f"{rating_display} ({result.user_ratings_total})"
-            self.bot_results_tree.insert(
-                "",
-                tk.END,
-                iid=str(index),
-                values=(result.name, phone, rating_display),
-            )
+
+        def compute_rating_display(place: PlaceResult) -> str:
+            if place.rating is None:
+                return "-"
+            display = f"{place.rating:.1f}"
+            if place.user_ratings_total is not None:
+                display = f"{display} ({place.user_ratings_total})"
+            return display
+
+        if len(existing_items) != len(results):
+            for item in existing_items:
+                self.bot_results_tree.delete(item)
+            for index, result in enumerate(results):
+                self.bot_results_tree.insert(
+                    "",
+                    tk.END,
+                    iid=str(index),
+                    values=(
+                        result.name,
+                        result.formatted_phone_number or "-",
+                        compute_rating_display(result),
+                    ),
+                )
+        else:
+            for index, result in enumerate(results):
+                self.bot_results_tree.item(
+                    str(index),
+                    values=(
+                        result.name,
+                        result.formatted_phone_number or "-",
+                        compute_rating_display(result),
+                    ),
+                )
+
         self.bot_status_var.set(self._("status_ready"))
         self.bot_search_button.config(state=tk.NORMAL)
-        self.bot_results_tree.selection_set("0")
-        self.bot_results_tree.focus("0")
-        self._show_bot_details(0)
+        if not self.bot_results_tree.selection():
+            self.bot_results_tree.selection_set("0")
+            self.bot_results_tree.focus("0")
+            self._show_bot_details(0)
 
     def _clear_api_details(self) -> None:
         self.api_details_text.config(state=tk.NORMAL)
@@ -1272,6 +1377,32 @@ class Application(tk.Tk):
 
     def _queue_bot_map_update(self, image_bytes: bytes) -> None:
         self.after(0, lambda: self._update_bot_map_image(image_bytes))
+
+    def _queue_bot_result_append(self, result: PlaceResult) -> None:
+        self.after(0, lambda: self._append_bot_result(result))
+
+    def _append_bot_result(self, result: PlaceResult) -> None:
+        index = len(self._bot_results)
+        self._bot_results.append(result)
+        phone = result.formatted_phone_number or "-"
+        rating_display = "-"
+        if result.rating is not None:
+            rating_display = f"{result.rating:.1f}"
+            if result.user_ratings_total is not None:
+                rating_display = f"{rating_display} ({result.user_ratings_total})"
+        self.bot_results_tree.insert(
+            "",
+            tk.END,
+            iid=str(index),
+            values=(result.name, phone, rating_display),
+        )
+        limit = max(self._bot_active_limit, len(self._bot_results))
+        self.bot_status_var.set(
+            self._("status_scraping_progress").format(len(self._bot_results), limit)
+        )
+        self.bot_results_tree.selection_set(str(index))
+        self.bot_results_tree.focus(str(index))
+        self._show_bot_details(index)
 
     def _update_bot_map_image(self, image_bytes: bytes) -> None:
         if not image_bytes:
