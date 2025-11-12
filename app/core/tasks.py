@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, Iterable, List, Optional
 
 from telethon import TelegramClient
-from telethon.errors import FloodWaitError, UserPrivacyRestrictedError
+from telethon.errors import FloodWaitError, PeerFloodError, UserPrivacyRestrictedError
 from telethon.tl import functions, types
 
 from app.core.settings import AppSettings
@@ -185,6 +185,20 @@ class SessionTask:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.join_interval)
                 continue
+            except PeerFloodError:
+                status_cb("status.peer_flood")
+                total_value = total or self._total or max(self._processed, 1)
+                progress_callback(
+                    ProgressUpdate(
+                        session_name=self.session_name,
+                        processed=self._processed,
+                        total=total_value,
+                        user=user,
+                        status="status.peer_flood",
+                    )
+                )
+                logger.warning("log.peer_flood")
+                break
             await self._throttle(self.settings.rate_limit.join_interval)
         logger.info("log.add_finished")
 
@@ -220,23 +234,35 @@ class SessionTask:
                     break
             if not message.sender_id:
                 continue
-            if message.sender_id in seen_users:
+            if isinstance(message.sender_id, int):
+                sender_key = message.sender_id
+            elif isinstance(message.sender_id, (types.PeerUser,)):
+                sender_key = getattr(message.sender_id, "user_id", None)
+            elif isinstance(message.sender_id, (types.PeerChannel, types.PeerChat)):
+                sender_key = getattr(message.sender_id, "channel_id", None) or getattr(message.sender_id, "chat_id", None)
+            else:
+                sender_key = None
+            if sender_key and sender_key in seen_users:
                 continue
             try:
-                sender = await self.client.get_entity(message.sender_id)
+                sender = await message.get_sender()
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.scan_interval)
                 continue
-            if not isinstance(sender, types.User):
+            except (TypeError, ValueError):
+                continue
+            if sender is None or not isinstance(sender, types.User):
                 continue
             if getattr(sender, "bot", False):
                 continue
-            seen_users.add(message.sender_id)
+            if sender.id in seen_users:
+                continue
+            seen_users.add(sender.id)
             stored = StoredUser(
                 user_id=sender.id,
                 username=sender.username,
-                phone=sender.phone,
+                phone=getattr(sender, "phone", None),
                 access_hash=getattr(sender, "access_hash", None),
                 first_name=sender.first_name,
                 last_name=sender.last_name,

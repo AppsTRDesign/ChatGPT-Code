@@ -125,6 +125,7 @@ class UserStorage:
             formatted = self._format_last_seen(user.last_seen_utc)
             if formatted:
                 user.last_seen = formatted
+        user.status = self._normalize_status(user.status)
         return user
 
     def set_timezone(self, timezone_name: str) -> None:
@@ -159,18 +160,29 @@ class UserStorage:
         return parsed
 
     def _current_timezone(self) -> tzinfo:
+        fallback = _FALLBACK_TIMEZONES.get(self.timezone_name)
+        if fallback:
+            return fallback
         try:
             return ZoneInfo(self.timezone_name)
-        except ZoneInfoNotFoundError:
-            fallback = _FALLBACK_TIMEZONES.get(self.timezone_name)
-            if fallback:
-                return fallback
-            try:
-                return ZoneInfo("UTC")
-            except ZoneInfoNotFoundError:
-                return timezone.utc
+        except (ZoneInfoNotFoundError, ModuleNotFoundError):
+            return _FALLBACK_TIMEZONES.get("UTC", timezone.utc)
         except Exception:
             return timezone.utc
+
+    def _normalize_status(self, status: Optional[str]) -> Optional[str]:
+        if not status:
+            return None
+        key = status.strip()
+        if key.startswith("status."):
+            return key
+        mapped = _STATUS_NORMALIZATION.get(key)
+        if mapped:
+            return mapped
+        mapped = _STATUS_NORMALIZATION.get(key.lower())
+        if mapped:
+            return mapped
+        return "status.unknown_label"
 
 
 _FALLBACK_TIMEZONES: Dict[str, tzinfo] = {
@@ -210,3 +222,23 @@ _FALLBACK_TIMEZONES: Dict[str, tzinfo] = {
     "Australia/Sydney": timezone(timedelta(hours=10)),
     "Australia/Melbourne": timezone(timedelta(hours=10)),
 }
+
+
+_STATUS_NORMALIZATION: Dict[str, str] = {
+    "UserStatusOnline": "status.online_label",
+    "UserStatusRecently": "status.recently_label",
+    "UserStatusOffline": "status.offline_label",
+    "UserStatusLastWeek": "status.last_week_label",
+    "UserStatusLastMonth": "status.last_month_label",
+    "UserStatusLongAgo": "status.long_ago_label",
+    "UserStatusEmpty": "status.unknown_label",
+    "online": "status.online_label",
+    "recently": "status.recently_label",
+    "offline": "status.offline_label",
+    "last_week": "status.last_week_label",
+    "last_month": "status.last_month_label",
+    "long_ago": "status.long_ago_label",
+    "unknown": "status.unknown_label",
+}
+
+_STATUS_NORMALIZATION.update({key.lower(): value for key, value in list(_STATUS_NORMALIZATION.items())})

@@ -580,7 +580,10 @@ class MainWindow(QMainWindow):
             self.user_table.setItem(row, 3, QTableWidgetItem(user.last_name or ""))
             self.user_table.setItem(row, 4, QTableWidgetItem(user.phone or ""))
             self.user_table.setItem(row, 5, QTableWidgetItem(user.last_seen or ""))
-            self.user_table.setItem(row, 6, QTableWidgetItem(user.status or ""))
+            status_value = ""
+            if user.status:
+                status_value = translator.translate(user.status)
+            self.user_table.setItem(row, 6, QTableWidgetItem(status_value))
         self.user_table.setSortingEnabled(True)
 
     def export_users(self) -> None:
