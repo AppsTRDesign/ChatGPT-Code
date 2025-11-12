@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 
 from app.core.session_manager import SessionManager
 from app.core.tasks import ProgressUpdate, SessionTask, TaskCancelled, TaskOrchestrator
-from app.data.user_storage import StoredUser
+from app.data.user_storage import StoredUser, UserStorage
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +24,14 @@ class TaskRequest:
     interval: Optional[timedelta]
     users: Optional[List[StoredUser]] = None
     persist_results: bool = True
+    storage: Optional[UserStorage] = None
 
 
 class SessionWorkerThread(QThread):
     progress = Signal(object)
-    status = Signal(str, str)
-    finished = Signal(str)
-    error = Signal(str, str)
+    status = Signal(str, str, str)
+    finished = Signal(str, str)
+    error = Signal(str, str, str)
 
     def __init__(
         self,
@@ -44,7 +45,7 @@ class SessionWorkerThread(QThread):
         self.request = request
 
     def stop(self) -> None:
-        self.orchestrator.cancel_task(self.request.session_name)
+        self.orchestrator.cancel_task(self.request.session_name, self.request.task_type)
 
     def run(self) -> None:  # noqa: D401
         asyncio.run(self._run())
@@ -57,13 +58,21 @@ class SessionWorkerThread(QThread):
         except Exception as exc:  # pragma: no cover - network failure
             self.error.emit(self.request.session_name, str(exc))
             return
-        task = self.orchestrator.create_task(self.request.session_name, client)
+        storage = self.request.storage
+        if storage is None:
+            raise ValueError("log.storage_not_configured")
+        task = self.orchestrator.create_task(
+            self.request.session_name,
+            self.request.task_type,
+            client,
+            storage,
+        )
 
         def progress_handler(update: ProgressUpdate) -> None:
             self.progress.emit(update)
 
         def status_handler(status: str) -> None:
-            self.status.emit(self.request.session_name, status)
+            self.status.emit(self.request.session_name, self.request.task_type, status)
 
         try:
             if self.request.task_type == "scan":
@@ -94,12 +103,12 @@ class SessionWorkerThread(QThread):
             else:
                 raise ValueError(f"Unknown task type {self.request.task_type}")
         except TaskCancelled:
-            self.status.emit(self.request.session_name, "status.stopped")
+            self.status.emit(self.request.session_name, self.request.task_type, "status.stopped")
         except Exception as exc:  # pragma: no cover
             logger.exception("Worker error")
-            self.error.emit(self.request.session_name, str(exc))
+            self.error.emit(self.request.session_name, self.request.task_type, str(exc))
         else:
-            self.finished.emit(self.request.session_name)
+            self.finished.emit(self.request.session_name, self.request.task_type)
         finally:
-            self.orchestrator.complete_task(self.request.session_name)
+            self.orchestrator.complete_task(self.request.session_name, self.request.task_type)
             await client.disconnect()

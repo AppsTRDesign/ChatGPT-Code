@@ -54,15 +54,29 @@ class MainWindow(QMainWindow):
         translator.set_language(self.settings.language)
         self.settings.ensure_directories()
         self.session_manager = SessionManager(self.settings)
-        self.user_storage = UserStorage(
-            self.settings.user_directory / "users.json",
-            timezone_name=self.settings.timezone,
-        )
-        self.orchestrator = TaskOrchestrator(self.settings, self.user_storage)
+        self.user_storages = {
+            "scanned": UserStorage(
+                self.settings.user_directory / "scanned_users.json",
+                timezone_name=self.settings.timezone,
+            ),
+            "active": UserStorage(
+                self.settings.user_directory / "active_users.json",
+                timezone_name=self.settings.timezone,
+            ),
+        }
+        self.orchestrator = TaskOrchestrator(self.settings)
         configure_logging()
 
         self.pending_login: Optional[PendingLogin] = None
-        self.worker_threads: Dict[str, SessionWorkerThread] = {}
+        self.worker_threads: Dict[tuple[str, str], SessionWorkerThread] = {}
+        self.progress_widgets: Dict[str, Dict[str, SessionProgressWidget]] = {
+            "scan": {},
+            "add": {},
+            "active": {},
+        }
+        self.progress_offsets: Dict[tuple[str, str], int] = {}
+        self.active_task_storage: Dict[tuple[str, str], str] = {}
+        self._pending_completion_notifications: set[str] = set()
 
         self.setWindowTitle(translator.translate("app.title"))
         self.resize(1280, 860)
@@ -80,7 +94,7 @@ class MainWindow(QMainWindow):
         self._build_user_tab()
 
         self.refresh_sessions()
-        self.populate_user_table()
+        self.populate_user_tables()
 
     # region builders
     def _build_sessions_tab(self) -> None:
@@ -193,7 +207,15 @@ class MainWindow(QMainWindow):
 
         form_layout = QFormLayout()
         self.add_target_input = QLineEdit()
+        self.add_source_combo = QComboBox()
+        self.add_source_combo.addItems(
+            [
+                translator.translate("option.add_source_scanned"),
+                translator.translate("option.add_source_active"),
+            ]
+        )
         form_layout.addRow(translator.translate("label.target_group"), self.add_target_input)
+        form_layout.addRow(translator.translate("label.add_source"), self.add_source_combo)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
         self.add_start_button = QPushButton(translator.translate("button.start"))
@@ -308,24 +330,6 @@ class MainWindow(QMainWindow):
     def _build_user_tab(self) -> None:
         tab = QWidget()
         layout = QVBoxLayout()
-        self.user_table = QTableWidget(0, 7)
-        headers = [
-            "ID",
-            translator.translate("table.column.username"),
-            translator.translate("table.column.first_name"),
-            translator.translate("table.column.last_name"),
-            translator.translate("table.column.phone"),
-            translator.translate("table.column.last_seen"),
-            translator.translate("table.column.status"),
-        ]
-        self.user_table.setHorizontalHeaderLabels(headers)
-        self.user_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.user_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.user_table.setSortingEnabled(True)
-        header = self.user_table.horizontalHeader()
-        if header:
-            header.setSectionsClickable(True)
-            header.setSectionResizeMode(QHeaderView.Stretch)
         button_layout = QHBoxLayout()
         self.export_users_button = QPushButton(translator.translate("button.export_users"))
         self.export_users_button.clicked.connect(self.export_users)
@@ -333,14 +337,43 @@ class MainWindow(QMainWindow):
         self.import_users_button.clicked.connect(self.import_users)
         self.add_user_button = QPushButton(translator.translate("button.add_user"))
         self.add_user_button.clicked.connect(self.add_user_manual)
+        self.clear_users_button = QPushButton(translator.translate("button.clear_users"))
+        self.clear_users_button.clicked.connect(self.clear_users)
         button_layout.addWidget(self.export_users_button)
         button_layout.addWidget(self.import_users_button)
         button_layout.addWidget(self.add_user_button)
-        layout.addWidget(QLabel(translator.translate("label.user_table")))
+        button_layout.addWidget(self.clear_users_button)
+
+        self.user_tab_widget = QTabWidget()
+        self.user_tables: Dict[str, QTableWidget] = {}
+
+        scanned_table = QTableWidget(0, 7)
+        scanned_table.setSelectionBehavior(QTableWidget.SelectRows)
+        scanned_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        scanned_table.setSortingEnabled(True)
+        scanned_header = scanned_table.horizontalHeader()
+        if scanned_header:
+            scanned_header.setSectionsClickable(True)
+            scanned_header.setSectionResizeMode(QHeaderView.Stretch)
+        self.user_tables["scanned"] = scanned_table
+        self.user_tab_widget.addTab(scanned_table, translator.translate("tab.users_scanned"))
+
+        active_table = QTableWidget(0, 8)
+        active_table.setSelectionBehavior(QTableWidget.SelectRows)
+        active_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        active_table.setSortingEnabled(True)
+        active_header = active_table.horizontalHeader()
+        if active_header:
+            active_header.setSectionsClickable(True)
+            active_header.setSectionResizeMode(QHeaderView.Stretch)
+        self.user_tables["active"] = active_table
+        self.user_tab_widget.addTab(active_table, translator.translate("tab.users_active"))
+
         layout.addLayout(button_layout)
-        layout.addWidget(self.user_table)
+        layout.addWidget(self.user_tab_widget)
         tab.setLayout(layout)
-        self.tab_widget.addTab(tab, translator.translate("label.user_table"))
+        self.tab_widget.addTab(tab, translator.translate("tab.users_root"))
+        self._update_user_table_headers()
 
     # endregion
 
@@ -435,6 +468,7 @@ class MainWindow(QMainWindow):
             interval = self._build_interval(self.scan_interval_combo.currentIndex(), self.scan_interval_value.value())
             container = self.scan_progress_container
             persist = self.scan_save_checkbox.isChecked()
+            storage_key = "scanned"
         elif task_type == "add":
             sessions = self.get_selected_sessions(self.add_session_list)
             target = self.add_target_input.text().strip()
@@ -442,6 +476,7 @@ class MainWindow(QMainWindow):
             interval = None
             container = self.add_progress_container
             persist = True
+            storage_key = self._current_add_storage_key()
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
@@ -449,46 +484,84 @@ class MainWindow(QMainWindow):
             interval = self._build_interval(self.active_interval_combo.currentIndex(), self.active_interval_value.value())
             container = self.active_progress_container
             persist = self.active_save_checkbox.isChecked()
+            storage_key = "active"
 
         if not sessions or not target:
             QMessageBox.warning(self, self.windowTitle(), "Oturum ve hedef girilmeli")
             return
 
+        storage = self.user_storages.get(storage_key)
+        if storage is None:
+            QMessageBox.critical(self, self.windowTitle(), translator.translate("dialog.storage_missing"))
+            return
+
         self.stop_all_tasks()
-        self._clear_progress(container)
 
-        limit_per_session = None
+        progress_map = self.progress_widgets[task_type]
+        for session_name in list(progress_map.keys()):
+            if session_name not in sessions:
+                widget = progress_map.pop(session_name)
+                self._remove_progress_widget(container, widget)
+                self.progress_offsets.pop((task_type, session_name), None)
+                self.active_task_storage.pop((task_type, session_name), None)
+
+        session_count = len(sessions)
+        limit_distribution: List[int] = []
         if limit:
-            limit_per_session = max(limit // len(sessions), 1)
-
-        users = None
-        if task_type == "add":
-            users = self.user_storage.get_users()
-            if not users:
-                QMessageBox.warning(self, self.windowTitle(), "Kayıtlı kullanıcı yok")
-                return
-            chunk_size = max(len(users) // len(sessions), 1)
+            base = limit // session_count
+            remainder = limit % session_count
+            for idx in range(session_count):
+                limit_distribution.append(base + (1 if idx < remainder else 0))
         else:
-            chunk_size = 0
+            limit_distribution = [0] * session_count
 
+        if task_type == "add":
+            users = storage.get_users()
+            if not users:
+                QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.no_users_available"))
+                return
+            user_chunks = self._split_users_for_sessions(users, session_count)
+        else:
+            user_chunks = [None] * session_count
+
+        requests_started = 0
         for idx, session_name in enumerate(sessions):
-            widget = SessionProgressWidget(session_name)
-            container.addWidget(widget)
-            if task_type == "add" and users is not None:
-                start_index = idx * chunk_size
-                end_index = (idx + 1) * chunk_size if idx < len(sessions) - 1 else len(users)
-                subset = users[start_index:end_index]
-            else:
-                subset = None
+            widget = progress_map.get(session_name)
+            if not widget:
+                widget = SessionProgressWidget(session_name, task_type)
+                progress_map[session_name] = widget
+                container.addWidget(widget)
+
+            offset = widget.state.processed
+            self.progress_offsets[(task_type, session_name)] = offset
+            per_session_limit = limit_distribution[idx]
+            if limit and per_session_limit == 0:
+                widget.update_state(offset, offset or 0, status_key="label.completed")
+                self.progress_offsets[(task_type, session_name)] = offset
+                continue
+            remaining_limit = per_session_limit - offset if per_session_limit else None
+            if remaining_limit is not None and remaining_limit <= 0:
+                widget.update_state(per_session_limit, per_session_limit, status_key="label.completed")
+                self.progress_offsets[(task_type, session_name)] = per_session_limit
+                continue
+
+            if task_type == "add" and not user_chunks[idx]:
+                widget.update_state(offset, offset or 0, status_key="label.completed")
+                self.progress_offsets[(task_type, session_name)] = offset
+                continue
+
+            display_total = per_session_limit if per_session_limit else widget.state.total
+            widget.update_state(offset, display_total or offset, status_key="status.running")
 
             request = TaskRequest(
                 task_type=task_type,
                 session_name=session_name,
                 entity=target,
-                limit=limit_per_session if limit_per_session else limit,
+                limit=remaining_limit,
                 interval=interval,
-                users=subset,
+                users=user_chunks[idx],
                 persist_results=persist,
+                storage=storage,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -496,41 +569,72 @@ class MainWindow(QMainWindow):
             thread.finished.connect(partial(self.on_finished, widget))
             thread.status.connect(partial(self.on_status_update, widget))
             thread.error.connect(partial(self.on_error, widget))
-            self.worker_threads[session_name] = thread
-            widget.update_state(0, request.limit or 0, status_key="status.running")
+            key = (task_type, session_name)
+            self.worker_threads[key] = thread
+            self.active_task_storage[key] = storage_key
             thread.start()
+            requests_started += 1
 
-    def _clear_progress(self, container: QVBoxLayout) -> None:
-        while container.count():
-            item = container.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
+        if not requests_started:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_remaining_work"))
+        else:
+            self._pending_completion_notifications.add(task_type)
+
+    def _remove_progress_widget(self, container: QVBoxLayout, widget: SessionProgressWidget) -> None:
+        index = container.indexOf(widget)
+        if index >= 0:
+            item = container.takeAt(index)
+            if item and item.widget():
+                item.widget().deleteLater()
+
+    def _notify_completion_if_ready(self) -> None:
+        if not self.worker_threads and self._pending_completion_notifications:
+            self._pending_completion_notifications.clear()
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                translator.translate("dialog.task_complete"),
+            )
 
     def on_progress(self, widget: SessionProgressWidget, update: ProgressUpdate) -> None:
-        widget.update_state(update.processed, update.total, update.status)
+        key = (widget.task_type, update.session_name)
+        offset = self.progress_offsets.get(key, 0)
+        processed = offset + update.processed
+        total_component = update.total or update.processed
+        total = max(offset + total_component, processed)
+        widget.update_state(processed, total, update.status)
+        self.progress_offsets[key] = processed
         if update.user:
             widget.append_user(self._format_user(update.user))
-            self.populate_user_table()
+            self.populate_user_tables()
+        elif widget.task_type == "add":
+            self.populate_user_tables()
 
-    def on_finished(self, widget: SessionProgressWidget, session_name: str) -> None:
-        total = widget.state.total or widget.state.processed
-        widget.update_state(widget.state.processed, total, status_key="label.completed")
-        thread = self.worker_threads.pop(session_name, None)
+    def on_finished(self, widget: SessionProgressWidget, session_name: str, task_type: str) -> None:
+        key = (task_type, session_name)
+        final_total = max(widget.state.total, widget.state.processed)
+        widget.update_state(final_total, final_total, status_key="label.completed")
+        self.progress_offsets[key] = final_total
+        thread = self.worker_threads.pop(key, None)
         if thread:
             thread.wait(1000)
+        self.active_task_storage.pop(key, None)
+        self._notify_completion_if_ready()
 
-    def on_status_update(self, widget: SessionProgressWidget, session_name: str, status_key: str) -> None:
+    def on_status_update(self, widget: SessionProgressWidget, session_name: str, task_type: str, status_key: str) -> None:
         total = widget.state.total or widget.state.processed
         widget.update_state(widget.state.processed, total, status_key=status_key)
 
-    def on_error(self, widget: SessionProgressWidget, session_name: str, message: str) -> None:
+    def on_error(self, widget: SessionProgressWidget, session_name: str, task_type: str, message: str) -> None:
         total = widget.state.total or widget.state.processed
         widget.update_state(widget.state.processed, total, status_key="status.error")
         widget.append_user(message)
-        thread = self.worker_threads.pop(session_name, None)
+        key = (task_type, session_name)
+        thread = self.worker_threads.pop(key, None)
         if thread:
             thread.wait(1000)
+        self.active_task_storage.pop(key, None)
+        self._notify_completion_if_ready()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: D401
         self.stop_all_tasks()
@@ -544,6 +648,8 @@ class MainWindow(QMainWindow):
         for thread in threads:
             thread.wait(5000)
         self.worker_threads.clear()
+        self.active_task_storage.clear()
+        self._pending_completion_notifications.clear()
 
     def _build_interval(self, index: int, value: int) -> Optional[timedelta]:
         if value <= 0:
@@ -566,28 +672,79 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _format_user(user: StoredUser) -> str:
-        return f"{user.user_id} | {user.username or ''} | {user.first_name or ''} {user.last_name or ''}".strip()
+        parts = [str(user.user_id)]
+        if user.username:
+            parts.append(user.username)
+        name = " ".join(part for part in [user.first_name or "", user.last_name or ""] if part)
+        if name:
+            parts.append(name)
+        if user.last_message:
+            message = user.last_message.replace("\n", " ").strip()
+            if message:
+                parts.append(message)
+        return " | ".join(parts)
 
-    def populate_user_table(self) -> None:
-        users = self.user_storage.get_users()
-        self.user_table.setSortingEnabled(False)
-        self.user_table.clearContents()
-        self.user_table.setRowCount(len(users))
-        for row, user in enumerate(users):
-            self.user_table.setItem(row, 0, QTableWidgetItem(str(user.user_id)))
-            self.user_table.setItem(row, 1, QTableWidgetItem(user.username or ""))
-            self.user_table.setItem(row, 2, QTableWidgetItem(user.first_name or ""))
-            self.user_table.setItem(row, 3, QTableWidgetItem(user.last_name or ""))
-            self.user_table.setItem(row, 4, QTableWidgetItem(user.phone or ""))
-            self.user_table.setItem(row, 5, QTableWidgetItem(user.last_seen or ""))
-            status_value = ""
-            if user.status:
-                status_value = translator.translate(user.status)
-            self.user_table.setItem(row, 6, QTableWidgetItem(status_value))
-        self.user_table.setSortingEnabled(True)
+    def populate_user_tables(self) -> None:
+        for key in ("scanned", "active"):
+            storage = self.user_storages.get(key)
+            table = self.user_tables.get(key)
+            if storage is None or table is None:
+                continue
+            users = storage.get_users()
+            table.setSortingEnabled(False)
+            table.clearContents()
+            table.setRowCount(len(users))
+            for row, user in enumerate(users):
+                table.setItem(row, 0, QTableWidgetItem(str(user.user_id)))
+                table.setItem(row, 1, QTableWidgetItem(user.username or ""))
+                table.setItem(row, 2, QTableWidgetItem(user.first_name or ""))
+                table.setItem(row, 3, QTableWidgetItem(user.last_name or ""))
+                table.setItem(row, 4, QTableWidgetItem(user.phone or ""))
+                table.setItem(row, 5, QTableWidgetItem(user.last_seen or ""))
+                status_value = ""
+                if user.status:
+                    status_value = translator.translate(user.status)
+                table.setItem(row, 6, QTableWidgetItem(status_value))
+                if key == "active":
+                    message_text = user.last_message or ""
+                    table.setItem(row, 7, QTableWidgetItem(message_text))
+            table.setSortingEnabled(True)
+
+    def _current_user_key(self) -> str:
+        if not hasattr(self, "user_tab_widget"):
+            return "scanned"
+        index = self.user_tab_widget.currentIndex()
+        keys = list(self.user_tables.keys())
+        if 0 <= index < len(keys):
+            return keys[index]
+        return "scanned"
+
+    def _current_user_storage(self) -> UserStorage:
+        key = self._current_user_key()
+        return self.user_storages[key]
+
+    def _current_add_storage_key(self) -> str:
+        return "scanned" if self.add_source_combo.currentIndex() == 0 else "active"
+
+    def _split_users_for_sessions(self, users: List[StoredUser], count: int) -> List[List[StoredUser]]:
+        if count <= 0:
+            return []
+        total = len(users)
+        base = total // count
+        remainder = total % count
+        chunks: List[List[StoredUser]] = []
+        start = 0
+        for idx in range(count):
+            size = base + (1 if idx < remainder else 0)
+            end = start + size
+            chunks.append(users[start:end])
+            start = end
+        return chunks
 
     def export_users(self) -> None:
-        default_path = self.settings.user_directory / "exported_users.json"
+        storage_key = self._current_user_key()
+        default_name = "exported_scanned_users.json" if storage_key == "scanned" else "exported_active_users.json"
+        default_path = self.settings.user_directory / default_name
         path, _ = QFileDialog.getSaveFileName(
             self,
             translator.translate("dialog.export_title"),
@@ -597,7 +754,8 @@ class MainWindow(QMainWindow):
         if not path:
             return
         try:
-            self.user_storage.export_to_file(Path(path))
+            storage = self._current_user_storage()
+            storage.export_to_file(Path(path))
         except Exception as exc:  # pragma: no cover - file system errors
             QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.export_failure')}: {exc}")
         else:
@@ -613,24 +771,44 @@ class MainWindow(QMainWindow):
         if not path:
             return
         try:
-            self.user_storage.import_from_file(Path(path))
+            storage = self._current_user_storage()
+            storage.import_from_file(Path(path))
         except Exception as exc:  # pragma: no cover - file system errors
             QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.import_failure')}: {exc}")
         else:
-            self.populate_user_table()
+            self.populate_user_tables()
             QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.import_success"))
 
     def add_user_manual(self) -> None:
-        dialog = ManualUserDialog(self)
+        include_message = self._current_user_key() == "active"
+        dialog = ManualUserDialog(self, include_message=include_message)
         if dialog.exec() != QDialog.Accepted:
             return
         user = dialog.build_user()
         if not user:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.add_user_invalid"))
             return
-        self.user_storage.add_users([user])
-        self.populate_user_table()
+        storage = self._current_user_storage()
+        storage.add_users([user])
+        self.populate_user_tables()
         QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.add_user_success"))
+
+    def clear_users(self) -> None:
+        confirm = QMessageBox.question(
+            self,
+            self.windowTitle(),
+            translator.translate("dialog.clear_users_confirm"),
+        )
+        if confirm != QMessageBox.Yes:
+            return
+        storage = self._current_user_storage()
+        storage.clear()
+        self.populate_user_tables()
+        QMessageBox.information(
+            self,
+            self.windowTitle(),
+            translator.translate("dialog.clear_users_success"),
+        )
 
     def save_rate_limits(self) -> None:
         self.settings.rate_limit.join_interval = float(self.join_interval_input.value())
@@ -648,9 +826,10 @@ class MainWindow(QMainWindow):
 
     def change_timezone(self, timezone: str) -> None:
         self.settings.timezone = timezone
-        self.user_storage.set_timezone(timezone)
+        for storage in self.user_storages.values():
+            storage.set_timezone(timezone)
         self.settings_repo.save(self.settings)
-        self.populate_user_table()
+        self.populate_user_tables()
 
     def retranslate_ui(self) -> None:
         self.setWindowTitle(translator.translate("app.title"))
@@ -662,7 +841,7 @@ class MainWindow(QMainWindow):
             "tab.active_senders",
             "tab.rate_limit",
             "tab.settings",
-            "label.user_table",
+            "tab.users_root",
         ]
         for index, key in enumerate(tab_keys):
             self.tab_widget.setTabText(index, translator.translate(key))
@@ -674,12 +853,18 @@ class MainWindow(QMainWindow):
         self.export_users_button.setText(translator.translate("button.export_users"))
         self.import_users_button.setText(translator.translate("button.import_users"))
         self.add_user_button.setText(translator.translate("button.add_user"))
+        self.clear_users_button.setText(translator.translate("button.clear_users"))
+        self.add_source_combo.setItemText(0, translator.translate("option.add_source_scanned"))
+        self.add_source_combo.setItemText(1, translator.translate("option.add_source_active"))
+        if hasattr(self, "user_tab_widget"):
+            self.user_tab_widget.setTabText(0, translator.translate("tab.users_scanned"))
+            self.user_tab_widget.setTabText(1, translator.translate("tab.users_active"))
         for container in [self.scan_progress_container, self.add_progress_container, self.active_progress_container]:
             for i in range(container.count()):
                 widget = container.itemAt(i).widget()
                 if isinstance(widget, SessionProgressWidget):
                     widget.retranslate()
-        self.populate_user_table()
+        self.populate_user_tables()
 
     def _update_sessions_tab_labels(self) -> None:
         sessions_tab = self.tab_widget.widget(0)
@@ -704,7 +889,7 @@ class MainWindow(QMainWindow):
         layout.itemAtPosition(4, 2).widget().setText(translator.translate("button.refresh_sessions"))
 
     def _update_user_table_headers(self) -> None:
-        headers = [
+        scanned_headers = [
             "ID",
             translator.translate("table.column.username"),
             translator.translate("table.column.first_name"),
@@ -713,12 +898,19 @@ class MainWindow(QMainWindow):
             translator.translate("table.column.last_seen"),
             translator.translate("table.column.status"),
         ]
-        for index, title in enumerate(headers):
-            self.user_table.setHorizontalHeaderItem(index, QTableWidgetItem(title))
+        active_headers = scanned_headers + [translator.translate("table.column.message")]
+        scanned_table = self.user_tables.get("scanned")
+        if scanned_table:
+            for index, title in enumerate(scanned_headers):
+                scanned_table.setHorizontalHeaderItem(index, QTableWidgetItem(title))
+        active_table = self.user_tables.get("active")
+        if active_table:
+            for index, title in enumerate(active_headers):
+                active_table.setHorizontalHeaderItem(index, QTableWidgetItem(title))
 
 
 class ManualUserDialog(QDialog):
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, include_message: bool = False) -> None:
         super().__init__(parent)
         self.setWindowTitle(translator.translate("dialog.add_user_title"))
         layout = QVBoxLayout()
@@ -733,6 +925,7 @@ class ManualUserDialog(QDialog):
         self.status_input = QLineEdit()
         self.source_input = QLineEdit()
         self.is_bot_checkbox = QCheckBox(translator.translate("label.is_bot"))
+        self.message_input = QLineEdit()
 
         form_layout.addRow("ID", self.user_id_input)
         form_layout.addRow(translator.translate("table.column.username"), self.username_input)
@@ -743,6 +936,8 @@ class ManualUserDialog(QDialog):
         form_layout.addRow(translator.translate("table.column.last_seen"), self.last_seen_input)
         form_layout.addRow(translator.translate("table.column.status"), self.status_input)
         form_layout.addRow(translator.translate("label.target_group"), self.source_input)
+        if include_message:
+            form_layout.addRow(translator.translate("label.last_message"), self.message_input)
         form_layout.addRow(self.is_bot_checkbox)
 
         layout.addLayout(form_layout)
@@ -759,6 +954,7 @@ class ManualUserDialog(QDialog):
             return None
         access_hash_text = self.access_hash_input.text().strip()
         access_hash = int(access_hash_text) if access_hash_text else None
+        last_message = self.message_input.text().strip() or None
         return StoredUser(
             user_id=user_id,
             username=self.username_input.text().strip() or None,
@@ -770,6 +966,7 @@ class ManualUserDialog(QDialog):
             status=self.status_input.text().strip() or None,
             source=self.source_input.text().strip() or None,
             is_bot=self.is_bot_checkbox.isChecked(),
+            last_message=last_message,
         )
 
 

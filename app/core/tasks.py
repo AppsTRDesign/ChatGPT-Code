@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError, PeerFloodError, UserPrivacyRestrictedError
@@ -142,6 +142,7 @@ class SessionTask:
                 source=str(entity),
                 is_bot=bool(getattr(user, "bot", False)),
                 last_seen_utc=UserStorage.to_iso(last_seen),
+                last_message=None,
             )
             stored = self.storage.prepare_user(stored)
             if persist:
@@ -271,6 +272,7 @@ class SessionTask:
                 source=str(entity),
                 is_bot=False,
                 last_seen_utc=UserStorage.to_iso(message.date.replace(tzinfo=timezone.utc) if message.date else None),
+                last_message=(message.message or "") if getattr(message, "message", None) else None,
             )
             stored = self.storage.prepare_user(stored)
             if persist:
@@ -295,24 +297,31 @@ class SessionTask:
 
 
 class TaskOrchestrator:
-    def __init__(self, settings: AppSettings, storage: UserStorage) -> None:
+    def __init__(self, settings: AppSettings) -> None:
         self.settings = settings
-        self.storage = storage
-        self._tasks: Dict[str, SessionTask] = {}
+        self._tasks: Dict[Tuple[str, str], SessionTask] = {}
 
-    def create_task(self, session_name: str, client: TelegramClient) -> SessionTask:
-        task = SessionTask(session_name, client, self.settings, self.storage)
-        self._tasks[session_name] = task
+    def create_task(
+        self,
+        session_name: str,
+        task_type: str,
+        client: TelegramClient,
+        storage: UserStorage,
+    ) -> SessionTask:
+        key = (session_name, task_type)
+        task = SessionTask(session_name, client, self.settings, storage)
+        self._tasks[key] = task
         return task
 
-    def complete_task(self, session_name: str) -> None:
-        self._tasks.pop(session_name, None)
+    def complete_task(self, session_name: str, task_type: str) -> None:
+        self._tasks.pop((session_name, task_type), None)
 
-    def cancel_task(self, session_name: str) -> None:
-        task = self._tasks.get(session_name)
+    def cancel_task(self, session_name: str, task_type: str) -> None:
+        key = (session_name, task_type)
+        task = self._tasks.get(key)
         if task:
             task.cancel()
-            self._tasks.pop(session_name, None)
+            self._tasks.pop(key, None)
 
     def cancel_all(self) -> None:
         for task in self._tasks.values():

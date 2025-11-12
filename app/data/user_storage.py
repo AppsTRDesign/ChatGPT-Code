@@ -21,6 +21,7 @@ class StoredUser:
     source: Optional[str]
     is_bot: bool = False
     last_seen_utc: Optional[str] = None
+    last_message: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
@@ -54,6 +55,7 @@ class UserStorage:
                 "source": item.get("source"),
                 "is_bot": bool(item.get("is_bot", False)),
                 "last_seen_utc": item.get("last_seen_utc"),
+                "last_message": item.get("last_message"),
             }
             user_id = payload["user_id"]
             if user_id is None:
@@ -100,6 +102,7 @@ class UserStorage:
                 "source": item.get("source"),
                 "is_bot": bool(item.get("is_bot", False)),
                 "last_seen_utc": item.get("last_seen_utc"),
+                "last_message": item.get("last_message"),
             }
             imported.append(StoredUser(**payload))
         self.add_users(imported)
@@ -108,6 +111,10 @@ class UserStorage:
         file_path.parent.mkdir(parents=True, exist_ok=True)
         with file_path.open("w", encoding="utf-8") as fp:
             json.dump([user.to_dict() for user in self._users.values()], fp, indent=2, ensure_ascii=False)
+
+    def clear(self) -> None:
+        self._users = {}
+        self.save()
 
     @staticmethod
     def to_iso(dt: Optional[datetime]) -> Optional[str]:

@@ -17,9 +17,10 @@ class ProgressState:
 
 
 class SessionProgressWidget(QWidget):
-    def __init__(self, session_name: str, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, session_name: str, task_type: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.session_name = session_name
+        self.task_type = task_type
         self.state = ProgressState()
 
         self.title_label = QLabel(session_name)
@@ -44,7 +45,7 @@ class SessionProgressWidget(QWidget):
         self.state = ProgressState()
         self.progress_bar.setMaximum(1)
         self.progress_bar.setValue(0)
-        self.status_label.setText(translator.translate(self.state.status))
+        self.status_label.setText(self._translate_status(self.state.status))
         self.log_view.clear()
 
     def update_state(self, processed: int, total: int, status_key: Optional[str] = None) -> None:
@@ -56,7 +57,7 @@ class SessionProgressWidget(QWidget):
         if status_key:
             self.state.status = status_key
         self.status_label.setText(
-            f"{translator.translate(self.state.status)} - {processed}/{total if total else processed}"
+            f"{self._translate_status(self.state.status)} - {processed}/{total if total else processed}"
         )
 
     def append_user(self, description: str) -> None:
@@ -64,6 +65,12 @@ class SessionProgressWidget(QWidget):
 
     def retranslate(self) -> None:
         self.status_label.setText(
-            f"{translator.translate(self.state.status)} - {self.state.processed}/{self.state.total if self.state.total else self.state.processed}"
+            f"{self._translate_status(self.state.status)} - {self.state.processed}/{self.state.total if self.state.total else self.state.processed}"
         )
         # Title remains session name
+
+    @staticmethod
+    def _translate_status(status: str) -> str:
+        if status.startswith("status."):
+            return translator.translate(status)
+        return status

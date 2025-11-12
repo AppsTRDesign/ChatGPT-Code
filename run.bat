@@ -6,5 +6,5 @@ if not exist "%SCRIPT_DIR%.venv" (
     exit /b 1
 )
 call "%SCRIPT_DIR%.venv\Scripts\activate" >nul 2>&1
-python -m app.main
+py -m app.main
 endlocal
