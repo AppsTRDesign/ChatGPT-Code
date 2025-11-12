@@ -73,6 +73,14 @@ class UserStorage:
             self._users[prepared.user_id] = prepared
         self.save()
 
+    def update_user(self, user: StoredUser) -> None:
+        prepared = self.prepare_user(user)
+        self._users[prepared.user_id] = prepared
+        self.save()
+
+    def has_user(self, user_id: int) -> bool:
+        return user_id in self._users
+
     def remove_user(self, user_id: int) -> None:
         if user_id in self._users:
             del self._users[user_id]

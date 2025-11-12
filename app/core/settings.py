@@ -43,10 +43,12 @@ class AppSettings:
     rate_limit: RateLimitConfig = field(default_factory=RateLimitConfig)
     session_directory: Path = field(default_factory=lambda: Path("session"))
     user_directory: Path = field(default_factory=lambda: Path("users"))
+    log_directory: Path = field(default_factory=lambda: Path("logs"))
 
     def ensure_directories(self) -> None:
         self.session_directory.mkdir(parents=True, exist_ok=True)
         self.user_directory.mkdir(parents=True, exist_ok=True)
+        self.log_directory.mkdir(parents=True, exist_ok=True)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -57,6 +59,7 @@ class AppSettings:
             "rate_limit": self.rate_limit.to_dict(),
             "session_directory": str(self.session_directory),
             "user_directory": str(self.user_directory),
+            "log_directory": str(self.log_directory),
         }
 
     @classmethod
@@ -69,6 +72,7 @@ class AppSettings:
             rate_limit=RateLimitConfig.from_dict(data.get("rate_limit", {})),
             session_directory=Path(data.get("session_directory", "session")),
             user_directory=Path(data.get("user_directory", "users")),
+            log_directory=Path(data.get("log_directory", "logs")),
         )
 
 

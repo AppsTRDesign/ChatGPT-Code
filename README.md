@@ -11,7 +11,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Aktif Mesaj Atanları Bulma:** Belirlenen zaman aralığında mesaj atan kullanıcıları tespit ederek kayıt altına alma.
 - **Rate Limit Yönetimi:** Flood hatalarını azaltmak için ayarlanabilir süreler.
 - **Dil ve Zaman Dilimi Ayarları:** 30 popüler zaman dilimi ve anlık TR/EN dil değişimi.
-- **Kullanıcı Kaydı:** Tüm çekilen kullanıcılar `users/users.json` dosyasında saklanır ve arayüzde tablo olarak gösterilir.
+- **Kullanıcı Kaydı:** Taranan üyeler `users/scanned_users.json`, aktif mesaj atanlar `users/active_users.json` dosyasında saklanır ve arayüzde tablo olarak gösterilir.
 
 ## Kurulum Adımları (Windows 11)
 
@@ -27,19 +27,21 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 
 3. **Sanal Ortam Oluşturun**
    ```powershell
-   python -m venv .venv
+   py -m venv .venv
    .\.venv\Scripts\activate
    ```
 
 4. **Bağımlılıkları Yükleyin**
    ```powershell
-   pip install -r requirements.txt
+   py -m pip install -r requirements.txt
    ```
 
 5. **Uygulamayı Başlatın**
    ```powershell
-   python -m app.main
+   py -m app.main
    ```
+
+> Alternatif olarak `install.bat` ve `run.bat` dosyalarını çalıştırarak kurulum ve başlatma adımlarını otomatikleştirebilirsiniz.
 
 ## İlk Çalıştırma
 
@@ -51,8 +53,9 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 ## Veri Kayıt Yapısı
 
 - `session/` klasörü Telethon oturum dosyalarını tutar.
-- `users/` klasöründeki `users.json` dosyası çekilen ve işlenen kullanıcıları saklar. İşlenen kullanıcılar otomatik olarak silinir.
+- `users/` klasöründeki `scanned_users.json` ve `active_users.json` dosyaları ilgili sekmelerdeki kullanıcı kayıtlarını saklar. İşlenen kullanıcılar otomatik olarak silinir veya güncellenir.
 - `config/settings.json` uygulama ayarlarını barındırır.
+- `logs/application.log` dosyası hata ve işlem günlüklerini içerir.
 
 ## Önemli Notlar
 

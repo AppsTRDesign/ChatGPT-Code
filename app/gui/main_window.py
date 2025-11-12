@@ -53,6 +53,9 @@ class MainWindow(QMainWindow):
         self.settings = self.settings_repo.load()
         translator.set_language(self.settings.language)
         self.settings.ensure_directories()
+        log_file = self.settings.log_directory / "application.log"
+        configure_logging(log_file)
+
         self.session_manager = SessionManager(self.settings)
         self.user_storages = {
             "scanned": UserStorage(
@@ -65,7 +68,6 @@ class MainWindow(QMainWindow):
             ),
         }
         self.orchestrator = TaskOrchestrator(self.settings)
-        configure_logging()
 
         self.pending_login: Optional[PendingLogin] = None
         self.worker_threads: Dict[tuple[str, str], SessionWorkerThread] = {}

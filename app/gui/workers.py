@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable, Iterable, List, Optional
 
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QThread, Signal
+from telethon import TelegramClient
 
 from app.core.session_manager import SessionManager
 from app.core.tasks import ProgressUpdate, SessionTask, TaskCancelled, TaskOrchestrator
@@ -51,12 +52,16 @@ class SessionWorkerThread(QThread):
         asyncio.run(self._run())
 
     async def _run(self) -> None:
+        client: Optional[TelegramClient] = None
         try:
             client = await self.session_manager._create_client(self.request.session_name)
             if not await client.is_user_authorized():
                 raise ValueError("log.session_not_authorized")
         except Exception as exc:  # pragma: no cover - network failure
-            self.error.emit(self.request.session_name, str(exc))
+            logger.exception("Worker start failure")
+            if client:
+                await client.disconnect()
+            self.error.emit(self.request.session_name, self.request.task_type, str(exc))
             return
         storage = self.request.storage
         if storage is None:

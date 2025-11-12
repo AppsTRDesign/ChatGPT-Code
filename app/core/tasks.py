@@ -7,7 +7,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from telethon import TelegramClient
-from telethon.errors import FloodWaitError, PeerFloodError, UserPrivacyRestrictedError
+from telethon.errors import (
+    FloodWaitError,
+    PeerFloodError,
+    UserIdInvalidError,
+    UserPrivacyRestrictedError,
+)
 from telethon.tl import functions, types
 
 from app.core.settings import AppSettings
@@ -171,16 +176,24 @@ class SessionTask:
                 progress_callback(self.build_progress(total or 1, user, status="status.skipped_bot"))
                 self.storage.remove_user(user.user_id)
                 continue
+            input_user = await self._resolve_input_user(user)
+            if input_user is None:
+                logger.warning("log.member_input_missing")
+                progress_callback(self.build_progress(total or 1, user, status="status.error"))
+                continue
             try:
                 await self.client(
                     functions.channels.InviteToChannelRequest(
                         channel=entity,
-                        users=[types.InputUser(user_id=user.user_id, access_hash=user.access_hash or 0)],
+                        users=[input_user],
                     )
                 )
                 progress_callback(self.build_progress(total, user, status="status.running"))
                 self.storage.remove_user(user.user_id)
             except UserPrivacyRestrictedError:
+                progress_callback(self.build_progress(total, user, status="status.error"))
+            except UserIdInvalidError:
+                logger.warning("log.member_input_invalid")
                 progress_callback(self.build_progress(total, user, status="status.error"))
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
@@ -260,11 +273,25 @@ class SessionTask:
             if sender.id in seen_users:
                 continue
             seen_users.add(sender.id)
+            access_hash = getattr(sender, "access_hash", None)
+            if access_hash is None:
+                try:
+                    input_peer = await self.client.get_input_entity(sender)
+                except (TypeError, ValueError):
+                    logger.warning("log.active_sender_missing_entity")
+                    continue
+                if isinstance(input_peer, types.InputPeerUser):
+                    access_hash = input_peer.access_hash
+                elif isinstance(input_peer, types.InputUser):
+                    access_hash = input_peer.access_hash
+                else:
+                    logger.warning("log.active_sender_missing_entity")
+                    continue
             stored = StoredUser(
                 user_id=sender.id,
                 username=sender.username,
                 phone=getattr(sender, "phone", None),
-                access_hash=getattr(sender, "access_hash", None),
+                access_hash=access_hash,
                 first_name=sender.first_name,
                 last_name=sender.last_name,
                 last_seen=None,
@@ -277,12 +304,36 @@ class SessionTask:
             stored = self.storage.prepare_user(stored)
             if persist:
                 self.storage.add_users([stored])
+            elif stored.access_hash and hasattr(self.storage, "has_user") and self.storage.has_user(stored.user_id):
+                self.storage.update_user(stored)
             processed += 1
             progress_callback(self.build_progress(total or processed, stored, status="status.running"))
             if limit and processed >= limit:
                 break
             await self._throttle(self.settings.rate_limit.scan_interval)
         logger.info("log.active_finished")
+
+    async def _resolve_input_user(self, user: StoredUser) -> Optional[types.InputUser]:
+        if user.access_hash:
+            return types.InputUser(user_id=user.user_id, access_hash=user.access_hash)
+        try:
+            entity = await self.client.get_input_entity(types.PeerUser(user.user_id))
+        except (TypeError, ValueError):
+            try:
+                entity = await self.client.get_input_entity(user.user_id)
+            except (TypeError, ValueError):
+                return None
+        if isinstance(entity, types.InputPeerUser):
+            user.access_hash = entity.access_hash
+            if hasattr(self.storage, "has_user") and self.storage.has_user(user.user_id):
+                self.storage.update_user(user)
+            return types.InputUser(user_id=entity.user_id, access_hash=entity.access_hash)
+        if isinstance(entity, types.InputUser):
+            user.access_hash = entity.access_hash
+            if hasattr(self.storage, "has_user") and self.storage.has_user(user.user_id):
+                self.storage.update_user(user)
+            return entity
+        return None
 
     async def _handle_flood_wait(
         self, seconds: int, status_callback: Callable[[str], None]
