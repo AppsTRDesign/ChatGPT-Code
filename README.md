@@ -1,15 +1,15 @@
 Bu proje, Google Haritalar'dan işletme bilgilerini (isim, adres, telefon, çalışma saatleri ve müşteri yorumları) almak için iki
 dilli (Türkçe/İngilizce) bir masaüstü arayüzü sunar. Uygulama Windows üzerinde Python 3.11 kullanılarak çalışacak şekilde
-tasarlandı ve hem Google Places API'yi hem de Selenium tabanlı bir bot tarayıcısını destekler.
+tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir bot tarayıcısını destekler.
 
 ## Özellikler
 
 - Türkçe ve İngilizce arayüz desteği
 - Google Places API Text Search ve Details uç noktaları ile veri çekme
-- Selenium + Google Chrome kullanarak canlı Google Haritalar üzerinden bot ile tarama
-- Bot taraması sırasında Google Haritalar üzerindeki işaretlere yapay bir fare imleciyle tıklama
+- Playwright + gömülü Chromium ile Google Haritalar üzerinden bot ile tarama
+- Bot taraması sırasında Google Haritalar üzerindeki sonuç kartlarını taklit edilmiş fare hareketleriyle seçme
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" sekmesindeki olanakları toplama
-- Harita ekran görüntülerini canlı olarak gösteren önizleme paneli
+- Harita ekran görüntülerini canlı olarak gösteren ve Playwright tarafından güncellenen yerleşik önizleme paneli
 - Her tıklamada harita önizlemesini yenileyen ve sonuç listesini anlık güncelleyen canlı ilerleme
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
 - API veya bot ile alınan verileri JSON ya da CSV formatında dışa aktarma
@@ -21,12 +21,10 @@ tasarlandı ve hem Google Places API'yi hem de Selenium tabanlı bir bot tarayı
 
 - Windows 10/11
 - [Python 3.11](https://www.python.org/downloads/windows/)
-- [Google Chrome](https://www.google.com/chrome/) tarayıcısı (bot taraması için)
 - Aktif bir Google Cloud hesabı ve **Places API** etkinleştirilmiş bir proje
 - Google Cloud Console üzerinden oluşturulmuş bir API anahtarı
 
-> Not: Selenium botu varsayılan olarak `webdriver-manager` aracılığıyla ChromeDriver indirir. İnternet erişiminiz yoksa
-> sürücüyü manuel indirip `PATH` değişkenine eklemeniz gerekir.
+> Not: Playwright taraması, gerekli Chromium sürümünü `playwright install chromium` komutu ile indirir. `install.bat` betiği bu adımı otomatik olarak gerçekleştirir; manuel kurulum yapıyorsanız aynı komutu çalıştırmayı unutmayın.
 
 ## Google Places API Anahtarının Alınması
 
@@ -75,12 +73,12 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi yazın (örn. "İstanbul kuaför"). Konum bilgisini sorgu metnine eklemek yeterlidir.
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
 3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
-4. "Ara" butonuna bastığınızda Google Chrome hemen açılır; bot yalnızca sol menüdeki işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Tarama boyunca tarayıcı penceresini kapatmayın.
+4. "Ara" butonuna bastığınızda Playwright arka planda gömülü Chromium sayfasını açar; bot yalnızca sol menüdeki işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Tüm işlem uygulama penceresi içinde gerçekleşir.
 5. Bot çalışırken her imleç hareketinde ve kart seçildiğinde harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir.
 6. Her işletme açılır açılmaz bilgiler eşzamanlı olarak sonuç listesine eklenir ve alt paneldeki "Detaylar" bölümü en son işletmenin adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" verileriyle otomatik güncellenir.
 7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
-> Bot sekmesinde Selenium taraması sırasında tarayıcı açık kalır ve işlem tamamlandığında otomatik olarak kapatılır.
+> Bot sekmesinde Playwright tarafından yönetilen Chromium, ekran görüntüleri ile doğrudan arayüze gömülür ve işlem tamamlandığında oturum kapatılır.
 
 > Bot, fotoğraf galerisi gibi açılır pencereleri otomatik kapatarak veri toplamaya devam eder.
 
@@ -97,14 +95,14 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 - API anahtarınızın yetkileri doğru ayarlanmış mı kontrol edin.
 - Günlük kota sınırlarınızı aşmadığınızdan emin olun.
 - Arama sorgunuz çok dar veya yanlış olabilir; konum bilgisini genişletmeyi deneyin.
-- Bot taraması için Chrome'un güncel olduğundan ve internet erişiminizin bulunduğundan emin olun.
+- Bot taraması için Playwright'ın ihtiyaç duyduğu Chromium'un kurulu olduğundan (install.bat bunu otomatik yapar) ve internet erişiminizin bulunduğundan emin olun.
 
 ### Müşteri yorumları eksik görünüyor, normal mi?
 - Google Places API, her istekte en fazla 5 yorumu döndürür.
 - Bot taraması sırasında Google Haritalar sayfası yeterli yorumu göstermeyebilir; daha fazla yorum için tarayıcıdaki "Daha fazla yorum" bağlantısını manuel açmayı deneyebilirsiniz.
 
 ### Bot çalışmıyor, ne yapmalıyım?
-- Chrome tarayıcısının kurulu olduğundan emin olun.
+- `install.bat` sonrasında `playwright install chromium` adımının başarıyla tamamlandığını ve güvenlik yazılımlarının botu engellemediğini kontrol edin.
 - Güvenlik yazılımları otomatik tarayıcı açılmasını engelleyebilir; gerekirse geçici olarak izin verin.
 - İnternet bağlantınızı ve Google'ın otomasyon kısıtlamalarını kontrol edin.
 
@@ -117,6 +115,7 @@ Sanal ortamı manuel olarak etkinleştirmek isterseniz:
 
 ```bat
 venv\Scripts\activate
+python -m playwright install chromium
 python -m google_maps_gui.app
 ```
 
