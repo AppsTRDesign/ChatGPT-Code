@@ -8,6 +8,7 @@ tasarlandı ve hem Google Places API'yi hem de Selenium tabanlı bir bot tarayı
 - Google Places API Text Search ve Details uç noktaları ile veri çekme
 - Selenium + Google Chrome kullanarak canlı Google Haritalar üzerinden bot ile tarama
 - Bot taraması sırasında Google Haritalar üzerindeki işaretlere yapay bir fare imleciyle tıklama
+- Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" sekmesindeki olanakları toplama
 - Harita ekran görüntülerini canlı olarak gösteren önizleme paneli
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
 - API veya bot ile alınan verileri JSON ya da CSV formatında dışa aktarma
@@ -73,7 +74,7 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi yazın (örn. "İstanbul kuaför"). Konum bilgisini sorgu metnine eklemek yeterlidir.
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
 3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
-4. "Ara" butonuna bastığınızda Google Chrome hemen açılır; bot yapay bir fare imleciyle haritadaki işaretlere tek tek tıklayarak işletme kartlarını getirir. Tarama boyunca tarayıcı penceresini kapatmayın.
+4. "Ara" butonuna bastığınızda Google Chrome hemen açılır; bot sol menüdeki işletme kartlarını yapay bir fare imleciyle seçer ve gerekirse haritadaki işaretlere tıklayarak ayrıntı panelini açar. Tarama boyunca tarayıcı penceresini kapatmayın.
 5. Bot çalışırken harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak güncellenir.
 6. Bulunan işletmeler sol taraftaki listede, ayrıntıları ise alt panelde görüntülenir.
 7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
@@ -84,8 +85,8 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 ## Çıktı Biçimleri
 
-- **JSON:** Her işletme için telefon, adres, çalışma saatleri ve müşteri yorumları ayrıntılı şekilde saklanır.
-- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler ile yorumların özet hali saklanır.
+- **JSON:** Her işletme için telefon, adres, çalışma saatleri, puan, "Hakkında" sekmesi verileri ve müşteri yorumları ayrıntılı şekilde saklanır.
+- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, "Hakkında" sekmesi bilgileri ve yorumların özet hali saklanır.
 
 ## Sık Karşılaşılan Sorular
 

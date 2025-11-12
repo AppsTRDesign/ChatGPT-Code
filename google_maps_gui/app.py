@@ -15,7 +15,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    TimeoutException,
+    WebDriverException,
+    StaleElementReferenceException,
+)
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -58,11 +63,13 @@ class PlaceResult:
     rating: Optional[float]
     user_ratings_total: Optional[int]
     reviews: List[PlaceReview]
+    attributes: Dict[str, List[str]]
 
     def to_dict(self) -> Dict[str, object]:
         data = asdict(self)
         data["opening_hours"] = self.opening_hours
         data["reviews"] = [review.to_dict() for review in self.reviews]
+        data["attributes"] = self.attributes
         return data
 
     def to_csv_row(self) -> Dict[str, Optional[str]]:
@@ -75,6 +82,9 @@ class PlaceResult:
             "rating_count": "" if self.user_ratings_total is None else str(self.user_ratings_total),
             "reviews": " || ".join(
                 f"{review.author_name}: {review.text}" for review in self.reviews
+            ),
+            "attributes": " || ".join(
+                f"{section}: {', '.join(items)}" for section, items in self.attributes.items()
             ),
         }
 
@@ -141,6 +151,7 @@ class GoogleMapsClient:
                     rating=result.get("rating"),
                     user_ratings_total=result.get("user_ratings_total"),
                     reviews=reviews,
+                    attributes={},
                 )
             )
         return detailed_results
@@ -162,6 +173,29 @@ LOGGER = logging.getLogger(__name__)
 
 class GoogleMapsSeleniumScraper:
     """Automates Google Maps searches via Selenium and extracts business details."""
+
+    TAB_LABELS = {
+        "overview": {
+            "tr": ["genel bakış", "genel"],
+            "en": ["overview"],
+            "_default": ["overview"],
+        },
+        "hours": {
+            "tr": ["çalışma saatleri", "saatler"],
+            "en": ["hours", "opening hours"],
+            "_default": ["hours"],
+        },
+        "reviews": {
+            "tr": ["yorumlar", "değerlendirmeler"],
+            "en": ["reviews"],
+            "_default": ["reviews"],
+        },
+        "about": {
+            "tr": ["hakkında"],
+            "en": ["about"],
+            "_default": ["about"],
+        },
+    }
 
     def __init__(self, language: str = "tr", limit: int = 5, max_reviews: int = 3) -> None:
         self.language = language
@@ -208,17 +242,28 @@ class GoogleMapsSeleniumScraper:
                     LOGGER.debug("Skipping duplicate or unnamed result at index %d", index)
                     continue
 
-                marker = self._find_map_marker(driver, name)
-                target = marker or article
-                self._animate_cursor_to_element(driver, target)
+                primary_target = self._resolve_click_target(article)
+                self._animate_cursor_to_element(driver, primary_target)
                 self._human_pause(0.45)
-                self._click_element(driver, target)
+                self._click_element(driver, primary_target)
 
                 try:
                     self._wait_for_place_panel(wait)
                 except TimeoutException:
-                    LOGGER.warning("Details panel did not appear for '%s'", name)
-                    continue
+                    marker = self._find_map_marker(driver, name)
+                    if marker:
+                        LOGGER.info("Retrying click on map marker for '%s'", name)
+                        self._animate_cursor_to_element(driver, marker)
+                        self._human_pause(0.45)
+                        self._click_element(driver, marker)
+                        try:
+                            self._wait_for_place_panel(wait)
+                        except TimeoutException:
+                            LOGGER.warning("Details panel did not appear for '%s'", name)
+                            continue
+                    else:
+                        LOGGER.warning("Details panel did not appear for '%s'", name)
+                        continue
 
                 self._send_progress_screenshot(driver, progress_callback)
 
@@ -245,25 +290,265 @@ class GoogleMapsSeleniumScraper:
         search_box.send_keys(Keys.ENTER)
 
     def _wait_for_result_list(self, driver: webdriver.Chrome, wait: WebDriverWait) -> None:
-        wait.until(
-            EC.any_of(
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="article"]')),
-                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="feed"] div.Nv2PK')),
-            )
-        )
+        wait.until(lambda drv: bool(self._get_result_items(drv)))
         time.sleep(1.0)
 
     def _get_article_by_index(
         self, driver: webdriver.Chrome, wait: WebDriverWait, index: int
     ):
-        wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div[role="article"]')))
-        articles = driver.find_elements(By.CSS_SELECTOR, 'div[role="article"]')
-        if index >= len(articles):
-            raise TimeoutException("Not enough search results")
-        article = articles[index]
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", article)
-        wait.until(lambda drv: article.is_displayed())
+        wait.until(lambda drv: bool(self._get_result_items(drv)))
+        attempts = 0
+        while True:
+            articles = self._get_result_items(driver)
+            if index < len(articles):
+                article = articles[index]
+                try:
+                    driver.execute_script(
+                        "arguments[0].scrollIntoView({block: 'center'});",
+                        article,
+                    )
+                except WebDriverException:
+                    pass
+                wait.until(lambda drv: article.is_displayed())
+                return article
+            if not self._scroll_results_feed(driver):
+                attempts += 1
+            else:
+                attempts += 1
+            if attempts > 5:
+                raise TimeoutException("Not enough search results")
+            self._human_pause(0.35)
+
+    def _get_result_items(self, driver: webdriver.Chrome):
+        items = driver.find_elements(By.CSS_SELECTOR, 'div[role="feed"] div.Nv2PK')
+        if items:
+            return [item for item in items if item.is_displayed()]
+        items = driver.find_elements(By.CSS_SELECTOR, 'div[role="article"]')
+        if items:
+            return [item for item in items if item.is_displayed()]
+        return []
+
+    def _get_results_feed(self, driver: webdriver.Chrome):
+        feeds = driver.find_elements(By.CSS_SELECTOR, 'div[role="feed"]')
+        for feed in feeds:
+            if feed.is_displayed():
+                return feed
+        return None
+
+    def _scroll_results_feed(self, driver: webdriver.Chrome) -> bool:
+        feed = self._get_results_feed(driver)
+        if not feed:
+            return False
+        try:
+            driver.execute_script(
+                "arguments[0].scrollTop = arguments[0].scrollTop + arguments[0].clientHeight;",
+                feed,
+            )
+            return True
+        except WebDriverException:
+            return False
+
+    def _resolve_click_target(self, article):
+        clickable_selectors = [
+            'a.hfpxzc',
+            'div.Nv2PK',
+            'div[role="article"]',
+        ]
+        for selector in clickable_selectors:
+            try:
+                element = article.find_element(By.CSS_SELECTOR, selector)
+                if element.is_displayed():
+                    return element
+            except NoSuchElementException:
+                continue
         return article
+
+    def _first_non_empty_text(self, driver: webdriver.Chrome, selectors: List[tuple[str, str]]) -> str:
+        for by in selectors:
+            try:
+                elements = driver.find_elements(*by)
+            except WebDriverException:
+                continue
+            for element in elements:
+                text = element.text.strip()
+                if text:
+                    return text
+        return ""
+
+    def _first_attribute_value(
+        self, driver: webdriver.Chrome, selectors: List[tuple[str, str]], attribute: str
+    ) -> str:
+        for by in selectors:
+            try:
+                elements = driver.find_elements(*by)
+            except WebDriverException:
+                continue
+            for element in elements:
+                value = (element.get_attribute(attribute) or "").strip()
+                if value:
+                    return value
+        return ""
+
+    def _tab_label_candidates(self, key: str) -> List[str]:
+        mapping = self.TAB_LABELS.get(key, {})
+        labels = mapping.get(self.language, []) + mapping.get("_default", [])
+        seen: set[str] = set()
+        ordered: List[str] = []
+        for label in labels:
+            normalized = self._normalize_text(label)
+            if normalized not in seen:
+                seen.add(normalized)
+                ordered.append(label)
+        return ordered
+
+    def _select_tab(self, driver: webdriver.Chrome, wait: WebDriverWait, key: str) -> bool:
+        labels = self._tab_label_candidates(key)
+        if not labels:
+            return False
+        try:
+            tabs = driver.find_elements(By.CSS_SELECTOR, 'button[role="tab"]')
+        except WebDriverException:
+            return False
+        normalized_targets = {self._normalize_text(label) for label in labels}
+        for tab in tabs:
+            label = self._normalize_text(tab.text)
+            if label not in normalized_targets:
+                continue
+            try:
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'center'});",
+                    tab,
+                )
+            except WebDriverException:
+                pass
+            try:
+                tab.click()
+            except WebDriverException:
+                try:
+                    driver.execute_script("arguments[0].click();", tab)
+                except WebDriverException:
+                    continue
+
+            def is_selected() -> bool:
+                try:
+                    return tab.get_attribute("aria-selected") == "true"
+                except StaleElementReferenceException:
+                    try:
+                        refreshed = driver.find_elements(By.CSS_SELECTOR, 'button[role="tab"]')
+                    except WebDriverException:
+                        return False
+                    for candidate in refreshed:
+                        if self._normalize_text(candidate.text) == label:
+                            try:
+                                return candidate.get_attribute("aria-selected") == "true"
+                            except WebDriverException:
+                                return False
+                    return False
+
+            try:
+                wait.until(lambda _: is_selected())
+            except TimeoutException:
+                pass
+            return True
+        return False
+
+    def _extract_address(self, driver: webdriver.Chrome) -> str:
+        selectors = [
+            (By.CSS_SELECTOR, 'button[data-item-id="address"] div[class*="Io6YTe"]'),
+            (By.CSS_SELECTOR, 'div[data-item-id="address"] div[class*="Io6YTe"]'),
+            (By.CSS_SELECTOR, 'button[aria-label*="Adres"] div[class*="Io6YTe"]'),
+            (By.CSS_SELECTOR, 'button[aria-label*="Address"] div[class*="Io6YTe"]'),
+            (By.XPATH, '//div[contains(@aria-label, "Adres") or contains(@aria-label, "Address")]//div[contains(@class, "Io6YTe")]'),
+        ]
+        address = self._first_non_empty_text(driver, selectors)
+        if address:
+            return address
+        generic = driver.find_elements(By.CSS_SELECTOR, 'div.Io6YTe.fontBodyMedium.kR99db.fdkmkc')
+        for element in generic:
+            text = element.text.strip()
+            if text:
+                return text
+        return ""
+
+    def _extract_phone(self, driver: webdriver.Chrome) -> str:
+        selectors = [
+            (By.CSS_SELECTOR, 'button[data-item-id^="phone:"] div[class*="Io6YTe"]'),
+            (By.CSS_SELECTOR, 'div[data-item-id^="phone:"] div[class*="Io6YTe"]'),
+            (By.XPATH, '//div[contains(@aria-label, "Telefon") or contains(@aria-label, "Phone")]//div[contains(@class, "Io6YTe")]'),
+        ]
+        phone = self._first_non_empty_text(driver, selectors)
+        if phone:
+            return phone
+        fallback = driver.find_elements(By.CSS_SELECTOR, 'div.AeaXub div.Io6YTe')
+        for element in fallback:
+            text = element.text.strip()
+            if text:
+                return text
+        return ""
+
+    def _extract_rating_info(self, driver: webdriver.Chrome) -> tuple[Optional[float], Optional[int]]:
+        rating_text = self._first_non_empty_text(
+            driver,
+            [
+                (By.CSS_SELECTOR, 'div.F7nice span[aria-hidden="true"]'),
+                (By.CSS_SELECTOR, 'div.F7nice span:first-child'),
+            ],
+        )
+        rating = self._parse_rating(rating_text)
+
+        rating_count_text = self._first_attribute_value(
+            driver,
+            [
+                (By.CSS_SELECTOR, 'div.F7nice span[role="img"][aria-label*="yorum"]'),
+                (By.CSS_SELECTOR, 'div.F7nice span[role="img"][aria-label*="review"]'),
+            ],
+            "aria-label",
+        )
+        if not rating_count_text:
+            rating_count_text = self._first_non_empty_text(
+                driver,
+                [(By.CSS_SELECTOR, 'div.F7nice span:last-child')],
+            )
+        rating_count = self._parse_rating_count(rating_count_text)
+        return rating, rating_count
+
+    def _extract_about_sections(self, driver: webdriver.Chrome) -> Dict[str, List[str]]:
+        region = self._find_about_region(driver)
+        if region is None:
+            return {}
+        sections: Dict[str, List[str]] = {}
+        containers = region.find_elements(By.CSS_SELECTOR, 'div.iP2t7d')
+        for container in containers:
+            try:
+                heading = container.find_element(By.CSS_SELECTOR, 'h2')
+            except NoSuchElementException:
+                continue
+            title = heading.text.strip()
+            if not title:
+                continue
+            entries: List[str] = []
+            for item in container.find_elements(By.CSS_SELECTOR, 'ul li'):
+                text = item.text.strip()
+                if text and text not in entries:
+                    entries.append(text)
+            if entries:
+                sections[title] = entries
+        return sections
+
+    def _find_about_region(self, driver: webdriver.Chrome):
+        candidates = driver.find_elements(By.CSS_SELECTOR, 'div[aria-label]')
+        for candidate in candidates:
+            label = (candidate.get_attribute("aria-label") or "").lower()
+            if "hakkında" in label or "about" in label:
+                if candidate.is_displayed():
+                    return candidate
+        extras = driver.find_elements(
+            By.CSS_SELECTOR, 'div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde'
+        )
+        for candidate in extras:
+            if candidate.is_displayed():
+                return candidate
+        return None
 
     def _extract_article_name(self, article) -> str:
         try:
@@ -367,29 +652,43 @@ class GoogleMapsSeleniumScraper:
         )
 
     def _extract_details(self, driver: webdriver.Chrome, wait: WebDriverWait) -> PlaceResult:
-        def get_text(by: tuple[str, str]) -> str:
-            try:
-                element = driver.find_element(*by)
-                return element.text.strip()
-            except NoSuchElementException:
-                return ""
-
-        name = get_text((By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]'))
-        address = get_text(
-            (By.CSS_SELECTOR, 'button[data-item-id="address"] div[class*="fontBodyMedium"]')
-        ) or get_text((By.CSS_SELECTOR, 'div[data-item-id="address"] div[class*="fontBodyMedium"]'))
-        phone = get_text(
-            (By.CSS_SELECTOR, 'button[data-item-id^="phone"] div[class*="fontBodyMedium"]')
-        ) or get_text((By.CSS_SELECTOR, 'div[data-item-id^="phone"] div[class*="fontBodyMedium"]'))
-
-        rating_text = get_text((By.CSS_SELECTOR, 'div.F7nice span[aria-label]'))
-        rating = self._parse_rating(rating_text)
-        rating_count = self._parse_rating_count(
-            get_text((By.CSS_SELECTOR, 'div.F7nice span[aria-label] + span'))
+        name = self._first_non_empty_text(
+            driver,
+            [
+                (By.CSS_SELECTOR, 'h1[class*="fontHeadlineLarge"]'),
+                (By.CSS_SELECTOR, 'div[class*="DUwDvf"]'),
+            ],
         )
 
-        opening_hours = self._extract_hours(driver, wait)
-        reviews = self._extract_reviews(driver)
+        self._select_tab(driver, wait, "overview")
+
+        address = self._extract_address(driver)
+        phone = self._extract_phone(driver)
+        rating, rating_count = self._extract_rating_info(driver)
+
+        opening_hours: List[str] = []
+        if self._select_tab(driver, wait, "hours"):
+            opening_hours = self._extract_hours(driver, wait)
+        if not opening_hours:
+            opening_hours = self._extract_hours(driver, wait)
+
+        reviews: List[PlaceReview] = []
+        if self._select_tab(driver, wait, "reviews"):
+            reviews = self._extract_reviews(driver, wait)
+        if not reviews:
+            reviews = self._extract_reviews(driver, wait)
+
+        attributes: Dict[str, List[str]] = {}
+        if self._select_tab(driver, wait, "about"):
+            attributes = self._extract_about_sections(driver)
+        if not attributes:
+            attributes = self._extract_about_sections(driver)
+
+        # Return the panel to overview for user clarity
+        self._select_tab(driver, wait, "overview")
+
+        if not name:
+            name = "Unknown"
 
         return PlaceResult(
             name=name,
@@ -399,51 +698,53 @@ class GoogleMapsSeleniumScraper:
             rating=rating,
             user_ratings_total=rating_count,
             reviews=reviews,
+            attributes=attributes,
         )
 
     def _extract_hours(self, driver: webdriver.Chrome, wait: WebDriverWait) -> List[str]:
         hours: List[str] = []
-        selectors = [
-            (By.XPATH, '//div[contains(@aria-label, "Hours")]/div[contains(@class, "fontBodyMedium")]'),
-            (By.XPATH, '//div[contains(@aria-label, "Saat")]/div[contains(@class, "fontBodyMedium")]'),
-        ]
-        for by in selectors:
-            elements = driver.find_elements(*by)
-            for element in elements:
-                text = element.text.strip()
-                if text and text not in hours:
-                    hours.append(text)
-        if hours:
-            return hours
-
         try:
-            hours_button = driver.find_element(By.CSS_SELECTOR, 'button[aria-label*="Hours"]')
-            driver.execute_script("arguments[0].click();", hours_button)
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="dialog"] table')))
-            rows = driver.find_elements(By.CSS_SELECTOR, 'div[role="dialog"] table tr')
-            for row in rows:
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'table.eK4R0e')))
+        except TimeoutException:
+            pass
+
+        rows = driver.find_elements(By.CSS_SELECTOR, 'table.eK4R0e tbody tr')
+        for row in rows:
+            cells = row.find_elements(By.CSS_SELECTOR, 'td')
+            if len(cells) >= 2:
+                day = cells[0].text.strip()
+                value = cells[1].text.strip()
+                if day and value:
+                    hours.append(f"{day}: {value}")
+                elif day or value:
+                    hours.append(day or value)
+            else:
                 text = row.text.strip()
                 if text:
                     hours.append(text)
-        except (NoSuchElementException, TimeoutException):
-            pass
-        finally:
-            self._close_dialog(driver)
+
+        if hours:
+            return hours
+
+        fallback_selectors = [
+            (By.CSS_SELECTOR, 'div[aria-label*="Saat"] div[class*="fontBodyMedium"]'),
+            (By.CSS_SELECTOR, 'div[aria-label*="Hours"] div[class*="fontBodyMedium"]'),
+        ]
+        seen: set[str] = set()
+        for selector in fallback_selectors:
+            for element in driver.find_elements(*selector):
+                text = element.text.strip()
+                if text and text not in seen:
+                    hours.append(text)
+                    seen.add(text)
         return hours
 
-    def _close_dialog(self, driver: webdriver.Chrome) -> None:
-        try:
-            close_button = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Close"]')
-            close_button.click()
-        except NoSuchElementException:
-            try:
-                close_button = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Kapat"]')
-                close_button.click()
-            except NoSuchElementException:
-                pass
-
-    def _extract_reviews(self, driver: webdriver.Chrome) -> List[PlaceReview]:
+    def _extract_reviews(self, driver: webdriver.Chrome, wait: WebDriverWait) -> List[PlaceReview]:
         reviews: List[PlaceReview] = []
+        try:
+            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-review-id]')))
+        except TimeoutException:
+            pass
         review_cards = driver.find_elements(By.CSS_SELECTOR, 'div[data-review-id]')
         if not review_cards:
             review_cards = driver.find_elements(By.CSS_SELECTOR, 'div[jscontroller="MZ93Hf"] div[data-review-id]')
@@ -524,6 +825,8 @@ TRANSLATIONS = {
         "column_rating": "Puan",
         "opening_hours": "Çalışma Saatleri",
         "reviews": "Müşteri Yorumları",
+        "attributes": "Hakkında",
+        "attributes_none": "Bilgi yok",
         "review_author": "Yazar",
         "review_rating": "Puan",
         "review_time": "Zaman",
@@ -565,6 +868,8 @@ TRANSLATIONS = {
         "column_rating": "Rating",
         "opening_hours": "Opening Hours",
         "reviews": "Customer Reviews",
+        "attributes": "About",
+        "attributes_none": "No data",
         "review_author": "Author",
         "review_rating": "Rating",
         "review_time": "Time",
@@ -1027,6 +1332,14 @@ class Application(tk.Tk):
         else:
             lines.append("  - -")
         lines.append("")
+        lines.append(f"{self._('attributes')}:")
+        if result.attributes:
+            for section, values in result.attributes.items():
+                pretty_values = ", ".join(values) if values else self._('attributes_none')
+                lines.append(f"  - {section}: {pretty_values}")
+        else:
+            lines.append(f"  - {self._('attributes_none')}")
+        lines.append("")
         lines.append(f"{self._('reviews')}:")
         if result.reviews:
             for review in result.reviews:
@@ -1082,7 +1395,16 @@ class Application(tk.Tk):
                 return
             try:
                 with open(path, "w", encoding="utf-8", newline="") as output:
-                    fieldnames = ["name", "address", "phone", "opening_hours", "rating", "rating_count", "reviews"]
+                    fieldnames = [
+                        "name",
+                        "address",
+                        "phone",
+                        "opening_hours",
+                        "rating",
+                        "rating_count",
+                        "reviews",
+                        "attributes",
+                    ]
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
                     writer.writeheader()
                     for result in results:
