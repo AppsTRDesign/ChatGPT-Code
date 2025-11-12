@@ -44,6 +44,7 @@ class AppSettings:
     session_directory: Path = field(default_factory=lambda: Path("session"))
     user_directory: Path = field(default_factory=lambda: Path("users"))
     log_directory: Path = field(default_factory=lambda: Path("logs"))
+    max_active_messages: int = 5000
 
     def ensure_directories(self) -> None:
         self.session_directory.mkdir(parents=True, exist_ok=True)
@@ -60,6 +61,7 @@ class AppSettings:
             "session_directory": str(self.session_directory),
             "user_directory": str(self.user_directory),
             "log_directory": str(self.log_directory),
+            "max_active_messages": self.max_active_messages,
         }
 
     @classmethod
@@ -73,6 +75,7 @@ class AppSettings:
             session_directory=Path(data.get("session_directory", "session")),
             user_directory=Path(data.get("user_directory", "users")),
             log_directory=Path(data.get("log_directory", "logs")),
+            max_active_messages=int(data.get("max_active_messages", 5000)),
         )
 
 

@@ -6,9 +6,10 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 
 - **Çoklu OTP Girişi:** Birden fazla telefon numarası için oturum açma ve oturum dosyalarını `session/` klasöründe saklama.
 - **Ban Kontrolü:** Kayıtlı oturumların ban durumunu kontrol etme ve banlı oturumları temizleme.
-- **Hedef Gruptan Üye Taraması:** Zaman filtresi ve kota desteği ile çoklu oturum üzerinden üye bilgilerini toplama.
+- **Hedef Gruptan Üye Taraması:** Zaman filtresi ve kota desteği ile çoklu oturuma düşen üye sayısını otomatik bölerek tekrar etmeyen kayıtlar toplama.
 - **Hedef Gruba Üye Ekleme:** Kayıtlı kullanıcı listesinden hedef gruba üyeleri eşit bölerek ekleme, ilerleme çubukları ve flood wait yönetimi.
-- **Aktif Mesaj Atanları Bulma:** Belirlenen zaman aralığında mesaj atan kullanıcıları tespit ederek kayıt altına alma.
+- **Aktif Mesaj Atanları Bulma:** Belirlenen zaman aralığında mesaj atan kullanıcıları, ayarlardaki maksimum mesaj tarama sınırını oturumlara bölerek ve isteğe bağlı kullanıcı adı filtresiyle kayıt altına alma.
+- **Esnek İlerleme ve Kayıt Kontrolleri:** Kullanıcı adı olmayanları hariç tutma, kayıtlı listeleri temizleme ve işlemleri iptal ederek baştan başlatma seçenekleri.
 - **Rate Limit Yönetimi:** Flood hatalarını azaltmak için ayarlanabilir süreler.
 - **Dil ve Zaman Dilimi Ayarları:** 30 popüler zaman dilimi ve anlık TR/EN dil değişimi.
 - **Kullanıcı Kaydı:** Taranan üyeler `users/scanned_users.json`, aktif mesaj atanlar `users/active_users.json` dosyasında saklanır ve arayüzde tablo olarak gösterilir.

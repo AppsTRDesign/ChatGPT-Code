@@ -4,7 +4,7 @@ import asyncio
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
@@ -35,6 +35,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from telethon import functions, types
 
 from app.core.logger import configure_logging
 from app.core.session_manager import PendingLogin, SessionManager
@@ -304,12 +306,17 @@ class MainWindow(QMainWindow):
         self.scan_interval_input = QSpinBox()
         self.scan_interval_input.setRange(1, 3600)
         self.scan_interval_input.setValue(int(self.settings.rate_limit.scan_interval))
+        self.max_active_messages_input = QSpinBox()
+        self.max_active_messages_input.setRange(100, 50000)
+        self.max_active_messages_input.setValue(int(self.settings.max_active_messages))
+        self.max_active_messages_label = QLabel(translator.translate("label.max_active_messages"))
         self.flood_checkbox = QCheckBox(translator.translate("label.flood_wait"))
         self.flood_checkbox.setChecked(self.settings.rate_limit.flood_wait_handling)
 
         form_layout.addRow(translator.translate("label.rate_join"), self.join_interval_input)
         form_layout.addRow(translator.translate("label.rate_message"), self.message_interval_input)
         form_layout.addRow(translator.translate("label.rate_scan"), self.scan_interval_input)
+        form_layout.addRow(self.max_active_messages_label, self.max_active_messages_input)
         form_layout.addRow(self.flood_checkbox)
 
         save_button = QPushButton(translator.translate("button.save"))
@@ -527,23 +534,21 @@ class MainWindow(QMainWindow):
                 self._remove_progress_widget(container, widget)
 
         session_count = len(sessions)
-        limit_distribution: List[int] = []
-        if limit:
-            base = limit // session_count
-            remainder = limit % session_count
-            for idx in range(session_count):
-                limit_distribution.append(base + (1 if idx < remainder else 0))
-        else:
-            limit_distribution = [0] * session_count
-
+        per_session_limits: List[Optional[int]] = [None] * session_count
+        offsets: List[int] = [0] * session_count
         if task_type == "add":
             users = storage.get_users()
             if not users:
                 QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.no_users_available"))
                 return
             user_chunks = self._split_users_for_sessions(users, session_count)
+            per_session_limits = [len(chunk) for chunk in user_chunks]
         else:
             user_chunks = [None] * session_count
+            if task_type == "scan":
+                per_session_limits, offsets = self._scan_distribution(limit, target, sessions)
+            else:
+                per_session_limits, offsets = self._active_distribution(limit, session_count)
 
         requests_started = 0
         for idx, session_name in enumerate(sessions):
@@ -555,10 +560,8 @@ class MainWindow(QMainWindow):
             else:
                 widget.reset()
 
-            per_session_limit = limit_distribution[idx]
-            if limit and per_session_limit == 0:
-                widget.update_state(0, 0, status_key="status.completed")
-                continue
+            per_session_limit = per_session_limits[idx] if idx < len(per_session_limits) else None
+            offset_value = offsets[idx] if idx < len(offsets) else 0
 
             if task_type == "add":
                 session_users = user_chunks[idx] or []
@@ -568,13 +571,16 @@ class MainWindow(QMainWindow):
                     continue
             else:
                 session_users = None
-                total_target = per_session_limit
+                if per_session_limit == 0:
+                    widget.update_state(0, 0, status_key="status.completed")
+                    continue
+                total_target = per_session_limit or 0
 
             widget.update_state(0, total_target or 0, status_key="status.running")
 
-            request_limit = per_session_limit or None
-            if task_type == "add":
-                request_limit = None
+            request_limit: Optional[int] = None
+            if task_type != "add" and isinstance(per_session_limit, int) and per_session_limit > 0:
+                request_limit = per_session_limit
 
             request = TaskRequest(
                 task_type=task_type,
@@ -586,6 +592,7 @@ class MainWindow(QMainWindow):
                 persist_results=persist,
                 storage=storage,
                 include_no_username=include_no_username,
+                offset=offset_value if request_limit else 0,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -732,10 +739,6 @@ class MainWindow(QMainWindow):
         name = " ".join(part for part in [user.first_name or "", user.last_name or ""] if part)
         if name:
             parts.append(name)
-        if user.last_message:
-            message = user.last_message.replace("\n", " ").strip()
-            if message:
-                parts.append(message)
         return " | ".join(parts)
 
     def populate_user_tables(self) -> None:
@@ -794,6 +797,97 @@ class MainWindow(QMainWindow):
             chunks.append(users[start:end])
             start = end
         return chunks
+
+    def _scan_distribution(
+        self, limit: Optional[int], target: str, sessions: List[str]
+    ) -> Tuple[List[Optional[int]], List[int]]:
+        session_count = len(sessions)
+        if session_count <= 0:
+            return [], []
+        total_target = limit if limit and limit > 0 else None
+        if total_target is None:
+            estimated = self._estimate_member_total(target, sessions)
+            if estimated:
+                total_target = estimated
+        if total_target:
+            shard_limits, offsets = self._calculate_shards(total_target, session_count)
+            return [value if value > 0 else 0 for value in shard_limits], offsets
+        limits: List[Optional[int]] = [None] + [0] * (session_count - 1)
+        return limits[:session_count], [0] * session_count
+
+    def _active_distribution(
+        self, limit: Optional[int], session_count: int
+    ) -> Tuple[List[Optional[int]], List[int]]:
+        if session_count <= 0:
+            return [], []
+        total_target = limit if limit and limit > 0 else self.settings.max_active_messages
+        if total_target <= 0:
+            total_target = self.settings.max_active_messages
+        shard_limits, offsets = self._calculate_shards(total_target, session_count)
+        return [value if value > 0 else 0 for value in shard_limits], offsets
+
+    @staticmethod
+    def _calculate_shards(total: int, count: int) -> Tuple[List[int], List[int]]:
+        if count <= 0:
+            return [], []
+        if total <= 0:
+            return [0] * count, [0] * count
+        base = total // count
+        remainder = total % count
+        limits: List[int] = []
+        offsets: List[int] = []
+        start = 0
+        for idx in range(count):
+            size = base + (1 if idx < remainder else 0)
+            limits.append(size)
+            offsets.append(start)
+            start += size
+        return limits, offsets
+
+    def _estimate_member_total(self, target: str, sessions: List[str]) -> Optional[int]:
+        if not sessions:
+            return None
+        session_name = sessions[0]
+
+        async def fetch(client):
+            try:
+                entity = await client.get_entity(target)
+            except Exception:
+                return None
+            count = getattr(entity, "participants_count", None)
+            if isinstance(count, int) and count > 0:
+                return count
+            try:
+                input_entity = await client.get_input_entity(entity)
+            except Exception:
+                input_entity = None
+            channel = None
+            if isinstance(input_entity, types.InputChannel):
+                channel = input_entity
+            elif isinstance(input_entity, types.InputPeerChannel):
+                channel = types.InputChannel(input_entity.channel_id, input_entity.access_hash)
+            if channel is not None:
+                try:
+                    full = await client(functions.channels.GetFullChannelRequest(channel))
+                    full_count = getattr(full.full_chat, "participants_count", None)
+                    if isinstance(full_count, int) and full_count > 0:
+                        return full_count
+                except Exception:
+                    pass
+            if isinstance(entity, types.Chat):
+                try:
+                    full_chat = await client(functions.messages.GetFullChatRequest(entity.id))
+                    chat_count = getattr(full_chat.full_chat, "participants_count", None)
+                    if isinstance(chat_count, int) and chat_count > 0:
+                        return chat_count
+                except Exception:
+                    pass
+            return None
+
+        try:
+            return asyncio.run(self.session_manager.run_with_client(session_name, fetch))
+        except Exception:
+            return None
 
     def export_users(self) -> None:
         storage_key = self._current_user_key()
@@ -869,6 +963,7 @@ class MainWindow(QMainWindow):
         self.settings.rate_limit.message_interval = float(self.message_interval_input.value())
         self.settings.rate_limit.scan_interval = float(self.scan_interval_input.value())
         self.settings.rate_limit.flood_wait_handling = self.flood_checkbox.isChecked()
+        self.settings.max_active_messages = int(self.max_active_messages_input.value())
         self.settings_repo.save(self.settings)
         QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.success"))
 
@@ -916,6 +1011,10 @@ class MainWindow(QMainWindow):
         self.add_cancel_button.setText(translator.translate("button.cancel"))
         self.active_start_button.setText(translator.translate("button.start"))
         self.active_cancel_button.setText(translator.translate("button.cancel"))
+        if hasattr(self, "max_active_messages_label"):
+            self.max_active_messages_label.setText(translator.translate("label.max_active_messages"))
+        if hasattr(self, "flood_checkbox"):
+            self.flood_checkbox.setText(translator.translate("label.flood_wait"))
         self.export_users_button.setText(translator.translate("button.export_users"))
         self.import_users_button.setText(translator.translate("button.import_users"))
         self.add_user_button.setText(translator.translate("button.add_user"))

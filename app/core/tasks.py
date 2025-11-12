@@ -8,6 +8,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from telethon import TelegramClient
 from telethon.errors import (
+    ChatWriteForbiddenError,
     FloodWaitError,
     PeerFloodError,
     UserIdInvalidError,
@@ -59,16 +60,19 @@ class SessionTask:
             raise TaskCancelled()
 
     def build_progress(
-        self, total: int, user: Optional[StoredUser] = None, status: Optional[str] = None
+        self, total: Optional[int] = None, user: Optional[StoredUser] = None, status: Optional[str] = None
     ) -> ProgressUpdate:
-        if total:
-            self._total = total
         self._processed += 1
-        if not self._total or self._processed > self._total:
+        if total and total > 0:
+            self._total = total
+        elif not self._total:
             self._total = self._processed
+        processed_value = self._processed
+        if self._total:
+            processed_value = min(self._processed, self._total)
         return ProgressUpdate(
             session_name=self.session_name,
-            processed=self._processed,
+            processed=processed_value,
             total=self._total,
             user=user,
             status=status,
@@ -86,13 +90,14 @@ class SessionTask:
         persist: bool,
         status_callback: Optional[Callable[[str], None]] = None,
         include_no_username: bool = True,
+        offset: int = 0,
     ) -> None:
         await self._check_cancelled()
         status_cb = status_callback or (lambda _: None)
         status_cb("status.running")
         total = limit or 0
         processed = 0
-        iterator = self.client.iter_participants(entity, limit=limit)
+        iterator = self.client.iter_participants(entity, limit=limit, offset=offset)
         seen_ids: set[int] = set()
         while True:
             await self._check_cancelled()
@@ -199,6 +204,7 @@ class SessionTask:
             if input_user is None:
                 logger.warning("log.member_input_missing")
                 progress_callback(self.build_progress(total or 1, user, status="status.error"))
+                self.storage.remove_user(user.user_id)
                 continue
             try:
                 await self.client(
@@ -211,9 +217,11 @@ class SessionTask:
                 self.storage.remove_user(user.user_id)
             except UserPrivacyRestrictedError:
                 progress_callback(self.build_progress(total, user, status="status.error"))
+                self.storage.remove_user(user.user_id)
             except UserIdInvalidError:
                 logger.warning("log.member_input_invalid")
                 progress_callback(self.build_progress(total, user, status="status.error"))
+                self.storage.remove_user(user.user_id)
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.join_interval)
@@ -232,6 +240,10 @@ class SessionTask:
                 )
                 logger.warning("log.peer_flood")
                 break
+            except ChatWriteForbiddenError:
+                logger.warning("log.chat_write_forbidden")
+                progress_callback(self.build_progress(total, user, status="status.error"))
+                break
             await self._throttle(self.settings.rate_limit.join_interval)
         logger.info("log.add_finished")
 
@@ -244,9 +256,10 @@ class SessionTask:
         persist: bool,
         status_callback: Optional[Callable[[str], None]] = None,
         include_no_username: bool = True,
+        offset: int = 0,
     ) -> None:
         cutoff = datetime.now(tz=timezone.utc) - active_within if active_within else None
-        messages = self.client.iter_messages(entity, limit=limit)
+        messages = self.client.iter_messages(entity, limit=limit, add_offset=offset)
         processed = 0
         total = limit or 0
         seen_users: set[int] = set()
@@ -297,6 +310,10 @@ class SessionTask:
             seen_users.add(sender.id)
             access_hash = getattr(sender, "access_hash", None)
             if access_hash is None:
+                input_sender = getattr(message, "input_sender", None)
+                if isinstance(input_sender, (types.InputPeerUser, types.InputUser)):
+                    access_hash = input_sender.access_hash
+            if access_hash is None:
                 try:
                     input_peer = await self.client.get_input_entity(types.PeerUser(sender.id))
                 except FloodWaitError as exc:
@@ -346,7 +363,13 @@ class SessionTask:
             try:
                 entity = await self.client.get_input_entity(user.user_id)
             except (TypeError, ValueError):
-                return None
+                if user.username:
+                    try:
+                        entity = await self.client.get_input_entity(user.username)
+                    except (TypeError, ValueError):
+                        return None
+                else:
+                    return None
         if isinstance(entity, types.InputPeerUser):
             resolved = types.InputUser(user_id=entity.user_id, access_hash=entity.access_hash)
         elif isinstance(entity, types.InputUser):
