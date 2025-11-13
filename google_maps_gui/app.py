@@ -9,14 +9,14 @@ import re
 import threading
 import time
 from contextlib import suppress
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Callable, Dict, List, Optional
 
 import requests
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from PIL import Image, ImageTk, UnidentifiedImageError
+from PIL import Image, ImageDraw, ImageTk, UnidentifiedImageError
 from playwright.sync_api import (
     TimeoutError as PlaywrightTimeoutError,
     Error as PlaywrightError,
@@ -45,11 +45,18 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "result_limit": "İşletme Sayısı",
         "results": "Sonuçlar",
         "details": "Detaylar",
+        "search_panel": "Arama Ayarları",
         "column_name": "İsim",
         "column_phone": "Telefon",
         "column_rating": "Puan",
         "column_category": "Kategori",
         "review_limit": "Yorum Sayısı",
+        "gallery_toggle": "Galeri Görsellerini Kaydet",
+        "gallery_count": "Galeri Sayısı",
+        "gallery_prompt_title": "Galeri Ayarı",
+        "gallery_prompt_message": "Kaç adet galeri görseli alınsın?",
+        "hero_image": "Kapak Görseli",
+        "gallery_images": "Galeri Görselleri",
         "save_json": "JSON Kaydet",
         "save_csv": "CSV Kaydet",
         "status_ready": "Hazır",
@@ -86,6 +93,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "log_result_captured": "İşletme verileri alındı: {name}",
         "log_search_finished": "Bot taraması tamamlandı. Toplam veri: {count}",
         "log_search_failed": "Bot taraması hata verdi: {message}",
+        "app_tagline": "API ve bot taramalarını tek panelde birleştirin",
     },
     "en": {
         "app_title": "Google Maps Business Tool",
@@ -98,11 +106,18 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "result_limit": "Business Count",
         "results": "Results",
         "details": "Details",
+        "search_panel": "Search Options",
         "column_name": "Name",
         "column_phone": "Phone",
         "column_rating": "Rating",
         "column_category": "Category",
         "review_limit": "Review Count",
+        "gallery_toggle": "Include Gallery Photos",
+        "gallery_count": "Gallery Count",
+        "gallery_prompt_title": "Gallery Capture",
+        "gallery_prompt_message": "How many gallery photos should be captured?",
+        "hero_image": "Hero Image",
+        "gallery_images": "Gallery Photos",
         "save_json": "Save JSON",
         "save_csv": "Save CSV",
         "status_ready": "Ready",
@@ -139,6 +154,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "log_result_captured": "Captured business data: {name}",
         "log_search_finished": "Bot scan finished. Total results: {count}",
         "log_search_failed": "Bot scan failed: {message}",
+        "app_tagline": "Blend API and bot scans in one workspace",
     },
 }
 
@@ -172,12 +188,16 @@ class PlaceResult:
     user_ratings_total: Optional[int]
     reviews: List[PlaceReview]
     attributes: Dict[str, List[str]]
+    hero_image_url: Optional[str] = None
+    gallery_images: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, object]:
         data = asdict(self)
         data["opening_hours"] = self.opening_hours
         data["reviews"] = [review.to_dict() for review in self.reviews]
         data["attributes"] = self.attributes
+        data["hero_image_url"] = self.hero_image_url
+        data["gallery_images"] = self.gallery_images
         return data
 
     def to_csv_row(self) -> Dict[str, Optional[str]]:
@@ -205,6 +225,8 @@ class PlaceResult:
             "attributes": " || ".join(
                 f"{section}: {', '.join(items)}" for section, items in self.attributes.items()
             ),
+            "hero_image_url": self.hero_image_url or "",
+            "gallery_images": " | ".join(self.gallery_images) if self.gallery_images else "",
         }
 
 
@@ -318,10 +340,19 @@ class GoogleMapsPlaywrightScraper:
         "about": {"tr": ["hakkında"], "en": ["about"], "_default": ["about"]},
     }
 
-    def __init__(self, language: str = "tr", limit: int = 5, max_reviews: int = 3) -> None:
+    def __init__(
+        self,
+        language: str = "tr",
+        limit: int = 5,
+        max_reviews: int = 3,
+        include_gallery: bool = False,
+        gallery_limit: int = 0,
+    ) -> None:
         self.language = language or "tr"
         self.limit = limit
         self.max_reviews = max(0, max_reviews)
+        self.include_gallery = include_gallery
+        self.gallery_limit = max(0, gallery_limit)
 
     def search(
         self,
@@ -625,6 +656,11 @@ class GoogleMapsPlaywrightScraper:
         if not attributes:
             attributes = self._extract_attributes(page)
 
+        hero_image = self._extract_hero_image(page)
+        gallery_images: List[str] = []
+        if self.include_gallery:
+            gallery_images = self._extract_gallery_images(page)
+
         return PlaceResult(
             name=name,
             formatted_address=address,
@@ -635,6 +671,8 @@ class GoogleMapsPlaywrightScraper:
             user_ratings_total=rating_count,
             reviews=reviews,
             attributes=attributes,
+            hero_image_url=hero_image or None,
+            gallery_images=gallery_images,
         )
 
     def _extract_business_type(self, page: Page) -> str:
@@ -799,6 +837,83 @@ class GoogleMapsPlaywrightScraper:
                 )
             )
         return reviews
+
+    def _extract_hero_image(self, page: Page) -> str:
+        selectors = [
+            'div.RZ66Rb img[src]',
+            'div.RZ66Rb button img[src]',
+            'button[jsaction*="heroHeaderImage"] img[src]',
+        ]
+        for selector in selectors:
+            locator = page.locator(selector)
+            if locator.count():
+                src = self._safe_get_attribute(locator.first, "src")
+                if src:
+                    return src
+        style = self._safe_get_attribute(page.locator('div.RZ66Rb').first, "style")
+        return self._parse_background_image(style)
+
+    def _extract_gallery_images(self, page: Page) -> List[str]:
+        limit = min(max(0, self.gallery_limit), 50)
+        if not self.include_gallery or limit <= 0:
+            return []
+        if not self._open_gallery_overlay(page):
+            return []
+        images: List[str] = []
+        seen: set[str] = set()
+        attempts = 0
+        while len(images) < limit and attempts < limit * 4:
+            current = self._current_gallery_image(page)
+            if current and current not in seen:
+                images.append(current)
+                seen.add(current)
+            if len(images) >= limit:
+                break
+            with suppress(PlaywrightError):
+                page.keyboard.press("ArrowRight")
+            page.wait_for_timeout(350)
+            attempts += 1
+        self._close_gallery_overlay(page)
+        return images
+
+    def _open_gallery_overlay(self, page: Page) -> bool:
+        selectors = ['div.RZ66Rb button', 'div.RZ66Rb']
+        for selector in selectors:
+            locator = page.locator(selector)
+            if not locator.count():
+                continue
+            try:
+                locator.first.click(delay=60)
+                page.wait_for_selector('div[role="dialog"] div.Uf0tqf', timeout=4000)
+                page.wait_for_timeout(200)
+                return True
+            except PlaywrightError:
+                continue
+        return False
+
+    def _close_gallery_overlay(self, page: Page) -> None:
+        with suppress(PlaywrightError):
+            page.keyboard.press("Escape")
+        page.wait_for_timeout(200)
+
+    def _current_gallery_image(self, page: Page) -> str:
+        locator = page.locator('div[role="dialog"] div.Uf0tqf, div.Uf0tqf')
+        if not locator.count():
+            return ""
+        style = self._safe_get_attribute(locator.first, "style")
+        if style:
+            parsed = self._parse_background_image(style)
+            if parsed:
+                return parsed
+        return self._safe_get_attribute(locator.first.locator('img').first, "src")
+
+    def _parse_background_image(self, style: str) -> str:
+        if not style:
+            return ""
+        match = re.search(r"""url\((?:'|")?(.*?)(?:'|")?\)""", style)
+        if match:
+            return match.group(1)
+        return ""
 
     def _ensure_reviews_loaded(self, page: Page, locator: Locator, target: int) -> None:
         if target <= 0:
@@ -1059,6 +1174,7 @@ class Application(tk.Tk):
         self.selected_language = tk.StringVar(value="tr")
         self.title(self._("app_title"))
         self.geometry("1000x650")
+        self.configure(bg="#f4f6fb")
         self._tree_sort_states: Dict[ttk.Treeview, Dict[str, bool]] = {}
 
         self._api_results: List[PlaceResult] = []
@@ -1087,28 +1203,68 @@ class Application(tk.Tk):
         style.configure("Body.TLabelframe", padding=10)
         self.style = style
 
+    def _build_logo_image(self) -> ImageTk.PhotoImage:
+        size = 96
+        image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        body_box = (18, 4, 78, 64)
+        draw.ellipse(body_box, fill="#4285F4")
+        draw.pieslice(body_box, 45, 180, fill="#34A853")
+        draw.pieslice(body_box, 180, 270, fill="#FBBC05")
+        draw.pieslice(body_box, 270, 360, fill="#EA4335")
+        draw.ellipse((32, 18, 64, 50), fill="#ffffff")
+        draw.polygon([(48, 58), (70, 90), (26, 90)], fill="#EA4335")
+        draw.ellipse((38, 60, 58, 80), fill="#4285F4")
+        return ImageTk.PhotoImage(image)
+
     def _create_widgets(self) -> None:
-        self.notebook = ttk.Notebook(self)
+        self.header_frame = tk.Frame(self, bg="#0b6fa4", padx=16, pady=12)
+        self.logo_photo = self._build_logo_image()
+        self.logo_label = tk.Label(self.header_frame, image=self.logo_photo, bg="#0b6fa4")
+        self.header_text_frame = tk.Frame(self.header_frame, bg="#0b6fa4")
+        self.app_title_label = tk.Label(
+            self.header_text_frame,
+            text="",
+            font=("Segoe UI", 18, "bold"),
+            fg="#ffffff",
+            bg="#0b6fa4",
+        )
+        self.app_tagline_label = tk.Label(
+            self.header_text_frame,
+            text="",
+            font=("Segoe UI", 11),
+            fg="#e1f3ff",
+            bg="#0b6fa4",
+        )
+
+        self.separator = ttk.Separator(self, orient=tk.HORIZONTAL)
+        self.content_frame = ttk.Frame(self)
+        self.notebook = ttk.Notebook(self.content_frame)
 
         # API tab widgets
         self.api_tab = ttk.Frame(self.notebook)
-        self.api_key_label = ttk.Label(self.api_tab, text="")
-        self.api_key_entry = ttk.Entry(self.api_tab, show="*")
+        self.api_form_frame = ttk.LabelFrame(self.api_tab, text="", padding=10)
+        self.api_results_frame = ttk.LabelFrame(self.api_tab, text="", padding=5)
+        self.api_details_frame = ttk.LabelFrame(self.api_tab, text="", padding=5)
+        self.api_button_frame = ttk.Frame(self.api_tab)
 
-        self.api_query_label = ttk.Label(self.api_tab, text="")
-        self.api_query_entry = ttk.Entry(self.api_tab)
+        self.api_key_label = ttk.Label(self.api_form_frame, text="")
+        self.api_key_entry = ttk.Entry(self.api_form_frame, show="*")
 
-        self.language_label = ttk.Label(self.api_tab, text="")
+        self.api_query_label = ttk.Label(self.api_form_frame, text="")
+        self.api_query_entry = ttk.Entry(self.api_form_frame)
+
+        self.language_label = ttk.Label(self.api_form_frame, text="")
         self.language_combo = ttk.Combobox(
-            self.api_tab,
+            self.api_form_frame,
             textvariable=self.selected_language,
             values=["tr", "en"],
             state="readonly",
         )
 
-        self.api_limit_label = ttk.Label(self.api_tab, text="")
+        self.api_limit_label = ttk.Label(self.api_form_frame, text="")
         self.api_limit_spin = ttk.Spinbox(
-            self.api_tab,
+            self.api_form_frame,
             from_=1,
             to=20,
             width=5,
@@ -1116,20 +1272,19 @@ class Application(tk.Tk):
         self._set_spin_value(self.api_limit_spin, "5")
 
         self.api_search_button = ttk.Button(
-            self.api_tab, text="", style="Accent.TButton", command=self._on_api_search
+            self.api_form_frame, text="", style="Accent.TButton", command=self._on_api_search
         )
 
         self.api_status_var = tk.StringVar(value=self._("status_ready"))
         self.api_status_label = ttk.Label(
-            self.api_tab, textvariable=self.api_status_var, style="Status.TLabel"
+            self.api_button_frame, textvariable=self.api_status_var, style="Status.TLabel"
         )
 
-        self.api_results_label = ttk.Label(self.api_tab, text="")
         self.api_results_tree = ttk.Treeview(
-            self.api_tab,
+            self.api_results_frame,
             columns=("name", "phone", "rating", "category"),
             show="headings",
-            height=10,
+            height=12,
         )
         self.api_results_tree.heading("name", text="")
         self.api_results_tree.heading("phone", text="")
@@ -1140,73 +1295,98 @@ class Application(tk.Tk):
         self.api_results_tree.column("rating", width=140, anchor=tk.CENTER)
         self.api_results_tree.column("category", width=160)
 
-        self.api_details_label = ttk.Label(self.api_tab, text="")
         self.api_details_text = tk.Text(
-            self.api_tab,
+            self.api_details_frame,
             wrap=tk.WORD,
             state=tk.DISABLED,
-            height=14,
+            height=18,
             relief=tk.GROOVE,
             borderwidth=2,
             background="#fcfcfc",
         )
         self.api_details_scroll = ttk.Scrollbar(
-            self.api_tab, orient=tk.VERTICAL, command=self.api_details_text.yview
+            self.api_details_frame, orient=tk.VERTICAL, command=self.api_details_text.yview
         )
         self.api_details_text.configure(yscrollcommand=self.api_details_scroll.set)
 
         self.api_save_json_button = ttk.Button(
-            self.api_tab, text="", command=lambda: self._save_results(self._api_results, "json")
+            self.api_button_frame,
+            text="",
+            command=lambda: self._save_results(self._api_results, "json"),
         )
         self.api_save_csv_button = ttk.Button(
-            self.api_tab, text="", command=lambda: self._save_results(self._api_results, "csv")
+            self.api_button_frame,
+            text="",
+            command=lambda: self._save_results(self._api_results, "csv"),
         )
 
         # Bot tab widgets
         self.bot_tab = ttk.Frame(self.notebook)
-        self.bot_query_label = ttk.Label(self.bot_tab, text="")
-        self.bot_query_entry = ttk.Entry(self.bot_tab)
+        self.bot_form_frame = ttk.LabelFrame(self.bot_tab, text="", padding=10)
+        self.bot_map_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5)
+        self.bot_results_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5)
+        self.bot_details_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5)
+        self.bot_button_frame = ttk.Frame(self.bot_tab)
 
-        self.bot_language_label = ttk.Label(self.bot_tab, text="")
+        self.bot_query_label = ttk.Label(self.bot_form_frame, text="")
+        self.bot_query_entry = ttk.Entry(self.bot_form_frame)
+
+        self.bot_language_label = ttk.Label(self.bot_form_frame, text="")
         self.bot_language_combo = ttk.Combobox(
-            self.bot_tab,
+            self.bot_form_frame,
             values=["tr", "en"],
             state="readonly",
         )
         self.bot_language_combo.set("tr")
 
-        self.bot_limit_label = ttk.Label(self.bot_tab, text="")
+        self.bot_limit_label = ttk.Label(self.bot_form_frame, text="")
         self.bot_limit_spin = ttk.Spinbox(
-            self.bot_tab,
+            self.bot_form_frame,
             from_=1,
             to=20,
             width=5,
         )
         self._set_spin_value(self.bot_limit_spin, "5")
 
-        self.bot_reviews_label = ttk.Label(self.bot_tab, text="")
+        self.bot_reviews_label = ttk.Label(self.bot_form_frame, text="")
         self.bot_reviews_spin = ttk.Spinbox(
-            self.bot_tab,
+            self.bot_form_frame,
             from_=0,
             to=200,
             width=5,
         )
         self._set_spin_value(self.bot_reviews_spin, "5")
 
+        self.bot_gallery_var = tk.BooleanVar(value=False)
+        self.bot_gallery_check = ttk.Checkbutton(
+            self.bot_form_frame,
+            text="",
+            variable=self.bot_gallery_var,
+            command=self._on_gallery_toggle,
+        )
+        self.bot_gallery_count_label = ttk.Label(self.bot_form_frame, text="")
+        self.bot_gallery_count_spin = ttk.Spinbox(
+            self.bot_form_frame,
+            from_=1,
+            to=50,
+            width=5,
+        )
+        self._set_spin_value(self.bot_gallery_count_spin, "3")
+        self._update_gallery_spin_state()
+
         self.bot_search_button = ttk.Button(
-            self.bot_tab, text="", style="Accent.TButton", command=self._on_bot_search
+            self.bot_form_frame, text="", style="Accent.TButton", command=self._on_bot_search
         )
         self.bot_status_var = tk.StringVar(value=self._("status_ready"))
         self.bot_status_label = ttk.Label(
-            self.bot_tab, textvariable=self.bot_status_var, style="Status.TLabel"
+            self.bot_button_frame, textvariable=self.bot_status_var, style="Status.TLabel"
         )
 
-        self.bot_results_label = ttk.Label(self.bot_tab, text="")
         self.bot_results_tree = ttk.Treeview(
-            self.bot_tab,
+            self.bot_results_frame,
             columns=("name", "phone", "rating", "category"),
             show="headings",
-            height=10,
+            height=12,
         )
         self.bot_results_tree.heading("name", text="")
         self.bot_results_tree.heading("phone", text="")
@@ -1217,38 +1397,42 @@ class Application(tk.Tk):
         self.bot_results_tree.column("rating", width=140, anchor=tk.CENTER)
         self.bot_results_tree.column("category", width=160)
 
-        self.bot_details_label = ttk.Label(self.bot_tab, text="")
         self.bot_details_text = tk.Text(
-            self.bot_tab,
+            self.bot_details_frame,
             wrap=tk.WORD,
             state=tk.DISABLED,
-            height=12,
+            height=14,
             relief=tk.GROOVE,
             borderwidth=2,
             background="#fcfcfc",
         )
         self.bot_details_scroll = ttk.Scrollbar(
-            self.bot_tab, orient=tk.VERTICAL, command=self.bot_details_text.yview
+            self.bot_details_frame, orient=tk.VERTICAL, command=self.bot_details_text.yview
         )
         self.bot_details_text.configure(yscrollcommand=self.bot_details_scroll.set)
 
-        self.bot_map_label = ttk.Label(self.bot_tab, text="")
-        self.bot_map_canvas = ttk.Label(
-            self.bot_tab,
+        self.bot_map_canvas = tk.Label(
+            self.bot_map_frame,
             text="",
             anchor=tk.CENTER,
             relief=tk.SUNKEN,
             borderwidth=1,
-            width=40,
-            padding=5,
-            wraplength=260,
+            width=48,
+            height=16,
+            bg="#f8fafc",
+            wraplength=320,
+            justify=tk.CENTER,
         )
 
         self.bot_save_json_button = ttk.Button(
-            self.bot_tab, text="", command=lambda: self._save_results(self._bot_results, "json")
+            self.bot_button_frame,
+            text="",
+            command=lambda: self._save_results(self._bot_results, "json"),
         )
         self.bot_save_csv_button = ttk.Button(
-            self.bot_tab, text="", command=lambda: self._save_results(self._bot_results, "csv")
+            self.bot_button_frame,
+            text="",
+            command=lambda: self._save_results(self._bot_results, "csv"),
         )
 
         self.notebook.add(self.api_tab, text="")
@@ -1258,69 +1442,112 @@ class Application(tk.Tk):
         self._enable_tree_sorting(self.bot_results_tree)
 
     def _layout_widgets(self) -> None:
-        self.notebook.pack(fill=tk.BOTH, expand=True)
+        self.logo_label.pack(side=tk.LEFT)
+        self.header_text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.app_title_label.pack(anchor=tk.W)
+        self.app_tagline_label.pack(anchor=tk.W)
+        self.header_frame.pack(fill=tk.X)
+        self.separator.pack(fill=tk.X)
+        self.content_frame.pack(fill=tk.BOTH, expand=True)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        api_padding = {"padx": 10, "pady": 5}
+        # API tab layout
+        self.api_tab.columnconfigure(0, weight=1)
         self.api_tab.columnconfigure(1, weight=1)
-        self.api_tab.columnconfigure(2, weight=1)
-        self.api_tab.columnconfigure(3, weight=1)
-        self.api_tab.columnconfigure(4, weight=0)
-        self.api_tab.rowconfigure(4, weight=1)
+        self.api_tab.rowconfigure(1, weight=1)
 
-        self.api_key_label.grid(row=0, column=0, sticky=tk.W, **api_padding)
-        self.api_key_entry.grid(row=0, column=1, columnspan=3, sticky=tk.EW, **api_padding)
+        self.api_form_frame.grid(row=0, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=(10, 5))
+        form_pad = {"padx": 5, "pady": 5}
+        for idx in range(5):
+            weight = 1 if idx in {1, 3} else 0
+            self.api_form_frame.columnconfigure(idx, weight=weight)
+        self.api_key_label.grid(row=0, column=0, sticky=tk.W, **form_pad)
+        self.api_key_entry.grid(row=0, column=1, columnspan=4, sticky=tk.EW, **form_pad)
+        self.api_query_label.grid(row=1, column=0, sticky=tk.W, **form_pad)
+        self.api_query_entry.grid(row=1, column=1, columnspan=4, sticky=tk.EW, **form_pad)
+        self.language_label.grid(row=2, column=0, sticky=tk.W, **form_pad)
+        self.language_combo.grid(row=2, column=1, sticky=tk.W, **form_pad)
+        self.api_limit_label.grid(row=2, column=2, sticky=tk.W, **form_pad)
+        self.api_limit_spin.grid(row=2, column=3, sticky=tk.W, **form_pad)
+        self.api_search_button.grid(row=2, column=4, sticky=tk.E, **form_pad)
 
-        self.api_query_label.grid(row=1, column=0, sticky=tk.W, **api_padding)
-        self.api_query_entry.grid(row=1, column=1, columnspan=3, sticky=tk.EW, **api_padding)
+        self.api_results_frame.grid(row=1, column=0, sticky=tk.NSEW, padx=(10, 5), pady=5)
+        self.api_details_frame.grid(row=1, column=1, sticky=tk.NSEW, padx=(5, 10), pady=5)
+        self.api_results_tree.pack(fill=tk.BOTH, expand=True)
+        self.api_details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.api_details_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.language_label.grid(row=2, column=0, sticky=tk.W, **api_padding)
-        self.language_combo.grid(row=2, column=1, sticky=tk.W, **api_padding)
-        self.api_limit_label.grid(row=2, column=2, sticky=tk.W, **api_padding)
-        self.api_limit_spin.grid(row=2, column=3, sticky=tk.W, **api_padding)
-        self.api_search_button.grid(row=2, column=4, sticky=tk.E, **api_padding)
+        self.api_button_frame.grid(row=2, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=(0, 10))
+        self.api_save_json_button.pack(side=tk.LEFT, padx=5)
+        self.api_save_csv_button.pack(side=tk.LEFT, padx=5)
+        self.api_status_label.pack(side=tk.RIGHT)
 
-        self.api_results_label.grid(row=3, column=0, sticky=tk.W, **api_padding)
-        self.api_results_tree.grid(row=4, column=0, columnspan=3, sticky=tk.NSEW, padx=(10, 0), pady=5)
-        self.api_details_label.grid(row=3, column=3, sticky=tk.W, **api_padding)
-        self.api_details_text.grid(row=4, column=3, sticky=tk.NSEW, padx=(0, 10), pady=5)
-        self.api_details_scroll.grid(row=4, column=4, sticky=tk.NS, pady=5)
-
-        self.api_save_json_button.grid(row=5, column=0, sticky=tk.W, **api_padding)
-        self.api_save_csv_button.grid(row=5, column=1, sticky=tk.W, **api_padding)
-        self.api_status_label.grid(row=5, column=3, columnspan=2, sticky=tk.E, **api_padding)
-
-        bot_padding = {"padx": 10, "pady": 5}
-        self.bot_tab.columnconfigure(0, weight=0)
+        # Bot tab layout
+        self.bot_tab.columnconfigure(0, weight=2)
         self.bot_tab.columnconfigure(1, weight=1)
-        self.bot_tab.columnconfigure(2, weight=0)
-        self.bot_tab.columnconfigure(3, weight=0)
-        self.bot_tab.columnconfigure(4, weight=1)
-        self.bot_tab.rowconfigure(4, weight=1)
-        self.bot_tab.rowconfigure(6, weight=1)
+        self.bot_tab.rowconfigure(1, weight=1)
+        self.bot_tab.rowconfigure(2, weight=1)
 
-        self.bot_query_label.grid(row=0, column=0, sticky=tk.W, **bot_padding)
-        self.bot_query_entry.grid(row=0, column=1, columnspan=2, sticky=tk.EW, **bot_padding)
-        self.bot_search_button.grid(row=0, column=3, sticky=tk.E, **bot_padding)
-        self.bot_map_label.grid(row=0, column=4, sticky=tk.W, **bot_padding)
+        self.bot_form_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=(10, 5), pady=(10, 5))
+        self.bot_map_frame.grid(row=0, column=1, sticky=tk.NSEW, padx=(5, 10), pady=(10, 5))
+        for idx in range(5):
+            weight = 1 if idx in {1, 3} else 0
+            self.bot_form_frame.columnconfigure(idx, weight=weight)
+        bot_pad = {"padx": 5, "pady": 5}
+        self.bot_query_label.grid(row=0, column=0, sticky=tk.W, **bot_pad)
+        self.bot_query_entry.grid(row=0, column=1, columnspan=3, sticky=tk.EW, **bot_pad)
+        self.bot_search_button.grid(row=0, column=4, sticky=tk.E, **bot_pad)
+        self.bot_language_label.grid(row=1, column=0, sticky=tk.W, **bot_pad)
+        self.bot_language_combo.grid(row=1, column=1, sticky=tk.W, **bot_pad)
+        self.bot_limit_label.grid(row=1, column=2, sticky=tk.W, **bot_pad)
+        self.bot_limit_spin.grid(row=1, column=3, sticky=tk.W, **bot_pad)
+        self.bot_reviews_label.grid(row=2, column=0, sticky=tk.W, **bot_pad)
+        self.bot_reviews_spin.grid(row=2, column=1, sticky=tk.W, **bot_pad)
+        self.bot_gallery_check.grid(row=2, column=2, sticky=tk.W, **bot_pad)
+        self.bot_gallery_count_label.grid(row=2, column=3, sticky=tk.W, **bot_pad)
+        self.bot_gallery_count_spin.grid(row=2, column=4, sticky=tk.W, **bot_pad)
 
-        self.bot_language_label.grid(row=1, column=0, sticky=tk.W, **bot_padding)
-        self.bot_language_combo.grid(row=1, column=1, sticky=tk.W, **bot_padding)
-        self.bot_limit_label.grid(row=1, column=2, sticky=tk.W, **bot_padding)
-        self.bot_limit_spin.grid(row=1, column=3, sticky=tk.W, **bot_padding)
-        self.bot_map_canvas.grid(row=1, column=4, rowspan=3, sticky=tk.NSEW, padx=(0, 10), pady=5)
-        self.bot_reviews_label.grid(row=2, column=0, sticky=tk.W, **bot_padding)
-        self.bot_reviews_spin.grid(row=2, column=1, sticky=tk.W, **bot_padding)
+        self.bot_map_canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.bot_results_label.grid(row=3, column=0, sticky=tk.W, **bot_padding)
-        self.bot_results_tree.grid(row=4, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
+        self.bot_results_frame.grid(row=1, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=5)
+        self.bot_details_frame.grid(row=2, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=5)
+        self.bot_results_tree.pack(fill=tk.BOTH, expand=True)
+        self.bot_details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.bot_details_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.bot_details_label.grid(row=5, column=0, sticky=tk.W, **bot_padding)
-        self.bot_details_text.grid(row=6, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
-        self.bot_details_scroll.grid(row=6, column=4, sticky=tk.NS, pady=5)
+        self.bot_button_frame.grid(row=3, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=(0, 10))
+        self.bot_save_json_button.pack(side=tk.LEFT, padx=5)
+        self.bot_save_csv_button.pack(side=tk.LEFT, padx=5)
+        self.bot_status_label.pack(side=tk.RIGHT)
 
-        self.bot_save_json_button.grid(row=7, column=0, sticky=tk.W, **bot_padding)
-        self.bot_save_csv_button.grid(row=7, column=1, sticky=tk.W, **bot_padding)
-        self.bot_status_label.grid(row=7, column=3, columnspan=2, sticky=tk.E, **bot_padding)
+    def _on_gallery_toggle(self) -> None:
+        enabled = bool(self.bot_gallery_var.get())
+        if enabled:
+            response = self._prompt_gallery_count()
+            if response is None:
+                self.bot_gallery_var.set(False)
+                enabled = False
+            else:
+                self._set_spin_value(self.bot_gallery_count_spin, str(response))
+        self._update_gallery_spin_state()
+
+    def _prompt_gallery_count(self) -> Optional[int]:
+        try:
+            current = int(self.bot_gallery_count_spin.get())
+        except (ValueError, tk.TclError):
+            current = 3
+        return simpledialog.askinteger(
+            self._("gallery_prompt_title"),
+            self._("gallery_prompt_message"),
+            minvalue=1,
+            maxvalue=50,
+            initialvalue=current,
+            parent=self,
+        )
+
+    def _update_gallery_spin_state(self) -> None:
+        state = tk.NORMAL if self.bot_gallery_var.get() else tk.DISABLED
+        self.bot_gallery_count_spin.config(state=state)
 
     def _bind_events(self) -> None:
         self.language_combo.bind("<<ComboboxSelected>>", lambda _: self._update_translations())
@@ -1384,6 +1611,16 @@ class Application(tk.Tk):
             review_limit = 5
         review_limit = max(0, min(review_limit, 200))
         self._set_spin_value(self.bot_reviews_spin, str(review_limit))
+        gallery_enabled = bool(self.bot_gallery_var.get())
+        try:
+            gallery_limit = int(self.bot_gallery_count_spin.get())
+        except (ValueError, tk.TclError):
+            gallery_limit = 3
+        if gallery_enabled:
+            gallery_limit = max(1, min(gallery_limit, 50))
+            self._set_spin_value(self.bot_gallery_count_spin, str(gallery_limit))
+        else:
+            gallery_limit = 0
         self._bot_active_limit = limit
         self._bot_attempted = 0
         self.bot_status_var.set(self._("status_scraping_progress").format(0, limit))
@@ -1399,7 +1636,11 @@ class Application(tk.Tk):
         def worker() -> None:
             try:
                 scraper = GoogleMapsPlaywrightScraper(
-                    language=language, limit=limit, max_reviews=review_limit
+                    language=language,
+                    limit=limit,
+                    max_reviews=review_limit,
+                    include_gallery=gallery_enabled,
+                    gallery_limit=gallery_limit,
                 )
                 results = scraper.search(
                     query,
@@ -1602,7 +1843,7 @@ class Application(tk.Tk):
         self._refresh_bot_details_view(None)
 
     def _get_localized_bot_logs(self) -> List[str]:
-        language = self.selected_language.get()
+        language = self.bot_language_combo.get() or self.selected_language.get()
         catalog = TRANSLATIONS.get(language, TRANSLATIONS["tr"])
         localized: List[str] = []
         for key, payload in self._bot_log_lines:
@@ -1697,6 +1938,13 @@ class Application(tk.Tk):
         if result.user_ratings_total is not None:
             lines.append(f"{self._('ratings_total')}: {result.user_ratings_total}")
         lines.append(f"{self._('address')}: {result.formatted_address or '-'}")
+        if result.hero_image_url:
+            lines.append(f"{self._('hero_image')}: {result.hero_image_url}")
+        lines.append(f"{self._('gallery_images')}:")
+        if result.gallery_images:
+            lines.extend(f"  - {url}" for url in result.gallery_images)
+        else:
+            lines.append("  - -")
         lines.append("")
         lines.append(f"{self._('opening_hours')}:")
         if result.opening_hours:
@@ -1722,12 +1970,11 @@ class Application(tk.Tk):
                     review_lines.append(f"  {self._('review_rating')}: {review.rating}")
                 if review.relative_time:
                     review_lines.append(f"  {self._('review_time')}: {review.relative_time}")
-                if review.text:
-                    review_lines.append(f"  {self._('review_text')}: {review.text}")
                 if review.profile_photo_url:
                     review_lines.append(
                         f"  {self._('review_profile')}: {review.profile_photo_url}"
                     )
+                review_lines.append(f"  {self._('review_text')}: {review.text or '-'}")
                 lines.extend(review_lines)
                 lines.append("")
         else:
@@ -1773,11 +2020,17 @@ class Application(tk.Tk):
         return text.lower()
 
     def _set_spin_value(self, spinbox: ttk.Spinbox, value: str) -> None:
+        original_state = spinbox.cget("state") if hasattr(spinbox, "cget") else "normal"
+        if original_state == "disabled":
+            spinbox.config(state=tk.NORMAL)
         try:
             spinbox.set(value)
         except (AttributeError, tk.TclError):
             spinbox.delete(0, tk.END)
             spinbox.insert(0, value)
+        finally:
+            if original_state == "disabled":
+                spinbox.config(state=tk.DISABLED)
 
     def _save_results(self, results: List[PlaceResult], file_format: str) -> None:
         if not results:
@@ -1815,6 +2068,8 @@ class Application(tk.Tk):
                         "rating_count",
                         "reviews",
                         "attributes",
+                        "hero_image_url",
+                        "gallery_images",
                     ]
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
                     writer.writeheader()
@@ -1830,13 +2085,17 @@ class Application(tk.Tk):
         self.notebook.tab(0, text=self._("tab_api"))
         self.notebook.tab(1, text=self._("tab_bot"))
 
+        self.app_title_label.config(text=self._("app_title"))
+        self.app_tagline_label.config(text=self._("app_tagline"))
+
+        self.api_form_frame.config(text=self._("search_panel"))
+        self.api_results_frame.config(text=self._("results"))
+        self.api_details_frame.config(text=self._("details"))
         self.api_key_label.config(text=self._("api_key"))
         self.api_query_label.config(text=self._("query"))
         self.language_label.config(text=self._("language"))
         self.api_search_button.config(text=self._("search"))
         self.api_limit_label.config(text=self._("result_limit"))
-        self.api_results_label.config(text=self._("results"))
-        self.api_details_label.config(text=self._("details"))
         self._set_tree_heading(self.api_results_tree, "name", self._("column_name"))
         self._set_tree_heading(self.api_results_tree, "phone", self._("column_phone"))
         self._set_tree_heading(self.api_results_tree, "rating", self._("column_rating"))
@@ -1844,14 +2103,17 @@ class Application(tk.Tk):
         self.api_save_json_button.config(text=self._("save_json"))
         self.api_save_csv_button.config(text=self._("save_csv"))
 
+        self.bot_form_frame.config(text=self._("search_panel"))
+        self.bot_results_frame.config(text=self._("results"))
+        self.bot_details_frame.config(text=self._("details"))
+        self.bot_map_frame.config(text=self._("map_preview"))
         self.bot_query_label.config(text=self._("query"))
         self.bot_language_label.config(text=self._("language"))
         self.bot_search_button.config(text=self._("search"))
         self.bot_limit_label.config(text=self._("result_limit"))
-        self.bot_results_label.config(text=self._("results"))
-        self.bot_details_label.config(text=self._("details"))
-        self.bot_map_label.config(text=self._("map_preview"))
         self.bot_reviews_label.config(text=self._("review_limit"))
+        self.bot_gallery_check.config(text=self._("gallery_toggle"))
+        self.bot_gallery_count_label.config(text=self._("gallery_count"))
         if self._bot_map_photo is None:
             self._set_bot_map_placeholder()
         self._set_tree_heading(self.bot_results_tree, "name", self._("column_name"))

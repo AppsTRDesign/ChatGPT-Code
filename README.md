@@ -7,14 +7,17 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Türkçe ve İngilizce arayüz desteği
 - Google Places API Text Search ve Details uç noktaları ile veri çekme
 - Playwright + Windows modunda görünen Chromium ile Google Haritalar üzerinden bot ile tarama
+- Google Maps esintili başlık, SVG pin logosu ve sabit panellerle profesyonel masaüstü görünümü
 - Bot taraması sırasında Google Haritalar üzerindeki sonuç kartlarını taklit edilmiş fare hareketleriyle seçme
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" sekmesindeki olanakları toplama
 - Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
+- İşletme kartlarının kapak görsellerini JSON'a ekleme ve isteğe bağlı olarak galeri fotoğraflarını (1-50 arası) kaydetme
 - Harita ekran görüntülerini canlı olarak gösteren ve Playwright tarafından güncellenen yerleşik önizleme paneli
 - Her imleç hareketi ve tıklamada harita önizlemesini yenileyen canlı ilerleme akışı
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
 - Bot sekmesindeki "Detaylar" panelinde seçili arayüz dilinde günlük satırlarını ve seçilen işletmenin özetini eş zamanlı görüntüleme
+- Bot günlüklerinin dili, bot taraması için seçtiğiniz dil ile otomatik olarak senkronize olur
 - API veya bot ile alınan verileri JSON ya da CSV formatında dışa aktarma
 - Sonuç tablolarında sütun başlıklarına tıklayarak alfabetik veya puan bazlı sıralama yapabilme
 - İnternet ve API hataları için kullanıcı dostu uyarılar
@@ -79,9 +82,10 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
 3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
 4. "Yorum Sayısı" alanına her işletme için toplanacak maksimum yorum adedini yazın. Bot, Google Haritalar'daki toplam değerlendirme sayısını aşmadan otomatik olarak kaydırma yapıp bu kadar yorumu çeker. (0 değeri yorum toplamayı devre dışı bırakır.)
-5. "Ara" butonuna bastığınızda Playwright görünür (headful) Chromium penceresini açar; bot yalnızca sol menüdeki `div.Nv2PK THOPZb CpccDe` sınıfı ile başlayan işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Chromium penceresi Windows üzerinde ayrı bir uygulama olarak çalışır, ancak ekran görüntüleri uygulama penceresindeki önizleme paneline aktarılır.
+5. Galeri görsellerine ihtiyaç duyuyorsanız "Galeri Görsellerini Kaydet" kutusunu işaretleyin; açılır pencere, her işletmeden kaç fotoğraf alınacağını sorar (1-50). Bu seçenek devre dışıysa yalnızca kapak görseli kaydedilir.
+6. "Ara" butonuna bastığınızda Playwright görünür (headful) Chromium penceresini açar; bot yalnızca sol menüdeki `div.Nv2PK THOPZb CpccDe` sınıfı ile başlayan işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Chromium penceresi Windows üzerinde ayrı bir uygulama olarak çalışır, ancak ekran görüntüleri uygulama penceresindeki önizleme paneline aktarılır.
 6. Bot çalışırken her imleç hareketinde ve kart seçildiğinde harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir; alt kısımdaki durum etiketi 0/N biçiminde kaç kartın tıklandığını gösterir.
-7. Her işletme açılır açılmaz isim, kategori, adres, telefon, puan, çalışma saatleri, yorumlar (profil fotoğraflarıyla birlikte) ve "Hakkında" verileri eşzamanlı olarak sonuç listesine eklenir. "Detaylar" paneli, seçtiğiniz arayüz dilinde canlı log satırlarını ve seçili işletmenin özetini göstererek hangi adımda olduğunuzu hissettirir.
+7. Her işletme açılır açılmaz isim, kategori, adres, telefon, puan, çalışma saatleri, yorumlar (profil fotoğraflarıyla birlikte), kapak görseli, "Hakkında" verileri ve (aktif ise) galeri fotoğrafları eşzamanlı olarak sonuç listesine eklenir. "Detaylar" paneli, seçtiğiniz arayüz dilinde canlı log satırlarını ve seçili işletmenin özetini göstererek hangi adımda olduğunuzu hissettirir.
 8. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
 > Bot sekmesinde Playwright tarafından yönetilen Chromium hem ayrı bir pencerede çalışır hem de ekran görüntüleri ile uygulamaya akış sağlar. Tarama tamamlandığında pencere otomatik olarak kapanır; tarama esnasında manuel olarak kapatmayın. Bot, karttaki fotoğraf galerisine girmemek için yalnızca listede yer alan metin bölgesine tıklar.
@@ -94,8 +98,8 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 ## Çıktı Biçimleri
 
-- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, "Hakkında" sekmesi verileri ve müşteri yorumları (yorumcunun adı, puanı, zaman damgası ve profil fotoğrafı URL'siyle) ayrıntılı şekilde saklanır.
-- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, kategori, "Hakkında" sekmesi bilgileri ve yorumların özet hali saklanır.
+- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, "Hakkında" sekmesi verileri, müşteri yorumları (yorumcunun adı, puanı, zaman damgası ve profil fotoğrafı URL'siyle) ve hem kapak görseli hem de isteğe bağlı galeri fotoğrafları ayrıntılı şekilde saklanır.
+- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, kategori, "Hakkında" sekmesi bilgileri, kapak görseli/görsel listesi ve yorumların özet hali saklanır.
 
 ## Sık Karşılaşılan Sorular
 
