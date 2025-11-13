@@ -2,4 +2,9 @@ __pycache__/
 *.py[cod]
 session/
 users/users.json
+users/scanned_users.json
+users/active_users.json
+users/scanned_added_users.json
+users/active_added_users.json
+logs/
 config/

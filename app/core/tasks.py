@@ -45,11 +45,13 @@ class SessionTask:
         client: TelegramClient,
         settings: AppSettings,
         storage: UserStorage,
+        result_storage: Optional[UserStorage] = None,
     ) -> None:
         self.session_name = session_name
         self.client = client
         self.settings = settings
         self.storage = storage
+        self.result_storage = result_storage
         self._cancel_event = asyncio.Event()
         self._processed = 0
         self._total = 0
@@ -251,6 +253,7 @@ class SessionTask:
                     chat_members.add(user.user_id)
                 progress_callback(self.build_progress(total, user, status="status.added"))
                 self.storage.remove_user(user.user_id)
+                self._record_added_user(user, entity)
             except UserPrivacyRestrictedError:
                 progress_callback(self.build_progress(total, user, status="status.error"))
                 self.storage.remove_user(user.user_id)
@@ -266,22 +269,24 @@ class SessionTask:
                 await self._throttle(self.settings.rate_limit.join_interval)
                 continue
             except PeerFloodError:
-                status_cb("status.peer_flood")
+                detail = self._peer_flood_detail()
+                status_cb(detail)
                 total_value = total or self._total or max(self._processed, 1)
                 progress_callback(
                     ProgressUpdate(
                         session_name=self.session_name,
                         processed=self._processed,
                         total=total_value,
-                        user=user,
-                        status="status.peer_flood",
+                        user=None,
+                        status=detail,
                     )
                 )
-                logger.warning("log.peer_flood")
+                logger.warning("%s", detail)
                 break
             except ChatWriteForbiddenError:
                 logger.warning("log.chat_write_forbidden")
-                progress_callback(self.build_progress(total, user, status="status.error"))
+                status_cb("status.chat_write_forbidden")
+                progress_callback(self.build_progress(total, user, status="status.chat_write_forbidden"))
                 break
             await self._throttle(self.settings.rate_limit.join_interval)
         logger.info("log.add_finished")
@@ -489,6 +494,22 @@ class SessionTask:
             await asyncio.sleep(1)
         status_callback("status.running")
 
+    def _peer_flood_detail(self) -> str:
+        cooldown_seconds = max(int(self.settings.rate_limit.join_interval * 40), 1800)
+        reset_time = datetime.now(tz=timezone.utc) + timedelta(seconds=cooldown_seconds)
+        reset_display = reset_time.strftime("%d/%m/%Y %H:%M")
+        count = max(self._processed, 1)
+        template = translator.translate("status.peer_flood_detail")
+        return template.format(count=count, reset=reset_display)
+
+    def _record_added_user(self, user: StoredUser, target: str) -> None:
+        if not self.result_storage:
+            return
+        payload = user.to_dict()
+        payload["source"] = target
+        recorded = StoredUser(**payload)
+        self.result_storage.add_users([recorded])
+
 
 class TaskOrchestrator:
     def __init__(self, settings: AppSettings) -> None:
@@ -501,9 +522,10 @@ class TaskOrchestrator:
         task_type: str,
         client: TelegramClient,
         storage: UserStorage,
+        result_storage: Optional[UserStorage] = None,
     ) -> SessionTask:
         key = (session_name, task_type)
-        task = SessionTask(session_name, client, self.settings, storage)
+        task = SessionTask(session_name, client, self.settings, storage, result_storage)
         self._tasks[key] = task
         return task
 

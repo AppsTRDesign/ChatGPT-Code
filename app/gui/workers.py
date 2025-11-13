@@ -28,6 +28,7 @@ class TaskRequest:
     storage: Optional[UserStorage] = None
     include_no_username: bool = True
     offset: int = 0
+    result_storage: Optional[UserStorage] = None
 
 
 class SessionWorkerThread(QThread):
@@ -73,6 +74,7 @@ class SessionWorkerThread(QThread):
             self.request.task_type,
             client,
             storage,
+            self.request.result_storage,
         )
 
         def progress_handler(update: ProgressUpdate) -> None:

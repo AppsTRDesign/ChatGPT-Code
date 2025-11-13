@@ -68,7 +68,21 @@ class MainWindow(QMainWindow):
                 self.settings.user_directory / "active_users.json",
                 timezone_name=self.settings.timezone,
             ),
+            "scanned_added": UserStorage(
+                self.settings.user_directory / "scanned_added_users.json",
+                timezone_name=self.settings.timezone,
+            ),
+            "active_added": UserStorage(
+                self.settings.user_directory / "active_added_users.json",
+                timezone_name=self.settings.timezone,
+            ),
         }
+        self.user_table_meta: List[Tuple[str, bool, str]] = [
+            ("scanned", False, "tab.users_scanned"),
+            ("active", True, "tab.users_active"),
+            ("scanned_added", False, "tab.users_scanned_added"),
+            ("active_added", True, "tab.users_active_added"),
+        ]
         self.orchestrator = TaskOrchestrator(self.settings)
 
         self.pending_login: Optional[PendingLogin] = None
@@ -368,27 +382,18 @@ class MainWindow(QMainWindow):
         self.user_tab_widget = QTabWidget()
         self.user_tables: Dict[str, QTableWidget] = {}
 
-        scanned_table = QTableWidget(0, 7)
-        scanned_table.setSelectionBehavior(QTableWidget.SelectRows)
-        scanned_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        scanned_table.setSortingEnabled(True)
-        scanned_header = scanned_table.horizontalHeader()
-        if scanned_header:
-            scanned_header.setSectionsClickable(True)
-            scanned_header.setSectionResizeMode(QHeaderView.Stretch)
-        self.user_tables["scanned"] = scanned_table
-        self.user_tab_widget.addTab(scanned_table, translator.translate("tab.users_scanned"))
-
-        active_table = QTableWidget(0, 8)
-        active_table.setSelectionBehavior(QTableWidget.SelectRows)
-        active_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        active_table.setSortingEnabled(True)
-        active_header = active_table.horizontalHeader()
-        if active_header:
-            active_header.setSectionsClickable(True)
-            active_header.setSectionResizeMode(QHeaderView.Stretch)
-        self.user_tables["active"] = active_table
-        self.user_tab_widget.addTab(active_table, translator.translate("tab.users_active"))
+        for key, has_message, title_key in self.user_table_meta:
+            column_count = 8 if has_message else 7
+            table = QTableWidget(0, column_count)
+            table.setSelectionBehavior(QTableWidget.SelectRows)
+            table.setEditTriggers(QTableWidget.NoEditTriggers)
+            table.setSortingEnabled(True)
+            header = table.horizontalHeader()
+            if header:
+                header.setSectionsClickable(True)
+                header.setSectionResizeMode(QHeaderView.Stretch)
+            self.user_tables[key] = table
+            self.user_tab_widget.addTab(table, translator.translate(title_key))
 
         layout.addLayout(button_layout)
         layout.addWidget(self.user_tab_widget)
@@ -526,6 +531,10 @@ class MainWindow(QMainWindow):
         if storage is None:
             QMessageBox.critical(self, self.windowTitle(), translator.translate("dialog.storage_missing"))
             return
+        result_storage: Optional[UserStorage] = None
+        if task_type == "add":
+            result_key = self._add_result_storage_key(storage_key)
+            result_storage = self.user_storages.get(result_key)
 
         progress_map = self.progress_widgets[task_type]
         for session_name in list(progress_map.keys()):
@@ -593,6 +602,7 @@ class MainWindow(QMainWindow):
                 storage=storage,
                 include_no_username=include_no_username,
                 offset=offset_value if request_limit else 0,
+                result_storage=result_storage,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -637,8 +647,11 @@ class MainWindow(QMainWindow):
         if update.user:
             widget.append_user(self._format_user(update.user))
             self.populate_user_tables()
-        elif widget.task_type == "add":
-            self.populate_user_tables()
+        else:
+            if update.status and not update.status.startswith("status."):
+                widget.append_user(update.status)
+            if widget.task_type == "add":
+                self.populate_user_tables()
 
     def on_finished(self, widget: SessionProgressWidget, session_name: str, task_type: str) -> None:
         key = (task_type, session_name)
@@ -742,7 +755,7 @@ class MainWindow(QMainWindow):
         return " | ".join(parts)
 
     def populate_user_tables(self) -> None:
-        for key in ("scanned", "active"):
+        for key, has_message, _ in self.user_table_meta:
             storage = self.user_storages.get(key)
             table = self.user_tables.get(key)
             if storage is None or table is None:
@@ -762,7 +775,7 @@ class MainWindow(QMainWindow):
                 if user.status:
                     status_value = translator.translate(user.status)
                 table.setItem(row, 6, QTableWidgetItem(status_value))
-                if key == "active":
+                if has_message:
                     message_text = user.last_message or ""
                     table.setItem(row, 7, QTableWidgetItem(message_text))
             table.setSortingEnabled(True)
@@ -782,6 +795,10 @@ class MainWindow(QMainWindow):
 
     def _current_add_storage_key(self) -> str:
         return "scanned" if self.add_source_combo.currentIndex() == 0 else "active"
+
+    @staticmethod
+    def _add_result_storage_key(source_key: str) -> str:
+        return "scanned_added" if source_key == "scanned" else "active_added"
 
     def _split_users_for_sessions(self, users: List[StoredUser], count: int) -> List[List[StoredUser]]:
         if count <= 0:
@@ -891,7 +908,13 @@ class MainWindow(QMainWindow):
 
     def export_users(self) -> None:
         storage_key = self._current_user_key()
-        default_name = "exported_scanned_users.json" if storage_key == "scanned" else "exported_active_users.json"
+        default_names = {
+            "scanned": "exported_scanned_users.json",
+            "active": "exported_active_users.json",
+            "scanned_added": "exported_added_scanned_users.json",
+            "active_added": "exported_added_active_users.json",
+        }
+        default_name = default_names.get(storage_key, "exported_users.json")
         default_path = self.settings.user_directory / default_name
         path, _ = QFileDialog.getSaveFileName(
             self,
@@ -928,7 +951,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.import_success"))
 
     def add_user_manual(self) -> None:
-        include_message = self._current_user_key() == "active"
+        include_message = self._current_user_key() in {"active", "active_added"}
         dialog = ManualUserDialog(self, include_message=include_message)
         if dialog.exec() != QDialog.Accepted:
             return
@@ -1022,8 +1045,8 @@ class MainWindow(QMainWindow):
         self.add_source_combo.setItemText(0, translator.translate("option.add_source_scanned"))
         self.add_source_combo.setItemText(1, translator.translate("option.add_source_active"))
         if hasattr(self, "user_tab_widget"):
-            self.user_tab_widget.setTabText(0, translator.translate("tab.users_scanned"))
-            self.user_tab_widget.setTabText(1, translator.translate("tab.users_active"))
+            for index, (_, __, title_key) in enumerate(self.user_table_meta):
+                self.user_tab_widget.setTabText(index, translator.translate(title_key))
         for container in [self.scan_progress_container, self.add_progress_container, self.active_progress_container]:
             for i in range(container.count()):
                 widget = container.itemAt(i).widget()
@@ -1054,7 +1077,7 @@ class MainWindow(QMainWindow):
         layout.itemAtPosition(4, 2).widget().setText(translator.translate("button.refresh_sessions"))
 
     def _update_user_table_headers(self) -> None:
-        scanned_headers = [
+        base_headers = [
             "ID",
             translator.translate("table.column.username"),
             translator.translate("table.column.first_name"),
@@ -1063,15 +1086,14 @@ class MainWindow(QMainWindow):
             translator.translate("table.column.last_seen"),
             translator.translate("table.column.status"),
         ]
-        active_headers = scanned_headers + [translator.translate("table.column.message")]
-        scanned_table = self.user_tables.get("scanned")
-        if scanned_table:
-            for index, title in enumerate(scanned_headers):
-                scanned_table.setHorizontalHeaderItem(index, QTableWidgetItem(title))
-        active_table = self.user_tables.get("active")
-        if active_table:
-            for index, title in enumerate(active_headers):
-                active_table.setHorizontalHeaderItem(index, QTableWidgetItem(title))
+        message_header = translator.translate("table.column.message")
+        for key, has_message, _ in self.user_table_meta:
+            table = self.user_tables.get(key)
+            if not table:
+                continue
+            headers = base_headers + ([message_header] if has_message else [])
+            for index, title in enumerate(headers):
+                table.setHorizontalHeaderItem(index, QTableWidgetItem(title))
 
 
 class ManualUserDialog(QDialog):
