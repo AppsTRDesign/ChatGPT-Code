@@ -899,25 +899,50 @@ class GoogleMapsPlaywrightScraper:
         return {}
 
     def _extract_rating_info(self, page: Page) -> tuple[Optional[float], Optional[int]]:
-        rating_text = self._first_text(page, ['div.F7nice span[aria-hidden="true"]', 'div.F7nice span[role="img"]'])
+        rating_text = self._first_text(
+            page, ['div.F7nice span[aria-hidden="true"]', 'div.F7nice span[role="img"]']
+        )
         rating: Optional[float] = None
         if rating_text:
             rating_text = rating_text.replace(",", ".").split()[0]
             with suppress(ValueError):
                 rating = float(rating_text)
-        count_text = self._first_text(page, ['div.F7nice span[aria-label]', 'div.F7nice span[role="img"]'])
-        rating_count: Optional[int] = None
-        if count_text:
-            digits = "".join(ch for ch in count_text if ch.isdigit())
-            if digits:
-                rating_count = int(digits)
-        if rating_count is None:
-            label = self._safe_get_attribute(page.locator('div.F7nice span[aria-label]').first, 'aria-label')
-            if label:
-                digits = "".join(ch for ch in label if ch.isdigit())
-                if digits:
-                    rating_count = int(digits)
+
+        rating_count = self._extract_rating_count(page)
         return rating, rating_count
+
+    def _extract_rating_count(self, page: Page) -> Optional[int]:
+        keywords = (
+            "yorum",
+            "yorumlar",
+            "review",
+            "reviews",
+            "değerlendirme",
+            "degerlendirme",
+            "ratings",
+        )
+        selectors = [
+            'div.F7nice span[aria-label]',
+            'div.F7nice span[role="img"]',
+            'div.F7nice span',
+        ]
+
+        for selector in selectors:
+            locator = page.locator(selector)
+            total = min(locator.count(), 8)
+            for idx in range(total):
+                node = locator.nth(idx)
+                values = [self._safe_inner_text(node), self._safe_get_attribute(node, "aria-label")]
+                for value in values:
+                    if not value:
+                        continue
+                    normalized = self._normalize_text(value)
+                    if not any(keyword in normalized for keyword in keywords):
+                        continue
+                    digits = "".join(ch for ch in value if ch.isdigit())
+                    if digits:
+                        return int(digits)
+        return None
 
     def _extract_hours(self, page: Page) -> List[str]:
         rows = page.locator('table[role="grid"] tr, table.eK4R0e tr')
