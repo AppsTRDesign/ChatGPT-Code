@@ -966,6 +966,7 @@ class GoogleMapsPlaywrightScraper:
 
     def _extract_hero_image(self, page: Page) -> str:
         selectors = [
+            'button.aoRNLd.kn2E5e.NMjTrf.lvtCsd img[src]',
             'div.RZ66Rb img[src]',
             'div.RZ66Rb button img[src]',
             'button[jsaction*="heroHeaderImage"] img[src]',
@@ -1009,6 +1010,7 @@ class GoogleMapsPlaywrightScraper:
 
     def _open_gallery_overlay(self, page: Page) -> bool:
         selectors = [
+            'button.aoRNLd.kn2E5e.NMjTrf.lvtCsd',
             'div.RZ66Rb.FgCUCc button.aoRNLd',
             'div.RZ66Rb button[aria-label]',
             'div.RZ66Rb button',
@@ -1033,6 +1035,7 @@ class GoogleMapsPlaywrightScraper:
 
     def _close_gallery_overlay(self, page: Page) -> None:
         selectors = [
+            'button.iPpe6d',
             'div[role="dialog"] button[aria-label*="Geri" i]',
             'div[role="dialog"] button[aria-label*="Back" i]',
             'div[role="dialog"] button[jsaction*="gallery.back" i]',
@@ -1256,6 +1259,7 @@ class GoogleMapsPlaywrightScraper:
             try:
                 locator.first.click(delay=70)
                 page.wait_for_selector('div.WVlZT input.vrsrZe', timeout=5000)
+                page.wait_for_selector('div.WVlZT button.oucrtf, button.oucrtf', timeout=2000)
             except PlaywrightError:
                 self._close_share_dialog(page, prefer_close_button=True)
                 continue
@@ -1577,7 +1581,7 @@ class Application(tk.Tk):
             self.api_form_frame,
             from_=1,
             to=20,
-            width=7,
+            width=10,
             justify=tk.CENTER,
         )
         self._set_spin_value(self.api_limit_spin, "5")
@@ -1655,7 +1659,7 @@ class Application(tk.Tk):
             self.bot_form_frame,
             from_=1,
             to=20,
-            width=7,
+            width=10,
             justify=tk.CENTER,
         )
         self._set_spin_value(self.bot_limit_spin, "5")
