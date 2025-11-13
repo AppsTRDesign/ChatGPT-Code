@@ -75,6 +75,14 @@ Uygulama başlatıldığında önce **Lisans** sekmesi açılır ve geçerli lis
 4. Başarılı aktivasyon sonrası `google_maps_gui\license.json` dosyası oluşturulur; dosya silinmediği sürece kalan gün ve bitiş tarihi Lisans sekmesinde görüntülenir.
 5. Lisans makine kimliğine bağlı olduğu için farklı bir bilgisayarda kullanmak isterseniz yeni bir anahtar talep etmeniz gerekir.
 
+> Lisans üretme aracı: Yetkili kişiler, depo kökündeki `license_tool.py` betiğini kullanarak makine kimliğine bağlı anahtarlar üretebilir. Örnek kullanım:
+
+```bat
+python license_tool.py --months 3 --machine-id "MAKINEID123456"
+```
+
+`--machine-id` parametresi girilmezse betik çalıştırıldığı bilgisayarın makine kimliğini kullanır.
+
 > Not: Lisansınızın süresi dolduğunda bot ve API taraması yeniden pasif hâle gelir; yeni bir anahtar girdikten sonra aynı sekmeden hızlıca yeniden etkinleştirebilirsiniz.
 
 ## Kullanım
