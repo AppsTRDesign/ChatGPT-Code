@@ -77,6 +77,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_time": "Zaman",
         "review_text": "Yorum",
         "ratings_total": "Toplam Değerlendirme",
+        "log_search_started": "Bot araması başlatıldı: {query}",
+        "log_click_card": "Liste öğesine tıklanıyor: {name}",
+        "log_panel_opened": "Detay paneli açıldı: {name}",
+        "log_panel_failed": "Detay paneli açılamadı: {name}",
+        "log_result_captured": "İşletme verileri alındı: {name}",
+        "log_search_finished": "Bot taraması tamamlandı. Toplam veri: {count}",
+        "log_search_failed": "Bot taraması hata verdi: {message}",
     },
     "en": {
         "app_title": "Google Maps Business Tool",
@@ -121,6 +128,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_time": "Time",
         "review_text": "Review",
         "ratings_total": "Total Ratings",
+        "log_search_started": "Bot scan started: {query}",
+        "log_click_card": "Clicking result card: {name}",
+        "log_panel_opened": "Details panel opened: {name}",
+        "log_panel_failed": "Details panel failed: {name}",
+        "log_result_captured": "Captured business data: {name}",
+        "log_search_finished": "Bot scan finished. Total results: {count}",
+        "log_search_failed": "Bot scan failed: {message}",
     },
 }
 
@@ -297,10 +311,13 @@ class GoogleMapsPlaywrightScraper:
         query: str,
         progress_callback: Optional[Callable[[bytes], None]] = None,
         result_callback: Optional[Callable[[PlaceResult], None]] = None,
+        attempt_callback: Optional[Callable[[int, Optional[str]], None]] = None,
+        event_callback: Optional[Callable[[str, Dict[str, str]], None]] = None,
     ) -> List[PlaceResult]:
         LOGGER.info("Starting Playwright scrape for query='%s'", query)
         results: List[PlaceResult] = []
         seen_names: set[str] = set()
+        self._emit_event(event_callback, "search_started", {"query": query})
 
         try:
             with sync_playwright() as playwright:
@@ -343,23 +360,37 @@ class GoogleMapsPlaywrightScraper:
 
                     card_name = self._extract_article_name(article)
                     cursor_position = self._move_fake_cursor_to_locator(page, article)
+                    if cursor_position:
+                        self._send_progress_screenshot(page, progress_callback)
+                    self._emit_event(event_callback, "click_card", {"name": card_name or f"#{index + 1}"})
                     clicked = False
                     if cursor_position:
                         with suppress(PlaywrightError):
                             page.mouse.click(cursor_position[0], cursor_position[1], delay=70)
                             clicked = True
                     if not clicked:
-                        article.click(delay=60)
+                        self._click_article_card(article)
                     if cursor_position:
                         self._animate_fake_click(page, cursor_position)
+                        self._send_progress_screenshot(page, progress_callback)
+                    if attempt_callback:
+                        with suppress(Exception):
+                            attempt_callback(index + 1, card_name)
                     page.wait_for_timeout(450)
                     try:
                         active_name = self._wait_for_place_panel(page, card_name)
                     except PlaywrightTimeoutError:
                         LOGGER.warning("Details panel did not appear for '%s'", card_name or "(unknown)")
+                        self._emit_event(
+                            event_callback,
+                            "panel_failed",
+                            {"name": card_name or f"#{index + 1}"},
+                        )
+                        self._send_progress_screenshot(page, progress_callback)
                         index += 1
                         continue
 
+                    self._emit_event(event_callback, "panel_opened", {"name": active_name or card_name or ""})
                     self._send_progress_screenshot(page, progress_callback)
                     place = self._extract_details(page)
                     if not place.name:
@@ -371,6 +402,7 @@ class GoogleMapsPlaywrightScraper:
 
                     results.append(place)
                     seen_names.add(normalized)
+                    self._emit_event(event_callback, "result_captured", {"name": place.name})
                     if result_callback:
                         try:
                             result_callback(place)
@@ -383,9 +415,12 @@ class GoogleMapsPlaywrightScraper:
                 context.close()
                 browser.close()
 
-        except PlaywrightError:
+        except PlaywrightError as exc:
+            self._emit_event(event_callback, "search_failed", {"message": str(exc) or "unknown"})
             LOGGER.exception("Playwright automation failed")
             raise
+        finally:
+            self._emit_event(event_callback, "search_finished", {"count": str(len(results))})
 
         LOGGER.info("Playwright scrape finished with %d results", len(results))
         return results
@@ -476,6 +511,18 @@ class GoogleMapsPlaywrightScraper:
 
     def _get_result_articles(self, page: Page) -> Locator:
         return page.locator('div[role="feed"] div.Nv2PK, div.Nv2PK')
+
+    def _click_article_card(self, locator: Locator) -> None:
+        target = locator.locator('a[href]').first
+        try:
+            if target.count():
+                with suppress(PlaywrightError):
+                    target.evaluate("el => el.removeAttribute('target')")
+                target.click(button="left", delay=70)
+                return
+            locator.click(delay=60)
+        except PlaywrightError:
+            locator.click(force=True)
 
     def _scroll_results_feed(self, page: Page) -> bool:
         feed = page.locator('div[role="feed"]').first
@@ -832,6 +879,17 @@ class GoogleMapsPlaywrightScraper:
         """
         with suppress(PlaywrightError):
             page.evaluate(script, {"x": x, "y": y, "clicked": clicked})
+
+    def _emit_event(
+        self,
+        callback: Optional[Callable[[str, Dict[str, str]], None]],
+        event: str,
+        payload: Dict[str, str],
+    ) -> None:
+        if not callback:
+            return
+        with suppress(Exception):
+            callback(event, payload)
 class Application(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -844,6 +902,9 @@ class Application(tk.Tk):
         self._bot_results: List[PlaceResult] = []
         self._bot_map_photo: Optional[ImageTk.PhotoImage] = None
         self._bot_active_limit: int = 0
+        self._bot_attempted: int = 0
+        self._bot_log_lines: List[str] = []
+        self._bot_selected_index: Optional[int] = None
 
         self._configure_style()
         self._create_widgets()
@@ -1143,10 +1204,13 @@ class Application(tk.Tk):
         limit = max(1, min(limit, 20))
         self._set_spin_value(self.bot_limit_spin, str(limit))
         self._bot_active_limit = limit
+        self._bot_attempted = 0
         self.bot_status_var.set(self._("status_scraping_progress").format(0, limit))
         self.bot_search_button.config(state=tk.DISABLED)
         self._set_bot_map_placeholder()
-        self._clear_bot_details()
+        self._bot_log_lines.clear()
+        self._bot_selected_index = None
+        self._refresh_bot_details_view(None)
         for item in self.bot_results_tree.get_children():
             self.bot_results_tree.delete(item)
         self._bot_results.clear()
@@ -1158,6 +1222,8 @@ class Application(tk.Tk):
                     query,
                     progress_callback=self._queue_bot_map_update,
                     result_callback=self._queue_bot_result_append,
+                    attempt_callback=self._queue_bot_attempt_update,
+                    event_callback=self._queue_bot_event,
                 )
             except PlaywrightError as exc:
                 LOGGER.exception("Playwright error: %s", exc)
@@ -1236,7 +1302,7 @@ class Application(tk.Tk):
                 self.bot_results_tree.delete(item)
             self.bot_status_var.set(self._("no_results"))
             self.bot_search_button.config(state=tk.NORMAL)
-            self._clear_bot_details()
+            self._refresh_bot_details_view(None)
             return
 
         def compute_rating_display(place: PlaceResult) -> str:
@@ -1286,16 +1352,17 @@ class Application(tk.Tk):
         self.api_details_text.delete("1.0", tk.END)
         self.api_details_text.config(state=tk.DISABLED)
 
-    def _clear_bot_details(self) -> None:
-        self.bot_details_text.config(state=tk.NORMAL)
-        self.bot_details_text.delete("1.0", tk.END)
-        self.bot_details_text.config(state=tk.DISABLED)
-
     def _queue_bot_map_update(self, image_bytes: bytes) -> None:
         self.after(0, lambda: self._update_bot_map_image(image_bytes))
 
     def _queue_bot_result_append(self, result: PlaceResult) -> None:
         self.after(0, lambda: self._append_bot_result(result))
+
+    def _queue_bot_attempt_update(self, count: int, name: Optional[str]) -> None:
+        self.after(0, lambda: self._update_bot_attempt_status(count))
+
+    def _queue_bot_event(self, event: str, payload: Dict[str, str]) -> None:
+        self.after(0, lambda: self._handle_bot_event(event, payload))
 
     def _append_bot_result(self, result: PlaceResult) -> None:
         index = len(self._bot_results)
@@ -1313,13 +1380,53 @@ class Application(tk.Tk):
             iid=str(index),
             values=(result.name, phone, rating_display, category),
         )
-        limit = max(self._bot_active_limit, len(self._bot_results))
-        self.bot_status_var.set(
-            self._("status_scraping_progress").format(len(self._bot_results), limit)
-        )
+        self._update_bot_status_label()
         self.bot_results_tree.selection_set(str(index))
         self.bot_results_tree.focus(str(index))
         self._show_bot_details(index)
+
+    def _update_bot_attempt_status(self, count: int) -> None:
+        self._bot_attempted = max(self._bot_attempted, count)
+        self._update_bot_status_label()
+
+    def _update_bot_status_label(self) -> None:
+        limit = self._bot_active_limit or max(len(self._bot_results), 1)
+        limit = max(limit, self._bot_attempted, 1)
+        self.bot_status_var.set(
+            self._("status_scraping_progress").format(self._bot_attempted, limit)
+        )
+
+    def _handle_bot_event(self, event: str, payload: Dict[str, str]) -> None:
+        event_map = {
+            "search_started": "log_search_started",
+            "click_card": "log_click_card",
+            "panel_opened": "log_panel_opened",
+            "panel_failed": "log_panel_failed",
+            "result_captured": "log_result_captured",
+            "search_finished": "log_search_finished",
+            "search_failed": "log_search_failed",
+        }
+        key = event_map.get(event)
+        if not key:
+            return
+        self._append_bot_log_from_key(key, **payload)
+
+    def _append_bot_log_from_key(self, key: str, **kwargs: str) -> None:
+        tr_template = TRANSLATIONS["tr"].get(key, key)
+        en_template = TRANSLATIONS["en"].get(key, key)
+        try:
+            tr_text = tr_template.format(**kwargs)
+        except Exception:
+            tr_text = tr_template
+        try:
+            en_text = en_template.format(**kwargs)
+        except Exception:
+            en_text = en_template
+        entry = f"[TR] {tr_text}\n[EN] {en_text}"
+        self._bot_log_lines.append(entry)
+        if len(self._bot_log_lines) > 200:
+            self._bot_log_lines = self._bot_log_lines[-200:]
+        self._refresh_bot_details_view(None)
 
     def _update_bot_map_image(self, image_bytes: bytes) -> None:
         if not image_bytes:
@@ -1359,12 +1466,43 @@ class Application(tk.Tk):
         self._render_details(self.api_details_text, result)
 
     def _show_bot_details(self, index: int) -> None:
-        if index >= len(self._bot_results):
-            return
-        result = self._bot_results[index]
-        self._render_details(self.bot_details_text, result)
+        self._refresh_bot_details_view(index)
+
+    def _refresh_bot_details_view(self, index: Optional[int]) -> None:
+        if index is not None:
+            self._bot_selected_index = index
+        elif self.bot_results_tree.selection():
+            try:
+                self._bot_selected_index = int(self.bot_results_tree.selection()[0])
+            except (ValueError, IndexError):
+                self._bot_selected_index = None
+        lines: List[str] = []
+        if self._bot_log_lines:
+            lines.append("== LOG ==")
+            lines.extend(self._bot_log_lines)
+        selected = self._bot_selected_index
+        if selected is not None and selected < len(self._bot_results):
+            detail_text = self._format_result_details(self._bot_results[selected])
+            if detail_text:
+                if lines:
+                    lines.append("")
+                lines.append(f"== {self._('details')} ==")
+                lines.append(detail_text)
+        if not lines:
+            lines.append(self._("no_results"))
+        self.bot_details_text.config(state=tk.NORMAL)
+        self.bot_details_text.delete("1.0", tk.END)
+        self.bot_details_text.insert(tk.END, "\n".join(lines))
+        self.bot_details_text.config(state=tk.DISABLED)
 
     def _render_details(self, text_widget: tk.Text, result: PlaceResult) -> None:
+        lines = self._format_result_details(result).split("\n")
+        text_widget.config(state=tk.NORMAL)
+        text_widget.delete("1.0", tk.END)
+        text_widget.insert(tk.END, "\n".join(lines))
+        text_widget.config(state=tk.DISABLED)
+
+    def _format_result_details(self, result: PlaceResult) -> str:
         lines = [
             f"{self._('column_name')}: {result.name}",
             f"{self._('column_phone')}: {result.formatted_phone_number or '-'}",
@@ -1405,11 +1543,7 @@ class Application(tk.Tk):
                 lines.append("")
         else:
             lines.append("  - -")
-
-        text_widget.config(state=tk.NORMAL)
-        text_widget.delete("1.0", tk.END)
-        text_widget.insert(tk.END, "\n".join(lines))
-        text_widget.config(state=tk.DISABLED)
+        return "\n".join(lines)
 
     def _enable_tree_sorting(self, tree: ttk.Treeview) -> None:
         columns = tree["columns"]
