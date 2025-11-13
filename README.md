@@ -20,9 +20,10 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 ## Kurulum Adımları (Windows 11)
 
 1. **Install.bat ile Otomatik Kurulum (Önerilir)**
-   - Depoyu açtıktan sonra `install.bat` dosyasını çalıştırın. Betik, PowerShell üzerinden küçük bir pencere açar ve "Python kontrolü", "sanal ortam kurulumu", "pip güncellemesi", "bağımlılık kurulumu" ve "uygulama doğrulaması" adımlarını GUI benzeri bir ilerleme çubuğuyla gösterir.
-   - İşlem tamamlandığında `.venv` klasörü oluşturulur ve tüm bağımlılıklar yüklenir.
-   - Kurulum esnasında tüm adımlar `logs/install-latest.log` dosyasına kaydedilir. Betik beklenmedik şekilde kapanırsa bu dosyadaki ayrıntıları paylaşarak sorunu görebilirsiniz.
+   - Depoyu açtıktan sonra `install.bat` dosyasını çalıştırın. Betik, komut satırında `chcp 65001` ile Türkçe karakter desteğini açar ve `[1/6] Python sürümü doğrulanıyor`, `[2/6] Sanal ortam hazırlanıyor` vb. aşamalarla süreci gösterir.
+   - Script önce `py -3.13` ile Python 3.13'ü dener, sistemde bulunamazsa otomatik olarak `py -3.11` ile devam eder. Gerekli sürümler bulunamazsa kurulum iptal edilir.
+   - Her adım `.venv` klasörünün kurulumu, pip güncellemesi, bağımlılıkların yüklenmesi ve `python -m compileall app` doğrulamasını içerir.
+   - Konsolda gösterilen tüm komut çıktıları `logs/install-latest.log` dosyasına yazılır. Hata alırsanız bu günlükte ayrıntıları bulabilir ve bizimle paylaşabilirsiniz.
 
 2. **El ile Kurulum (Alternatif)**
    1. [python.org](https://www.python.org/downloads/) adresinden Python 3.13 kurun ve "Add Python to PATH" seçeneğini işaretleyin.
