@@ -27,7 +27,7 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from licence.license_manager import LicenseError, LicenseManager
+from .license_manager import LicenseError, LicenseManager
 
 
 logging.basicConfig(

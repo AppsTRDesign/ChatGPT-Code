@@ -6,7 +6,7 @@ from typing import Optional
 
 import click
 
-from licence.license_manager import LicenseManager
+from google_maps_gui.license_manager import LicenseManager
 
 
 @click.command()

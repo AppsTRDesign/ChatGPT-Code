@@ -74,7 +74,7 @@ Uygulama başlatıldığında önce **Lisans** sekmesi açılır ve geçerli lis
 1. Lisans sekmesindeki **Makine Kimliği** alanı her bilgisayar için benzersizdir. `Kimliği Kopyala` düğmesi ile değeri panoya alıp lisans sağlayıcınıza iletin.
 2. Sağlayıcı, `license_tool.bat` (veya `python -m licence.license_tool`) aracını kullanarak istediğiniz yıl/ay/gün kombinasyonunu girer ve `MAPS-<Y>Y-<M>M-<D>D-XXXXXXXXXXXX` biçiminde bir anahtar üretir. Anahtar yalnızca gönderdiğiniz makine kimliğiyle eşleşir.
 3. **Lisans Anahtarı** alanına verilen değeri yapıştırıp **Lisansı Etkinleştir** düğmesine basın. Süre bilgisi anahtarın içinde taşındığı için ek bir menü seçimine gerek yoktur; Lisans sekmesi kalan günü, bitiş tarihini ve plan özetini otomatik olarak gösterir.
-4. Başarılı aktivasyon sonrası `licence\license.json` dosyası oluşturulur; dosya silinmediği sürece kalan gün ve bitiş tarihi Lisans sekmesinde görüntülenir.
+4. Başarılı aktivasyon sonrası `google_maps_gui\license.json` dosyası oluşturulur; dosya silinmediği sürece kalan gün ve bitiş tarihi Lisans sekmesinde görüntülenir.
 5. Lisans makine kimliğine bağlı olduğu için farklı bir bilgisayarda kullanmak isterseniz yeni bir anahtar talep etmeniz gerekir.
 
 > Lisans üretme aracı: Yetkili kişiler, depo kökündeki `license_tool.bat` dosyasını çalıştırarak makine kimliğine bağlı anahtarlar üretebilir. Örnek kullanım:

@@ -1,5 +1,5 @@
-"""Licence helpers package."""
+"""Licence helpers package (compat shim)."""
 
-from .license_manager import LicenseError, LicenseManager
+from google_maps_gui.license_manager import LicenseError, LicenseManager
 
 __all__ = ["LicenseError", "LicenseManager"]
