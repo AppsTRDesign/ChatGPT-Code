@@ -8,3 +8,8 @@ if not exist venv (
 
 call venv\Scripts\activate.bat
 python -m licence.license_tool %*
+set EXIT_CODE=%ERRORLEVEL%
+echo.
+echo Islemi tamamladiniz. Bu pencereyi kapatmak icin bir tusa basin.
+pause >nul
+endlocal & exit /b %EXIT_CODE%
