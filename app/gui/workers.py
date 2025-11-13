@@ -29,6 +29,7 @@ class TaskRequest:
     include_no_username: bool = True
     offset: int = 0
     result_storage: Optional[UserStorage] = None
+    target_type: Optional[str] = None
 
 
 class SessionWorkerThread(QThread):
@@ -101,6 +102,7 @@ class SessionWorkerThread(QThread):
                     self.request.users or [],
                     progress_handler,
                     status_handler,
+                    target_type=self.request.target_type,
                 )
             elif self.request.task_type == "active":
                 await task.fetch_active_senders(

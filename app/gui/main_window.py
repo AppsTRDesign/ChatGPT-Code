@@ -236,6 +236,15 @@ class MainWindow(QMainWindow):
 
         form_layout = QFormLayout()
         self.add_target_input = QLineEdit()
+        self.add_target_type_combo = QComboBox()
+        self.add_target_type_combo.addItem(
+            translator.translate("option.target_channel"),
+            userData="channel",
+        )
+        self.add_target_type_combo.addItem(
+            translator.translate("option.target_group"),
+            userData="group",
+        )
         self.add_source_combo = QComboBox()
         self.add_source_combo.addItems(
             [
@@ -244,6 +253,7 @@ class MainWindow(QMainWindow):
             ]
         )
         form_layout.addRow(translator.translate("label.target_group"), self.add_target_input)
+        form_layout.addRow(translator.translate("label.target_type"), self.add_target_type_combo)
         form_layout.addRow(translator.translate("label.add_source"), self.add_source_combo)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
@@ -560,6 +570,7 @@ class MainWindow(QMainWindow):
             return
 
         include_no_username = True
+        target_type: Optional[str] = None
         if task_type == "scan":
             sessions = self.get_selected_sessions(self.scan_session_list)
             target = self.scan_target_input.text().strip()
@@ -577,6 +588,7 @@ class MainWindow(QMainWindow):
             container = self.add_progress_container
             persist = True
             storage_key = self._current_add_storage_key()
+            target_type = self.add_target_type_combo.currentData()
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
@@ -667,6 +679,7 @@ class MainWindow(QMainWindow):
                 include_no_username=include_no_username,
                 offset=offset_value if request_limit else 0,
                 result_storage=result_storage,
+                target_type=target_type,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)

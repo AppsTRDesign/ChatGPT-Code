@@ -208,13 +208,15 @@ class SessionTask:
         users: Iterable[StoredUser],
         progress_callback: Callable[[ProgressUpdate], None],
         status_callback: Optional[Callable[[str], None]] = None,
+        *,
+        target_type: Optional[str] = None,
     ) -> None:
         users_list = list(users)
         total = len(users_list)
         status_cb = status_callback or (lambda _: None)
         status_cb("status.running")
         try:
-            target_channel, target_chat = await self._resolve_target_peer(entity)
+            target_channel, target_chat = await self._resolve_target_peer(entity, target_type)
         except ValueError as exc:
             logger.exception("log.member_target_invalid")
             raise ValueError(translator.translate("log.member_target_invalid")) from exc
@@ -439,7 +441,7 @@ class SessionTask:
         return resolved
 
     async def _resolve_target_peer(
-        self, entity: str
+        self, entity: str, target_type: Optional[str] = None
     ) -> Tuple[Optional[types.InputChannel], Optional[types.InputPeerChat]]:
         input_entity = await self.client.get_input_entity(entity)
         channel: Optional[types.InputChannel] = None
@@ -453,6 +455,10 @@ class SessionTask:
         elif isinstance(input_entity, types.InputChat):
             chat = types.InputPeerChat(input_entity.chat_id)
         else:
+            raise ValueError("log.member_target_invalid")
+        if target_type == "channel" and not channel:
+            raise ValueError("log.member_target_invalid")
+        if target_type == "group" and not chat:
             raise ValueError("log.member_target_invalid")
         return channel, chat
 
