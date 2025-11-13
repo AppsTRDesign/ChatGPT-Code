@@ -553,13 +553,22 @@ class GoogleMapsPlaywrightScraper:
     def _wait_for_place_panel(self, page: Page, expected_name: Optional[str]) -> str:
         expected_normalized = self._normalize_text(expected_name or "")
         start = time.time()
+        heading_selectors = [
+            'div[role="main"] h1[class*="fontHeadline"], div[role="main"] h1.DUwDvf',
+            'div[role="main"] div[class*="DUwDvf"]',
+            'h1.DUwDvf',
+            'div.DUwDvf',
+        ]
         while time.time() - start < 25:
-            heading = page.locator('div[role="main"] h1, div[role="main"] div[class*="DUwDvf"]').first
-            text = self._safe_inner_text(heading, timeout=1500)
-            if text:
-                normalized = self._normalize_text(text)
-                if not expected_normalized or expected_normalized in normalized:
-                    return text
+            for selector in heading_selectors:
+                heading = page.locator(selector).first
+                if heading.count() == 0:
+                    continue
+                text = self._safe_inner_text(heading, timeout=1500)
+                if text:
+                    normalized = self._normalize_text(text)
+                    if not expected_normalized or expected_normalized in normalized:
+                        return text
             page.wait_for_timeout(400)
         raise PlaywrightTimeoutError("Place details did not load in time")
 
@@ -569,6 +578,8 @@ class GoogleMapsPlaywrightScraper:
             [
                 'div[role="main"] h1[class*="fontHeadlineLarge"]',
                 'div[role="main"] div[class*="DUwDvf"]',
+                'h1.DUwDvf',
+                'div.DUwDvf',
             ],
         )
 
@@ -630,9 +641,19 @@ class GoogleMapsPlaywrightScraper:
         selectors = [
             'button[data-item-id*="address"] div.Io6YTe',
             'div[data-item-id*="address"] div.Io6YTe',
+            'div[data-item-id^="address"] div.Io6YTe',
+            'div[aria-label*="Adres"] div.Io6YTe',
+            'div[aria-label*="Address"] div.Io6YTe',
             'div.Io6YTe.fontBodyMedium.kR99db',
         ]
-        return self._first_text(page, selectors)
+        address = self._first_text(page, selectors)
+        if address:
+            return address
+        meta_items = self._extract_meta_items(page)
+        for key, value in meta_items.items():
+            if "address" in key.lower():
+                return value
+        return ""
 
     def _extract_phone(self, page: Page) -> str:
         selectors = [
@@ -640,7 +661,47 @@ class GoogleMapsPlaywrightScraper:
             'div[data-item-id*="phone"] div.Io6YTe',
             'div.AeaXub div.Io6YTe',
         ]
-        return self._first_text(page, selectors)
+        phone = self._first_text(page, selectors)
+        if phone:
+            return phone
+        meta_items = self._extract_meta_items(page)
+        for key, value in meta_items.items():
+            if "phone" in key.lower():
+                return value
+        # As a last resort, pick the first Io6YTe block that looks like a phone number
+        locator = page.locator('div.AeaXub div.Io6YTe, div.Io6YTe')
+        count = locator.count()
+        for idx in range(count):
+            text = self._safe_inner_text(locator.nth(idx))
+            digits = "".join(ch for ch in text if ch.isdigit())
+            if len(digits) >= 8:
+                return text
+        return ""
+
+    def _extract_meta_items(self, page: Page) -> Dict[str, str]:
+        script = """
+            () => {
+                const data = {};
+                document.querySelectorAll('[data-item-id]').forEach((el) => {
+                    const key = el.getAttribute('data-item-id');
+                    const valueNode = el.querySelector('.Io6YTe');
+                    if (key && valueNode) {
+                        const text = valueNode.innerText.trim();
+                        if (text) {
+                            data[key] = text;
+                        }
+                    }
+                });
+                return data;
+            }
+        """
+        try:
+            meta = page.evaluate(script)
+            if isinstance(meta, dict):
+                return {str(k): str(v) for k, v in meta.items()}
+        except PlaywrightError:
+            return {}
+        return {}
 
     def _extract_rating_info(self, page: Page) -> tuple[Optional[float], Optional[int]]:
         rating_text = self._first_text(page, ['div.F7nice span[aria-hidden="true"]', 'div.F7nice span[role="img"]'])
