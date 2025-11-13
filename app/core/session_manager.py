@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -45,9 +46,25 @@ class SessionManager:
 
     async def _create_client(self, session_name: str) -> TelegramClient:
         session_path = self.settings.session_directory / f"{session_name}.session"
-        client = TelegramClient(str(session_path), self.settings.api_id, self.settings.api_hash, lang_code=self.settings.language)
-        await client.connect()
-        return client
+        attempts = 0
+        while True:
+            client = TelegramClient(
+                str(session_path),
+                self.settings.api_id,
+                self.settings.api_hash,
+                lang_code=self.settings.language,
+            )
+            try:
+                await client.connect()
+                return client
+            except sqlite3.OperationalError as exc:
+                await client.disconnect()
+                message = str(exc).lower()
+                attempts += 1
+                if "database is locked" in message and attempts < 5:
+                    await asyncio.sleep(0.5)
+                    continue
+                raise
 
     async def start_login(self, session_name: str, phone: str) -> PendingLogin:
         async with self._lock:

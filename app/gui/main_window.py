@@ -81,12 +81,22 @@ class MainWindow(QMainWindow):
                 self.settings.user_directory / "active_added_users.json",
                 timezone_name=self.settings.timezone,
             ),
+            "scanned_invited": UserStorage(
+                self.settings.user_directory / "scanned_invited_users.json",
+                timezone_name=self.settings.timezone,
+            ),
+            "active_invited": UserStorage(
+                self.settings.user_directory / "active_invited_users.json",
+                timezone_name=self.settings.timezone,
+            ),
         }
         self.user_table_meta: List[Tuple[str, bool, str]] = [
             ("scanned", False, "tab.users_scanned"),
             ("active", True, "tab.users_active"),
             ("scanned_added", False, "tab.users_scanned_added"),
             ("active_added", True, "tab.users_active_added"),
+            ("scanned_invited", True, "tab.users_scanned_invited"),
+            ("active_invited", True, "tab.users_active_invited"),
         ]
         self.orchestrator = TaskOrchestrator(self.settings)
 
@@ -236,15 +246,6 @@ class MainWindow(QMainWindow):
 
         form_layout = QFormLayout()
         self.add_target_input = QLineEdit()
-        self.add_target_type_combo = QComboBox()
-        self.add_target_type_combo.addItem(
-            translator.translate("option.target_channel"),
-            userData="channel",
-        )
-        self.add_target_type_combo.addItem(
-            translator.translate("option.target_group"),
-            userData="group",
-        )
         self.add_source_combo = QComboBox()
         self.add_source_combo.addItems(
             [
@@ -253,7 +254,6 @@ class MainWindow(QMainWindow):
             ]
         )
         form_layout.addRow(translator.translate("label.target_group"), self.add_target_input)
-        form_layout.addRow(translator.translate("label.target_type"), self.add_target_type_combo)
         form_layout.addRow(translator.translate("label.add_source"), self.add_source_combo)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
@@ -570,7 +570,6 @@ class MainWindow(QMainWindow):
             return
 
         include_no_username = True
-        target_type: Optional[str] = None
         if task_type == "scan":
             sessions = self.get_selected_sessions(self.scan_session_list)
             target = self.scan_target_input.text().strip()
@@ -588,7 +587,7 @@ class MainWindow(QMainWindow):
             container = self.add_progress_container
             persist = True
             storage_key = self._current_add_storage_key()
-            target_type = self.add_target_type_combo.currentData()
+            invite_key = self._add_invite_storage_key(storage_key)
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
@@ -608,13 +607,17 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, self.windowTitle(), translator.translate("dialog.storage_missing"))
             return
         result_storage: Optional[UserStorage] = None
+        invite_storage: Optional[UserStorage] = None
         if task_type == "add":
             result_key = self._add_result_storage_key(storage_key)
             result_storage = self.user_storages.get(result_key)
+            invite_storage = self.user_storages.get(invite_key)
 
         progress_map = self.progress_widgets[task_type]
         for session_name in list(progress_map.keys()):
             if session_name not in sessions:
+                if (task_type, session_name) in self.worker_threads:
+                    continue
                 widget = progress_map.pop(session_name)
                 self._remove_progress_widget(container, widget)
 
@@ -679,7 +682,7 @@ class MainWindow(QMainWindow):
                 include_no_username=include_no_username,
                 offset=offset_value if request_limit else 0,
                 result_storage=result_storage,
-                target_type=target_type,
+                invite_storage=invite_storage,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -925,6 +928,10 @@ class MainWindow(QMainWindow):
     def _add_result_storage_key(source_key: str) -> str:
         return "scanned_added" if source_key == "scanned" else "active_added"
 
+    @staticmethod
+    def _add_invite_storage_key(source_key: str) -> str:
+        return "scanned_invited" if source_key == "scanned" else "active_invited"
+
     def _split_users_for_sessions(self, users: List[StoredUser], count: int) -> List[List[StoredUser]]:
         if count <= 0:
             return []
@@ -1038,6 +1045,8 @@ class MainWindow(QMainWindow):
             "active": "exported_active_users.json",
             "scanned_added": "exported_added_scanned_users.json",
             "active_added": "exported_added_active_users.json",
+            "scanned_invited": "exported_invited_scanned_users.json",
+            "active_invited": "exported_invited_active_users.json",
         }
         default_name = default_names.get(storage_key, "exported_users.json")
         default_path = self.settings.user_directory / default_name
@@ -1076,7 +1085,12 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.import_success"))
 
     def add_user_manual(self) -> None:
-        include_message = self._current_user_key() in {"active", "active_added"}
+        include_message = self._current_user_key() in {
+            "active",
+            "active_added",
+            "scanned_invited",
+            "active_invited",
+        }
         dialog = ManualUserDialog(self, include_message=include_message)
         if dialog.exec() != QDialog.Accepted:
             return

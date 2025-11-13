@@ -9,6 +9,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Hedef Gruptan Üye Taraması:** Zaman filtresi ve kota desteği ile çoklu oturuma düşen üye sayısını otomatik bölerek tekrar etmeyen kayıtlar toplama.
 - **Hedef Gruba Üye Ekleme:** Kayıtlı kullanıcı listesinden hedef gruba üyeleri eşit bölerek ekleme, ilerleme çubukları ve flood wait yönetimi.
 - **Aktif Mesaj Atanları Bulma:** Belirlenen zaman aralığında mesaj atan kullanıcıları, ayarlardaki maksimum mesaj tarama sınırını oturumlara bölerek ve isteğe bağlı kullanıcı adı filtresiyle kayıt altına alma.
+- **Başarısız Eklemede Otomatik Davet:** Üye ekleme izinleri veya kota hataları oluştuğunda, sistem aynı kullanıcıya hedef linkini içeren özel mesaj gönderir ve bu kayıtlar ayrı tablolarda saklanır.
 - **Esnek İlerleme ve Kayıt Kontrolleri:** Kullanıcı adı olmayanları hariç tutma, kayıtlı listeleri temizleme ve işlemleri iptal ederek baştan başlatma seçenekleri.
 - **Rate Limit Yönetimi:** Flood hatalarını azaltmak için ayarlanabilir süreler.
 - **Davet Kotası Uyarıları:** Davet sınırı aşıldığında kaç kullanıcı denendiğini ve tahmini bekleme süresini anlık olarak gösterir, yetki eksikliklerini açıkça bildirir.
@@ -85,6 +86,7 @@ Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanm
 - `session/` klasörü Telethon oturum dosyalarını tutar.
 - `users/` klasöründeki `scanned_users.json` ve `active_users.json` dosyaları ilgili sekmelerdeki kullanıcı kayıtlarını saklar. İşlenen kullanıcılar otomatik olarak silinir veya güncellenir.
 - `users/scanned_added_users.json` ve `users/active_added_users.json` dosyaları hedef kanala başarıyla eklenen üyeleri kaydeder.
+- `users/scanned_invited_users.json` ve `users/active_invited_users.json` dosyaları, doğrudan eklenemeyip özel mesajla davet gönderilen kullanıcıları saklar.
 - `config/settings.json` uygulama ayarlarını barındırır.
 - `config/license.json` doğrulanmış lisans kaydını tutar.
 - `logs/application.log` dosyası hata ve işlem günlüklerini içerir.
