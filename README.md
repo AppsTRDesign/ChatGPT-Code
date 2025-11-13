@@ -67,11 +67,12 @@ Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanm
 2. **Anahtar Üretin:** Lisansı dağıtan kişi hazır planları veya özel süreleri kullanabilir:
    ```powershell
    # Hazır plan (1, 3 veya 6 ay)
-   py -m app.tools.generate_license --machine <MAKINE_ID> --plan 3m
+   .\generate_license.bat --machine <MAKINE_ID> --plan 3m
 
    # Özel süre (örn. 1 yıl 2 ay 10 gün)
-   py -m app.tools.generate_license --machine <MAKINE_ID> --years 1 --months 2 --days 10 --label "Kurumsal 1Y2A10G"
+   .\generate_license.bat --machine <MAKINE_ID> --years 1 --months 2 --days 10 --label "Kurumsal 1Y2A10G"
    ```
+   Windows dışındaki ortamlarda doğrudan `python licence/generate_license.py ...` komutunu da kullanabilirsiniz.
    Hazır plan kodları `1m`, `3m` ve `6m` olup, özel sürede yıl/ay/gün değerlerinden en az biri girilmelidir.
 3. **Anahtarı Girin:** Kullanıcı, aldığı anahtarı Ayarlar ▸ Lisans Bilgileri alanına yapıştırıp "Lisansı Etkinleştir" butonuna basar. Doğrulama başarılı olursa kalan süre ve plan adı anında güncellenir.
 4. **Makineye Kilitli Yapı:** Anahtarlar üretildiği makinenin kimliğiyle imzalandığı için başka bir bilgisayarda çalışmaz. `config/license.json` dosyasını kopyalamak lisansı taşımaya yetmez.
