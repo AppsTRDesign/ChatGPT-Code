@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import logging
+import re
 import threading
 import time
 from contextlib import suppress
@@ -47,6 +48,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_name": "İsim",
         "column_phone": "Telefon",
         "column_rating": "Puan",
+        "column_category": "Kategori",
         "save_json": "JSON Kaydet",
         "save_csv": "CSV Kaydet",
         "status_ready": "Hazır",
@@ -90,6 +92,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_name": "Name",
         "column_phone": "Phone",
         "column_rating": "Rating",
+        "column_category": "Category",
         "save_json": "Save JSON",
         "save_csv": "Save CSV",
         "status_ready": "Ready",
@@ -143,6 +146,7 @@ class PlaceResult:
     name: str
     formatted_address: str
     formatted_phone_number: Optional[str]
+    business_type: Optional[str]
     opening_hours: List[str]
     rating: Optional[float]
     user_ratings_total: Optional[int]
@@ -161,6 +165,7 @@ class PlaceResult:
             "name": self.name,
             "address": self.formatted_address,
             "phone": self.formatted_phone_number or "",
+            "category": self.business_type or "",
             "opening_hours": " | ".join(self.opening_hours) if self.opening_hours else "",
             "rating": f"{self.rating:.1f}" if self.rating is not None else "",
             "rating_count": "" if self.user_ratings_total is None else str(self.user_ratings_total),
@@ -231,6 +236,7 @@ class GoogleMapsClient:
                     name=result.get("name", ""),
                     formatted_address=result.get("formatted_address", ""),
                     formatted_phone_number=result.get("formatted_phone_number"),
+                    business_type=self._format_business_type(result.get("types", [])),
                     opening_hours=opening_hours,
                     rating=result.get("rating"),
                     user_ratings_total=result.get("user_ratings_total"),
@@ -250,6 +256,15 @@ class GoogleMapsClient:
         if status not in {"OK", "ZERO_RESULTS"}:
             raise GoogleMapsError(data.get("error_message") or status or "UNKNOWN_ERROR")
         return data
+
+    def _format_business_type(self, types: List[str]) -> Optional[str]:
+        for value in types or []:
+            if not value:
+                continue
+            cleaned = value.replace("_", " ").strip()
+            if cleaned:
+                return cleaned.title()
+        return None
 
 
 LOGGER = logging.getLogger(__name__)
@@ -309,9 +324,11 @@ class GoogleMapsPlaywrightScraper:
                     wait_until="load",
                     timeout=90000,
                 )
+                self._ensure_fake_cursor(page)
                 self._handle_privacy_dialog(page)
                 self._send_progress_screenshot(page, progress_callback)
                 self._perform_search(page, query)
+                self._ensure_fake_cursor(page)
                 self._handle_privacy_dialog(page)
                 self._wait_for_result_list(page)
                 self._send_progress_screenshot(page, progress_callback)
@@ -325,7 +342,16 @@ class GoogleMapsPlaywrightScraper:
                         break
 
                     card_name = self._extract_article_name(article)
-                    article.click(delay=60)
+                    cursor_position = self._move_fake_cursor_to_locator(page, article)
+                    clicked = False
+                    if cursor_position:
+                        with suppress(PlaywrightError):
+                            page.mouse.click(cursor_position[0], cursor_position[1], delay=70)
+                            clicked = True
+                    if not clicked:
+                        article.click(delay=60)
+                    if cursor_position:
+                        self._animate_fake_click(page, cursor_position)
                     page.wait_for_timeout(450)
                     try:
                         active_name = self._wait_for_place_panel(page, card_name)
@@ -337,16 +363,7 @@ class GoogleMapsPlaywrightScraper:
                     self._send_progress_screenshot(page, progress_callback)
                     place = self._extract_details(page)
                     if not place.name:
-                        place = PlaceResult(
-                            name=active_name or card_name or "",
-                            formatted_address=place.formatted_address,
-                            formatted_phone_number=place.formatted_phone_number,
-                            opening_hours=place.opening_hours,
-                            rating=place.rating,
-                            user_ratings_total=place.user_ratings_total,
-                            reviews=place.reviews,
-                            attributes=place.attributes,
-                        )
+                        place.name = active_name or card_name or ""
                     normalized = self._normalize_text(place.name)
                     if normalized in seen_names:
                         index += 1
@@ -386,18 +403,25 @@ class GoogleMapsPlaywrightScraper:
         page.wait_for_timeout(600)
 
     def _wait_for_result_list(self, page: Page) -> None:
-        selector = 'div[role="feed"] div[role="article"], div[role="article"]'
-        deadline = time.time() + 60
+        selectors = [
+            'div[role="feed"] div.Nv2PK',
+            'div.Nv2PK',
+            'div[role="feed"] div[role="article"]',
+        ]
+        deadline = time.time() + 75
         while time.time() < deadline:
             self._handle_privacy_dialog(page)
-            articles = page.locator(selector)
-            if articles.count():
+            for selector in selectors:
+                articles = page.locator(selector)
+                if not articles.count():
+                    continue
                 try:
-                    articles.first.wait_for(state="visible", timeout=1500)
-                    page.wait_for_timeout(800)
+                    articles.first.wait_for(state="visible", timeout=2000)
+                    self._ensure_fake_cursor(page)
+                    page.wait_for_timeout(600)
                     return
                 except PlaywrightTimeoutError:
-                    pass
+                    continue
             page.wait_for_timeout(500)
         raise PlaywrightTimeoutError("Search results did not appear in time")
 
@@ -451,7 +475,7 @@ class GoogleMapsPlaywrightScraper:
             page.wait_for_timeout(450)
 
     def _get_result_articles(self, page: Page) -> Locator:
-        return page.locator('div[role="feed"] div[role="article"], div[role="article"]')
+        return page.locator('div[role="feed"] div.Nv2PK, div.Nv2PK')
 
     def _scroll_results_feed(self, page: Page) -> bool:
         feed = page.locator('div[role="feed"]').first
@@ -501,6 +525,7 @@ class GoogleMapsPlaywrightScraper:
             ],
         )
 
+        business_type = self._extract_business_type(page)
         self._select_tab(page, "overview")
 
         address = self._extract_address(page)
@@ -529,12 +554,21 @@ class GoogleMapsPlaywrightScraper:
             name=name,
             formatted_address=address,
             formatted_phone_number=phone,
+            business_type=business_type or None,
             opening_hours=opening_hours,
             rating=rating,
             user_ratings_total=rating_count,
             reviews=reviews,
             attributes=attributes,
         )
+
+    def _extract_business_type(self, page: Page) -> str:
+        selectors = [
+            'div[role="main"] button.DkEaL',
+            'div[role="main"] a.DkEaL',
+            'button.DkEaL',
+        ]
+        return self._first_text(page, selectors)
 
     def _first_text(self, page: Page, selectors: List[str]) -> str:
         for selector in selectors:
@@ -719,22 +753,115 @@ class GoogleMapsPlaywrightScraper:
         with suppress(PlaywrightError):
             png = page.screenshot(full_page=True)
             callback(png)
+
+    def _ensure_fake_cursor(self, page: Page) -> None:
+        script = """
+            (() => {
+                if (window.__botCursor) {
+                    return;
+                }
+                const cursor = document.createElement('div');
+                cursor.id = '__botCursor';
+                cursor.style.position = 'fixed';
+                cursor.style.width = '20px';
+                cursor.style.height = '20px';
+                cursor.style.pointerEvents = 'none';
+                cursor.style.top = '0';
+                cursor.style.left = '0';
+                cursor.style.borderRadius = '50%';
+                cursor.style.border = '2px solid #0b6fa4';
+                cursor.style.zIndex = '2147483647';
+                cursor.style.boxShadow = '0 0 8px rgba(11, 111, 164, 0.4)';
+                cursor.style.background = 'rgba(255,255,255,0.4)';
+                cursor.style.transition = 'transform 120ms ease-out, opacity 200ms ease-out';
+                cursor.classList.add('bot-cursor');
+                const style = document.createElement('style');
+                style.textContent = `
+                    #__botCursor.bot-cursor--click {
+                        transform: scale(0.85);
+                        background: rgba(11, 111, 164, 0.2);
+                    }
+                `;
+                document.head.appendChild(style);
+                document.body.appendChild(cursor);
+                window.__botCursor = cursor;
+            })();
+        """
+        with suppress(PlaywrightError):
+            page.evaluate(script)
+
+    def _move_fake_cursor_to_locator(
+        self, page: Page, locator: Locator
+    ) -> Optional[tuple[float, float]]:
+        try:
+            target = locator.first
+            target.scroll_into_view_if_needed(timeout=1500)
+            box = target.bounding_box()
+        except PlaywrightError:
+            return None
+        if not box:
+            return None
+        width = max(1.0, box.get("width", 1.0))
+        height = max(1.0, box.get("height", 1.0))
+        offset_x = min(width - 6, max(18.0, width * 0.65))
+        offset_y = min(height - 6, max(12.0, height * 0.55))
+        x = box.get("x", 0.0) + max(4.0, offset_x)
+        y = box.get("y", 0.0) + max(4.0, offset_y)
+        self._ensure_fake_cursor(page)
+        with suppress(PlaywrightError):
+            page.mouse.move(x, y, steps=10)
+            self._set_fake_cursor_position(page, x, y, clicked=False)
+        return x, y
+
+    def _animate_fake_click(self, page: Page, position: tuple[float, float]) -> None:
+        self._set_fake_cursor_position(page, position[0], position[1], clicked=True)
+
+    def _set_fake_cursor_position(self, page: Page, x: float, y: float, clicked: bool) -> None:
+        script = """
+            (data) => {
+                const cursor = window.__botCursor;
+                if (!cursor) {
+                    return;
+                }
+                cursor.style.transform = `translate(${data.x}px, ${data.y}px)`;
+                if (data.clicked) {
+                    cursor.classList.add('bot-cursor--click');
+                    setTimeout(() => cursor.classList.remove('bot-cursor--click'), 200);
+                }
+            }
+        """
+        with suppress(PlaywrightError):
+            page.evaluate(script, {"x": x, "y": y, "clicked": clicked})
 class Application(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.selected_language = tk.StringVar(value="tr")
         self.title(self._("app_title"))
         self.geometry("1000x650")
+        self._tree_sort_states: Dict[ttk.Treeview, Dict[str, bool]] = {}
 
         self._api_results: List[PlaceResult] = []
         self._bot_results: List[PlaceResult] = []
         self._bot_map_photo: Optional[ImageTk.PhotoImage] = None
         self._bot_active_limit: int = 0
 
+        self._configure_style()
         self._create_widgets()
         self._layout_widgets()
         self._bind_events()
         self._update_translations()
+
+    def _configure_style(self) -> None:
+        style = ttk.Style(self)
+        with suppress(tk.TclError):
+            if "clam" in style.theme_names():
+                style.theme_use("clam")
+        style.configure("Accent.TButton", padding=6, font=("Segoe UI", 10, "bold"))
+        style.configure("Status.TLabel", foreground="#0b6fa4", font=("Segoe UI", 10, "bold"))
+        style.configure("Treeview", font=("Segoe UI", 10))
+        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
+        style.configure("Body.TLabelframe", padding=10)
+        self.style = style
 
     def _create_widgets(self) -> None:
         self.notebook = ttk.Notebook(self)
@@ -764,27 +891,41 @@ class Application(tk.Tk):
         )
         self._set_spin_value(self.api_limit_spin, "5")
 
-        self.api_search_button = ttk.Button(self.api_tab, text="", command=self._on_api_search)
+        self.api_search_button = ttk.Button(
+            self.api_tab, text="", style="Accent.TButton", command=self._on_api_search
+        )
 
         self.api_status_var = tk.StringVar(value=self._("status_ready"))
-        self.api_status_label = ttk.Label(self.api_tab, textvariable=self.api_status_var)
+        self.api_status_label = ttk.Label(
+            self.api_tab, textvariable=self.api_status_var, style="Status.TLabel"
+        )
 
         self.api_results_label = ttk.Label(self.api_tab, text="")
         self.api_results_tree = ttk.Treeview(
             self.api_tab,
-            columns=("name", "phone", "rating"),
+            columns=("name", "phone", "rating", "category"),
             show="headings",
             height=10,
         )
         self.api_results_tree.heading("name", text="")
         self.api_results_tree.heading("phone", text="")
         self.api_results_tree.heading("rating", text="")
+        self.api_results_tree.heading("category", text="")
         self.api_results_tree.column("name", width=240)
-        self.api_results_tree.column("phone", width=180)
+        self.api_results_tree.column("phone", width=160)
         self.api_results_tree.column("rating", width=140, anchor=tk.CENTER)
+        self.api_results_tree.column("category", width=160)
 
         self.api_details_label = ttk.Label(self.api_tab, text="")
-        self.api_details_text = tk.Text(self.api_tab, wrap=tk.WORD, state=tk.DISABLED, height=14)
+        self.api_details_text = tk.Text(
+            self.api_tab,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            height=14,
+            relief=tk.GROOVE,
+            borderwidth=2,
+            background="#fcfcfc",
+        )
         self.api_details_scroll = ttk.Scrollbar(
             self.api_tab, orient=tk.VERTICAL, command=self.api_details_text.yview
         )
@@ -819,26 +960,40 @@ class Application(tk.Tk):
         )
         self._set_spin_value(self.bot_limit_spin, "5")
 
-        self.bot_search_button = ttk.Button(self.bot_tab, text="", command=self._on_bot_search)
+        self.bot_search_button = ttk.Button(
+            self.bot_tab, text="", style="Accent.TButton", command=self._on_bot_search
+        )
         self.bot_status_var = tk.StringVar(value=self._("status_ready"))
-        self.bot_status_label = ttk.Label(self.bot_tab, textvariable=self.bot_status_var)
+        self.bot_status_label = ttk.Label(
+            self.bot_tab, textvariable=self.bot_status_var, style="Status.TLabel"
+        )
 
         self.bot_results_label = ttk.Label(self.bot_tab, text="")
         self.bot_results_tree = ttk.Treeview(
             self.bot_tab,
-            columns=("name", "phone", "rating"),
+            columns=("name", "phone", "rating", "category"),
             show="headings",
             height=10,
         )
         self.bot_results_tree.heading("name", text="")
         self.bot_results_tree.heading("phone", text="")
         self.bot_results_tree.heading("rating", text="")
+        self.bot_results_tree.heading("category", text="")
         self.bot_results_tree.column("name", width=240)
-        self.bot_results_tree.column("phone", width=180)
+        self.bot_results_tree.column("phone", width=160)
         self.bot_results_tree.column("rating", width=140, anchor=tk.CENTER)
+        self.bot_results_tree.column("category", width=160)
 
         self.bot_details_label = ttk.Label(self.bot_tab, text="")
-        self.bot_details_text = tk.Text(self.bot_tab, wrap=tk.WORD, state=tk.DISABLED, height=14)
+        self.bot_details_text = tk.Text(
+            self.bot_tab,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            height=12,
+            relief=tk.GROOVE,
+            borderwidth=2,
+            background="#fcfcfc",
+        )
         self.bot_details_scroll = ttk.Scrollbar(
             self.bot_tab, orient=tk.VERTICAL, command=self.bot_details_text.yview
         )
@@ -865,6 +1020,9 @@ class Application(tk.Tk):
 
         self.notebook.add(self.api_tab, text="")
         self.notebook.add(self.bot_tab, text="")
+
+        self._enable_tree_sorting(self.api_results_tree)
+        self._enable_tree_sorting(self.bot_results_tree)
 
     def _layout_widgets(self) -> None:
         self.notebook.pack(fill=tk.BOTH, expand=True)
@@ -1052,6 +1210,7 @@ class Application(tk.Tk):
             return
         for index, result in enumerate(results):
             phone = result.formatted_phone_number or "-"
+            category = result.business_type or "-"
             rating_display = "-"
             if result.rating is not None:
                 rating_display = f"{result.rating:.1f}"
@@ -1061,7 +1220,7 @@ class Application(tk.Tk):
                 "",
                 tk.END,
                 iid=str(index),
-                values=(result.name, phone, rating_display),
+                values=(result.name, phone, rating_display, category),
             )
         self.api_status_var.set(self._("status_ready"))
         self.api_search_button.config(state=tk.NORMAL)
@@ -1100,6 +1259,7 @@ class Application(tk.Tk):
                         result.name,
                         result.formatted_phone_number or "-",
                         compute_rating_display(result),
+                        result.business_type or "-",
                     ),
                 )
         else:
@@ -1110,6 +1270,7 @@ class Application(tk.Tk):
                         result.name,
                         result.formatted_phone_number or "-",
                         compute_rating_display(result),
+                        result.business_type or "-",
                     ),
                 )
 
@@ -1140,6 +1301,7 @@ class Application(tk.Tk):
         index = len(self._bot_results)
         self._bot_results.append(result)
         phone = result.formatted_phone_number or "-"
+        category = result.business_type or "-"
         rating_display = "-"
         if result.rating is not None:
             rating_display = f"{result.rating:.1f}"
@@ -1149,7 +1311,7 @@ class Application(tk.Tk):
             "",
             tk.END,
             iid=str(index),
-            values=(result.name, phone, rating_display),
+            values=(result.name, phone, rating_display, category),
         )
         limit = max(self._bot_active_limit, len(self._bot_results))
         self.bot_status_var.set(
@@ -1207,6 +1369,7 @@ class Application(tk.Tk):
             f"{self._('column_name')}: {result.name}",
             f"{self._('column_phone')}: {result.formatted_phone_number or '-'}",
             f"{self._('column_rating')}: {result.rating or '-'}",
+            f"{self._('column_category')}: {result.business_type or '-'}",
         ]
         if result.user_ratings_total is not None:
             lines.append(f"{self._('ratings_total')}: {result.user_ratings_total}")
@@ -1248,6 +1411,44 @@ class Application(tk.Tk):
         text_widget.insert(tk.END, "\n".join(lines))
         text_widget.config(state=tk.DISABLED)
 
+    def _enable_tree_sorting(self, tree: ttk.Treeview) -> None:
+        columns = tree["columns"]
+        self._tree_sort_states[tree] = {col: False for col in columns}
+        for col in columns:
+            tree.heading(col, command=lambda c=col, t=tree: self._sort_treeview(t, c))
+
+    def _set_tree_heading(self, tree: ttk.Treeview, column: str, text: str) -> None:
+        tree.heading(column, text=text, command=lambda c=column, t=tree: self._sort_treeview(t, c))
+
+    def _sort_treeview(self, tree: ttk.Treeview, column: str) -> None:
+        state = self._tree_sort_states.get(tree)
+        if state is None:
+            return
+        reverse = state.get(column, False)
+        numeric_columns = {"rating"}
+        numeric = column in numeric_columns
+        rows = []
+        for iid in tree.get_children(""):
+            value = tree.set(iid, column)
+            rows.append((self._coerce_sort_value(value, numeric), iid))
+        rows.sort(reverse=reverse)
+        for index, (_, iid) in enumerate(rows):
+            tree.move(iid, "", index)
+        state[column] = not reverse
+
+    def _coerce_sort_value(self, value: str, numeric: bool):
+        text = (value or "").strip()
+        if numeric:
+            if not text:
+                return float("-inf")
+            cleaned = text.replace(",", ".")
+            match = re.search(r"-?\d+(?:\.\d+)?", cleaned)
+            if match:
+                with suppress(ValueError):
+                    return float(match.group())
+            return float("-inf")
+        return text.lower()
+
     def _set_spin_value(self, spinbox: ttk.Spinbox, value: str) -> None:
         try:
             spinbox.set(value)
@@ -1285,6 +1486,7 @@ class Application(tk.Tk):
                         "name",
                         "address",
                         "phone",
+                        "category",
                         "opening_hours",
                         "rating",
                         "rating_count",
@@ -1312,9 +1514,10 @@ class Application(tk.Tk):
         self.api_limit_label.config(text=self._("result_limit"))
         self.api_results_label.config(text=self._("results"))
         self.api_details_label.config(text=self._("details"))
-        self.api_results_tree.heading("name", text=self._("column_name"))
-        self.api_results_tree.heading("phone", text=self._("column_phone"))
-        self.api_results_tree.heading("rating", text=self._("column_rating"))
+        self._set_tree_heading(self.api_results_tree, "name", self._("column_name"))
+        self._set_tree_heading(self.api_results_tree, "phone", self._("column_phone"))
+        self._set_tree_heading(self.api_results_tree, "rating", self._("column_rating"))
+        self._set_tree_heading(self.api_results_tree, "category", self._("column_category"))
         self.api_save_json_button.config(text=self._("save_json"))
         self.api_save_csv_button.config(text=self._("save_csv"))
 
@@ -1327,9 +1530,10 @@ class Application(tk.Tk):
         self.bot_map_label.config(text=self._("map_preview"))
         if self._bot_map_photo is None:
             self._set_bot_map_placeholder()
-        self.bot_results_tree.heading("name", text=self._("column_name"))
-        self.bot_results_tree.heading("phone", text=self._("column_phone"))
-        self.bot_results_tree.heading("rating", text=self._("column_rating"))
+        self._set_tree_heading(self.bot_results_tree, "name", self._("column_name"))
+        self._set_tree_heading(self.bot_results_tree, "phone", self._("column_phone"))
+        self._set_tree_heading(self.bot_results_tree, "rating", self._("column_rating"))
+        self._set_tree_heading(self.bot_results_tree, "category", self._("column_category"))
         self.bot_save_json_button.config(text=self._("save_json"))
         self.bot_save_csv_button.config(text=self._("save_csv"))
 
