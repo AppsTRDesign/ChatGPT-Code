@@ -98,6 +98,7 @@ class MainWindow(QMainWindow):
             "active": {},
         }
         self._pending_completion_notifications: set[str] = set()
+        self._cancelling = False
 
         self.setWindowTitle(translator.translate("app.title"))
         self.resize(1280, 860)
@@ -116,6 +117,7 @@ class MainWindow(QMainWindow):
 
         self.refresh_sessions()
         self.populate_user_tables()
+        self._update_task_controls()
 
     # region builders
     def _build_sessions_tab(self) -> None:
@@ -535,6 +537,13 @@ class MainWindow(QMainWindow):
         self.refresh_sessions()
 
     def start_task(self, task_type: str) -> None:
+        if self._cancelling:
+            QMessageBox.warning(
+                self,
+                self.windowTitle(),
+                translator.translate("dialog.cancellation_pending"),
+            )
+            return
         if not self._license_is_active():
             QMessageBox.warning(
                 self,
@@ -674,8 +683,16 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_remaining_work"))
         else:
             self._pending_completion_notifications.add(task_type)
+        self._update_task_controls()
 
     def cancel_tasks(self, task_type: str) -> None:
+        if self._cancelling:
+            QMessageBox.information(
+                self,
+                self.windowTitle(),
+                translator.translate("dialog.cancellation_pending"),
+            )
+            return
         self._cancel_running_tasks(task_type=task_type, notify=True)
 
     def _remove_progress_widget(self, container: QVBoxLayout, widget: SessionProgressWidget) -> None:
@@ -717,6 +734,7 @@ class MainWindow(QMainWindow):
         if thread:
             thread.wait(1000)
         self._notify_completion_if_ready()
+        self._update_task_controls()
 
     def on_status_update(self, widget: SessionProgressWidget, session_name: str, task_type: str, status_key: str) -> None:
         total = widget.state.total or widget.state.processed
@@ -731,12 +749,21 @@ class MainWindow(QMainWindow):
         if thread:
             thread.wait(1000)
         self._notify_completion_if_ready()
+        self._update_task_controls()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: D401
         self._cancel_running_tasks(notify=False)
         super().closeEvent(event)
 
     def _cancel_running_tasks(self, task_type: Optional[str] = None, notify: bool = False) -> None:
+        if self._cancelling:
+            if notify:
+                QMessageBox.information(
+                    self,
+                    self.windowTitle(),
+                    translator.translate("dialog.cancellation_pending"),
+                )
+            return
         if not self.worker_threads:
             if notify:
                 self._reset_progress_widgets(task_type)
@@ -751,12 +778,21 @@ class MainWindow(QMainWindow):
             thread = self.worker_threads.pop(key, None)
             if thread:
                 threads.append(thread)
+        if not threads:
+            if notify:
+                self._reset_progress_widgets(task_type)
+            return
+        self._cancelling = True
+        self._set_widgets_busy(task_type, True)
+        self._update_task_controls()
         for thread in threads:
             thread.stop()
         if task_type is None:
             self.orchestrator.cancel_all()
         for thread in threads:
             thread.wait(5000)
+        self._cancelling = False
+        self._set_widgets_busy(task_type, False)
         if task_type:
             self._pending_completion_notifications.discard(task_type)
         else:
@@ -768,6 +804,7 @@ class MainWindow(QMainWindow):
                 self.windowTitle(),
                 translator.translate("dialog.task_cancelled"),
             )
+        self._update_task_controls()
 
     def _reset_progress_widgets(self, task_type: Optional[str]) -> None:
         if task_type is None:
@@ -778,7 +815,27 @@ class MainWindow(QMainWindow):
             if not widgets:
                 continue
             for widget in widgets.values():
+                widget.set_busy(False)
                 widget.reset()
+        self._update_task_controls()
+
+    def _set_widgets_busy(self, task_type: Optional[str], busy: bool) -> None:
+        if task_type is None:
+            target_maps = self.progress_widgets.values()
+        else:
+            target_maps = [self.progress_widgets.get(task_type, {})]
+        for widgets in target_maps:
+            if not widgets:
+                continue
+            for widget in widgets.values():
+                widget.set_busy(busy)
+                if busy:
+                    widget.update_state(widget.state.processed, widget.state.total, status_key="status.cancelling")
+
+    def _update_task_controls(self) -> None:
+        enabled = not self.worker_threads and not self._cancelling
+        for button in [self.scan_start_button, self.add_start_button, self.active_start_button]:
+            button.setEnabled(enabled)
 
     def _build_interval(self, index: int, value: int) -> Optional[timedelta]:
         if value <= 0:

@@ -22,6 +22,7 @@ class SessionProgressWidget(QWidget):
         self.session_name = session_name
         self.task_type = task_type
         self.state = ProgressState()
+        self._busy = False
 
         self.title_label = QLabel(session_name)
         self.progress_bar = QProgressBar()
@@ -43,6 +44,7 @@ class SessionProgressWidget(QWidget):
 
     def reset(self) -> None:
         self.state = ProgressState()
+        self.set_busy(False)
         self.progress_bar.setMaximum(1)
         self.progress_bar.setValue(0)
         self.status_label.setText(self._translate_status(self.state.status))
@@ -57,8 +59,11 @@ class SessionProgressWidget(QWidget):
             total = processed
         self.state.processed = processed
         self.state.total = total
-        self.progress_bar.setMaximum(max(total, 1))
-        self.progress_bar.setValue(processed)
+        if self._busy:
+            self.progress_bar.setRange(0, 0)
+        else:
+            self.progress_bar.setRange(0, max(total, 1))
+            self.progress_bar.setValue(processed)
         self.status_label.setText(
             f"{self._translate_status(self.state.status)} - {processed}/{total}"
         )
@@ -74,6 +79,21 @@ class SessionProgressWidget(QWidget):
             f"{self._translate_status(self.state.status)} - {self.state.processed}/{total}"
         )
         # Title remains session name
+
+    def set_busy(self, busy: bool) -> None:
+        if self._busy == busy:
+            if busy:
+                self.progress_bar.setRange(0, 0)
+            return
+        self._busy = busy
+        if busy:
+            self.progress_bar.setRange(0, 0)
+        else:
+            total = self.state.total if self.state.total else (self.state.processed or 1)
+            if self.state.processed > total:
+                total = self.state.processed
+            self.progress_bar.setRange(0, max(total, 1))
+            self.progress_bar.setValue(self.state.processed)
 
     @staticmethod
     def _translate_status(status: str) -> str:
