@@ -8,16 +8,11 @@ if not exist "%SCRIPT%" (
     exit /b 1
 )
 
-echo Python 3.13 ile lisans olusturuluyor...
-py -3.13 "%SCRIPT%" %*
-if %ERRORLEVEL% EQU 0 goto :EOF
+if not exist "%ROOT%venv" (
+    echo Virtual environment not found. Run install.bat first.
+    exit /b 1
+)
 
-echo Python 3.13 bulunamadi veya calistirilamadi, Python 3.11 denenecek...
-py -3.11 "%SCRIPT%" %*
-if %ERRORLEVEL% EQU 0 goto :EOF
-
-echo Python yorumlayicisi bulunamadi. Lueften Python 3.11 veya uzerini kurup PATH'e ekleyin.
-exit /b 1
-
-:EOF
+call "%ROOT%venv\Scripts\activate.bat" >nul 2>&1
+py "%SCRIPT%" %*
 endlocal
