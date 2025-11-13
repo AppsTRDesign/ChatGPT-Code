@@ -11,7 +11,9 @@ from telethon.errors import (
     ChatWriteForbiddenError,
     FloodWaitError,
     PeerFloodError,
+    UserAlreadyParticipantError,
     UserIdInvalidError,
+    UserNotParticipantError,
     UserPrivacyRestrictedError,
 )
 from telethon.tl import functions, types
@@ -97,7 +99,11 @@ class SessionTask:
         status_cb("status.running")
         total = limit or 0
         processed = 0
-        iterator = self.client.iter_participants(entity, limit=limit, offset=offset)
+        fetch_limit = None
+        if limit is not None and limit > 0:
+            fetch_limit = limit + offset
+        iterator = self.client.iter_participants(entity, limit=fetch_limit)
+        skipped = 0
         seen_ids: set[int] = set()
         while True:
             await self._check_cancelled()
@@ -108,6 +114,9 @@ class SessionTask:
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.scan_interval)
+                continue
+            if offset and skipped < offset:
+                skipped += 1
                 continue
             if participant.id in seen_ids:
                 continue
@@ -194,6 +203,14 @@ class SessionTask:
         total = len(users_list)
         status_cb = status_callback or (lambda _: None)
         status_cb("status.running")
+        try:
+            target_channel, target_chat = await self._resolve_target_peer(entity)
+        except ValueError as exc:
+            logger.exception("log.member_target_invalid")
+            raise ValueError(translator.translate("log.member_target_invalid")) from exc
+        chat_members: set[int] = set()
+        if target_chat:
+            chat_members = await self._preload_chat_members(target_chat, status_cb)
         for user in users_list:
             await self._check_cancelled()
             if user.is_bot:
@@ -206,14 +223,33 @@ class SessionTask:
                 progress_callback(self.build_progress(total or 1, user, status="status.error"))
                 self.storage.remove_user(user.user_id)
                 continue
+            already_member = False
+            if target_channel:
+                already_member = await self._is_channel_member(target_channel, input_user, status_cb)
+            elif target_chat:
+                already_member = user.user_id in chat_members
+            if already_member:
+                progress_callback(self.build_progress(total or 1, user, status="status.already_member"))
+                self.storage.remove_user(user.user_id)
+                continue
             try:
-                await self.client(
-                    functions.channels.InviteToChannelRequest(
-                        channel=entity,
-                        users=[input_user],
+                if target_channel:
+                    await self.client(
+                        functions.channels.InviteToChannelRequest(
+                            channel=target_channel,
+                            users=[input_user],
+                        )
                     )
-                )
-                progress_callback(self.build_progress(total, user, status="status.running"))
+                elif target_chat:
+                    await self.client(
+                        functions.messages.AddChatUserRequest(
+                            chat_id=target_chat.chat_id,
+                            user_id=input_user,
+                            fwd_limit=0,
+                        )
+                    )
+                    chat_members.add(user.user_id)
+                progress_callback(self.build_progress(total, user, status="status.added"))
                 self.storage.remove_user(user.user_id)
             except UserPrivacyRestrictedError:
                 progress_callback(self.build_progress(total, user, status="status.error"))
@@ -221,6 +257,9 @@ class SessionTask:
             except UserIdInvalidError:
                 logger.warning("log.member_input_invalid")
                 progress_callback(self.build_progress(total, user, status="status.error"))
+                self.storage.remove_user(user.user_id)
+            except UserAlreadyParticipantError:
+                progress_callback(self.build_progress(total, user, status="status.already_member"))
                 self.storage.remove_user(user.user_id)
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
@@ -380,6 +419,64 @@ class SessionTask:
         if hasattr(self.storage, "has_user") and self.storage.has_user(user.user_id):
             self.storage.update_user(user)
         return resolved
+
+    async def _resolve_target_peer(
+        self, entity: str
+    ) -> Tuple[Optional[types.InputChannel], Optional[types.InputPeerChat]]:
+        input_entity = await self.client.get_input_entity(entity)
+        channel: Optional[types.InputChannel] = None
+        chat: Optional[types.InputPeerChat] = None
+        if isinstance(input_entity, types.InputChannel):
+            channel = input_entity
+        elif isinstance(input_entity, types.InputPeerChannel):
+            channel = types.InputChannel(input_entity.channel_id, input_entity.access_hash)
+        elif isinstance(input_entity, types.InputPeerChat):
+            chat = input_entity
+        elif isinstance(input_entity, types.InputChat):
+            chat = types.InputPeerChat(input_entity.chat_id)
+        else:
+            raise ValueError("log.member_target_invalid")
+        return channel, chat
+
+    async def _preload_chat_members(
+        self, chat: types.InputPeerChat, status_callback: Callable[[str], None]
+    ) -> set[int]:
+        members: set[int] = set()
+        while True:
+            try:
+                full_chat = await self.client(functions.messages.GetFullChatRequest(chat.chat_id))
+                participants = getattr(full_chat.full_chat, "participants", None)
+                if participants:
+                    user_ids = [getattr(p, "user_id", None) for p in getattr(participants, "participants", [])]
+                    members.update({uid for uid in user_ids if isinstance(uid, int)})
+                break
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_callback)
+            except Exception:
+                break
+        return members
+
+    async def _is_channel_member(
+        self,
+        channel: types.InputChannel,
+        user: types.InputUser,
+        status_callback: Callable[[str], None],
+    ) -> bool:
+        while True:
+            try:
+                await self.client(
+                    functions.channels.GetParticipantRequest(
+                        channel=channel,
+                        participant=user,
+                    )
+                )
+                return True
+            except UserNotParticipantError:
+                return False
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_callback)
+            except Exception:
+                return False
 
     async def _handle_flood_wait(
         self, seconds: int, status_callback: Callable[[str], None]
