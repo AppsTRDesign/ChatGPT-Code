@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from telethon import TelegramClient
 from telethon.errors import (
@@ -46,6 +47,8 @@ class SessionTask:
         settings: AppSettings,
         storage: UserStorage,
         result_storage: Optional[UserStorage] = None,
+        flood_tracker: Optional[Dict[str, datetime]] = None,
+        flood_key: Optional[str] = None,
     ) -> None:
         self.session_name = session_name
         self.client = client
@@ -55,6 +58,10 @@ class SessionTask:
         self._cancel_event = asyncio.Event()
         self._processed = 0
         self._total = 0
+        self._timezone_name = settings.timezone
+        self._timezone_obj: Optional[timezone] = None
+        self._flood_tracker = flood_tracker
+        self._flood_key = flood_key
 
     def cancel(self) -> None:
         self._cancel_event.set()
@@ -495,12 +502,22 @@ class SessionTask:
         status_callback("status.running")
 
     def _peer_flood_detail(self) -> str:
-        cooldown_seconds = max(int(self.settings.rate_limit.join_interval * 40), 1800)
-        reset_time = datetime.now(tz=timezone.utc) + timedelta(seconds=cooldown_seconds)
-        reset_display = reset_time.strftime("%d/%m/%Y %H:%M")
+        now_utc = datetime.now(tz=timezone.utc)
+        stored_reset: Optional[datetime] = None
+        if self._flood_tracker is not None and self._flood_key:
+            stored_reset = self._flood_tracker.get(self._flood_key)
+        if stored_reset and stored_reset > now_utc:
+            reset_time = stored_reset
+        else:
+            cooldown_seconds = max(int(self.settings.rate_limit.join_interval * 40), 1800)
+            reset_time = now_utc + timedelta(seconds=cooldown_seconds)
+            if self._flood_tracker is not None and self._flood_key:
+                self._flood_tracker[self._flood_key] = reset_time
+        reset_display = reset_time.astimezone(self._current_timezone()).strftime("%d/%m/%Y %H:%M:%S")
         count = max(self._processed, 1)
         template = translator.translate("status.peer_flood_detail")
-        return template.format(count=count, reset=reset_display)
+        timezone_label = self._timezone_name or "UTC"
+        return template.format(count=count, reset=reset_display, tz=timezone_label)
 
     def _record_added_user(self, user: StoredUser, target: str) -> None:
         if not self.result_storage:
@@ -510,11 +527,21 @@ class SessionTask:
         recorded = StoredUser(**payload)
         self.result_storage.add_users([recorded])
 
+    def _current_timezone(self):
+        if self._timezone_obj is not None:
+            return self._timezone_obj
+        try:
+            self._timezone_obj = ZoneInfo(self._timezone_name)
+        except (ZoneInfoNotFoundError, ModuleNotFoundError, ValueError):
+            self._timezone_obj = timezone.utc
+        return self._timezone_obj
+
 
 class TaskOrchestrator:
     def __init__(self, settings: AppSettings) -> None:
         self.settings = settings
         self._tasks: Dict[Tuple[str, str], SessionTask] = {}
+        self._peer_flood_resets: Dict[str, datetime] = {}
 
     def create_task(
         self,
@@ -525,7 +552,16 @@ class TaskOrchestrator:
         result_storage: Optional[UserStorage] = None,
     ) -> SessionTask:
         key = (session_name, task_type)
-        task = SessionTask(session_name, client, self.settings, storage, result_storage)
+        flood_key = f"{session_name}:{task_type}"
+        task = SessionTask(
+            session_name,
+            client,
+            self.settings,
+            storage,
+            result_storage,
+            flood_tracker=self._peer_flood_resets,
+            flood_key=flood_key,
+        )
         self._tasks[key] = task
         return task
 
