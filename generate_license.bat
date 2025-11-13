@@ -1,18 +1,15 @@
 @echo off
 setlocal
-set "ROOT=%~dp0"
-set "SCRIPT=%ROOT%licence\generate_license.py"
 
-if not exist "%SCRIPT%" (
-    echo Lisans olusturma betigi bulunamadi: %SCRIPT%
+if not exist venv (
+    echo Lutfen once install.bat calistirarak sanal ortami kurun.
     exit /b 1
 )
 
-if not exist "%ROOT%venv" (
-    echo Virtual environment not found. Run install.bat first.
-    exit /b 1
-)
-
-call "%ROOT%venv\Scripts\activate.bat" >nul 2>&1
-py "%SCRIPT%" %*
-endlocal
+call venv\Scripts\activate.bat
+python -m licence.license_tool %*
+set EXIT_CODE=%ERRORLEVEL%
+echo.
+echo Islemi tamamladiniz. Bu pencereyi kapatmak icin bir tusa basin.
+pause >nul
+endlocal & exit /b %EXIT_CODE%
