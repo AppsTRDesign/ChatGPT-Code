@@ -40,7 +40,7 @@ from google_maps_gui.license_manager import LicenseManager
 @click.option(
     "--machine-id",
     "machine_id",
-    help="Varsayılan olarak bu bilgisayarın makine kimliğini kullanır.",
+    help="Lisans oluşturulacak hedef bilgisayarın makine kimliği.",
 )
 def main(
     plan_years: int, plan_months: int, plan_days: int, machine_id: Optional[str]
@@ -48,7 +48,11 @@ def main(
     """Generate and display a license key for the given machine."""
     manager = LicenseManager()
     if not machine_id:
-        machine_id = manager.machine_id()
+        machine_id = click.prompt(
+            "Makine kimliği",
+            default=manager.machine_id(),
+            show_default=True,
+        )
     machine_id = machine_id.strip().upper()
     if plan_years == plan_months == plan_days == 0:
         raise click.BadParameter("En az bir zaman dilimi seçmelisiniz.")
