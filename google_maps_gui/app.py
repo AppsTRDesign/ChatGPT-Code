@@ -49,6 +49,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_phone": "Telefon",
         "column_rating": "Puan",
         "column_category": "Kategori",
+        "review_limit": "Yorum Sayısı",
         "save_json": "JSON Kaydet",
         "save_csv": "CSV Kaydet",
         "status_ready": "Hazır",
@@ -76,6 +77,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_rating": "Puan",
         "review_time": "Zaman",
         "review_text": "Yorum",
+        "review_profile": "Profil Fotoğrafı",
         "ratings_total": "Toplam Değerlendirme",
         "log_search_started": "Bot araması başlatıldı: {query}",
         "log_click_card": "Liste öğesine tıklanıyor: {name}",
@@ -100,6 +102,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_phone": "Phone",
         "column_rating": "Rating",
         "column_category": "Category",
+        "review_limit": "Review Count",
         "save_json": "Save JSON",
         "save_csv": "Save CSV",
         "status_ready": "Ready",
@@ -127,6 +130,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_rating": "Rating",
         "review_time": "Time",
         "review_text": "Review",
+        "review_profile": "Profile Photo",
         "ratings_total": "Total Ratings",
         "log_search_started": "Bot scan started: {query}",
         "log_click_card": "Clicking result card: {name}",
@@ -145,6 +149,7 @@ class PlaceReview:
     rating: Optional[float]
     relative_time: Optional[str]
     text: str
+    profile_photo_url: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Optional[str]]:
         return {
@@ -152,6 +157,7 @@ class PlaceReview:
             "rating": self.rating,
             "relative_time": self.relative_time,
             "text": self.text,
+            "profile_photo_url": self.profile_photo_url,
         }
 
 
@@ -184,7 +190,17 @@ class PlaceResult:
             "rating": f"{self.rating:.1f}" if self.rating is not None else "",
             "rating_count": "" if self.user_ratings_total is None else str(self.user_ratings_total),
             "reviews": " || ".join(
-                f"{review.author_name}: {review.text}" for review in self.reviews
+                " ".join(
+                    filter(
+                        None,
+                        [
+                            review.author_name,
+                            f"({review.profile_photo_url})" if review.profile_photo_url else "",
+                            review.text,
+                        ],
+                    )
+                ).strip()
+                for review in self.reviews
             ),
             "attributes": " || ".join(
                 f"{section}: {', '.join(items)}" for section, items in self.attributes.items()
@@ -242,6 +258,7 @@ class GoogleMapsClient:
                     rating=review.get("rating"),
                     relative_time=review.get("relative_time_description"),
                     text=review.get("text", ""),
+                    profile_photo_url=review.get("profile_photo_url"),
                 )
                 for review in reviews_data
             ]
@@ -304,7 +321,7 @@ class GoogleMapsPlaywrightScraper:
     def __init__(self, language: str = "tr", limit: int = 5, max_reviews: int = 3) -> None:
         self.language = language or "tr"
         self.limit = limit
-        self.max_reviews = max_reviews
+        self.max_reviews = max(0, max_reviews)
 
     def search(
         self,
@@ -598,9 +615,9 @@ class GoogleMapsPlaywrightScraper:
 
         reviews: List[PlaceReview] = []
         if self._select_tab(page, "reviews"):
-            reviews = self._extract_reviews(page)
+            reviews = self._extract_reviews(page, rating_count)
         if not reviews:
-            reviews = self._extract_reviews(page)
+            reviews = self._extract_reviews(page, rating_count)
 
         attributes: Dict[str, List[str]] = {}
         if self._select_tab(page, "about"):
@@ -743,12 +760,22 @@ class GoogleMapsPlaywrightScraper:
                 opening_hours.append(f"{day}: {value}")
         return opening_hours
 
-    def _extract_reviews(self, page: Page) -> List[PlaceReview]:
+    def _extract_reviews(self, page: Page, rating_count: Optional[int] = None) -> List[PlaceReview]:
+        target = max(0, self.max_reviews)
+        if rating_count is not None:
+            target = min(target, rating_count)
+        if target == 0:
+            return []
+
         reviews_locator = page.locator('div[data-review-id]')
+        self._ensure_reviews_loaded(page, reviews_locator, target)
+        count = min(reviews_locator.count(), target)
         reviews: List[PlaceReview] = []
-        count = min(reviews_locator.count(), self.max_reviews)
         for idx in range(count):
             review = reviews_locator.nth(idx)
+            with suppress(PlaywrightError):
+                review.scroll_into_view_if_needed(timeout=1500)
+            self._expand_review_content(review)
             author = self._safe_inner_text(review.locator('div.d4r55, button.al6Kxe div.d4r55').first)
             rating_text = self._safe_get_attribute(review.locator('span.kvMYJc').first, "aria-label")
             rating: Optional[float] = None
@@ -761,33 +788,102 @@ class GoogleMapsPlaywrightScraper:
             content = self._safe_inner_text(review.locator('div.MyEned span.wiI7pd, div.MyEned').first)
             if not content:
                 content = self._safe_inner_text(review.locator('span.wiI7pd').first)
+            photo = self._safe_get_attribute(review.locator('img.NBa7we').first, "src") or None
             reviews.append(
                 PlaceReview(
                     author_name=author,
                     rating=rating,
                     relative_time=relative or None,
                     text=content,
+                    profile_photo_url=photo or None,
                 )
             )
         return reviews
 
-    def _extract_attributes(self, page: Page) -> Dict[str, List[str]]:
-        container = page.locator('div[aria-label*="hakkında"], div[aria-label*="about"]').first
-        if container.count() == 0:
-            return {}
-        try:
-            data = container.evaluate(
-                """
-                (root) => {
-                  return Array.from(root.querySelectorAll('h2')).map(header => {
-                    const title = header.innerText.trim();
-                    const section = header.parentElement;
-                    const items = section ? Array.from(section.querySelectorAll('ul li span')).map(span => (span.getAttribute('aria-label') || span.innerText || '').trim()).filter(Boolean) : [];
-                    return { title, items };
-                  });
+    def _ensure_reviews_loaded(self, page: Page, locator: Locator, target: int) -> None:
+        if target <= 0:
+            return
+        attempts = 0
+        last_count = -1
+        while locator.count() < target and attempts < max(6, target * 2):
+            scrolled = self._scroll_reviews_container(page)
+            page.wait_for_timeout(450)
+            current = locator.count()
+            if current >= target:
+                break
+            if current == last_count and not scrolled:
+                break
+            last_count = current
+            attempts += 1
+
+    def _scroll_reviews_container(self, page: Page) -> bool:
+        script = """
+            () => {
+                const selectors = [
+                    'div[aria-label*="yorum" i]',
+                    'div[aria-label*="review" i]',
+                    'div[aria-label*="değerlendirme" i]'
+                ];
+                let container = null;
+                for (const selector of selectors) {
+                    const node = document.querySelector(selector);
+                    if (node && node.querySelector('[data-review-id]')) {
+                        container = node.closest('.m6QErb') || node;
+                        break;
+                    }
                 }
-                """
-            )
+                if (!container) {
+                    container = document.querySelector('div.m6QErb[aria-label][jscontroller]');
+                }
+                if (container) {
+                    const before = container.scrollTop;
+                    container.scrollTop += container.clientHeight || 600;
+                    return container.scrollTop !== before || (container.scrollTop + container.clientHeight) < container.scrollHeight;
+                }
+                window.scrollBy(0, 800);
+                return false;
+            }
+        """
+        scrolled = False
+        with suppress(PlaywrightError):
+            scrolled = bool(page.evaluate(script))
+        if not scrolled:
+            with suppress(PlaywrightError):
+                page.mouse.wheel(0, 800)
+            scrolled = True
+        return scrolled
+
+    def _expand_review_content(self, review: Locator) -> None:
+        button = review.locator('button.w8nwRe')
+        if button.count():
+            with suppress(PlaywrightError):
+                button.first.click()
+
+    def _extract_attributes(self, page: Page) -> Dict[str, List[str]]:
+        script = """
+            () => {
+                const scopeCandidates = Array.from(document.querySelectorAll('[aria-label]'));
+                let aboutRoot = null;
+                for (const node of scopeCandidates) {
+                    const label = (node.getAttribute('aria-label') || '').toLowerCase();
+                    if (label.includes('hakkında') || label.includes('about')) {
+                        aboutRoot = node;
+                        break;
+                    }
+                }
+                const root = aboutRoot || document;
+                return Array.from(root.querySelectorAll('div.iP2t7d.fontBodyMedium')).map(section => {
+                    const titleNode = section.querySelector('h2');
+                    const title = titleNode ? titleNode.innerText.trim() : '';
+                    const items = Array.from(section.querySelectorAll('ul li span')).map(span => {
+                        return (span.getAttribute('aria-label') || span.innerText || '').trim();
+                    }).filter(Boolean);
+                    return { title, items };
+                });
+            }
+        """
+        try:
+            data = page.evaluate(script)
         except PlaywrightError:
             return {}
         attributes: Dict[str, List[str]] = {}
@@ -804,18 +900,24 @@ class GoogleMapsPlaywrightScraper:
         candidates = self._tab_label_candidates(key)
         if not candidates:
             return False
-        tabs = page.locator('[role="tab"]')
-        count = tabs.count()
-        for idx in range(count):
-            tab = tabs.nth(idx)
-            label = self._normalize_text(self._safe_inner_text(tab))
-            if not label:
-                continue
-            for candidate in candidates:
-                if self._normalize_text(candidate) in label:
-                    tab.click()
-                    page.wait_for_timeout(400)
-                    return True
+        tab_locators = [page.locator('[role="tab"]'), page.locator('div.Gpq6kf')]
+        for tabs in tab_locators:
+            count = tabs.count()
+            for idx in range(count):
+                tab = tabs.nth(idx)
+                text_parts = [
+                    self._normalize_text(self._safe_inner_text(tab)),
+                    self._normalize_text(self._safe_get_attribute(tab, "aria-label")),
+                ]
+                combined = " ".join(part for part in text_parts if part)
+                if not combined:
+                    continue
+                for candidate in candidates:
+                    if self._normalize_text(candidate) in combined:
+                        with suppress(PlaywrightError):
+                            tab.click()
+                            page.wait_for_timeout(400)
+                        return True
         return False
 
     def _tab_label_candidates(self, key: str) -> List[str]:
@@ -964,7 +1066,7 @@ class Application(tk.Tk):
         self._bot_map_photo: Optional[ImageTk.PhotoImage] = None
         self._bot_active_limit: int = 0
         self._bot_attempted: int = 0
-        self._bot_log_lines: List[str] = []
+        self._bot_log_lines: List[tuple[str, Dict[str, str]]] = []
         self._bot_selected_index: Optional[int] = None
 
         self._configure_style()
@@ -1082,6 +1184,15 @@ class Application(tk.Tk):
         )
         self._set_spin_value(self.bot_limit_spin, "5")
 
+        self.bot_reviews_label = ttk.Label(self.bot_tab, text="")
+        self.bot_reviews_spin = ttk.Spinbox(
+            self.bot_tab,
+            from_=0,
+            to=200,
+            width=5,
+        )
+        self._set_spin_value(self.bot_reviews_spin, "5")
+
         self.bot_search_button = ttk.Button(
             self.bot_tab, text="", style="Accent.TButton", command=self._on_bot_search
         )
@@ -1184,8 +1295,8 @@ class Application(tk.Tk):
         self.bot_tab.columnconfigure(2, weight=0)
         self.bot_tab.columnconfigure(3, weight=0)
         self.bot_tab.columnconfigure(4, weight=1)
-        self.bot_tab.rowconfigure(3, weight=1)
-        self.bot_tab.rowconfigure(5, weight=1)
+        self.bot_tab.rowconfigure(4, weight=1)
+        self.bot_tab.rowconfigure(6, weight=1)
 
         self.bot_query_label.grid(row=0, column=0, sticky=tk.W, **bot_padding)
         self.bot_query_entry.grid(row=0, column=1, columnspan=2, sticky=tk.EW, **bot_padding)
@@ -1197,17 +1308,19 @@ class Application(tk.Tk):
         self.bot_limit_label.grid(row=1, column=2, sticky=tk.W, **bot_padding)
         self.bot_limit_spin.grid(row=1, column=3, sticky=tk.W, **bot_padding)
         self.bot_map_canvas.grid(row=1, column=4, rowspan=3, sticky=tk.NSEW, padx=(0, 10), pady=5)
+        self.bot_reviews_label.grid(row=2, column=0, sticky=tk.W, **bot_padding)
+        self.bot_reviews_spin.grid(row=2, column=1, sticky=tk.W, **bot_padding)
 
-        self.bot_results_label.grid(row=2, column=0, sticky=tk.W, **bot_padding)
-        self.bot_results_tree.grid(row=3, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
+        self.bot_results_label.grid(row=3, column=0, sticky=tk.W, **bot_padding)
+        self.bot_results_tree.grid(row=4, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
 
-        self.bot_details_label.grid(row=4, column=0, sticky=tk.W, **bot_padding)
-        self.bot_details_text.grid(row=5, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
-        self.bot_details_scroll.grid(row=5, column=4, sticky=tk.NS, pady=5)
+        self.bot_details_label.grid(row=5, column=0, sticky=tk.W, **bot_padding)
+        self.bot_details_text.grid(row=6, column=0, columnspan=4, sticky=tk.NSEW, padx=(10, 0), pady=5)
+        self.bot_details_scroll.grid(row=6, column=4, sticky=tk.NS, pady=5)
 
-        self.bot_save_json_button.grid(row=6, column=0, sticky=tk.W, **bot_padding)
-        self.bot_save_csv_button.grid(row=6, column=1, sticky=tk.W, **bot_padding)
-        self.bot_status_label.grid(row=6, column=3, columnspan=2, sticky=tk.E, **bot_padding)
+        self.bot_save_json_button.grid(row=7, column=0, sticky=tk.W, **bot_padding)
+        self.bot_save_csv_button.grid(row=7, column=1, sticky=tk.W, **bot_padding)
+        self.bot_status_label.grid(row=7, column=3, columnspan=2, sticky=tk.E, **bot_padding)
 
     def _bind_events(self) -> None:
         self.language_combo.bind("<<ComboboxSelected>>", lambda _: self._update_translations())
@@ -1264,6 +1377,13 @@ class Application(tk.Tk):
             limit = 5
         limit = max(1, min(limit, 20))
         self._set_spin_value(self.bot_limit_spin, str(limit))
+
+        try:
+            review_limit = int(self.bot_reviews_spin.get())
+        except (ValueError, tk.TclError):
+            review_limit = 5
+        review_limit = max(0, min(review_limit, 200))
+        self._set_spin_value(self.bot_reviews_spin, str(review_limit))
         self._bot_active_limit = limit
         self._bot_attempted = 0
         self.bot_status_var.set(self._("status_scraping_progress").format(0, limit))
@@ -1278,7 +1398,9 @@ class Application(tk.Tk):
 
         def worker() -> None:
             try:
-                scraper = GoogleMapsPlaywrightScraper(language=language, limit=limit)
+                scraper = GoogleMapsPlaywrightScraper(
+                    language=language, limit=limit, max_reviews=review_limit
+                )
                 results = scraper.search(
                     query,
                     progress_callback=self._queue_bot_map_update,
@@ -1473,21 +1595,23 @@ class Application(tk.Tk):
         self._append_bot_log_from_key(key, **payload)
 
     def _append_bot_log_from_key(self, key: str, **kwargs: str) -> None:
-        tr_template = TRANSLATIONS["tr"].get(key, key)
-        en_template = TRANSLATIONS["en"].get(key, key)
-        try:
-            tr_text = tr_template.format(**kwargs)
-        except Exception:
-            tr_text = tr_template
-        try:
-            en_text = en_template.format(**kwargs)
-        except Exception:
-            en_text = en_template
-        entry = f"[TR] {tr_text}\n[EN] {en_text}"
-        self._bot_log_lines.append(entry)
+        payload = {k: str(v) for k, v in kwargs.items()}
+        self._bot_log_lines.append((key, payload))
         if len(self._bot_log_lines) > 200:
             self._bot_log_lines = self._bot_log_lines[-200:]
         self._refresh_bot_details_view(None)
+
+    def _get_localized_bot_logs(self) -> List[str]:
+        language = self.selected_language.get()
+        catalog = TRANSLATIONS.get(language, TRANSLATIONS["tr"])
+        localized: List[str] = []
+        for key, payload in self._bot_log_lines:
+            template = catalog.get(key, key)
+            try:
+                localized.append(template.format(**payload))
+            except Exception:
+                localized.append(template)
+        return localized
 
     def _update_bot_map_image(self, image_bytes: bytes) -> None:
         if not image_bytes:
@@ -1540,7 +1664,7 @@ class Application(tk.Tk):
         lines: List[str] = []
         if self._bot_log_lines:
             lines.append("== LOG ==")
-            lines.extend(self._bot_log_lines)
+            lines.extend(self._get_localized_bot_logs())
         selected = self._bot_selected_index
         if selected is not None and selected < len(self._bot_results):
             detail_text = self._format_result_details(self._bot_results[selected])
@@ -1600,6 +1724,10 @@ class Application(tk.Tk):
                     review_lines.append(f"  {self._('review_time')}: {review.relative_time}")
                 if review.text:
                     review_lines.append(f"  {self._('review_text')}: {review.text}")
+                if review.profile_photo_url:
+                    review_lines.append(
+                        f"  {self._('review_profile')}: {review.profile_photo_url}"
+                    )
                 lines.extend(review_lines)
                 lines.append("")
         else:
@@ -1723,6 +1851,7 @@ class Application(tk.Tk):
         self.bot_results_label.config(text=self._("results"))
         self.bot_details_label.config(text=self._("details"))
         self.bot_map_label.config(text=self._("map_preview"))
+        self.bot_reviews_label.config(text=self._("review_limit"))
         if self._bot_map_photo is None:
             self._set_bot_map_placeholder()
         self._set_tree_heading(self.bot_results_tree, "name", self._("column_name"))

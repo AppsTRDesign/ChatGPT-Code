@@ -9,11 +9,12 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Playwright + Windows modunda görünen Chromium ile Google Haritalar üzerinden bot ile tarama
 - Bot taraması sırasında Google Haritalar üzerindeki sonuç kartlarını taklit edilmiş fare hareketleriyle seçme
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" sekmesindeki olanakları toplama
+- Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
 - Harita ekran görüntülerini canlı olarak gösteren ve Playwright tarafından güncellenen yerleşik önizleme paneli
 - Her imleç hareketi ve tıklamada harita önizlemesini yenileyen canlı ilerleme akışı
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
-- Bot sekmesindeki "Detaylar" panelinde TR/EN günlük satırlarını ve seçilen işletmenin özetini eş zamanlı görüntüleme
+- Bot sekmesindeki "Detaylar" panelinde seçili arayüz dilinde günlük satırlarını ve seçilen işletmenin özetini eş zamanlı görüntüleme
 - API veya bot ile alınan verileri JSON ya da CSV formatında dışa aktarma
 - Sonuç tablolarında sütun başlıklarına tıklayarak alfabetik veya puan bazlı sıralama yapabilme
 - İnternet ve API hataları için kullanıcı dostu uyarılar
@@ -77,10 +78,11 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi yazın (örn. "İstanbul kuaför"). Konum bilgisini sorgu metnine eklemek yeterlidir.
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
 3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
-4. "Ara" butonuna bastığınızda Playwright görünür (headful) Chromium penceresini açar; bot yalnızca sol menüdeki `div.Nv2PK THOPZb CpccDe` sınıfı ile başlayan işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Chromium penceresi Windows üzerinde ayrı bir uygulama olarak çalışır, ancak ekran görüntüleri uygulama penceresindeki önizleme paneline aktarılır.
-5. Bot çalışırken her imleç hareketinde ve kart seçildiğinde harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir; alt kısımdaki durum etiketi 0/N biçiminde kaç kartın tıklandığını gösterir.
-6. Her işletme açılır açılmaz isim, kategori, adres, telefon, puan, çalışma saatleri, yorumlar ve "Hakkında" verileri eşzamanlı olarak sonuç listesine eklenir. "Detaylar" paneli, aynı anda hem TR hem EN log satırlarını hem de seçili işletmenin özetini göstererek hangi adımda olduğunuzu hissettiren bir canlı günlük görevi görür.
-7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
+4. "Yorum Sayısı" alanına her işletme için toplanacak maksimum yorum adedini yazın. Bot, Google Haritalar'daki toplam değerlendirme sayısını aşmadan otomatik olarak kaydırma yapıp bu kadar yorumu çeker. (0 değeri yorum toplamayı devre dışı bırakır.)
+5. "Ara" butonuna bastığınızda Playwright görünür (headful) Chromium penceresini açar; bot yalnızca sol menüdeki `div.Nv2PK THOPZb CpccDe` sınıfı ile başlayan işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Chromium penceresi Windows üzerinde ayrı bir uygulama olarak çalışır, ancak ekran görüntüleri uygulama penceresindeki önizleme paneline aktarılır.
+6. Bot çalışırken her imleç hareketinde ve kart seçildiğinde harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir; alt kısımdaki durum etiketi 0/N biçiminde kaç kartın tıklandığını gösterir.
+7. Her işletme açılır açılmaz isim, kategori, adres, telefon, puan, çalışma saatleri, yorumlar (profil fotoğraflarıyla birlikte) ve "Hakkında" verileri eşzamanlı olarak sonuç listesine eklenir. "Detaylar" paneli, seçtiğiniz arayüz dilinde canlı log satırlarını ve seçili işletmenin özetini göstererek hangi adımda olduğunuzu hissettirir.
+8. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
 > Bot sekmesinde Playwright tarafından yönetilen Chromium hem ayrı bir pencerede çalışır hem de ekran görüntüleri ile uygulamaya akış sağlar. Tarama tamamlandığında pencere otomatik olarak kapanır; tarama esnasında manuel olarak kapatmayın. Bot, karttaki fotoğraf galerisine girmemek için yalnızca listede yer alan metin bölgesine tıklar.
 
@@ -92,7 +94,7 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 ## Çıktı Biçimleri
 
-- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, "Hakkında" sekmesi verileri ve müşteri yorumları ayrıntılı şekilde saklanır.
+- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, "Hakkında" sekmesi verileri ve müşteri yorumları (yorumcunun adı, puanı, zaman damgası ve profil fotoğrafı URL'siyle) ayrıntılı şekilde saklanır.
 - **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, kategori, "Hakkında" sekmesi bilgileri ve yorumların özet hali saklanır.
 
 ## Sık Karşılaşılan Sorular
@@ -105,7 +107,7 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 ### Müşteri yorumları eksik görünüyor, normal mi?
 - Google Places API, her istekte en fazla 5 yorumu döndürür.
-- Bot taraması sırasında Google Haritalar sayfası yeterli yorumu göstermeyebilir; daha fazla yorum için tarayıcıdaki "Daha fazla yorum" bağlantısını manuel açmayı deneyebilirsiniz.
+- Bot sekmesindeki "Yorum Sayısı" alanına daha yüksek bir değer yazdığınızdan emin olun. Bot, Google Haritalar sonuç panelini otomatik kaydırarak belirtilen kadar yorumu toplar; ancak işletmenin toplam değerlendirme sayısı bu değerden düşükse mevcut yorum kadar veri gelir.
 
 ### Bot çalışmıyor, ne yapmalıyım?
 - `install.bat` sonrasında `playwright install chromium` adımının başarıyla tamamlandığını ve güvenlik yazılımlarının botu engellemediğini kontrol edin.
