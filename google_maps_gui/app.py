@@ -2,14 +2,19 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import logging
+import platform
 import re
 import threading
 import time
+import uuid
 from contextlib import suppress
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import requests
@@ -86,6 +91,9 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_text": "Yorum",
         "review_profile": "Profil Fotoğrafı",
         "ratings_total": "Toplam Değerlendirme",
+        "price_info": "Ücret Bilgisi",
+        "price_report": "Ücret Bildiren Kullanıcılar",
+        "share_location": "Paylaşım Konumu",
         "log_search_started": "Bot araması başlatıldı: {query}",
         "log_click_card": "Liste öğesine tıklanıyor: {name}",
         "log_panel_opened": "Detay paneli açıldı: {name}",
@@ -94,6 +102,27 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "log_search_finished": "Bot taraması tamamlandı. Toplam veri: {count}",
         "log_search_failed": "Bot taraması hata verdi: {message}",
         "app_tagline": "API ve bot taramalarını tek panelde birleştirin",
+        "tab_license": "Lisans",
+        "license_info_group": "Lisans Bilgileri",
+        "license_activation_group": "Lisans Aktivasyonu",
+        "license_machine_id": "Makine Kimliği",
+        "license_copy_id": "Kimliği Kopyala",
+        "license_status_valid": "Lisans durumu: Aktif",
+        "license_status_invalid": "Lisans durumu: Pasif",
+        "license_days_left": "Kalan Gün",
+        "license_expiry": "Bitiş Tarihi",
+        "license_plan": "Lisans Süresi",
+        "license_key": "Lisans Anahtarı",
+        "license_activate": "Lisansı Etkinleştir",
+        "license_machine_copied": "Kimlik panoya kopyalandı.",
+        "license_missing_fields": "Plan ve lisans anahtarı gerekli.",
+        "license_invalid_plan": "Geçersiz plan seçimi.",
+        "license_invalid_key": "Lisans anahtarı doğrulanamadı.",
+        "license_success": "Lisans başarıyla etkinleştirildi.",
+        "license_required": "Devam etmeden önce geçerli bir lisans etkinleştirmeniz gerekir.",
+        "license_plan_1m": "1 Ay",
+        "license_plan_3m": "3 Ay",
+        "license_plan_6m": "6 Ay",
     },
     "en": {
         "app_title": "Google Maps Business Tool",
@@ -147,6 +176,9 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_text": "Review",
         "review_profile": "Profile Photo",
         "ratings_total": "Total Ratings",
+        "price_info": "Price Info",
+        "price_report": "User Reports",
+        "share_location": "Share Location",
         "log_search_started": "Bot scan started: {query}",
         "log_click_card": "Clicking result card: {name}",
         "log_panel_opened": "Details panel opened: {name}",
@@ -155,6 +187,27 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "log_search_finished": "Bot scan finished. Total results: {count}",
         "log_search_failed": "Bot scan failed: {message}",
         "app_tagline": "Blend API and bot scans in one workspace",
+        "tab_license": "License",
+        "license_info_group": "License Status",
+        "license_activation_group": "License Activation",
+        "license_machine_id": "Machine ID",
+        "license_copy_id": "Copy ID",
+        "license_status_valid": "License status: Active",
+        "license_status_invalid": "License status: Inactive",
+        "license_days_left": "Days Remaining",
+        "license_expiry": "Expiration",
+        "license_plan": "Plan",
+        "license_key": "License Key",
+        "license_activate": "Activate License",
+        "license_machine_copied": "Machine ID copied to clipboard.",
+        "license_missing_fields": "Plan and license key are required.",
+        "license_invalid_plan": "Invalid plan selection.",
+        "license_invalid_key": "License key could not be validated.",
+        "license_success": "License activated successfully.",
+        "license_required": "You must activate a valid license before running scans.",
+        "license_plan_1m": "1 Month",
+        "license_plan_3m": "3 Months",
+        "license_plan_6m": "6 Months",
     },
 }
 
@@ -190,6 +243,9 @@ class PlaceResult:
     attributes: Dict[str, List[str]]
     hero_image_url: Optional[str] = None
     gallery_images: List[str] = field(default_factory=list)
+    price_info: Optional[str] = None
+    price_report_text: Optional[str] = None
+    share_location: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         data = asdict(self)
@@ -227,6 +283,9 @@ class PlaceResult:
             ),
             "hero_image_url": self.hero_image_url or "",
             "gallery_images": " | ".join(self.gallery_images) if self.gallery_images else "",
+            "price_info": self.price_info or "",
+            "price_report_text": self.price_report_text or "",
+            "share_location": self.share_location or "",
         }
 
 
@@ -295,6 +354,11 @@ class GoogleMapsClient:
                     user_ratings_total=result.get("user_ratings_total"),
                     reviews=reviews,
                     attributes={},
+                    hero_image_url=None,
+                    gallery_images=[],
+                    price_info=None,
+                    price_report_text=None,
+                    share_location=None,
                 )
             )
         return detailed_results
@@ -317,6 +381,110 @@ class GoogleMapsClient:
             cleaned = value.replace("_", " ").strip()
             if cleaned:
                 return cleaned.title()
+        return None
+
+
+class LicenseError(Exception):
+    """Raised when a license action fails."""
+
+
+class LicenseManager:
+    """Simple offline license enforcement tied to the current machine."""
+
+    PLAN_DURATIONS = {1: 30, 3: 90, 6: 180}
+    SECRET = "MAPSBOT-LICENSE-2024"
+
+    def __init__(self, license_path: Optional[Path] = None) -> None:
+        self.license_path = license_path or Path(__file__).resolve().parent / "license.json"
+        self._data: Dict[str, object] = {}
+        self._load()
+
+    def machine_id(self) -> str:
+        raw = f"{platform.node()}-{uuid.getnode()}".encode()
+        return hashlib.sha256(raw).hexdigest()[:16].upper()
+
+    def is_valid(self) -> bool:
+        data = self._data
+        if not data:
+            return False
+        if data.get("machine_id") != self.machine_id():
+            return False
+        expires = self._parse_datetime(data.get("expires_at"))
+        if not expires:
+            return False
+        return datetime.utcnow() < expires
+
+    def remaining_days(self) -> Optional[int]:
+        if not self.is_valid():
+            return None
+        expires = self._parse_datetime(self._data.get("expires_at"))
+        if not expires:
+            return None
+        delta = expires - datetime.utcnow()
+        return max(0, delta.days)
+
+    def expires_at(self) -> Optional[str]:
+        expires = self._parse_datetime(self._data.get("expires_at"))
+        if not expires:
+            return None
+        return expires.strftime("%Y-%m-%d %H:%M")
+
+    def plan_months(self) -> Optional[int]:
+        value = self._data.get("plan_months")
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def activate(self, months: int, license_key: str) -> None:
+        months = int(months)
+        if months not in self.PLAN_DURATIONS:
+            raise LicenseError("invalid_plan")
+        expected = self._expected_key(months)
+        if license_key.strip().upper() != expected:
+            raise LicenseError("invalid_key")
+        expires = datetime.utcnow() + timedelta(days=self.PLAN_DURATIONS[months])
+        self._data = {
+            "machine_id": self.machine_id(),
+            "plan_months": months,
+            "activated_at": datetime.utcnow().isoformat(),
+            "expires_at": expires.isoformat(),
+            "license_key": expected,
+        }
+        self._save()
+
+    def license_data(self) -> Dict[str, object]:
+        return dict(self._data)
+
+    def _expected_key(self, months: int) -> str:
+        payload = f"{self.machine_id()}:{months}:{self.SECRET}"
+        digest = hashlib.sha256(payload.encode()).hexdigest()[:16].upper()
+        return f"MAPS-{months}-{digest}"
+
+    def _load(self) -> None:
+        if not self.license_path.exists():
+            self._data = {}
+            return
+        try:
+            with open(self.license_path, "r", encoding="utf-8") as source:
+                self._data = json.load(source)
+        except (OSError, json.JSONDecodeError):
+            self._data = {}
+
+    def _save(self) -> None:
+        try:
+            with open(self.license_path, "w", encoding="utf-8") as target:
+                json.dump(self._data, target, ensure_ascii=False, indent=2)
+        except OSError:
+            LOGGER.exception("Failed to write license data")
+
+    @staticmethod
+    def _parse_datetime(value: Optional[object]) -> Optional[datetime]:
+        if not value:
+            return None
+        if isinstance(value, str):
+            with suppress(ValueError):
+                return datetime.fromisoformat(value)
         return None
 
 
@@ -661,6 +829,9 @@ class GoogleMapsPlaywrightScraper:
         if self.include_gallery:
             gallery_images = self._extract_gallery_images(page)
 
+        price_info, price_report = self._extract_price_info(page)
+        share_location = self._extract_share_location(page)
+
         return PlaceResult(
             name=name,
             formatted_address=address,
@@ -673,6 +844,9 @@ class GoogleMapsPlaywrightScraper:
             attributes=attributes,
             hero_image_url=hero_image or None,
             gallery_images=gallery_images,
+            price_info=price_info or None,
+            price_report_text=price_report or None,
+            share_location=share_location or None,
         )
 
     def _extract_business_type(self, page: Page) -> str:
@@ -1011,6 +1185,75 @@ class GoogleMapsPlaywrightScraper:
                 attributes[title] = items
         return attributes
 
+    def _extract_price_info(self, page: Page) -> tuple[Optional[str], Optional[str]]:
+        script = """
+            () => {
+                const node = document.querySelector('div.MNVeJb[jsname="tJHJj"], div[jsname="tJHJj"].MNVeJb');
+                if (!node) {
+                    return null;
+                }
+                const container = node.querySelector('div:not(.BfVpR)') || node;
+                const firstChild = container.childNodes && container.childNodes[0] ? container.childNodes[0].textContent : '';
+                const priceText = (firstChild || container.textContent || '').trim();
+                const reportNode = node.querySelector('.BfVpR');
+                const reportText = reportNode ? reportNode.innerText.trim() : '';
+                if (!priceText && !reportText) {
+                    return null;
+                }
+                return { price: priceText, report: reportText };
+            }
+        """
+        try:
+            data = page.evaluate(script)
+        except PlaywrightError:
+            return None, None
+        if not data:
+            return None, None
+        return data.get("price") or None, data.get("report") or None
+
+    def _extract_share_location(self, page: Page) -> Optional[str]:
+        selectors = [
+            'button[aria-label*="Paylaş"]',
+            'button[aria-label*="paylaş" i]',
+            'button[aria-label*="Share"]',
+            'button[jsaction*="pane.share" i]',
+            'button:has-text("Paylaş")',
+            'button:has-text("Share")',
+        ]
+        for selector in selectors:
+            locator = page.locator(selector)
+            if not locator.count():
+                continue
+            try:
+                locator.first.click(delay=70)
+                page.wait_for_timeout(300)
+                share_text = self._safe_inner_text(page.locator('div.qxmtj span.htP7Y').first, timeout=2500)
+                if share_text:
+                    self._close_share_dialog(page)
+                    return share_text
+            except PlaywrightError:
+                continue
+        self._close_share_dialog(page)
+        return None
+
+    def _close_share_dialog(self, page: Page) -> None:
+        selectors = [
+            'button[aria-label*="Kapat"]',
+            'button[aria-label*="Close"]',
+            'button[jsname="tWT92d"]',
+        ]
+        for selector in selectors:
+            locator = page.locator(selector)
+            if not locator.count():
+                continue
+            with suppress(PlaywrightError):
+                locator.first.click()
+                page.wait_for_timeout(200)
+                return
+        with suppress(PlaywrightError):
+            page.keyboard.press("Escape")
+        page.wait_for_timeout(150)
+
     def _select_tab(self, page: Page, key: str) -> bool:
         candidates = self._tab_label_candidates(key)
         if not candidates:
@@ -1172,6 +1415,15 @@ class Application(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.selected_language = tk.StringVar(value="tr")
+        self.license_manager = LicenseManager()
+        self.license_plan_var = tk.StringVar()
+        self.license_key_var = tk.StringVar()
+        self.license_message_var = tk.StringVar()
+        self.license_machine_var = tk.StringVar(value=self.license_manager.machine_id())
+        self.license_status_var = tk.StringVar()
+        self.license_days_var = tk.StringVar()
+        self.license_expiry_var = tk.StringVar()
+        self._plan_label_map: Dict[str, int] = {}
         self.title(self._("app_title"))
         self.geometry("1000x650")
         self.configure(bg="#f4f6fb")
@@ -1435,8 +1687,54 @@ class Application(tk.Tk):
             command=lambda: self._save_results(self._bot_results, "csv"),
         )
 
+        # License tab widgets
+        self.license_tab = ttk.Frame(self.notebook)
+        self.license_info_frame = ttk.LabelFrame(self.license_tab, text="", padding=10)
+        self.license_activation_frame = ttk.LabelFrame(self.license_tab, text="", padding=10)
+
+        self.license_machine_label = ttk.Label(self.license_info_frame, text="")
+        self.license_machine_entry = ttk.Entry(
+            self.license_info_frame,
+            textvariable=self.license_machine_var,
+            state="readonly",
+            width=32,
+        )
+        self.license_copy_button = ttk.Button(
+            self.license_info_frame, text="", command=self._copy_machine_id
+        )
+
+        self.license_status_text = ttk.Label(
+            self.license_info_frame, textvariable=self.license_status_var, style="Status.TLabel"
+        )
+        self.license_days_text = ttk.Label(
+            self.license_info_frame, textvariable=self.license_days_var
+        )
+        self.license_expiry_text = ttk.Label(
+            self.license_info_frame, textvariable=self.license_expiry_var
+        )
+
+        self.license_plan_label = ttk.Label(self.license_activation_frame, text="")
+        self.license_plan_combo = ttk.Combobox(
+            self.license_activation_frame,
+            state="readonly",
+            textvariable=self.license_plan_var,
+        )
+        self.license_key_label = ttk.Label(self.license_activation_frame, text="")
+        self.license_key_entry = ttk.Entry(
+            self.license_activation_frame,
+            textvariable=self.license_key_var,
+            width=36,
+        )
+        self.license_activate_button = ttk.Button(
+            self.license_activation_frame, text="", style="Accent.TButton", command=self._on_activate_license
+        )
+        self.license_message_label = ttk.Label(
+            self.license_activation_frame, textvariable=self.license_message_var, foreground="#b91c1c"
+        )
+
         self.notebook.add(self.api_tab, text="")
         self.notebook.add(self.bot_tab, text="")
+        self.notebook.add(self.license_tab, text="")
 
         self._enable_tree_sorting(self.api_results_tree)
         self._enable_tree_sorting(self.bot_results_tree)
@@ -1520,6 +1818,27 @@ class Application(tk.Tk):
         self.bot_save_csv_button.pack(side=tk.LEFT, padx=5)
         self.bot_status_label.pack(side=tk.RIGHT)
 
+        # License tab layout
+        self.license_tab.columnconfigure(0, weight=1)
+        self.license_info_frame.grid(row=0, column=0, sticky=tk.EW, padx=10, pady=(10, 5))
+        self.license_activation_frame.grid(row=1, column=0, sticky=tk.NSEW, padx=10, pady=(5, 10))
+        info_pad = {"padx": 5, "pady": 5}
+        self.license_machine_label.grid(row=0, column=0, sticky=tk.W, **info_pad)
+        self.license_machine_entry.grid(row=0, column=1, sticky=tk.W, **info_pad)
+        self.license_copy_button.grid(row=0, column=2, sticky=tk.W, **info_pad)
+        self.license_status_text.grid(row=1, column=0, columnspan=3, sticky=tk.W, **info_pad)
+        self.license_days_text.grid(row=2, column=0, columnspan=3, sticky=tk.W, **info_pad)
+        self.license_expiry_text.grid(row=3, column=0, columnspan=3, sticky=tk.W, **info_pad)
+
+        act_pad = {"padx": 5, "pady": 5}
+        self.license_plan_label.grid(row=0, column=0, sticky=tk.W, **act_pad)
+        self.license_plan_combo.grid(row=0, column=1, sticky=tk.W, **act_pad)
+        self.license_key_label.grid(row=1, column=0, sticky=tk.W, **act_pad)
+        self.license_key_entry.grid(row=1, column=1, sticky=tk.EW, **act_pad)
+        self.license_activation_frame.columnconfigure(1, weight=1)
+        self.license_activate_button.grid(row=2, column=0, columnspan=2, sticky=tk.E, **act_pad)
+        self.license_message_label.grid(row=3, column=0, columnspan=2, sticky=tk.W, **act_pad)
+
     def _on_gallery_toggle(self) -> None:
         enabled = bool(self.bot_gallery_var.get())
         if enabled:
@@ -1549,12 +1868,90 @@ class Application(tk.Tk):
         state = tk.NORMAL if self.bot_gallery_var.get() else tk.DISABLED
         self.bot_gallery_count_spin.config(state=state)
 
+    def _copy_machine_id(self) -> None:
+        machine_id = self.license_machine_var.get()
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(machine_id)
+        except tk.TclError:
+            pass
+        self.license_message_var.set(self._("license_machine_copied"))
+
+    def _on_activate_license(self) -> None:
+        months = self._plan_label_to_months(self.license_plan_var.get())
+        key = (self.license_key_var.get() or "").strip()
+        if not months or not key:
+            self.license_message_var.set(self._("license_missing_fields"))
+            return
+        try:
+            self.license_manager.activate(months, key)
+        except LicenseError as exc:
+            if str(exc) == "invalid_plan":
+                self.license_message_var.set(self._("license_invalid_plan"))
+            else:
+                self.license_message_var.set(self._("license_invalid_key"))
+            return
+        self.license_message_var.set(self._("license_success"))
+        self.license_key_var.set("")
+        self._refresh_license_state()
+
+    def _plan_label_to_months(self, label: str) -> Optional[int]:
+        return self._plan_label_map.get(label)
+
+    def _update_license_plan_options(self) -> None:
+        labels: List[str] = []
+        self._plan_label_map.clear()
+        for months in sorted(LicenseManager.PLAN_DURATIONS.keys()):
+            key = f"license_plan_{months}m"
+            label = self._(key)
+            labels.append(label)
+            self._plan_label_map[label] = months
+        self.license_plan_combo.config(values=labels)
+        if labels and self.license_plan_var.get() not in labels:
+            self.license_plan_var.set(labels[0])
+
+    def _refresh_license_state(self) -> None:
+        self.license_machine_var.set(self.license_manager.machine_id())
+        self._update_license_view()
+        self._apply_license_state()
+
+    def _update_license_view(self) -> None:
+        if self.license_manager.is_valid():
+            self.license_status_var.set(self._("license_status_valid"))
+            days = self.license_manager.remaining_days()
+            expiry = self.license_manager.expires_at()
+            days_text = days if days is not None else "-"
+            expiry_text = expiry or "-"
+        else:
+            self.license_status_var.set(self._("license_status_invalid"))
+            days_text = "-"
+            expiry_text = "-"
+        self.license_days_var.set(f"{self._('license_days_left')}: {days_text}")
+        self.license_expiry_var.set(f"{self._('license_expiry')}: {expiry_text}")
+
+    def _apply_license_state(self) -> None:
+        valid = self.license_manager.is_valid()
+        state = tk.NORMAL if valid else tk.DISABLED
+        self.api_search_button.config(state=state)
+        self.bot_search_button.config(state=state)
+        if not valid:
+            self.notebook.select(self.license_tab)
+
+    def _ensure_license_valid(self) -> bool:
+        if self.license_manager.is_valid():
+            return True
+        messagebox.showerror(self._("error_title"), self._("license_required"))
+        self.notebook.select(self.license_tab)
+        return False
+
     def _bind_events(self) -> None:
         self.language_combo.bind("<<ComboboxSelected>>", lambda _: self._update_translations())
         self.api_results_tree.bind("<<TreeviewSelect>>", lambda _: self._on_select_api_result())
         self.bot_results_tree.bind("<<TreeviewSelect>>", lambda _: self._on_select_bot_result())
 
     def _on_api_search(self) -> None:
+        if not self._ensure_license_valid():
+            return
         api_key = self.api_key_entry.get().strip()
         query = self.api_query_entry.get().strip()
         if not api_key:
@@ -1592,6 +1989,8 @@ class Application(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_bot_search(self) -> None:
+        if not self._ensure_license_valid():
+            return
         query = self.bot_query_entry.get().strip()
         if not query:
             messagebox.showerror(self._("error_title"), self._("error_missing_query"))
@@ -1937,7 +2336,13 @@ class Application(tk.Tk):
         ]
         if result.user_ratings_total is not None:
             lines.append(f"{self._('ratings_total')}: {result.user_ratings_total}")
+        if result.price_info:
+            lines.append(f"{self._('price_info')}: {result.price_info}")
+        if result.price_report_text:
+            lines.append(f"{self._('price_report')}: {result.price_report_text}")
         lines.append(f"{self._('address')}: {result.formatted_address or '-'}")
+        if result.share_location:
+            lines.append(f"{self._('share_location')}: {result.share_location}")
         if result.hero_image_url:
             lines.append(f"{self._('hero_image')}: {result.hero_image_url}")
         lines.append(f"{self._('gallery_images')}:")
@@ -2070,6 +2475,9 @@ class Application(tk.Tk):
                         "attributes",
                         "hero_image_url",
                         "gallery_images",
+                        "price_info",
+                        "price_report_text",
+                        "share_location",
                     ]
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
                     writer.writeheader()
@@ -2084,6 +2492,7 @@ class Application(tk.Tk):
         self.title(self._("app_title"))
         self.notebook.tab(0, text=self._("tab_api"))
         self.notebook.tab(1, text=self._("tab_bot"))
+        self.notebook.tab(2, text=self._("tab_license"))
 
         self.app_title_label.config(text=self._("app_title"))
         self.app_tagline_label.config(text=self._("app_tagline"))
@@ -2123,6 +2532,17 @@ class Application(tk.Tk):
         self.bot_save_json_button.config(text=self._("save_json"))
         self.bot_save_csv_button.config(text=self._("save_csv"))
 
+        self.license_info_frame.config(text=self._("license_info_group"))
+        self.license_activation_frame.config(text=self._("license_activation_group"))
+        self.license_machine_label.config(text=self._("license_machine_id"))
+        self.license_copy_button.config(text=self._("license_copy_id"))
+        self.license_plan_label.config(text=self._("license_plan"))
+        self.license_key_label.config(text=self._("license_key"))
+        self.license_activate_button.config(text=self._("license_activate"))
+
+        self._update_license_plan_options()
+        self._refresh_license_state()
+        self.license_message_var.set("")
         self.api_status_var.set(self._("status_ready"))
         self.bot_status_var.set(self._("status_ready"))
 

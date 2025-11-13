@@ -1,3 +1,5 @@
 __pycache__/
 venv/
 google_maps_gui.log
+google_maps_gui/license.json
+license.json

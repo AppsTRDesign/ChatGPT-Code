@@ -1,6 +1,7 @@
 Bu proje, Google Haritalar'dan işletme bilgilerini (isim, adres, telefon, çalışma saatleri ve müşteri yorumları) almak için iki
 dilli (Türkçe/İngilizce) bir masaüstü arayüzü sunar. Uygulama Windows üzerinde Python 3.11 kullanılarak çalışacak şekilde
-tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir bot tarayıcısını destekler.
+tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir bot tarayıcısını destekler. Taramaları başlatmadan
+önce Lisans sekmesinden bilgisayarınıza özel 1/3/6 aylık lisans anahtarını girmeniz gerekir.
 
 ## Özellikler
 
@@ -13,6 +14,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
 - İşletme kartlarının kapak görsellerini JSON'a ekleme ve isteğe bağlı olarak galeri fotoğraflarını (1-50 arası) kaydetme
+- Google Haritalar'ın bildirdiği ücret aralığını ve "Paylaş" penceresindeki kısa konum bağlantısını sonuçlara ekleme (bilgi mevcutsa)
 - Harita ekran görüntülerini canlı olarak gösteren ve Playwright tarafından güncellenen yerleşik önizleme paneli
 - Her imleç hareketi ve tıklamada harita önizlemesini yenileyen canlı ilerleme akışı
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
@@ -24,6 +26,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Her iki sekmede de taranacak işletme sayısını belirleyebilme
 - Bot durum çubuğunda 0/N biçiminde kaç kart tıklandığını gösteren gerçek zamanlı sayaç
 - Olası hataları `google_maps_gui.log` dosyasına kaydetme
+- Makine kimliğine bağlı 1/3/6 aylık lisans planlarını yöneten yerleşik Lisans sekmesi ve kalan gün göstergesi
 
 ## Gereksinimler
 
@@ -62,6 +65,18 @@ Projeyi klonladıktan veya indirdikten sonra aşağıdaki adımları izleyin:
 > Not: İlk çalıştırmada Windows SmartScreen tarafından uyarı alırsanız "Daha fazla bilgi" > "Yine de çalıştır" seçenekleri ile
 > devam edebilirsiniz.
 
+## Lisans Aktivasyonu
+
+Uygulama başlatıldığında önce **Lisans** sekmesi açılır ve geçerli lisans olmadan "Ara" butonları pasif kalır. Yetkilendirme adımları:
+
+1. Lisans sekmesindeki **Makine Kimliği** alanı her bilgisayar için benzersizdir. `Kimliği Kopyala` düğmesi ile değeri panoya alıp lisans sağlayıcınıza iletin.
+2. Sağlayıcı, seçtiğiniz plana göre (1/3/6 ay) `MAPS-<plan>-XXXXXXXXXXXXXXX` biçiminde bir anahtar üretir. Anahtar yalnızca gönderdiğiniz makine kimliğiyle eşleşir.
+3. **Lisans Süresi** açılır menüsünden satın aldığınız planı seçin ve **Lisans Anahtarı** alanına verilen değeri yapıştırıp **Lisansı Etkinleştir** düğmesine basın.
+4. Başarılı aktivasyon sonrası `google_maps_gui\license.json` dosyası oluşturulur; dosya silinmediği sürece kalan gün ve bitiş tarihi Lisans sekmesinde görüntülenir.
+5. Lisans makine kimliğine bağlı olduğu için farklı bir bilgisayarda kullanmak isterseniz yeni bir anahtar talep etmeniz gerekir.
+
+> Not: Lisansınızın süresi dolduğunda bot ve API taraması yeniden pasif hâle gelir; yeni bir anahtar girdikten sonra aynı sekmeden hızlıca yeniden etkinleştirebilirsiniz.
+
 ## Kullanım
 
 Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
@@ -85,7 +100,7 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 5. Galeri görsellerine ihtiyaç duyuyorsanız "Galeri Görsellerini Kaydet" kutusunu işaretleyin; açılır pencere, her işletmeden kaç fotoğraf alınacağını sorar (1-50). Bu seçenek devre dışıysa yalnızca kapak görseli kaydedilir.
 6. "Ara" butonuna bastığınızda Playwright görünür (headful) Chromium penceresini açar; bot yalnızca sol menüdeki `div.Nv2PK THOPZb CpccDe` sınıfı ile başlayan işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Chromium penceresi Windows üzerinde ayrı bir uygulama olarak çalışır, ancak ekran görüntüleri uygulama penceresindeki önizleme paneline aktarılır.
 6. Bot çalışırken her imleç hareketinde ve kart seçildiğinde harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir; alt kısımdaki durum etiketi 0/N biçiminde kaç kartın tıklandığını gösterir.
-7. Her işletme açılır açılmaz isim, kategori, adres, telefon, puan, çalışma saatleri, yorumlar (profil fotoğraflarıyla birlikte), kapak görseli, "Hakkında" verileri ve (aktif ise) galeri fotoğrafları eşzamanlı olarak sonuç listesine eklenir. "Detaylar" paneli, seçtiğiniz arayüz dilinde canlı log satırlarını ve seçili işletmenin özetini göstererek hangi adımda olduğunuzu hissettirir.
+7. Her işletme açılır açılmaz isim, kategori, adres, telefon, puan, çalışma saatleri, ücret bilgisi (Google bu veriyi sağlıyorsa), "Paylaş" penceresindeki kısa konum bağlantısı, yorumlar (profil fotoğraflarıyla birlikte), kapak görseli, "Hakkında" verileri ve (aktif ise) galeri fotoğrafları eşzamanlı olarak sonuç listesine eklenir. "Detaylar" paneli, seçtiğiniz arayüz dilinde canlı log satırlarını ve seçili işletmenin özetini göstererek hangi adımda olduğunuzu hissettirir.
 8. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
 > Bot sekmesinde Playwright tarafından yönetilen Chromium hem ayrı bir pencerede çalışır hem de ekran görüntüleri ile uygulamaya akış sağlar. Tarama tamamlandığında pencere otomatik olarak kapanır; tarama esnasında manuel olarak kapatmayın. Bot, karttaki fotoğraf galerisine girmemek için yalnızca listede yer alan metin bölgesine tıklar.
@@ -98,8 +113,8 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 ## Çıktı Biçimleri
 
-- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, "Hakkında" sekmesi verileri, müşteri yorumları (yorumcunun adı, puanı, zaman damgası ve profil fotoğrafı URL'siyle) ve hem kapak görseli hem de isteğe bağlı galeri fotoğrafları ayrıntılı şekilde saklanır.
-- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, kategori, "Hakkında" sekmesi bilgileri, kapak görseli/görsel listesi ve yorumların özet hali saklanır.
+- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, ücret bilgisi, "Paylaş" konum bağlantısı, "Hakkında" sekmesi verileri, müşteri yorumları (yorumcunun adı, puanı, zaman damgası ve profil fotoğrafı URL'siyle) ile hem kapak görseli hem de isteğe bağlı galeri fotoğrafları ayrıntılı şekilde saklanır.
+- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, kategori, "Hakkında" sekmesi bilgileri, ücret bilgisi, paylaşım bağlantısı, kapak görseli/görsel listesi ve yorumların özet hali saklanır.
 
 ## Sık Karşılaşılan Sorular
 
