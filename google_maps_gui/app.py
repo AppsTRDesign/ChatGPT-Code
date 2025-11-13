@@ -734,6 +734,30 @@ class GoogleMapsPlaywrightScraper:
         handle.evaluate("el => { el.scrollTop = el.scrollTop + el.clientHeight; }")
         return True
 
+    def _scroll_reviews_pane(self, page: Page) -> bool:
+        containers = [
+            'div.m6QErb[aria-label][jslog]',
+            'div.m6QErb.XiKgde',
+            'div[aria-label*="yorum"]',
+            'div[aria-label*="review"]',
+        ]
+        for selector in containers:
+            locator = page.locator(selector).first
+            if locator.count() == 0:
+                continue
+            handle = locator.element_handle()
+            if not handle:
+                continue
+            try:
+                handle.evaluate("el => { el.scrollTop = el.scrollTop + (el.clientHeight || 600); }")
+                return True
+            except PlaywrightError:
+                continue
+        with suppress(PlaywrightError):
+            page.mouse.wheel(0, 800)
+            return True
+        return False
+
     def _extract_article_name(self, locator: Locator) -> str:
         candidates = [
             "div.Nv2PK span",
@@ -1016,6 +1040,26 @@ class GoogleMapsPlaywrightScraper:
             )
             idx += 1
         return reviews
+
+    def _ensure_reviews_loaded(self, page: Page, reviews_locator: Locator, target: int) -> None:
+        if target <= 0:
+            return
+        deadline = time.time() + 25
+        attempts = 0
+        while time.time() < deadline:
+            count = reviews_locator.count()
+            if count >= target:
+                return
+            if count > 0:
+                last = reviews_locator.nth(count - 1)
+                with suppress(PlaywrightError):
+                    last.scroll_into_view_if_needed(timeout=1200)
+            scrolled = self._scroll_reviews_pane(page)
+            attempts += 1
+            if not scrolled and attempts > 6:
+                break
+            page.wait_for_timeout(400)
+        # allow best-effort even if we exit the loop
 
     def _extract_share_location(self, page: Page) -> Optional[str]:
         selectors = [
