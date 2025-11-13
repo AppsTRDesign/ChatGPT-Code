@@ -9,14 +9,14 @@ import re
 import threading
 import time
 from contextlib import suppress
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 import requests
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from PIL import Image, ImageDraw, ImageTk, UnidentifiedImageError
 from playwright.sync_api import (
@@ -55,12 +55,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_rating": "Puan",
         "column_category": "Kategori",
         "review_limit": "Yorum Sayısı",
-        "gallery_toggle": "Galeri Görsellerini Kaydet",
-        "gallery_count": "Galeri Sayısı",
-        "gallery_prompt_title": "Galeri Ayarı",
-        "gallery_prompt_message": "Kaç adet galeri görseli alınsın?",
-        "hero_image": "Kapak Görseli",
-        "gallery_images": "Galeri Görselleri",
         "save_json": "JSON Kaydet",
         "save_csv": "CSV Kaydet",
         "status_ready": "Hazır",
@@ -81,8 +75,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "map_preview_placeholder": "Önizleme yok",
         "address": "Adres",
         "opening_hours": "Çalışma Saatleri",
-        "attributes": "Hakkında",
-        "attributes_none": "Veri bulunamadı",
         "reviews": "Müşteri Yorumları",
         "review_author": "Yazar",
         "review_rating": "Puan",
@@ -90,8 +82,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_text": "Yorum",
         "review_profile": "Profil Fotoğrafı",
         "ratings_total": "Toplam Değerlendirme",
-        "price_info": "Ücret Bilgisi",
-        "price_report": "Ücret Bildiren Kullanıcılar",
         "share_location": "Paylaşım Konumu",
         "log_search_started": "Bot araması başlatıldı: {query}",
         "log_click_card": "Liste öğesine tıklanıyor: {name}",
@@ -139,12 +129,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_rating": "Rating",
         "column_category": "Category",
         "review_limit": "Review Count",
-        "gallery_toggle": "Include Gallery Photos",
-        "gallery_count": "Gallery Count",
-        "gallery_prompt_title": "Gallery Capture",
-        "gallery_prompt_message": "How many gallery photos should be captured?",
-        "hero_image": "Hero Image",
-        "gallery_images": "Gallery Photos",
         "save_json": "Save JSON",
         "save_csv": "Save CSV",
         "status_ready": "Ready",
@@ -165,8 +149,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "map_preview_placeholder": "No preview",
         "address": "Address",
         "opening_hours": "Opening Hours",
-        "attributes": "About",
-        "attributes_none": "No information",
         "reviews": "Customer Reviews",
         "review_author": "Author",
         "review_rating": "Rating",
@@ -174,8 +156,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_text": "Review",
         "review_profile": "Profile Photo",
         "ratings_total": "Total Ratings",
-        "price_info": "Price Info",
-        "price_report": "User Reports",
         "share_location": "Share Location",
         "log_search_started": "Bot scan started: {query}",
         "log_click_card": "Clicking result card: {name}",
@@ -239,21 +219,20 @@ class PlaceResult:
     rating: Optional[float]
     user_ratings_total: Optional[int]
     reviews: List[PlaceReview]
-    attributes: Dict[str, List[str]]
-    hero_image_url: Optional[str] = None
-    gallery_images: List[str] = field(default_factory=list)
-    price_info: Optional[str] = None
-    price_report_text: Optional[str] = None
     share_location: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
-        data = asdict(self)
-        data["opening_hours"] = self.opening_hours
-        data["reviews"] = [review.to_dict() for review in self.reviews]
-        data["attributes"] = self.attributes
-        data["hero_image_url"] = self.hero_image_url
-        data["gallery_images"] = self.gallery_images
-        return data
+        return {
+            "name": self.name,
+            "formatted_address": self.formatted_address,
+            "formatted_phone_number": self.formatted_phone_number,
+            "business_type": self.business_type,
+            "opening_hours": list(self.opening_hours),
+            "rating": self.rating,
+            "user_ratings_total": self.user_ratings_total,
+            "reviews": [review.to_dict() for review in self.reviews],
+            "share_location": self.share_location,
+        }
 
     def to_csv_row(self) -> Dict[str, Optional[str]]:
         return {
@@ -277,13 +256,6 @@ class PlaceResult:
                 ).strip()
                 for review in self.reviews
             ),
-            "attributes": " || ".join(
-                f"{section}: {', '.join(items)}" for section, items in self.attributes.items()
-            ),
-            "hero_image_url": self.hero_image_url or "",
-            "gallery_images": " | ".join(self.gallery_images) if self.gallery_images else "",
-            "price_info": self.price_info or "",
-            "price_report_text": self.price_report_text or "",
             "share_location": self.share_location or "",
         }
 
@@ -363,11 +335,6 @@ class GoogleMapsClient:
                     rating=result.get("rating"),
                     user_ratings_total=result.get("user_ratings_total"),
                     reviews=reviews,
-                    attributes={},
-                    hero_image_url=None,
-                    gallery_images=[],
-                    price_info=None,
-                    price_report_text=None,
                     share_location=None,
                 )
             )
@@ -431,14 +398,10 @@ class GoogleMapsPlaywrightScraper:
         language: str = "tr",
         limit: int = 5,
         max_reviews: int = 3,
-        include_gallery: bool = False,
-        gallery_limit: int = 0,
     ) -> None:
         self.language = language or "tr"
         self.limit = limit
         self.max_reviews = max(0, max_reviews)
-        self.include_gallery = include_gallery
-        self.gallery_limit = max(0, gallery_limit)
 
     def search(
         self,
@@ -737,18 +700,6 @@ class GoogleMapsPlaywrightScraper:
         if not reviews:
             reviews = self._extract_reviews(page, rating_count)
 
-        attributes: Dict[str, List[str]] = {}
-        if self._select_tab(page, "about"):
-            attributes = self._extract_attributes(page)
-        if not attributes:
-            attributes = self._extract_attributes(page)
-
-        hero_image = self._extract_hero_image(page)
-        gallery_images: List[str] = []
-        if self.include_gallery:
-            gallery_images = self._extract_gallery_images(page)
-
-        price_info, price_report = self._extract_price_info(page)
         share_location = self._extract_share_location(page)
 
         return PlaceResult(
@@ -760,11 +711,6 @@ class GoogleMapsPlaywrightScraper:
             rating=rating,
             user_ratings_total=rating_count,
             reviews=reviews,
-            attributes=attributes,
-            hero_image_url=hero_image or None,
-            gallery_images=gallery_images,
-            price_info=price_info or None,
-            price_report_text=price_report or None,
             share_location=share_location or None,
         )
 
@@ -963,285 +909,6 @@ class GoogleMapsPlaywrightScraper:
                     continue
             main_lines.append(line)
         return "\n".join(main_lines), extras
-
-    def _extract_hero_image(self, page: Page) -> str:
-        selectors = [
-            'button.aoRNLd.kn2E5e.NMjTrf.lvtCsd img[src]',
-            'div.RZ66Rb img[src]',
-            'div.RZ66Rb button img[src]',
-            'button[jsaction*="heroHeaderImage"] img[src]',
-        ]
-        for selector in selectors:
-            locator = page.locator(selector)
-            if locator.count():
-                src = self._safe_get_attribute(locator.first, "src")
-                if src:
-                    return src
-        style = self._safe_get_attribute(page.locator('div.RZ66Rb').first, "style")
-        return self._parse_background_image(style)
-
-    def _extract_gallery_images(self, page: Page) -> List[str]:
-        limit = min(max(0, self.gallery_limit), 50)
-        if not self.include_gallery or limit <= 0:
-            return []
-        if not self._open_gallery_overlay(page):
-            return []
-        images: List[str] = []
-        seen: set[str] = set()
-        attempts = 0
-        try:
-            while len(images) < limit and attempts < limit * 5:
-                for url in self._collect_gallery_urls(page):
-                    if url and url not in seen:
-                        images.append(url)
-                        seen.add(url)
-                        if len(images) >= limit:
-                            break
-                if len(images) >= limit:
-                    break
-                scrolled = self._scroll_gallery_container(page)
-                attempts += 1
-                page.wait_for_timeout(300)
-                if not scrolled:
-                    break
-        finally:
-            self._close_gallery_overlay(page)
-        return images
-
-    def _open_gallery_overlay(self, page: Page) -> bool:
-        selectors = [
-            'button.aoRNLd.kn2E5e.NMjTrf.lvtCsd',
-            'div.RZ66Rb.FgCUCc button.aoRNLd',
-            'div.RZ66Rb button[aria-label]',
-            'div.RZ66Rb button',
-            'button[jsaction*="heroHeaderImage" i]',
-            'div.RZ66Rb',
-        ]
-        for selector in selectors:
-            locator = page.locator(selector)
-            if not locator.count():
-                continue
-            try:
-                locator.first.click(delay=60)
-                page.wait_for_selector(
-                    'div[role="dialog"] div.Uf0tqf, div.m6QErb.DxyBCb div.Uf0tqf',
-                    timeout=4000,
-                )
-                page.wait_for_timeout(200)
-                return True
-            except PlaywrightError:
-                continue
-        return False
-
-    def _close_gallery_overlay(self, page: Page) -> None:
-        selectors = [
-            'button.iPpe6d',
-            'div[role="dialog"] button[aria-label*="Geri" i]',
-            'div[role="dialog"] button[aria-label*="Back" i]',
-            'div[role="dialog"] button[jsaction*="gallery.back" i]',
-            'div[role="dialog"] button[aria-label*="Kapat" i]',
-            'div[role="dialog"] button[jsname="tWT92d"]',
-        ]
-        for selector in selectors:
-            locator = page.locator(selector)
-            if locator.count():
-                with suppress(PlaywrightError):
-                    locator.first.click()
-                break
-        with suppress(PlaywrightError):
-            page.keyboard.press("Escape")
-        page.wait_for_timeout(200)
-
-    def _collect_gallery_urls(self, page: Page) -> List[str]:
-        script = """
-            () => {
-                const urls = [];
-                const nodes = document.querySelectorAll('div[role="dialog"] div.Uf0tqf, div.Uf0tqf');
-                nodes.forEach((node) => {
-                    let bg = node.style && node.style.backgroundImage ? node.style.backgroundImage : '';
-                    if (!bg) {
-                        const wrapper = node.closest('.U39Pmb');
-                        if (wrapper && wrapper.style.backgroundImage) {
-                            bg = wrapper.style.backgroundImage;
-                        }
-                    }
-                    const match = bg && bg.match(/url\((?:"|')?(.*?)(?:"|')?\)/i);
-                    let url = match && match[1] ? match[1] : '';
-                    if (!url) {
-                        const img = node.querySelector('img');
-                        if (img && img.src) {
-                            url = img.src;
-                        }
-                    }
-                    if (url && !url.startsWith('//:0')) {
-                        if (url.startsWith('//')) {
-                            url = 'https:' + url;
-                        }
-                        urls.push(url);
-                    }
-                });
-                return urls;
-            }
-        """
-        try:
-            data = page.evaluate(script)
-        except PlaywrightError:
-            return []
-        return data or []
-
-    def _scroll_gallery_container(self, page: Page) -> bool:
-        script = """
-            () => {
-                const container = document.querySelector('div[role="dialog"] div.m6QErb.XiKgde') ||
-                    document.querySelector('div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde');
-                if (!container) {
-                    window.scrollBy(0, 600);
-                    return false;
-                }
-                const before = container.scrollTop;
-                container.scrollTop = before + (container.clientHeight || 600);
-                return container.scrollTop !== before;
-            }
-        """
-        try:
-            return bool(page.evaluate(script))
-        except PlaywrightError:
-            with suppress(PlaywrightError):
-                page.mouse.wheel(0, 600)
-            return False
-
-    def _parse_background_image(self, style: str) -> str:
-        if not style:
-            return ""
-        match = re.search(r"""url\((?:'|")?(.*?)(?:'|")?\)""", style)
-        if match:
-            url = match.group(1)
-            if url.startswith("//"):
-                url = f"https:{url}"
-            return url
-        return ""
-
-    def _ensure_reviews_loaded(self, page: Page, locator: Locator, target: int) -> None:
-        if target <= 0:
-            return
-        attempts = 0
-        last_count = -1
-        while locator.count() < target and attempts < max(6, target * 2):
-            scrolled = self._scroll_reviews_container(page)
-            page.wait_for_timeout(450)
-            current = locator.count()
-            if current >= target:
-                break
-            if current == last_count and not scrolled:
-                break
-            last_count = current
-            attempts += 1
-
-    def _scroll_reviews_container(self, page: Page) -> bool:
-        script = """
-            () => {
-                const selectors = [
-                    'div[aria-label*="yorum" i]',
-                    'div[aria-label*="review" i]',
-                    'div[aria-label*="değerlendirme" i]'
-                ];
-                let container = null;
-                for (const selector of selectors) {
-                    const node = document.querySelector(selector);
-                    if (node && node.querySelector('[data-review-id]')) {
-                        container = node.closest('.m6QErb') || node;
-                        break;
-                    }
-                }
-                if (!container) {
-                    container = document.querySelector('div.m6QErb[aria-label][jscontroller]');
-                }
-                if (container) {
-                    const before = container.scrollTop;
-                    container.scrollTop += container.clientHeight || 600;
-                    return container.scrollTop !== before || (container.scrollTop + container.clientHeight) < container.scrollHeight;
-                }
-                window.scrollBy(0, 800);
-                return false;
-            }
-        """
-        scrolled = False
-        with suppress(PlaywrightError):
-            scrolled = bool(page.evaluate(script))
-        if not scrolled:
-            with suppress(PlaywrightError):
-                page.mouse.wheel(0, 800)
-            scrolled = True
-        return scrolled
-
-    def _expand_review_content(self, review: Locator) -> None:
-        button = review.locator('button.w8nwRe')
-        if button.count():
-            with suppress(PlaywrightError):
-                button.first.click()
-
-    def _extract_attributes(self, page: Page) -> Dict[str, List[str]]:
-        script = """
-            () => {
-                const scopeCandidates = Array.from(document.querySelectorAll('[aria-label]'));
-                let aboutRoot = null;
-                for (const node of scopeCandidates) {
-                    const label = (node.getAttribute('aria-label') || '').toLowerCase();
-                    if (label.includes('hakkında') || label.includes('about')) {
-                        aboutRoot = node;
-                        break;
-                    }
-                }
-                const root = aboutRoot || document;
-                return Array.from(root.querySelectorAll('div.iP2t7d.fontBodyMedium')).map(section => {
-                    const titleNode = section.querySelector('h2');
-                    const title = titleNode ? titleNode.innerText.trim() : '';
-                    const items = Array.from(section.querySelectorAll('ul li span')).map(span => {
-                        return (span.getAttribute('aria-label') || span.innerText || '').trim();
-                    }).filter(Boolean);
-                    return { title, items };
-                });
-            }
-        """
-        try:
-            data = page.evaluate(script)
-        except PlaywrightError:
-            return {}
-        attributes: Dict[str, List[str]] = {}
-        if not data:
-            return attributes
-        for entry in data:
-            title = (entry.get("title") or "").strip()
-            items = [item for item in entry.get("items", []) if item]
-            if title and items:
-                attributes[title] = items
-        return attributes
-
-    def _extract_price_info(self, page: Page) -> tuple[Optional[str], Optional[str]]:
-        script = """
-            () => {
-                const node = document.querySelector('div.MNVeJb[jsname="tJHJj"], div[jsname="tJHJj"].MNVeJb');
-                if (!node) {
-                    return null;
-                }
-                const container = node.querySelector('div:not(.BfVpR)') || node;
-                const firstChild = container.childNodes && container.childNodes[0] ? container.childNodes[0].textContent : '';
-                const priceText = (firstChild || container.textContent || '').trim();
-                const reportNode = node.querySelector('.BfVpR');
-                const reportText = reportNode ? reportNode.innerText.trim() : '';
-                if (!priceText && !reportText) {
-                    return null;
-                }
-                return { price: priceText, report: reportText };
-            }
-        """
-        try:
-            data = page.evaluate(script)
-        except PlaywrightError:
-            return None, None
-        if not data:
-            return None, None
-        return data.get("price") or None, data.get("report") or None
 
     def _extract_share_location(self, page: Page) -> Optional[str]:
         selectors = [
@@ -1674,24 +1341,6 @@ class Application(tk.Tk):
         )
         self._set_spin_value(self.bot_reviews_spin, "5")
 
-        self.bot_gallery_var = tk.BooleanVar(value=False)
-        self.bot_gallery_check = ttk.Checkbutton(
-            self.bot_form_frame,
-            text="",
-            variable=self.bot_gallery_var,
-            command=self._on_gallery_toggle,
-        )
-        self.bot_gallery_count_label = ttk.Label(self.bot_form_frame, text="")
-        self.bot_gallery_count_spin = ttk.Spinbox(
-            self.bot_form_frame,
-            from_=1,
-            to=50,
-            width=7,
-            justify=tk.CENTER,
-        )
-        self._set_spin_value(self.bot_gallery_count_spin, "3")
-        self._update_gallery_spin_state()
-
         self.bot_search_button = ttk.Button(
             self.bot_form_frame, text="", style="Accent.TButton", command=self._on_bot_search
         )
@@ -1871,9 +1520,6 @@ class Application(tk.Tk):
         self.bot_limit_spin.grid(row=1, column=3, sticky=tk.W, **bot_pad)
         self.bot_reviews_label.grid(row=2, column=0, sticky=tk.W, **bot_pad)
         self.bot_reviews_spin.grid(row=2, column=1, sticky=tk.W, **bot_pad)
-        self.bot_gallery_check.grid(row=2, column=2, sticky=tk.W, **bot_pad)
-        self.bot_gallery_count_label.grid(row=2, column=3, sticky=tk.W, **bot_pad)
-        self.bot_gallery_count_spin.grid(row=2, column=4, sticky=tk.W, **bot_pad)
 
         self.bot_map_canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
@@ -1908,35 +1554,6 @@ class Application(tk.Tk):
         self.license_activation_frame.columnconfigure(1, weight=1)
         self.license_activate_button.grid(row=1, column=0, columnspan=2, sticky=tk.E, **act_pad)
         self.license_message_label.grid(row=2, column=0, columnspan=2, sticky=tk.W, **act_pad)
-
-    def _on_gallery_toggle(self) -> None:
-        enabled = bool(self.bot_gallery_var.get())
-        if enabled:
-            response = self._prompt_gallery_count()
-            if response is None:
-                self.bot_gallery_var.set(False)
-                enabled = False
-            else:
-                self._set_spin_value(self.bot_gallery_count_spin, str(response))
-        self._update_gallery_spin_state()
-
-    def _prompt_gallery_count(self) -> Optional[int]:
-        try:
-            current = int(self.bot_gallery_count_spin.get())
-        except (ValueError, tk.TclError):
-            current = 3
-        return simpledialog.askinteger(
-            self._("gallery_prompt_title"),
-            self._("gallery_prompt_message"),
-            minvalue=1,
-            maxvalue=50,
-            initialvalue=current,
-            parent=self,
-        )
-
-    def _update_gallery_spin_state(self) -> None:
-        state = tk.NORMAL if self.bot_gallery_var.get() else tk.DISABLED
-        self.bot_gallery_count_spin.config(state=state)
 
     def _copy_machine_id(self) -> None:
         machine_id = self.license_machine_var.get()
@@ -2074,16 +1691,6 @@ class Application(tk.Tk):
             review_limit = 5
         review_limit = max(0, min(review_limit, 200))
         self._set_spin_value(self.bot_reviews_spin, str(review_limit))
-        gallery_enabled = bool(self.bot_gallery_var.get())
-        try:
-            gallery_limit = int(self.bot_gallery_count_spin.get())
-        except (ValueError, tk.TclError):
-            gallery_limit = 3
-        if gallery_enabled:
-            gallery_limit = max(1, min(gallery_limit, 50))
-            self._set_spin_value(self.bot_gallery_count_spin, str(gallery_limit))
-        else:
-            gallery_limit = 0
         self._bot_active_limit = limit
         self._bot_attempted = 0
         self.bot_status_var.set(self._("status_scraping_progress").format(0, limit))
@@ -2102,8 +1709,6 @@ class Application(tk.Tk):
                     language=language,
                     limit=limit,
                     max_reviews=review_limit,
-                    include_gallery=gallery_enabled,
-                    gallery_limit=gallery_limit,
                 )
                 results = scraper.search(
                     query,
@@ -2414,34 +2019,15 @@ class Application(tk.Tk):
         ]
         if result.user_ratings_total is not None:
             lines.append(f"{self._('ratings_total')}: {result.user_ratings_total}")
-        if result.price_info:
-            lines.append(f"{self._('price_info')}: {result.price_info}")
-        if result.price_report_text:
-            lines.append(f"{self._('price_report')}: {result.price_report_text}")
         lines.append(f"{self._('address')}: {result.formatted_address or '-'}")
         if result.share_location:
             lines.append(f"{self._('share_location')}: {result.share_location}")
-        if result.hero_image_url:
-            lines.append(f"{self._('hero_image')}: {result.hero_image_url}")
-        lines.append(f"{self._('gallery_images')}:")
-        if result.gallery_images:
-            lines.extend(f"  - {url}" for url in result.gallery_images)
-        else:
-            lines.append("  - -")
         lines.append("")
         lines.append(f"{self._('opening_hours')}:")
         if result.opening_hours:
             lines.extend(f"  - {item}" for item in result.opening_hours)
         else:
             lines.append("  - -")
-        lines.append("")
-        lines.append(f"{self._('attributes')}:")
-        if result.attributes:
-            for section, values in result.attributes.items():
-                pretty_values = ", ".join(values) if values else self._('attributes_none')
-                lines.append(f"  - {section}: {pretty_values}")
-        else:
-            lines.append(f"  - {self._('attributes_none')}")
         lines.append("")
         lines.append(f"{self._('reviews')}:")
         if result.reviews:
@@ -2553,11 +2139,6 @@ class Application(tk.Tk):
                         "rating",
                         "rating_count",
                         "reviews",
-                        "attributes",
-                        "hero_image_url",
-                        "gallery_images",
-                        "price_info",
-                        "price_report_text",
                         "share_location",
                     ]
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
@@ -2602,8 +2183,6 @@ class Application(tk.Tk):
         self.bot_search_button.config(text=self._("search"))
         self.bot_limit_label.config(text=self._("result_limit"))
         self.bot_reviews_label.config(text=self._("review_limit"))
-        self.bot_gallery_check.config(text=self._("gallery_toggle"))
-        self.bot_gallery_count_label.config(text=self._("gallery_count"))
         if self._map_placeholder_active or self._bot_map_photo is None:
             self._set_bot_map_placeholder()
         self._set_tree_heading(self.bot_results_tree, "name", self._("column_name"))
