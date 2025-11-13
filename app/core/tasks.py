@@ -16,6 +16,7 @@ from telethon.errors import (
     UserIdInvalidError,
     UserNotParticipantError,
     UserPrivacyRestrictedError,
+    UsersTooMuchError,
 )
 from telethon.tl import functions, types
 
@@ -294,6 +295,11 @@ class SessionTask:
                 logger.warning("log.chat_write_forbidden")
                 status_cb("status.chat_write_forbidden")
                 progress_callback(self.build_progress(total, user, status="status.chat_write_forbidden"))
+                break
+            except UsersTooMuchError:
+                logger.warning("log.users_too_much")
+                status_cb("status.users_too_much")
+                progress_callback(self.build_progress(total, user, status="status.users_too_much"))
                 break
             await self._throttle(self.settings.rate_limit.join_interval)
         logger.info("log.add_finished")
