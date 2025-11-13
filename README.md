@@ -20,10 +20,9 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 ## Kurulum Adımları (Windows 11)
 
 1. **Install.bat ile Otomatik Kurulum (Önerilir)**
-   - Depoyu açtıktan sonra `install.bat` dosyasını çalıştırın. Betik, komut satırında `chcp 65001` ile Türkçe karakter desteğini açar ve `[1/6] Python sürümü doğrulanıyor`, `[2/6] Sanal ortam hazırlanıyor` vb. aşamalarla süreci gösterir.
-   - Script önce `py -3.13` ile Python 3.13'ü dener, sistemde bulunamazsa otomatik olarak `py -3.11` ile devam eder. Gerekli sürümler bulunamazsa kurulum iptal edilir.
-   - Her adım `.venv` klasörünün kurulumu, pip güncellemesi, bağımlılıkların yüklenmesi ve `python -m compileall app` doğrulamasını içerir.
-   - Konsolda gösterilen tüm komut çıktıları `logs/install-latest.log` dosyasına yazılır. Hata alırsanız bu günlükte ayrıntıları bulabilir ve bizimle paylaşabilirsiniz.
+   - Depoyu açtıktan sonra `install.bat` dosyasını çalıştırın. Betik `[1/4]` ile başlayan mesajlarla her adımı gösterir ve sırasıyla sanal ortamı (`venv/`) oluşturur, etkinleştirir, bağımlılıkları yükler ve Playwright Chromium bileşenini indirir.
+   - Script `py -3.11 -m venv venv` komutunu çalıştırır. Sisteminizde 3.11 kuruluysa doğrudan kullanılacaktır; alternatif sürümlere ihtiyaç duyuyorsanız komutu düzenleyebilirsiniz.
+   - Pip yükseltme ve `requirements.txt` yüklemesi, akabinde `python -m playwright install chromium` çalıştırılır. Tüm adımlar tamamlandığında "Kurulum tamamlandi" mesajı görünür ve pencere kapanmadan önce `pause` ile bekler.
 
 2. **El ile Kurulum (Alternatif)**
    1. [python.org](https://www.python.org/downloads/) adresinden Python 3.13 kurun ve "Add Python to PATH" seçeneğini işaretleyin.
@@ -34,12 +33,16 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
       ```
    3. Sanal ortam oluşturup etkinleştirin:
       ```powershell
-      py -m venv .venv
-      .\.venv\Scripts\activate
+      py -m venv venv
+      .\venv\Scripts\activate
       ```
    4. Bağımlılıkları yükleyin:
       ```powershell
       py -m pip install -r requirements.txt
+      ```
+   5. Playwright Chromium bileşenini yükleyin:
+      ```powershell
+      python -m playwright install chromium
       ```
 
 3. **Uygulamayı Başlatın**
@@ -47,7 +50,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
    py -m app.main
    ```
 
-> `run.bat` dosyası `.venv` klasörünü etkinleştirip aynı komutu otomatik olarak çalıştırır.
+> `run.bat` dosyası `venv` klasörünü etkinleştirip aynı komutu otomatik olarak çalıştırır.
 
 ## İlk Çalıştırma
 
@@ -61,11 +64,15 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanmıştır. Lisans verisi `config/license.json` dosyasında saklanır ve Ayarlar ▸ "Lisans Bilgileri" bölümünde kalan süre, plan adı ve bitiş tarihiyle birlikte gösterilir.
 
 1. **Makine Kimliğini Kopyalayın:** Ayarlar sekmesindeki "Makine Kimliği" alanını kopyalayarak lisans sağlayıcınıza gönderin.
-2. **Anahtar Üretin:** Lisansı dağıtan kişi, aşağıdaki komutu kullanarak 1, 3 veya 6 aylık bir anahtar oluşturabilir:
+2. **Anahtar Üretin:** Lisansı dağıtan kişi hazır planları veya özel süreleri kullanabilir:
    ```powershell
+   # Hazır plan (1, 3 veya 6 ay)
    py -m app.tools.generate_license --machine <MAKINE_ID> --plan 3m
+
+   # Özel süre (örn. 1 yıl 2 ay 10 gün)
+   py -m app.tools.generate_license --machine <MAKINE_ID> --years 1 --months 2 --days 10 --label "Kurumsal 1Y2A10G"
    ```
-   Desteklenen plan kodları `1m`, `3m` ve `6m`'dir.
+   Hazır plan kodları `1m`, `3m` ve `6m` olup, özel sürede yıl/ay/gün değerlerinden en az biri girilmelidir.
 3. **Anahtarı Girin:** Kullanıcı, aldığı anahtarı Ayarlar ▸ Lisans Bilgileri alanına yapıştırıp "Lisansı Etkinleştir" butonuna basar. Doğrulama başarılı olursa kalan süre ve plan adı anında güncellenir.
 4. **Makineye Kilitli Yapı:** Anahtarlar üretildiği makinenin kimliğiyle imzalandığı için başka bir bilgisayarda çalışmaz. `config/license.json` dosyasını kopyalamak lisansı taşımaya yetmez.
 

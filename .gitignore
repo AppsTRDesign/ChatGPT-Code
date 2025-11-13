@@ -1,5 +1,7 @@
 __pycache__/
 *.py[cod]
+.venv/
+venv/
 session/
 users/users.json
 users/scanned_users.json

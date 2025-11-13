@@ -7,7 +7,7 @@ import json
 import logging
 import platform
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -18,6 +18,46 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 logger = logging.getLogger(__name__)
 
 _LICENSE_SECRET = "telegram-suite-license-secret"
+
+
+@dataclass(frozen=True)
+class LicenseDuration:
+    years: int = 0
+    months: int = 0
+    days: int = 0
+
+    def normalized(self) -> "LicenseDuration":
+        return LicenseDuration(max(self.years, 0), max(self.months, 0), max(self.days, 0))
+
+    def is_zero(self) -> bool:
+        norm = self.normalized()
+        return norm.years == 0 and norm.months == 0 and norm.days == 0
+
+    def label(self) -> str:
+        norm = self.normalized()
+        parts: list[str] = []
+        if norm.years:
+            parts.append(f"{norm.years}Y")
+        if norm.months:
+            parts.append(f"{norm.months}M")
+        if norm.days:
+            parts.append(f"{norm.days}D")
+        return " ".join(parts) or "0D"
+
+    def to_dict(self) -> dict:
+        norm = self.normalized()
+        return {"years": norm.years, "months": norm.months, "days": norm.days}
+
+    @classmethod
+    def from_dict(cls, data: Optional[dict]) -> "LicenseDuration":
+        if not data:
+            return cls()
+        return cls(int(data.get("years", 0)), int(data.get("months", 0)), int(data.get("days", 0)))
+
+    def apply(self, start: datetime) -> datetime:
+        norm = self.normalized()
+        expires = start + relativedelta(years=norm.years, months=norm.months)
+        return expires + timedelta(days=norm.days)
 
 
 def _sign_payload(machine_id: str, expires_at: str, plan: str) -> str:
@@ -53,6 +93,7 @@ class LicenseInfo:
     signature: str
     key: str = ""
     activated_at: Optional[datetime] = None
+    duration: LicenseDuration = field(default_factory=LicenseDuration)
 
     def to_dict(self) -> dict:
         return {
@@ -62,6 +103,7 @@ class LicenseInfo:
             "signature": self.signature,
             "key": self.key,
             "activated_at": self.activated_at.isoformat() if self.activated_at else None,
+            "duration": self.duration.to_dict(),
         }
 
     @classmethod
@@ -69,6 +111,7 @@ class LicenseInfo:
         expires = datetime.fromisoformat(data["expires_at"]).astimezone(timezone.utc)
         activated = data.get("activated_at")
         activated_at = datetime.fromisoformat(activated).astimezone(timezone.utc) if activated else None
+        duration = LicenseDuration.from_dict(data.get("duration"))
         return cls(
             machine_id=data["machine_id"],
             expires_at=expires,
@@ -76,6 +119,7 @@ class LicenseInfo:
             signature=data.get("signature", ""),
             key=data.get("key", ""),
             activated_at=activated_at,
+            duration=duration,
         )
 
     def remaining(self) -> timedelta:
@@ -168,17 +212,36 @@ class LicenseManager:
 
 
 PLAN_CHOICES = {
-    "1m": ("1 Ay", 1),
-    "3m": ("3 Ay", 3),
-    "6m": ("6 Ay", 6),
+    "1m": ("1 Ay", LicenseDuration(months=1)),
+    "3m": ("3 Ay", LicenseDuration(months=3)),
+    "6m": ("6 Ay", LicenseDuration(months=6)),
 }
 
 
-def encode_license(machine_id: str, plan_code: str) -> str:
-    if plan_code not in PLAN_CHOICES:
-        raise ValueError("license plan is not supported")
-    plan_label, months = PLAN_CHOICES[plan_code]
-    expires_at = datetime.now(timezone.utc) + relativedelta(months=months)
+def encode_license(
+    machine_id: str,
+    plan_code: Optional[str] = None,
+    *,
+    duration: Optional[LicenseDuration] = None,
+    label: Optional[str] = None,
+) -> str:
+    if plan_code:
+        if plan_code not in PLAN_CHOICES:
+            raise ValueError("license plan is not supported")
+        default_label, plan_duration = PLAN_CHOICES[plan_code]
+        duration_obj = plan_duration
+        plan_label = label or default_label
+    elif duration is not None:
+        duration_obj = duration
+        plan_label = label or duration_obj.label()
+    else:
+        raise ValueError("either plan_code or duration must be provided")
+
+    normalized = duration_obj.normalized()
+    if normalized.is_zero():
+        raise ValueError("license duration must be greater than zero")
+
+    expires_at = normalized.apply(datetime.now(timezone.utc))
     expires_iso = expires_at.isoformat()
     signature = _sign_payload(machine_id, expires_iso, plan_label)
     payload = {
@@ -186,11 +249,13 @@ def encode_license(machine_id: str, plan_code: str) -> str:
         "expires_at": expires_iso,
         "plan": plan_label,
         "signature": signature,
+        "duration": normalized.to_dict(),
     }
     return base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
 
 
 __all__ = [
+    "LicenseDuration",
     "LicenseInfo",
     "LicenseManager",
     "LicenseError",
