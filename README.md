@@ -11,6 +11,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Google Maps esintili başlık, SVG pin logosu ve sabit panellerle profesyonel masaüstü görünümü
 - Bot taraması sırasında Google Haritalar üzerindeki sonuç kartlarını taklit edilmiş fare hareketleriyle seçme
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" sekmesindeki olanakları toplama
+- API ve bot sonuçlarında yinelenen müşteri yorumlarını otomatik olarak temizleme
 - Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
 - İşletme kartlarının kapak görsellerini JSON'a ekleme ve isteğe bağlı olarak galeri fotoğraflarını (1-50 arası) kaydetme
@@ -153,6 +154,16 @@ venv\Scripts\activate
 python -m playwright install chromium
 python -m google_maps_gui.app
 ```
+
+### Seçici test modu
+
+Google Haritalar arayüzünde yeni seçiciler denerken uygulamada kullanılan aynı kullanıcı aracısı ve yerel ayarlarla Chromium açmak için kök dizindeki `maps_dev_launcher.py` betiğini çalıştırabilirsiniz:
+
+```bat
+python maps_dev_launcher.py "istanbul kuaför" --language tr
+```
+
+Betik, üretim botuyla aynı komut satırı parametreleriyle görünür bir Chromium penceresi açar ve isteğe bağlı arama sorgusunu girdikten sonra pencereyi açık bırakır. İşiniz bittiğinde terminale dönüp Enter'a basmanız yeterlidir.
 
 Kod katkısında bulunmadan önce `requirements.txt` dosyasındaki paketlerin güncel olduğundan emin olun ve yeni özellikler eklerken hem Türkçe hem de İngilizce çevirilerini eklemeyi unutmayın.
 

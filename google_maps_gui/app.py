@@ -332,16 +332,26 @@ class GoogleMapsClient:
                 continue
             opening_hours = result.get("opening_hours", {}).get("weekday_text", [])
             reviews_data = result.get("reviews", [])
-            reviews = [
-                PlaceReview(
-                    author_name=review.get("author_name", ""),
-                    rating=review.get("rating"),
-                    relative_time=review.get("relative_time_description"),
-                    text=review.get("text", ""),
-                    profile_photo_url=review.get("profile_photo_url"),
+            seen_review_signatures: set[str] = set()
+            reviews: List[PlaceReview] = []
+            for review in reviews_data:
+                signature = self._review_signature(
+                    review.get("author_name"),
+                    review.get("text"),
+                    review.get("relative_time_description"),
                 )
-                for review in reviews_data
-            ]
+                if signature in seen_review_signatures:
+                    continue
+                seen_review_signatures.add(signature)
+                reviews.append(
+                    PlaceReview(
+                        author_name=review.get("author_name", ""),
+                        rating=review.get("rating"),
+                        relative_time=review.get("relative_time_description"),
+                        text=review.get("text", ""),
+                        profile_photo_url=review.get("profile_photo_url"),
+                    )
+                )
             detailed_results.append(
                 PlaceResult(
                     name=result.get("name", ""),
@@ -381,6 +391,18 @@ class GoogleMapsClient:
             if cleaned:
                 return cleaned.title()
         return None
+
+    def _review_signature(
+        self,
+        author: Optional[str],
+        text: Optional[str],
+        relative_time: Optional[str],
+    ) -> str:
+        parts = []
+        for value in (author, text, relative_time):
+            normalized = " ".join((value or "").split()).lower()
+            parts.append(normalized)
+        return "||".join(parts)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -488,6 +510,7 @@ class GoogleMapsPlaywrightScraper:
                         with suppress(Exception):
                             attempt_callback(index + 1, card_name)
                     page.wait_for_timeout(450)
+                    self._send_progress_screenshot(page, progress_callback)
                     try:
                         active_name = self._wait_for_place_panel(page, card_name)
                     except PlaywrightTimeoutError:
@@ -876,9 +899,13 @@ class GoogleMapsPlaywrightScraper:
 
         reviews_locator = page.locator('div[data-review-id]')
         self._ensure_reviews_loaded(page, reviews_locator, target)
-        count = min(reviews_locator.count(), target)
         reviews: List[PlaceReview] = []
-        for idx in range(count):
+        seen_ids: set[str] = set()
+        idx = 0
+        while len(reviews) < target:
+            total = reviews_locator.count()
+            if idx >= total:
+                break
             review = reviews_locator.nth(idx)
             with suppress(PlaywrightError):
                 review.scroll_into_view_if_needed(timeout=1500)
@@ -896,6 +923,13 @@ class GoogleMapsPlaywrightScraper:
             if not content:
                 content = self._safe_inner_text(review.locator('span.wiI7pd').first)
             photo = self._safe_get_attribute(review.locator('img.NBa7we').first, "src") or None
+            signature_source = self._safe_get_attribute(review, "data-review-id")
+            if not signature_source:
+                signature_source = self._normalize_text("||".join(filter(None, [author, relative or "", content])))
+            if signature_source in seen_ids:
+                idx += 1
+                continue
+            seen_ids.add(signature_source)
             reviews.append(
                 PlaceReview(
                     author_name=author,
@@ -905,6 +939,7 @@ class GoogleMapsPlaywrightScraper:
                     profile_photo_url=photo or None,
                 )
             )
+            idx += 1
         return reviews
 
     def _extract_hero_image(self, page: Page) -> str:
@@ -1331,6 +1366,8 @@ class Application(tk.Tk):
         self._bot_attempted: int = 0
         self._bot_log_lines: List[tuple[str, Dict[str, str]]] = []
         self._bot_selected_index: Optional[int] = None
+        self._map_preview_size = (760, 460)
+        self._map_placeholder_active = True
 
         self._configure_style()
         self._create_widgets()
@@ -1564,11 +1601,7 @@ class Application(tk.Tk):
             anchor=tk.CENTER,
             relief=tk.SUNKEN,
             borderwidth=1,
-            width=48,
-            height=16,
             bg="#f8fafc",
-            wraplength=320,
-            justify=tk.CENTER,
         )
 
         self.bot_save_json_button = ttk.Button(
@@ -2157,13 +2190,27 @@ class Application(tk.Tk):
         except (UnidentifiedImageError, OSError):
             self._set_bot_map_placeholder()
             return
-        screenshot.thumbnail((520, 360))
+        screenshot.thumbnail(self._map_preview_size, Image.LANCZOS)
         self._bot_map_photo = ImageTk.PhotoImage(screenshot)
+        self._map_placeholder_active = False
         self.bot_map_canvas.configure(image=self._bot_map_photo, text="")
 
     def _set_bot_map_placeholder(self) -> None:
-        self._bot_map_photo = None
-        self.bot_map_canvas.configure(image="", text=self._("map_preview_placeholder"))
+        placeholder = Image.new("RGB", self._map_preview_size, "#f3f6fb")
+        draw = ImageDraw.Draw(placeholder)
+        text = self._("map_preview_placeholder")
+        try:
+            bbox = draw.textbbox((0, 0), text)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+        except AttributeError:
+            text_width, text_height = draw.textsize(text)
+        x = (self._map_preview_size[0] - text_width) / 2
+        y = (self._map_preview_size[1] - text_height) / 2
+        draw.text((x, y), text, fill="#6b7a90")
+        self._bot_map_photo = ImageTk.PhotoImage(placeholder)
+        self._map_placeholder_active = True
+        self.bot_map_canvas.configure(image=self._bot_map_photo, text="")
 
     def _on_select_api_result(self) -> None:
         selection = self.api_results_tree.selection()
@@ -2418,7 +2465,7 @@ class Application(tk.Tk):
         self.bot_reviews_label.config(text=self._("review_limit"))
         self.bot_gallery_check.config(text=self._("gallery_toggle"))
         self.bot_gallery_count_label.config(text=self._("gallery_count"))
-        if self._bot_map_photo is None:
+        if self._map_placeholder_active or self._bot_map_photo is None:
             self._set_bot_map_placeholder()
         self._set_tree_heading(self.bot_results_tree, "name", self._("column_name"))
         self._set_tree_heading(self.bot_results_tree, "phone", self._("column_phone"))
