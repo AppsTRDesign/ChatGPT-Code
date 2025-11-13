@@ -12,7 +12,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Bot taraması sırasında Google Haritalar üzerindeki sonuç kartlarını taklit edilmiş fare hareketleriyle seçme
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri ve müşteri yorumlarını toplama
 - API ve bot sonuçlarında yinelenen müşteri yorumlarını otomatik olarak temizleme
-- Yorum içeriklerinin sonunda yer alan "Yiyecek / Hizmet / Atmosfer" gibi satırları JSON çıktısında `text_extra` alanında ayrı saklama
+- Yorum içeriklerinin sonunda yer alan "Yiyecek / Hizmet / Atmosfer", "Kişi başı fiyat", "Grup büyüklüğü", "Rezervasyon", "Gürültü seviyesi", "Park yeri" vb. satırları JSON çıktısında `text_extra` alanında ayrı saklama
 - Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
 - "Paylaş" penceresindeki kısa konum bağlantısını sonuçlara ekleme (bilgi mevcutsa)
@@ -122,7 +122,7 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 ## Çıktı Biçimleri
 
-- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, "Paylaş" konum bağlantısı ve müşteri yorumları (yorumcunun adı, puanı, zaman damgası, profil fotoğrafı URL'si ve varsa `text_extra` alanı) ayrıntılı şekilde saklanır.
+- **JSON:** Her işletme için telefon, adres, kategori, çalışma saatleri, puan, "Paylaş" konum bağlantısı ve müşteri yorumları (yorumcunun adı, puanı, zaman damgası, profil fotoğrafı URL'si ve varsa `text_extra` alanı; örn. "Kişi başı fiyat", "Grup büyüklüğü", "Rezervasyon", "Park yeri" vb.) ayrıntılı şekilde saklanır.
 - **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, kategori, paylaşım bağlantısı ve yorumların özet hâli saklanır.
 
 ## Sık Karşılaşılan Sorular

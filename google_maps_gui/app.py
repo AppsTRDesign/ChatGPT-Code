@@ -8,6 +8,7 @@ import logging
 import re
 import threading
 import time
+import unicodedata
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -260,6 +261,105 @@ class PlaceResult:
         }
 
 
+def _normalize_extra_key(value: str) -> str:
+    """Normalize review metadata labels for easier comparison."""
+
+    if not value:
+        return ""
+    normalized = unicodedata.normalize("NFKD", value)
+    simplified = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return simplified.strip().lower()
+
+
+REVIEW_EXTRA_KEYS = {
+    "yiyecek",
+    "hizmet",
+    "atmosfer",
+    "food",
+    "service",
+    "atmosphere",
+    "kisi basi fiyat",
+    "kisi basi ucret",
+    "price per person",
+    "per person price",
+    "per person cost",
+    "grup buyuklugu",
+    "group size",
+    "ozel etkinlikler",
+    "special events",
+    "oturma alani turu",
+    "seating type",
+    "rezervasyon",
+    "reservation",
+    "gurultu seviyesi",
+    "noise level",
+    "bekleme suresi",
+    "wait time",
+    "park yeri",
+    "parking",
+    "park yeri secenekleri",
+    "parking options",
+    "otopark",
+    "parking availability",
+    "ogun",
+    "meal",
+}
+
+
+def split_review_text(text: str) -> tuple[str, Dict[str, str]]:
+    """Split review text into narrative content and structured metadata."""
+
+    if not text:
+        return "", {}
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines:
+        return "", {}
+
+    extras: Dict[str, str] = {}
+    main_lines: List[str] = []
+    idx = 0
+
+    while idx < len(lines):
+        line = lines[idx]
+        captured = False
+
+        if ":" in line:
+            key, value = line.split(":", 1)
+            normalized = _normalize_extra_key(key)
+            if normalized in REVIEW_EXTRA_KEYS:
+                value = value.strip()
+                if not value and idx + 1 < len(lines):
+                    next_line = lines[idx + 1]
+                    if next_line:
+                        value = next_line
+                        idx += 1
+                if value:
+                    extras[key.strip()] = value
+                    captured = True
+
+        if not captured:
+            normalized_line = _normalize_extra_key(line)
+            if normalized_line in REVIEW_EXTRA_KEYS:
+                value = ""
+                if idx + 1 < len(lines):
+                    next_line = lines[idx + 1]
+                    normalized_next = _normalize_extra_key(next_line)
+                    if next_line and normalized_next not in REVIEW_EXTRA_KEYS:
+                        value = next_line
+                        idx += 1
+                if value:
+                    extras[line] = value
+                    captured = True
+
+        if not captured:
+            main_lines.append(line)
+
+        idx += 1
+
+    return "\n".join(main_lines), extras
+
+
 class GoogleMapsError(Exception):
     """Raised when the Google Maps API returns an error."""
 
@@ -315,14 +415,15 @@ class GoogleMapsClient:
                 if signature in seen_review_signatures:
                     continue
                 seen_review_signatures.add(signature)
+                content, extras = split_review_text(review.get("text", ""))
                 reviews.append(
                     PlaceReview(
                         author_name=review.get("author_name", ""),
                         rating=review.get("rating"),
                         relative_time=review.get("relative_time_description"),
-                        text=review.get("text", ""),
+                        text=content,
                         profile_photo_url=review.get("profile_photo_url"),
-                        text_extra={},
+                        text_extra=extras,
                     )
                 )
             detailed_results.append(
@@ -869,7 +970,7 @@ class GoogleMapsPlaywrightScraper:
             raw_content = self._safe_inner_text(review.locator('div.MyEned span.wiI7pd, div.MyEned').first)
             if not raw_content:
                 raw_content = self._safe_inner_text(review.locator('span.wiI7pd').first)
-            content, extras = self._split_review_text(raw_content)
+            content, extras = split_review_text(raw_content)
             photo = self._safe_get_attribute(review.locator('img.NBa7we').first, "src") or None
             signature_source = self._safe_get_attribute(review, "data-review-id")
             if not signature_source:
@@ -890,25 +991,6 @@ class GoogleMapsPlaywrightScraper:
             )
             idx += 1
         return reviews
-
-    def _split_review_text(self, text: str) -> tuple[str, Dict[str, str]]:
-        if not text:
-            return "", {}
-        extras: Dict[str, str] = {}
-        keywords = {"yiyecek", "hizmet", "atmosfer", "food", "service", "atmosphere"}
-        main_lines: List[str] = []
-        for raw_line in text.splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            if ":" in line:
-                key, value = line.split(":", 1)
-                normalized = key.strip().lower()
-                if normalized in keywords:
-                    extras[key.strip()] = value.strip()
-                    continue
-            main_lines.append(line)
-        return "\n".join(main_lines), extras
 
     def _extract_share_location(self, page: Page) -> Optional[str]:
         selectors = [
