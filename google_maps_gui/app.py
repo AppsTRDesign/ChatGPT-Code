@@ -290,7 +290,7 @@ class GoogleMapsPlaywrightScraper:
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(
-                    headless=True,
+                    headless=False,
                     args=[
                         "--disable-notifications",
                         "--disable-infobars",
@@ -298,12 +298,21 @@ class GoogleMapsPlaywrightScraper:
                     ],
                 )
                 context = browser.new_context(
-                    locale=self._locale(), viewport={"width": 1280, "height": 900}
+                    locale=self._locale(),
+                    viewport={"width": 1280, "height": 900},
+                    screen={"width": 1280, "height": 900},
+                    user_agent=self._user_agent(),
                 )
                 page = context.new_page()
-                page.goto(f"{self.MAP_URL}?hl={self.language}", wait_until="domcontentloaded", timeout=60000)
+                page.goto(
+                    f"{self.MAP_URL}?hl={self.language}",
+                    wait_until="load",
+                    timeout=90000,
+                )
+                self._handle_privacy_dialog(page)
                 self._send_progress_screenshot(page, progress_callback)
                 self._perform_search(page, query)
+                self._handle_privacy_dialog(page)
                 self._wait_for_result_list(page)
                 self._send_progress_screenshot(page, progress_callback)
 
@@ -370,15 +379,59 @@ class GoogleMapsPlaywrightScraper:
         return mapping.get(normalized, "en-US")
 
     def _perform_search(self, page: Page, query: str) -> None:
-        search_box = page.wait_for_selector("input#searchboxinput", timeout=45000)
+        search_box = page.wait_for_selector("input#searchboxinput", timeout=60000)
         search_box.fill("")
         search_box.type(query, delay=40)
         page.keyboard.press("Enter")
         page.wait_for_timeout(600)
 
     def _wait_for_result_list(self, page: Page) -> None:
-        page.wait_for_selector('div[role="article"]', timeout=45000)
-        page.wait_for_timeout(1000)
+        selector = 'div[role="feed"] div[role="article"], div[role="article"]'
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            self._handle_privacy_dialog(page)
+            articles = page.locator(selector)
+            if articles.count():
+                try:
+                    articles.first.wait_for(state="visible", timeout=1500)
+                    page.wait_for_timeout(800)
+                    return
+                except PlaywrightTimeoutError:
+                    pass
+            page.wait_for_timeout(500)
+        raise PlaywrightTimeoutError("Search results did not appear in time")
+
+    def _user_agent(self) -> str:
+        return (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        )
+
+    def _handle_privacy_dialog(self, page: Page) -> None:
+        selectors = [
+            "button:has-text('Kabul et')",
+            "button:has-text('Tümünü kabul et')",
+            "button:has-text('Kabul Et')",
+            "button:has-text('Tümünü Kabul Et')",
+            "button:has-text('Accept all')",
+            "button:has-text('Accept All')",
+            "button:has-text('I agree')",
+            "#introAgreeButton",
+        ]
+        contexts = [page, *page.frames]
+        for context in contexts:
+            for selector in selectors:
+                locator = context.locator(selector)
+                if not locator.count():
+                    continue
+                try:
+                    target = locator.first
+                    if target.is_visible():
+                        target.click(delay=30)
+                        page.wait_for_timeout(800)
+                        return
+                except PlaywrightError:
+                    continue
 
     def _get_article_locator(self, page: Page, index: int) -> Locator:
         attempts = 0

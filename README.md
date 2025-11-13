@@ -6,7 +6,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 
 - Türkçe ve İngilizce arayüz desteği
 - Google Places API Text Search ve Details uç noktaları ile veri çekme
-- Playwright + gömülü Chromium ile Google Haritalar üzerinden bot ile tarama
+- Playwright + Windows modunda görünen Chromium ile Google Haritalar üzerinden bot ile tarama
 - Bot taraması sırasında Google Haritalar üzerindeki sonuç kartlarını taklit edilmiş fare hareketleriyle seçme
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" sekmesindeki olanakları toplama
 - Harita ekran görüntülerini canlı olarak gösteren ve Playwright tarafından güncellenen yerleşik önizleme paneli
@@ -24,7 +24,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Aktif bir Google Cloud hesabı ve **Places API** etkinleştirilmiş bir proje
 - Google Cloud Console üzerinden oluşturulmuş bir API anahtarı
 
-> Not: Playwright taraması, gerekli Chromium sürümünü `playwright install chromium` komutu ile indirir. `install.bat` betiği bu adımı otomatik olarak gerçekleştirir; manuel kurulum yapıyorsanız aynı komutu çalıştırmayı unutmayın.
+> Not: Playwright taraması, gerekli Chromium sürümünü `playwright install chromium` komutu ile indirir. `install.bat` betiği bu adımı otomatik olarak gerçekleştirir; manuel kurulum yapıyorsanız aynı komutu çalıştırmayı unutmayın. Bot sekmesi gerçek bir Chromium penceresini Windows modunda açtığı için bu kurulum tamamlanmadan tarama başlatılamaz.
 
 ## Google Places API Anahtarının Alınması
 
@@ -73,12 +73,14 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi yazın (örn. "İstanbul kuaför"). Konum bilgisini sorgu metnine eklemek yeterlidir.
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
 3. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin.
-4. "Ara" butonuna bastığınızda Playwright arka planda gömülü Chromium sayfasını açar; bot yalnızca sol menüdeki işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Tüm işlem uygulama penceresi içinde gerçekleşir.
+4. "Ara" butonuna bastığınızda Playwright görünür (headful) Chromium penceresini açar; bot yalnızca sol menüdeki işletme kartlarını yapay bir fare imleciyle izleyip tıklar ve ayrıntı panelinin açılmasını bekler. Chromium penceresi Windows üzerinde ayrı bir uygulama olarak çalışır, ancak ekran görüntüleri uygulama penceresindeki önizleme paneline aktarılır.
 5. Bot çalışırken her imleç hareketinde ve kart seçildiğinde harita ekran görüntüleri sekmenin sağ üstündeki "Harita Önizleme" panelinde otomatik olarak yenilenir.
 6. Her işletme açılır açılmaz bilgiler eşzamanlı olarak sonuç listesine eklenir ve alt paneldeki "Detaylar" bölümü en son işletmenin adres, telefon, çalışma saatleri, yorumlar ve "Hakkında" verileriyle otomatik güncellenir.
 7. Bot sonuçlarını JSON veya CSV olarak kaydetmek için ilgili butonları kullanın.
 
-> Bot sekmesinde Playwright tarafından yönetilen Chromium, ekran görüntüleri ile doğrudan arayüze gömülür ve işlem tamamlandığında oturum kapatılır.
+> Bot sekmesinde Playwright tarafından yönetilen Chromium hem ayrı bir pencerede çalışır hem de ekran görüntüleri ile uygulamaya akış sağlar. Tarama tamamlandığında pencere otomatik olarak kapanır; tarama esnasında manuel olarak kapatmayın.
+
+> Bot başlatıldığında otomasyon insan benzeri davranmak için Windows 10/Chrome 124 kullanıcı aracısı ve gerçek fare tıklamaları kullanır. Google'ın çerez/onay pencereleri otomatik kapatılamazsa Chromium'da "Kabul et" veya "Accept all" düğmesine manuel olarak basabilirsiniz.
 
 > Bot, fotoğraf galerisi gibi açılır pencereleri otomatik kapatarak veri toplamaya devam eder.
 
