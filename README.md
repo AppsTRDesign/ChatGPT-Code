@@ -1,7 +1,7 @@
 Bu proje, Google Haritalar'dan işletme bilgilerini (isim, adres, telefon, çalışma saatleri ve müşteri yorumları) almak için iki
 dilli (Türkçe/İngilizce) bir masaüstü arayüzü sunar. Uygulama Windows üzerinde Python 3.11 kullanılarak çalışacak şekilde
 tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir bot tarayıcısını destekler. Taramaları başlatmadan
-önce Lisans sekmesinden bilgisayarınıza özel 1/3/6 aylık lisans anahtarını girmeniz gerekir.
+önce Lisans sekmesinden bilgisayarınıza özel, gün/ay/yıl kombinasyonuyla üretilmiş lisans anahtarını girmeniz gerekir.
 
 ## Özellikler
 
@@ -27,7 +27,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Her iki sekmede de taranacak işletme sayısını belirleyebilme
 - Bot durum çubuğunda 0/N biçiminde kaç kart tıklandığını gösteren gerçek zamanlı sayaç
 - Olası hataları `google_maps_gui.log` dosyasına kaydetme
-- Makine kimliğine bağlı 1/3/6 aylık lisans planlarını yöneten yerleşik Lisans sekmesi ve kalan gün göstergesi
+- Makine kimliğine bağlı esnek gün/ay/yıl lisans planlarını yöneten yerleşik Lisans sekmesi ve kalan gün göstergesi
 
 ## Gereksinimler
 
@@ -70,19 +70,20 @@ Projeyi klonladıktan veya indirdikten sonra aşağıdaki adımları izleyin:
 
 Uygulama başlatıldığında önce **Lisans** sekmesi açılır ve geçerli lisans olmadan "Ara" butonları pasif kalır. Yetkilendirme adımları:
 
+
 1. Lisans sekmesindeki **Makine Kimliği** alanı her bilgisayar için benzersizdir. `Kimliği Kopyala` düğmesi ile değeri panoya alıp lisans sağlayıcınıza iletin.
-2. Sağlayıcı, seçtiğiniz plana göre (1/3/6 ay) `MAPS-<plan>-XXXXXXXXXXXXXXX` biçiminde bir anahtar üretir. Anahtar yalnızca gönderdiğiniz makine kimliğiyle eşleşir.
-3. **Lisans Süresi** açılır menüsünden satın aldığınız planı seçin ve **Lisans Anahtarı** alanına verilen değeri yapıştırıp **Lisansı Etkinleştir** düğmesine basın.
-4. Başarılı aktivasyon sonrası `google_maps_gui\license.json` dosyası oluşturulur; dosya silinmediği sürece kalan gün ve bitiş tarihi Lisans sekmesinde görüntülenir.
+2. Sağlayıcı, `license_tool.bat` (veya `python -m licence.license_tool`) aracını kullanarak istediğiniz yıl/ay/gün kombinasyonunu girer ve `MAPS-<Y>Y-<M>M-<D>D-XXXXXXXXXXXX` biçiminde bir anahtar üretir. Anahtar yalnızca gönderdiğiniz makine kimliğiyle eşleşir.
+3. **Lisans Anahtarı** alanına verilen değeri yapıştırıp **Lisansı Etkinleştir** düğmesine basın. Süre bilgisi anahtarın içinde taşındığı için ek bir menü seçimine gerek yoktur; Lisans sekmesi kalan günü, bitiş tarihini ve plan özetini otomatik olarak gösterir.
+4. Başarılı aktivasyon sonrası `licence\license.json` dosyası oluşturulur; dosya silinmediği sürece kalan gün ve bitiş tarihi Lisans sekmesinde görüntülenir.
 5. Lisans makine kimliğine bağlı olduğu için farklı bir bilgisayarda kullanmak isterseniz yeni bir anahtar talep etmeniz gerekir.
 
-> Lisans üretme aracı: Yetkili kişiler, depo kökündeki `license_tool.py` betiğini kullanarak makine kimliğine bağlı anahtarlar üretebilir. Örnek kullanım:
+> Lisans üretme aracı: Yetkili kişiler, depo kökündeki `license_tool.bat` dosyasını çalıştırarak makine kimliğine bağlı anahtarlar üretebilir. Örnek kullanım:
 
 ```bat
-python license_tool.py --months 3 --machine-id "MAKINEID123456"
+license_tool.bat --years 0 --months 3 --days 0 --machine-id "MAKINEID123456"
 ```
 
-`--machine-id` parametresi girilmezse betik çalıştırıldığı bilgisayarın makine kimliğini kullanır.
+`--machine-id` parametresi girilmezse araç çalıştırıldığı bilgisayarın makine kimliğini kullanır. Aynı komut satırını `python -m licence.license_tool ...` şeklinde de çalıştırabilirsiniz.
 
 > Not: Lisansınızın süresi dolduğunda bot ve API taraması yeniden pasif hâle gelir; yeni bir anahtar girdikten sonra aynı sekmeden hızlıca yeniden etkinleştirebilirsiniz.
 

@@ -1,14 +1,16 @@
 """Shared licensing utilities for the Google Maps GUI application."""
 from __future__ import annotations
 
-from contextlib import suppress
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, Optional
 import hashlib
 import json
 import platform
+import re
 import uuid
+from calendar import monthrange
+from contextlib import suppress
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 
 class LicenseError(Exception):
@@ -18,8 +20,8 @@ class LicenseError(Exception):
 class LicenseManager:
     """Simple offline license enforcement tied to the current machine."""
 
-    PLAN_DURATIONS = {1: 30, 3: 90, 6: 180}
     SECRET = "MAPSBOT-LICENSE-2024"
+    KEY_PATTERN = re.compile(r"^MAPS-(?P<years>\d+)Y-(?P<months>\d+)M-(?P<days>\d+)D-(?P<digest>[A-Z0-9]{16})$")
 
     def __init__(self, license_path: Optional[Path] = None) -> None:
         self.license_path = license_path or Path(__file__).resolve().parent / "license.json"
@@ -56,24 +58,31 @@ class LicenseManager:
             return None
         return expires.strftime("%Y-%m-%d %H:%M")
 
-    def plan_months(self) -> Optional[int]:
-        value = self._data.get("plan_months")
+    def plan_components(self) -> Optional[Dict[str, int]]:
+        if not self._data:
+            return None
         try:
-            return int(value) if value is not None else None
+            years = int(self._data.get("plan_years", 0))
+            months = int(self._data.get("plan_months", 0))
+            days = int(self._data.get("plan_days", 0))
         except (TypeError, ValueError):
             return None
+        if years == months == days == 0:
+            return None
+        return {"years": years, "months": months, "days": days}
 
-    def activate(self, months: int, license_key: str) -> None:
-        months = int(months)
-        if months not in self.PLAN_DURATIONS:
-            raise LicenseError("invalid_plan")
-        expected = self._expected_key(months)
-        if license_key.strip().upper() != expected:
+    def activate(self, license_key: str) -> None:
+        license_key = (license_key or "").strip().upper()
+        years, months, days = self._extract_components(license_key)
+        expected = self.expected_key_for_machine(self.machine_id(), years, months, days)
+        if license_key != expected:
             raise LicenseError("invalid_key")
-        expires = datetime.utcnow() + timedelta(days=self.PLAN_DURATIONS[months])
+        expires = self._calculate_expiry(years, months, days)
         self._data = {
             "machine_id": self.machine_id(),
+            "plan_years": years,
             "plan_months": months,
+            "plan_days": days,
             "activated_at": datetime.utcnow().isoformat(),
             "expires_at": expires.isoformat(),
             "license_key": expected,
@@ -84,13 +93,54 @@ class LicenseManager:
         return dict(self._data)
 
     @classmethod
-    def expected_key_for_machine(cls, machine_id: str, months: int) -> str:
-        payload = f"{machine_id}:{months}:{cls.SECRET}"
+    def expected_key_for_machine(
+        cls, machine_id: str, years: int, months: int, days: int
+    ) -> str:
+        cls._validate_components(years, months, days)
+        payload = f"{machine_id}:{years}:{months}:{days}:{cls.SECRET}"
         digest = hashlib.sha256(payload.encode()).hexdigest()[:16].upper()
-        return f"MAPS-{months}-{digest}"
+        return cls._format_key(years, months, days, digest)
 
-    def _expected_key(self, months: int) -> str:
-        return self.expected_key_for_machine(self.machine_id(), months)
+    def _extract_components(self, key: str) -> Tuple[int, int, int]:
+        match = self.KEY_PATTERN.match(key)
+        if not match:
+            raise LicenseError("invalid_key")
+        years = int(match.group("years"))
+        months = int(match.group("months"))
+        days = int(match.group("days"))
+        self._validate_components(years, months, days)
+        return years, months, days
+
+    @classmethod
+    def _format_key(cls, years: int, months: int, days: int, digest: str) -> str:
+        return f"MAPS-{years}Y-{months}M-{days}D-{digest}"
+
+    @classmethod
+    def _validate_components(cls, years: int, months: int, days: int) -> None:
+        for value in (years, months, days):
+            if value < 0:
+                raise LicenseError("invalid_key")
+        if years == months == days == 0:
+            raise LicenseError("invalid_key")
+
+    def _calculate_expiry(self, years: int, months: int, days: int) -> datetime:
+        base = datetime.utcnow()
+        target = self._add_calendar_duration(base, years, months)
+        target += timedelta(days=days)
+        return target
+
+    @staticmethod
+    def _add_calendar_duration(base: datetime, years: int, months: int) -> datetime:
+        year = base.year + years
+        month = base.month + months
+        while month > 12:
+            year += 1
+            month -= 12
+        while month < 1:
+            year -= 1
+            month += 12
+        day = min(base.day, monthrange(year, month)[1])
+        return base.replace(year=year, month=month, day=day)
 
     def _load(self) -> None:
         if not self.license_path.exists():

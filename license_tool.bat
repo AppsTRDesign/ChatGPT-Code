@@ -1,0 +1,10 @@
+@echo off
+setlocal
+
+if not exist venv (
+    echo Lutfen once install.bat calistirarak sanal ortami kurun.
+    exit /b 1
+)
+
+call venv\Scripts\activate.bat
+python -m licence.license_tool %*

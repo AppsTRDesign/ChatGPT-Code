@@ -27,7 +27,7 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from google_maps_gui.license_manager import LicenseError, LicenseManager
+from licence.license_manager import LicenseError, LicenseManager
 
 
 logging.basicConfig(
@@ -110,18 +110,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "license_status_invalid": "Lisans durumu: Pasif",
         "license_days_left": "Kalan Gün",
         "license_expiry": "Bitiş Tarihi",
-        "license_plan": "Lisans Süresi",
+        "license_duration": "Lisans Süresi",
         "license_key": "Lisans Anahtarı",
         "license_activate": "Lisansı Etkinleştir",
         "license_machine_copied": "Kimlik panoya kopyalandı.",
-        "license_missing_fields": "Plan ve lisans anahtarı gerekli.",
-        "license_invalid_plan": "Geçersiz plan seçimi.",
+        "license_missing_key": "Lisans anahtarı gerekli.",
         "license_invalid_key": "Lisans anahtarı doğrulanamadı.",
         "license_success": "Lisans başarıyla etkinleştirildi.",
         "license_required": "Devam etmeden önce geçerli bir lisans etkinleştirmeniz gerekir.",
-        "license_plan_1m": "1 Ay",
-        "license_plan_3m": "3 Ay",
-        "license_plan_6m": "6 Ay",
+        "duration_years": "yıl",
+        "duration_months": "ay",
+        "duration_days": "gün",
     },
     "en": {
         "app_title": "Google Maps Business Tool",
@@ -195,18 +194,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "license_status_invalid": "License status: Inactive",
         "license_days_left": "Days Remaining",
         "license_expiry": "Expiration",
-        "license_plan": "Plan",
+        "license_duration": "License Duration",
         "license_key": "License Key",
         "license_activate": "Activate License",
         "license_machine_copied": "Machine ID copied to clipboard.",
-        "license_missing_fields": "Plan and license key are required.",
-        "license_invalid_plan": "Invalid plan selection.",
+        "license_missing_key": "License key is required.",
         "license_invalid_key": "License key could not be validated.",
         "license_success": "License activated successfully.",
         "license_required": "You must activate a valid license before running scans.",
-        "license_plan_1m": "1 Month",
-        "license_plan_3m": "3 Months",
-        "license_plan_6m": "6 Months",
+        "duration_years": "years",
+        "duration_months": "months",
+        "duration_days": "days",
     },
 }
 
@@ -1346,14 +1344,13 @@ class Application(tk.Tk):
         super().__init__()
         self.selected_language = tk.StringVar(value="tr")
         self.license_manager = LicenseManager()
-        self.license_plan_var = tk.StringVar()
         self.license_key_var = tk.StringVar()
         self.license_message_var = tk.StringVar()
         self.license_machine_var = tk.StringVar(value=self.license_manager.machine_id())
         self.license_status_var = tk.StringVar()
         self.license_days_var = tk.StringVar()
         self.license_expiry_var = tk.StringVar()
-        self._plan_label_map: Dict[str, int] = {}
+        self.license_duration_var = tk.StringVar()
         self.title(self._("app_title"))
         self.geometry("1000x650")
         self.configure(bg="#f4f6fb")
@@ -1640,13 +1637,10 @@ class Application(tk.Tk):
         self.license_expiry_text = ttk.Label(
             self.license_info_frame, textvariable=self.license_expiry_var
         )
-
-        self.license_plan_label = ttk.Label(self.license_activation_frame, text="")
-        self.license_plan_combo = ttk.Combobox(
-            self.license_activation_frame,
-            state="readonly",
-            textvariable=self.license_plan_var,
+        self.license_duration_text = ttk.Label(
+            self.license_info_frame, textvariable=self.license_duration_var
         )
+
         self.license_key_label = ttk.Label(self.license_activation_frame, text="")
         self.license_key_entry = ttk.Entry(
             self.license_activation_frame,
@@ -1757,15 +1751,14 @@ class Application(tk.Tk):
         self.license_status_text.grid(row=1, column=0, columnspan=3, sticky=tk.W, **info_pad)
         self.license_days_text.grid(row=2, column=0, columnspan=3, sticky=tk.W, **info_pad)
         self.license_expiry_text.grid(row=3, column=0, columnspan=3, sticky=tk.W, **info_pad)
+        self.license_duration_text.grid(row=4, column=0, columnspan=3, sticky=tk.W, **info_pad)
 
         act_pad = {"padx": 5, "pady": 5}
-        self.license_plan_label.grid(row=0, column=0, sticky=tk.W, **act_pad)
-        self.license_plan_combo.grid(row=0, column=1, sticky=tk.W, **act_pad)
-        self.license_key_label.grid(row=1, column=0, sticky=tk.W, **act_pad)
-        self.license_key_entry.grid(row=1, column=1, sticky=tk.EW, **act_pad)
+        self.license_key_label.grid(row=0, column=0, sticky=tk.W, **act_pad)
+        self.license_key_entry.grid(row=0, column=1, sticky=tk.EW, **act_pad)
         self.license_activation_frame.columnconfigure(1, weight=1)
-        self.license_activate_button.grid(row=2, column=0, columnspan=2, sticky=tk.E, **act_pad)
-        self.license_message_label.grid(row=3, column=0, columnspan=2, sticky=tk.W, **act_pad)
+        self.license_activate_button.grid(row=1, column=0, columnspan=2, sticky=tk.E, **act_pad)
+        self.license_message_label.grid(row=2, column=0, columnspan=2, sticky=tk.W, **act_pad)
 
     def _on_gallery_toggle(self) -> None:
         enabled = bool(self.bot_gallery_var.get())
@@ -1806,37 +1799,18 @@ class Application(tk.Tk):
         self.license_message_var.set(self._("license_machine_copied"))
 
     def _on_activate_license(self) -> None:
-        months = self._plan_label_to_months(self.license_plan_var.get())
         key = (self.license_key_var.get() or "").strip()
-        if not months or not key:
-            self.license_message_var.set(self._("license_missing_fields"))
+        if not key:
+            self.license_message_var.set(self._("license_missing_key"))
             return
         try:
-            self.license_manager.activate(months, key)
-        except LicenseError as exc:
-            if str(exc) == "invalid_plan":
-                self.license_message_var.set(self._("license_invalid_plan"))
-            else:
-                self.license_message_var.set(self._("license_invalid_key"))
+            self.license_manager.activate(key)
+        except LicenseError:
+            self.license_message_var.set(self._("license_invalid_key"))
             return
         self.license_message_var.set(self._("license_success"))
         self.license_key_var.set("")
         self._refresh_license_state()
-
-    def _plan_label_to_months(self, label: str) -> Optional[int]:
-        return self._plan_label_map.get(label)
-
-    def _update_license_plan_options(self) -> None:
-        labels: List[str] = []
-        self._plan_label_map.clear()
-        for months in sorted(LicenseManager.PLAN_DURATIONS.keys()):
-            key = f"license_plan_{months}m"
-            label = self._(key)
-            labels.append(label)
-            self._plan_label_map[label] = months
-        self.license_plan_combo.config(values=labels)
-        if labels and self.license_plan_var.get() not in labels:
-            self.license_plan_var.set(labels[0])
 
     def _refresh_license_state(self) -> None:
         self.license_machine_var.set(self.license_manager.machine_id())
@@ -1854,8 +1828,21 @@ class Application(tk.Tk):
             self.license_status_var.set(self._("license_status_invalid"))
             days_text = "-"
             expiry_text = "-"
+        plan = self.license_manager.plan_components()
+        if plan:
+            parts: List[str] = []
+            if plan["years"]:
+                parts.append(f"{plan['years']} {self._('duration_years')}")
+            if plan["months"]:
+                parts.append(f"{plan['months']} {self._('duration_months')}")
+            if plan["days"]:
+                parts.append(f"{plan['days']} {self._('duration_days')}")
+            duration_text = ", ".join(parts) if parts else "-"
+        else:
+            duration_text = "-"
         self.license_days_var.set(f"{self._('license_days_left')}: {days_text}")
         self.license_expiry_var.set(f"{self._('license_expiry')}: {expiry_text}")
+        self.license_duration_var.set(f"{self._('license_duration')}: {duration_text}")
 
     def _apply_license_state(self) -> None:
         valid = self.license_manager.is_valid()
@@ -2478,11 +2465,9 @@ class Application(tk.Tk):
         self.license_activation_frame.config(text=self._("license_activation_group"))
         self.license_machine_label.config(text=self._("license_machine_id"))
         self.license_copy_button.config(text=self._("license_copy_id"))
-        self.license_plan_label.config(text=self._("license_plan"))
         self.license_key_label.config(text=self._("license_key"))
         self.license_activate_button.config(text=self._("license_activate"))
 
-        self._update_license_plan_options()
         self._refresh_license_state()
         self.license_message_var.set("")
         self.api_status_var.set(self._("status_ready"))
