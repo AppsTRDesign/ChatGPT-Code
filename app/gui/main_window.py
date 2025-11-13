@@ -38,6 +38,7 @@ from PySide6.QtWidgets import (
 
 from telethon import functions, types
 
+from app.core.license import LicenseError, LicenseManager
 from app.core.logger import configure_logging
 from app.core.session_manager import PendingLogin, SessionManager
 from app.core.settings import POPULAR_TIMEZONES, SettingsRepository
@@ -57,6 +58,10 @@ class MainWindow(QMainWindow):
         self.settings.ensure_directories()
         log_file = self.settings.log_directory / "application.log"
         configure_logging(log_file)
+
+        license_path = Path("config") / "license.json"
+        self.license_manager = LicenseManager(license_path)
+        self.license_info = self.license_manager.get_info()
 
         self.session_manager = SessionManager(self.settings)
         self.user_storages = {
@@ -359,8 +364,41 @@ class MainWindow(QMainWindow):
 
         layout.addRow(translator.translate("label.language"), self.language_combo)
         layout.addRow(translator.translate("label.timezone"), self.timezone_combo)
+
+        self.license_group = QGroupBox(translator.translate("group.license"))
+        license_layout = QFormLayout()
+        self.license_status_caption = QLabel(translator.translate("label.license_status"))
+        self.license_status_value = QLabel("-")
+        self.license_plan_caption = QLabel(translator.translate("label.license_plan"))
+        self.license_plan_value = QLabel("-")
+        self.license_expiry_caption = QLabel(translator.translate("label.license_expires"))
+        self.license_expiry_value = QLabel("-")
+        self.license_remaining_caption = QLabel(translator.translate("label.license_remaining"))
+        self.license_remaining_value = QLabel("-")
+        self.license_machine_caption = QLabel(translator.translate("label.license_machine"))
+        self.license_machine_value = QLabel(self.license_manager.machine_id)
+
+        license_layout.addRow(self.license_status_caption, self.license_status_value)
+        license_layout.addRow(self.license_plan_caption, self.license_plan_value)
+        license_layout.addRow(self.license_expiry_caption, self.license_expiry_value)
+        license_layout.addRow(self.license_remaining_caption, self.license_remaining_value)
+        license_layout.addRow(self.license_machine_caption, self.license_machine_value)
+
+        self.license_key_caption = QLabel(translator.translate("label.license_key"))
+        license_input_layout = QHBoxLayout()
+        self.license_input = QLineEdit()
+        self.license_activate_button = QPushButton(translator.translate("button.activate_license"))
+        self.license_activate_button.clicked.connect(self.handle_license_activation)
+        license_input_layout.addWidget(self.license_input)
+        license_input_layout.addWidget(self.license_activate_button)
+        license_layout.addRow(self.license_key_caption, license_input_layout)
+
+        self.license_group.setLayout(license_layout)
+        layout.addRow(self.license_group)
+
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("tab.settings"))
+        self._refresh_license_labels()
 
     def _build_user_tab(self) -> None:
         tab = QWidget()
@@ -487,6 +525,13 @@ class MainWindow(QMainWindow):
         self.refresh_sessions()
 
     def start_task(self, task_type: str) -> None:
+        if not self._license_is_active():
+            QMessageBox.warning(
+                self,
+                self.windowTitle(),
+                translator.translate("dialog.license_required"),
+            )
+            return
         if self.worker_threads:
             QMessageBox.warning(
                 self,
@@ -1002,6 +1047,56 @@ class MainWindow(QMainWindow):
             storage.set_timezone(timezone)
         self.settings_repo.save(self.settings)
         self.populate_user_tables()
+        self._refresh_license_labels()
+
+    def handle_license_activation(self) -> None:
+        key = self.license_input.text().strip()
+        if not key:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.license_key_missing"))
+            return
+        try:
+            self.license_info = self.license_manager.activate(key)
+        except LicenseError as exc:
+            QMessageBox.critical(self, self.windowTitle(), translator.translate(exc.message_key))
+            return
+        self.license_input.clear()
+        self._refresh_license_labels()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.license_activation_success"))
+
+    def _license_is_active(self) -> bool:
+        return bool(self.license_info and self.license_info.is_active(self.license_manager.machine_id))
+
+    def _refresh_license_labels(self) -> None:
+        if not hasattr(self, "license_status_value"):
+            return
+        self.license_machine_value.setText(self.license_manager.machine_id)
+        info = self.license_info
+        if info:
+            active = info.is_active(self.license_manager.machine_id)
+            status_key = "license.status_active" if active else "license.status_expired"
+            expiry_text = self.license_manager.format_datetime(info.expires_at, self.settings.timezone)
+            remaining_delta = info.remaining()
+            if remaining_delta.total_seconds() <= 0:
+                remaining_text = translator.translate("license.remaining_none")
+            else:
+                days = remaining_delta.days
+                hours, remainder = divmod(remaining_delta.seconds, 3600)
+                minutes = remainder // 60
+                remaining_text = translator.translate("license.remaining_format").format(
+                    days=days,
+                    hours=hours,
+                    minutes=minutes,
+                )
+            plan_text = info.plan or translator.translate("license.plan_unknown")
+        else:
+            status_key = "license.status_missing"
+            expiry_text = translator.translate("license.expiry_unknown")
+            remaining_text = translator.translate("license.remaining_unknown")
+            plan_text = translator.translate("license.plan_unknown")
+        self.license_status_value.setText(translator.translate(status_key))
+        self.license_expiry_value.setText(expiry_text)
+        self.license_remaining_value.setText(remaining_text)
+        self.license_plan_value.setText(plan_text)
 
     def retranslate_ui(self) -> None:
         self.setWindowTitle(translator.translate("app.title"))
@@ -1047,6 +1142,16 @@ class MainWindow(QMainWindow):
         if hasattr(self, "user_tab_widget"):
             for index, (_, __, title_key) in enumerate(self.user_table_meta):
                 self.user_tab_widget.setTabText(index, translator.translate(title_key))
+        if hasattr(self, "license_group"):
+            self.license_group.setTitle(translator.translate("group.license"))
+            self.license_status_caption.setText(translator.translate("label.license_status"))
+            self.license_plan_caption.setText(translator.translate("label.license_plan"))
+            self.license_expiry_caption.setText(translator.translate("label.license_expires"))
+            self.license_remaining_caption.setText(translator.translate("label.license_remaining"))
+            self.license_machine_caption.setText(translator.translate("label.license_machine"))
+            self.license_key_caption.setText(translator.translate("label.license_key"))
+            self.license_activate_button.setText(translator.translate("button.activate_license"))
+            self._refresh_license_labels()
         for container in [self.scan_progress_container, self.add_progress_container, self.active_progress_container]:
             for i in range(container.count()):
                 widget = container.itemAt(i).widget()

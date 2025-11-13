@@ -1,11 +1,14 @@
 @echo off
 setlocal
 set "SCRIPT_DIR=%~dp0"
-if not exist "%SCRIPT_DIR%.venv" (
-    py -m venv "%SCRIPT_DIR%.venv"
+if not exist "%SCRIPT_DIR%scripts\install.ps1" (
+    echo Kurulum betigi bulunamadi.
+    exit /b 1
 )
-call "%SCRIPT_DIR%.venv\Scripts\activate" >nul 2>&1
-py -m pip install --upgrade pip
-py -m pip install -r "%SCRIPT_DIR%requirements.txt"
+powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\install.ps1" -Root "%SCRIPT_DIR%"
+if errorlevel 1 (
+    echo Kurulum tamamlanamadi.
+    exit /b 1
+)
 echo Kurulum tamamlandi.
 endlocal
