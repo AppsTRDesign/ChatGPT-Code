@@ -1009,8 +1009,10 @@ class GoogleMapsPlaywrightScraper:
 
     def _open_gallery_overlay(self, page: Page) -> bool:
         selectors = [
+            'div.RZ66Rb.FgCUCc button.aoRNLd',
             'div.RZ66Rb button[aria-label]',
             'div.RZ66Rb button',
+            'button[jsaction*="heroHeaderImage" i]',
             'div.RZ66Rb',
         ]
         for selector in selectors:
@@ -1031,7 +1033,10 @@ class GoogleMapsPlaywrightScraper:
 
     def _close_gallery_overlay(self, page: Page) -> None:
         selectors = [
-            'div[role="dialog"] button[aria-label*="Kapat"]',
+            'div[role="dialog"] button[aria-label*="Geri" i]',
+            'div[role="dialog"] button[aria-label*="Back" i]',
+            'div[role="dialog"] button[jsaction*="gallery.back" i]',
+            'div[role="dialog"] button[aria-label*="Kapat" i]',
             'div[role="dialog"] button[jsname="tWT92d"]',
         ]
         for selector in selectors:
@@ -1250,37 +1255,44 @@ class GoogleMapsPlaywrightScraper:
                 continue
             try:
                 locator.first.click(delay=70)
-                page.wait_for_timeout(300)
-                share_input = page.locator('div.WVlZT input.vrsrZe').first
-                share_value = ""
-                if share_input.count():
-                    share_value = self._safe_get_attribute(share_input, "value")
-                    if not share_value:
-                        with suppress(PlaywrightError):
-                            share_value = share_input.input_value(timeout=2500).strip()
-                share_value = (share_value or "").strip()
-                if not share_value:
-                    share_value = self._safe_inner_text(page.locator('div.qxmtj span.htP7Y').first, timeout=2500)
-                if share_value:
-                    copy_btn = page.locator('div.WVlZT button.oucrtf, button.oucrtf').first
-                    if copy_btn.count():
-                        with suppress(PlaywrightError):
-                            copy_btn.click()
-                    self._close_share_dialog(page)
-                    return share_value
+                page.wait_for_selector('div.WVlZT input.vrsrZe', timeout=5000)
             except PlaywrightError:
+                self._close_share_dialog(page, prefer_close_button=True)
                 continue
-        self._close_share_dialog(page)
+            share_input = page.locator('div.WVlZT input.vrsrZe').first
+            share_value = ""
+            if share_input.count():
+                with suppress(PlaywrightError):
+                    share_input.click()
+                    page.wait_for_timeout(150)
+                share_value = self._safe_get_attribute(share_input, "value")
+                if not share_value:
+                    with suppress(PlaywrightError):
+                        share_value = share_input.input_value(timeout=2500).strip()
+            share_value = (share_value or "").strip()
+            if not share_value:
+                share_value = self._safe_inner_text(page.locator('div.qxmtj span.htP7Y').first, timeout=2500)
+            if share_value:
+                copy_btn = page.locator('div.WVlZT button.oucrtf, button.oucrtf').first
+                if copy_btn.count():
+                    with suppress(PlaywrightError):
+                        copy_btn.click()
+                        page.wait_for_timeout(150)
+                self._close_share_dialog(page, prefer_close_button=True)
+                return share_value
+            self._close_share_dialog(page, prefer_close_button=True)
+        self._close_share_dialog(page, prefer_close_button=True)
         return None
 
-    def _close_share_dialog(self, page: Page) -> None:
+    def _close_share_dialog(self, page: Page, prefer_close_button: bool = False) -> None:
         selectors = [
+            'button.OyzoZb',
             'button[aria-label*="Kapat"]',
             'button[aria-label*="Close"]',
             'button[jsname="tWT92d"]',
-            'button.OyzoZb',
         ]
-        for selector in selectors:
+        ordered = selectors if prefer_close_button else selectors[1:] + selectors[:1]
+        for selector in ordered:
             locator = page.locator(selector)
             if not locator.count():
                 continue
@@ -1476,7 +1488,7 @@ class Application(tk.Tk):
         self._bot_attempted: int = 0
         self._bot_log_lines: List[tuple[str, Dict[str, str]]] = []
         self._bot_selected_index: Optional[int] = None
-        self._map_preview_size = (900, 520)
+        self._map_preview_size = (780, 480)
         self._map_placeholder_active = True
 
         self._configure_style()
@@ -1565,7 +1577,8 @@ class Application(tk.Tk):
             self.api_form_frame,
             from_=1,
             to=20,
-            width=5,
+            width=7,
+            justify=tk.CENTER,
         )
         self._set_spin_value(self.api_limit_spin, "5")
 
@@ -1642,7 +1655,8 @@ class Application(tk.Tk):
             self.bot_form_frame,
             from_=1,
             to=20,
-            width=5,
+            width=7,
+            justify=tk.CENTER,
         )
         self._set_spin_value(self.bot_limit_spin, "5")
 
@@ -1651,7 +1665,8 @@ class Application(tk.Tk):
             self.bot_form_frame,
             from_=0,
             to=200,
-            width=5,
+            width=7,
+            justify=tk.CENTER,
         )
         self._set_spin_value(self.bot_reviews_spin, "5")
 
@@ -1667,7 +1682,8 @@ class Application(tk.Tk):
             self.bot_form_frame,
             from_=1,
             to=50,
-            width=5,
+            width=7,
+            justify=tk.CENTER,
         )
         self._set_spin_value(self.bot_gallery_count_spin, "3")
         self._update_gallery_spin_state()
@@ -1830,14 +1846,14 @@ class Application(tk.Tk):
         self.api_status_label.pack(side=tk.RIGHT)
 
         # Bot tab layout
-        self.bot_tab.columnconfigure(0, weight=3, minsize=520)
-        self.bot_tab.columnconfigure(1, weight=2, minsize=420)
-        self.bot_tab.rowconfigure(0, weight=1)
+        self.bot_tab.columnconfigure(0, weight=3, minsize=560)
+        self.bot_tab.columnconfigure(1, weight=3, minsize=520)
+        self.bot_tab.rowconfigure(0, weight=0)
         self.bot_tab.rowconfigure(1, weight=3)
-        self.bot_tab.rowconfigure(2, weight=0)
+        self.bot_tab.rowconfigure(2, weight=2)
+        self.bot_tab.rowconfigure(3, weight=0)
 
-        self.bot_form_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=(10, 5), pady=(10, 5))
-        self.bot_map_frame.grid(row=0, column=1, sticky=tk.NSEW, padx=(5, 10), pady=(10, 5))
+        self.bot_form_frame.grid(row=0, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=(10, 5))
         for idx in range(5):
             weight = 1 if idx in {1, 3} else 0
             self.bot_form_frame.columnconfigure(idx, weight=weight)
@@ -1858,12 +1874,13 @@ class Application(tk.Tk):
         self.bot_map_canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         self.bot_results_frame.grid(row=1, column=0, sticky=tk.NSEW, padx=(10, 5), pady=5)
-        self.bot_details_frame.grid(row=1, column=1, sticky=tk.NSEW, padx=(5, 10), pady=5)
+        self.bot_map_frame.grid(row=1, column=1, sticky=tk.NSEW, padx=(5, 10), pady=5)
+        self.bot_details_frame.grid(row=2, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=5)
         self.bot_results_tree.pack(fill=tk.BOTH, expand=True)
         self.bot_details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.bot_details_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.bot_button_frame.grid(row=2, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=(0, 10))
+        self.bot_button_frame.grid(row=3, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=(0, 10))
         self.bot_save_json_button.pack(side=tk.LEFT, padx=5)
         self.bot_save_csv_button.pack(side=tk.LEFT, padx=5)
         self.bot_status_label.pack(side=tk.RIGHT)
