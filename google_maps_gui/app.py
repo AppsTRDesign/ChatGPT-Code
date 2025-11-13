@@ -216,14 +216,16 @@ class PlaceReview:
     relative_time: Optional[str]
     text: str
     profile_photo_url: Optional[str] = None
+    text_extra: Dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Optional[str]]:
+    def to_dict(self) -> Dict[str, object]:
         return {
             "author_name": self.author_name,
             "rating": self.rating,
             "relative_time": self.relative_time,
             "text": self.text,
             "profile_photo_url": self.profile_photo_url,
+            "text_extra": self.text_extra,
         }
 
 
@@ -348,6 +350,7 @@ class GoogleMapsClient:
                         relative_time=review.get("relative_time_description"),
                         text=review.get("text", ""),
                         profile_photo_url=review.get("profile_photo_url"),
+                        text_extra={},
                     )
                 )
             detailed_results.append(
@@ -917,9 +920,10 @@ class GoogleMapsPlaywrightScraper:
                 with suppress(ValueError):
                     rating = float(digits)
             relative = self._safe_inner_text(review.locator('span.rsqaWe').first)
-            content = self._safe_inner_text(review.locator('div.MyEned span.wiI7pd, div.MyEned').first)
-            if not content:
-                content = self._safe_inner_text(review.locator('span.wiI7pd').first)
+            raw_content = self._safe_inner_text(review.locator('div.MyEned span.wiI7pd, div.MyEned').first)
+            if not raw_content:
+                raw_content = self._safe_inner_text(review.locator('span.wiI7pd').first)
+            content, extras = self._split_review_text(raw_content)
             photo = self._safe_get_attribute(review.locator('img.NBa7we').first, "src") or None
             signature_source = self._safe_get_attribute(review, "data-review-id")
             if not signature_source:
@@ -935,10 +939,30 @@ class GoogleMapsPlaywrightScraper:
                     relative_time=relative or None,
                     text=content,
                     profile_photo_url=photo or None,
+                    text_extra=extras,
                 )
             )
             idx += 1
         return reviews
+
+    def _split_review_text(self, text: str) -> tuple[str, Dict[str, str]]:
+        if not text:
+            return "", {}
+        extras: Dict[str, str] = {}
+        keywords = {"yiyecek", "hizmet", "atmosfer", "food", "service", "atmosphere"}
+        main_lines: List[str] = []
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if ":" in line:
+                key, value = line.split(":", 1)
+                normalized = key.strip().lower()
+                if normalized in keywords:
+                    extras[key.strip()] = value.strip()
+                    continue
+            main_lines.append(line)
+        return "\n".join(main_lines), extras
 
     def _extract_hero_image(self, page: Page) -> str:
         selectors = [
@@ -964,29 +988,41 @@ class GoogleMapsPlaywrightScraper:
         images: List[str] = []
         seen: set[str] = set()
         attempts = 0
-        while len(images) < limit and attempts < limit * 4:
-            current = self._current_gallery_image(page)
-            if current and current not in seen:
-                images.append(current)
-                seen.add(current)
-            if len(images) >= limit:
-                break
-            with suppress(PlaywrightError):
-                page.keyboard.press("ArrowRight")
-            page.wait_for_timeout(350)
-            attempts += 1
-        self._close_gallery_overlay(page)
+        try:
+            while len(images) < limit and attempts < limit * 5:
+                for url in self._collect_gallery_urls(page):
+                    if url and url not in seen:
+                        images.append(url)
+                        seen.add(url)
+                        if len(images) >= limit:
+                            break
+                if len(images) >= limit:
+                    break
+                scrolled = self._scroll_gallery_container(page)
+                attempts += 1
+                page.wait_for_timeout(300)
+                if not scrolled:
+                    break
+        finally:
+            self._close_gallery_overlay(page)
         return images
 
     def _open_gallery_overlay(self, page: Page) -> bool:
-        selectors = ['div.RZ66Rb button', 'div.RZ66Rb']
+        selectors = [
+            'div.RZ66Rb button[aria-label]',
+            'div.RZ66Rb button',
+            'div.RZ66Rb',
+        ]
         for selector in selectors:
             locator = page.locator(selector)
             if not locator.count():
                 continue
             try:
                 locator.first.click(delay=60)
-                page.wait_for_selector('div[role="dialog"] div.Uf0tqf', timeout=4000)
+                page.wait_for_selector(
+                    'div[role="dialog"] div.Uf0tqf, div.m6QErb.DxyBCb div.Uf0tqf',
+                    timeout=4000,
+                )
                 page.wait_for_timeout(200)
                 return True
             except PlaywrightError:
@@ -994,27 +1030,87 @@ class GoogleMapsPlaywrightScraper:
         return False
 
     def _close_gallery_overlay(self, page: Page) -> None:
+        selectors = [
+            'div[role="dialog"] button[aria-label*="Kapat"]',
+            'div[role="dialog"] button[jsname="tWT92d"]',
+        ]
+        for selector in selectors:
+            locator = page.locator(selector)
+            if locator.count():
+                with suppress(PlaywrightError):
+                    locator.first.click()
+                break
         with suppress(PlaywrightError):
             page.keyboard.press("Escape")
         page.wait_for_timeout(200)
 
-    def _current_gallery_image(self, page: Page) -> str:
-        locator = page.locator('div[role="dialog"] div.Uf0tqf, div.Uf0tqf')
-        if not locator.count():
-            return ""
-        style = self._safe_get_attribute(locator.first, "style")
-        if style:
-            parsed = self._parse_background_image(style)
-            if parsed:
-                return parsed
-        return self._safe_get_attribute(locator.first.locator('img').first, "src")
+    def _collect_gallery_urls(self, page: Page) -> List[str]:
+        script = """
+            () => {
+                const urls = [];
+                const nodes = document.querySelectorAll('div[role="dialog"] div.Uf0tqf, div.Uf0tqf');
+                nodes.forEach((node) => {
+                    let bg = node.style && node.style.backgroundImage ? node.style.backgroundImage : '';
+                    if (!bg) {
+                        const wrapper = node.closest('.U39Pmb');
+                        if (wrapper && wrapper.style.backgroundImage) {
+                            bg = wrapper.style.backgroundImage;
+                        }
+                    }
+                    const match = bg && bg.match(/url\((?:"|')?(.*?)(?:"|')?\)/i);
+                    let url = match && match[1] ? match[1] : '';
+                    if (!url) {
+                        const img = node.querySelector('img');
+                        if (img && img.src) {
+                            url = img.src;
+                        }
+                    }
+                    if (url && !url.startsWith('//:0')) {
+                        if (url.startsWith('//')) {
+                            url = 'https:' + url;
+                        }
+                        urls.push(url);
+                    }
+                });
+                return urls;
+            }
+        """
+        try:
+            data = page.evaluate(script)
+        except PlaywrightError:
+            return []
+        return data or []
+
+    def _scroll_gallery_container(self, page: Page) -> bool:
+        script = """
+            () => {
+                const container = document.querySelector('div[role="dialog"] div.m6QErb.XiKgde') ||
+                    document.querySelector('div.m6QErb.DxyBCb.kA9KIf.dS8AEf.XiKgde');
+                if (!container) {
+                    window.scrollBy(0, 600);
+                    return false;
+                }
+                const before = container.scrollTop;
+                container.scrollTop = before + (container.clientHeight || 600);
+                return container.scrollTop !== before;
+            }
+        """
+        try:
+            return bool(page.evaluate(script))
+        except PlaywrightError:
+            with suppress(PlaywrightError):
+                page.mouse.wheel(0, 600)
+            return False
 
     def _parse_background_image(self, style: str) -> str:
         if not style:
             return ""
         match = re.search(r"""url\((?:'|")?(.*?)(?:'|")?\)""", style)
         if match:
-            return match.group(1)
+            url = match.group(1)
+            if url.startswith("//"):
+                url = f"https:{url}"
+            return url
         return ""
 
     def _ensure_reviews_loaded(self, page: Page, locator: Locator, target: int) -> None:
@@ -1155,10 +1251,23 @@ class GoogleMapsPlaywrightScraper:
             try:
                 locator.first.click(delay=70)
                 page.wait_for_timeout(300)
-                share_text = self._safe_inner_text(page.locator('div.qxmtj span.htP7Y').first, timeout=2500)
-                if share_text:
+                share_input = page.locator('div.WVlZT input.vrsrZe').first
+                share_value = ""
+                if share_input.count():
+                    share_value = self._safe_get_attribute(share_input, "value")
+                    if not share_value:
+                        with suppress(PlaywrightError):
+                            share_value = share_input.input_value(timeout=2500).strip()
+                share_value = (share_value or "").strip()
+                if not share_value:
+                    share_value = self._safe_inner_text(page.locator('div.qxmtj span.htP7Y').first, timeout=2500)
+                if share_value:
+                    copy_btn = page.locator('div.WVlZT button.oucrtf, button.oucrtf').first
+                    if copy_btn.count():
+                        with suppress(PlaywrightError):
+                            copy_btn.click()
                     self._close_share_dialog(page)
-                    return share_text
+                    return share_value
             except PlaywrightError:
                 continue
         self._close_share_dialog(page)
@@ -1169,6 +1278,7 @@ class GoogleMapsPlaywrightScraper:
             'button[aria-label*="Kapat"]',
             'button[aria-label*="Close"]',
             'button[jsname="tWT92d"]',
+            'button.OyzoZb',
         ]
         for selector in selectors:
             locator = page.locator(selector)
@@ -1352,8 +1462,11 @@ class Application(tk.Tk):
         self.license_expiry_var = tk.StringVar()
         self.license_duration_var = tk.StringVar()
         self.title(self._("app_title"))
-        self.geometry("1000x650")
+        self.geometry("1280x860")
+        self.minsize(1180, 760)
         self.configure(bg="#f4f6fb")
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
         self._tree_sort_states: Dict[ttk.Treeview, Dict[str, bool]] = {}
 
         self._api_results: List[PlaceResult] = []
@@ -1363,7 +1476,7 @@ class Application(tk.Tk):
         self._bot_attempted: int = 0
         self._bot_log_lines: List[tuple[str, Dict[str, str]]] = []
         self._bot_selected_index: Optional[int] = None
-        self._map_preview_size = (760, 460)
+        self._map_preview_size = (900, 520)
         self._map_placeholder_active = True
 
         self._configure_style()
@@ -1381,7 +1494,11 @@ class Application(tk.Tk):
         style.configure("Status.TLabel", foreground="#0b6fa4", font=("Segoe UI", 10, "bold"))
         style.configure("Treeview", font=("Segoe UI", 10))
         style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"))
-        style.configure("Body.TLabelframe", padding=10)
+        style.configure("Body.TLabelframe", padding=12, background="#ffffff")
+        style.configure("Body.TLabelframe.Label", font=("Segoe UI", 11, "bold"))
+        style.configure("Card.TFrame", background="#ffffff")
+        style.configure("TNotebook", background="#f4f6fb")
+        style.configure("TNotebook.Tab", padding=(18, 8))
         self.style = style
 
     def _build_logo_image(self) -> ImageTk.PhotoImage:
@@ -1419,14 +1536,14 @@ class Application(tk.Tk):
         )
 
         self.separator = ttk.Separator(self, orient=tk.HORIZONTAL)
-        self.content_frame = ttk.Frame(self)
+        self.content_frame = ttk.Frame(self, padding=10, style="Card.TFrame")
         self.notebook = ttk.Notebook(self.content_frame)
 
         # API tab widgets
         self.api_tab = ttk.Frame(self.notebook)
-        self.api_form_frame = ttk.LabelFrame(self.api_tab, text="", padding=10)
-        self.api_results_frame = ttk.LabelFrame(self.api_tab, text="", padding=5)
-        self.api_details_frame = ttk.LabelFrame(self.api_tab, text="", padding=5)
+        self.api_form_frame = ttk.LabelFrame(self.api_tab, text="", padding=10, style="Body.TLabelframe")
+        self.api_results_frame = ttk.LabelFrame(self.api_tab, text="", padding=5, style="Body.TLabelframe")
+        self.api_details_frame = ttk.LabelFrame(self.api_tab, text="", padding=5, style="Body.TLabelframe")
         self.api_button_frame = ttk.Frame(self.api_tab)
 
         self.api_key_label = ttk.Label(self.api_form_frame, text="")
@@ -1503,10 +1620,10 @@ class Application(tk.Tk):
 
         # Bot tab widgets
         self.bot_tab = ttk.Frame(self.notebook)
-        self.bot_form_frame = ttk.LabelFrame(self.bot_tab, text="", padding=10)
-        self.bot_map_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5)
-        self.bot_results_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5)
-        self.bot_details_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5)
+        self.bot_form_frame = ttk.LabelFrame(self.bot_tab, text="", padding=10, style="Body.TLabelframe")
+        self.bot_map_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5, style="Body.TLabelframe")
+        self.bot_results_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5, style="Body.TLabelframe")
+        self.bot_details_frame = ttk.LabelFrame(self.bot_tab, text="", padding=5, style="Body.TLabelframe")
         self.bot_button_frame = ttk.Frame(self.bot_tab)
 
         self.bot_query_label = ttk.Label(self.bot_form_frame, text="")
@@ -1592,6 +1709,11 @@ class Application(tk.Tk):
         )
         self.bot_details_text.configure(yscrollcommand=self.bot_details_scroll.set)
 
+        self.bot_map_frame.configure(
+            width=self._map_preview_size[0] + 30, height=self._map_preview_size[1] + 30
+        )
+        with suppress(Exception):
+            self.bot_map_frame.pack_propagate(False)
         self.bot_map_canvas = tk.Label(
             self.bot_map_frame,
             text="",
@@ -1599,6 +1721,9 @@ class Application(tk.Tk):
             relief=tk.SUNKEN,
             borderwidth=1,
             bg="#f8fafc",
+        )
+        self.bot_map_canvas.configure(
+            width=self._map_preview_size[0], height=self._map_preview_size[1]
         )
 
         self.bot_save_json_button = ttk.Button(
@@ -1611,6 +1736,8 @@ class Application(tk.Tk):
             text="",
             command=lambda: self._save_results(self._bot_results, "csv"),
         )
+
+        self._set_bot_map_placeholder()
 
         # License tab widgets
         self.license_tab = ttk.Frame(self.notebook)
@@ -1703,10 +1830,11 @@ class Application(tk.Tk):
         self.api_status_label.pack(side=tk.RIGHT)
 
         # Bot tab layout
-        self.bot_tab.columnconfigure(0, weight=2)
-        self.bot_tab.columnconfigure(1, weight=1)
-        self.bot_tab.rowconfigure(1, weight=1)
-        self.bot_tab.rowconfigure(2, weight=1)
+        self.bot_tab.columnconfigure(0, weight=3, minsize=520)
+        self.bot_tab.columnconfigure(1, weight=2, minsize=420)
+        self.bot_tab.rowconfigure(0, weight=1)
+        self.bot_tab.rowconfigure(1, weight=3)
+        self.bot_tab.rowconfigure(2, weight=0)
 
         self.bot_form_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=(10, 5), pady=(10, 5))
         self.bot_map_frame.grid(row=0, column=1, sticky=tk.NSEW, padx=(5, 10), pady=(10, 5))
@@ -1729,13 +1857,13 @@ class Application(tk.Tk):
 
         self.bot_map_canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.bot_results_frame.grid(row=1, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=5)
-        self.bot_details_frame.grid(row=2, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=5)
+        self.bot_results_frame.grid(row=1, column=0, sticky=tk.NSEW, padx=(10, 5), pady=5)
+        self.bot_details_frame.grid(row=1, column=1, sticky=tk.NSEW, padx=(5, 10), pady=5)
         self.bot_results_tree.pack(fill=tk.BOTH, expand=True)
         self.bot_details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.bot_details_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.bot_button_frame.grid(row=3, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=(0, 10))
+        self.bot_button_frame.grid(row=2, column=0, columnspan=2, sticky=tk.EW, padx=10, pady=(0, 10))
         self.bot_save_json_button.pack(side=tk.LEFT, padx=5)
         self.bot_save_csv_button.pack(side=tk.LEFT, padx=5)
         self.bot_status_label.pack(side=tk.RIGHT)
@@ -2309,6 +2437,9 @@ class Application(tk.Tk):
                         f"  {self._('review_profile')}: {review.profile_photo_url}"
                     )
                 review_lines.append(f"  {self._('review_text')}: {review.text or '-'}")
+                if review.text_extra:
+                    for extra_key, extra_value in review.text_extra.items():
+                        review_lines.append(f"  {extra_key}: {extra_value}")
                 lines.extend(review_lines)
                 lines.append("")
         else:
