@@ -74,7 +74,7 @@ Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanm
    ```
    > `generate_license.bat` sanal ortamı (`venv`) kullanır; önce `install.bat` çalıştırılmış olmalıdır. Komutu hiçbir parametre olmadan çalıştırırsanız makine ID'si ve süre bilgisi etkileşimli olarak sorulur.
 
-   Windows dışındaki ortamlarda sanal ortamı etkinleştirdikten sonra `python -m licence.license_tool ...` komutunu çalıştırabilirsiniz. Hazır plan kodları `1m`, `3m` ve `6m` olup, özel sürede yıl/ay/gün değerlerinden en az biri girilmelidir.
+   Windows dışındaki ortamlarda sanal ortamı etkinleştirdikten sonra `python -m licence.generate_license ...` komutunu çalıştırabilirsiniz. Hazır plan kodları `1m`, `3m` ve `6m` olup, özel sürede yıl/ay/gün değerlerinden en az biri girilmelidir.
 3. **Anahtarı Girin:** Kullanıcı, aldığı anahtarı Ayarlar ▸ Lisans Bilgileri alanına yapıştırıp "Lisansı Etkinleştir" butonuna basar. Doğrulama başarılı olursa kalan süre ve plan adı anında güncellenir.
 4. **Makineye Kilitli Yapı:** Anahtarlar üretildiği makinenin kimliğiyle imzalandığı için başka bir bilgisayarda çalışmaz. `config/license.json` dosyasını kopyalamak lisansı taşımaya yetmez.
 
