@@ -376,13 +376,23 @@ class MainWindow(QMainWindow):
         self.license_remaining_caption = QLabel(translator.translate("label.license_remaining"))
         self.license_remaining_value = QLabel("-")
         self.license_machine_caption = QLabel(translator.translate("label.license_machine"))
-        self.license_machine_value = QLabel(self.license_manager.machine_id)
+        self.license_machine_value = QLineEdit(self.license_manager.machine_id)
+        self.license_machine_value.setReadOnly(True)
+        self.license_machine_value.setCursorPosition(0)
+        self.license_machine_copy = QPushButton(translator.translate("button.copy_machine_id"))
+        self.license_machine_copy.clicked.connect(self.copy_machine_id)
+        machine_row = QWidget()
+        machine_layout = QHBoxLayout(machine_row)
+        machine_layout.setContentsMargins(0, 0, 0, 0)
+        machine_layout.setSpacing(6)
+        machine_layout.addWidget(self.license_machine_value)
+        machine_layout.addWidget(self.license_machine_copy)
 
         license_layout.addRow(self.license_status_caption, self.license_status_value)
         license_layout.addRow(self.license_plan_caption, self.license_plan_value)
         license_layout.addRow(self.license_expiry_caption, self.license_expiry_value)
         license_layout.addRow(self.license_remaining_caption, self.license_remaining_value)
-        license_layout.addRow(self.license_machine_caption, self.license_machine_value)
+        license_layout.addRow(self.license_machine_caption, machine_row)
 
         self.license_key_caption = QLabel(translator.translate("label.license_key"))
         license_input_layout = QHBoxLayout()
@@ -1070,6 +1080,7 @@ class MainWindow(QMainWindow):
         if not hasattr(self, "license_status_value"):
             return
         self.license_machine_value.setText(self.license_manager.machine_id)
+        self.license_machine_value.setCursorPosition(0)
         info = self.license_info
         if info:
             active = info.is_active(self.license_manager.machine_id)
@@ -1097,6 +1108,12 @@ class MainWindow(QMainWindow):
         self.license_expiry_value.setText(expiry_text)
         self.license_remaining_value.setText(remaining_text)
         self.license_plan_value.setText(plan_text)
+
+    def copy_machine_id(self) -> None:
+        QApplication.clipboard().setText(self.license_machine_value.text())
+        status = self.statusBar()
+        if status:
+            status.showMessage(translator.translate("dialog.machine_id_copied"), 3000)
 
     def retranslate_ui(self) -> None:
         self.setWindowTitle(translator.translate("app.title"))
@@ -1149,6 +1166,7 @@ class MainWindow(QMainWindow):
             self.license_expiry_caption.setText(translator.translate("label.license_expires"))
             self.license_remaining_caption.setText(translator.translate("label.license_remaining"))
             self.license_machine_caption.setText(translator.translate("label.license_machine"))
+            self.license_machine_copy.setText(translator.translate("button.copy_machine_id"))
             self.license_key_caption.setText(translator.translate("label.license_key"))
             self.license_activate_button.setText(translator.translate("button.activate_license"))
             self._refresh_license_labels()
