@@ -1061,6 +1061,30 @@ class GoogleMapsPlaywrightScraper:
             page.wait_for_timeout(400)
         # allow best-effort even if we exit the loop
 
+    def _expand_review_content(self, review: Locator) -> None:
+        """Click the review's "more" control so the full text is visible."""
+        selectors = [
+            'button.w8nwRe',
+            'button[jsaction*="expandReview" i]',
+            'button:has-text("Daha fazla")',
+            'button:has-text("More")',
+        ]
+        for selector in selectors:
+            button = review.locator(selector)
+            if not button.count():
+                continue
+            btn = button.first
+            try:
+                btn.scroll_into_view_if_needed(timeout=800)
+                expanded = self._safe_get_attribute(btn, "aria-expanded")
+                if expanded and expanded.lower() == "true":
+                    return
+                btn.click(timeout=800)
+                review.page.wait_for_timeout(150)  # type: ignore[attr-defined]
+                return
+            except PlaywrightError:
+                continue
+
     def _extract_share_location(self, page: Page) -> Optional[str]:
         selectors = [
             'button[aria-label*="Paylaş"]',
