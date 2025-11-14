@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import html
 import io
 import json
 import logging
@@ -82,6 +83,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_time": "Zaman",
         "review_text": "Yorum",
         "review_profile": "Profil Fotoğrafı",
+        "review_media": "Yorum Fotoğrafları",
         "ratings_total": "Toplam Değerlendirme",
         "share_location": "Paylaşım Konumu",
         "log_search_started": "Bot araması başlatıldı: {query}",
@@ -156,6 +158,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_time": "Time",
         "review_text": "Review",
         "review_profile": "Profile Photo",
+        "review_media": "Review Photos",
         "ratings_total": "Total Ratings",
         "share_location": "Share Location",
         "log_search_started": "Bot scan started: {query}",
@@ -198,6 +201,7 @@ class PlaceReview:
     text: str
     profile_photo_url: Optional[str] = None
     text_extra: Dict[str, str] = field(default_factory=dict)
+    review_photo_urls: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -207,6 +211,7 @@ class PlaceReview:
             "text": self.text,
             "profile_photo_url": self.profile_photo_url,
             "text_extra": self.text_extra,
+            "review_photo_urls": list(self.review_photo_urls),
         }
 
 
@@ -251,6 +256,11 @@ class PlaceResult:
                         [
                             review.author_name,
                             f"({review.profile_photo_url})" if review.profile_photo_url else "",
+                            (
+                                f"[Photos: {', '.join(review.review_photo_urls)}]"
+                                if review.review_photo_urls
+                                else ""
+                            ),
                             review.text,
                         ],
                     )
@@ -424,6 +434,7 @@ class GoogleMapsClient:
                         text=content,
                         profile_photo_url=review.get("profile_photo_url"),
                         text_extra=extras,
+                        review_photo_urls=[],
                     )
                 )
             detailed_results.append(
@@ -1007,6 +1018,8 @@ class GoogleMapsPlaywrightScraper:
             with suppress(PlaywrightError):
                 review.scroll_into_view_if_needed(timeout=1500)
             self._expand_review_content(review)
+            dom_extras = self._extract_review_metadata(review)
+            media_urls = self._extract_review_media(review)
             author = self._safe_inner_text(review.locator('div.d4r55, button.al6Kxe div.d4r55').first)
             rating_text = self._safe_get_attribute(review.locator('span.kvMYJc').first, "aria-label")
             rating: Optional[float] = None
@@ -1019,7 +1032,10 @@ class GoogleMapsPlaywrightScraper:
             raw_content = self._safe_inner_text(review.locator('div.MyEned span.wiI7pd, div.MyEned').first)
             if not raw_content:
                 raw_content = self._safe_inner_text(review.locator('span.wiI7pd').first)
-            content, extras = split_review_text(raw_content)
+            content, parsed_extras = split_review_text(raw_content)
+            extras: Dict[str, str] = dict(dom_extras)
+            for key, value in parsed_extras.items():
+                extras.setdefault(key, value)
             photo = self._safe_get_attribute(review.locator('img.NBa7we').first, "src") or None
             signature_source = self._safe_get_attribute(review, "data-review-id")
             if not signature_source:
@@ -1036,6 +1052,7 @@ class GoogleMapsPlaywrightScraper:
                     text=content,
                     profile_photo_url=photo or None,
                     text_extra=extras,
+                    review_photo_urls=media_urls,
                 )
             )
             idx += 1
@@ -1084,6 +1101,88 @@ class GoogleMapsPlaywrightScraper:
                 return
             except PlaywrightError:
                 continue
+
+    def _extract_review_media(self, review: Locator) -> List[str]:
+        media_urls: List[str] = []
+        buttons = review.locator('div.KtCyie button.Tya61d')
+        count = buttons.count()
+        for idx in range(count):
+            button = buttons.nth(idx)
+            url = self._background_image_url(button)
+            if url and url not in media_urls:
+                media_urls.append(url)
+        return media_urls
+
+    def _background_image_url(self, locator: Locator) -> Optional[str]:
+        style = self._safe_get_attribute(locator, "style")
+        parsed = self._parse_background_url(style)
+        if parsed:
+            return parsed
+        handle = locator.element_handle()
+        if not handle:
+            return None
+        with suppress(PlaywrightError):
+            computed = handle.evaluate("el => getComputedStyle(el).backgroundImage")
+            return self._parse_background_url(computed)
+        return None
+
+    @staticmethod
+    def _parse_background_url(value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        match = re.search(r"url\\((?:\"|')?(?P<url>[^\"')]+)", value)
+        if match:
+            return html.unescape(match.group("url")).strip()
+        return None
+
+    def _extract_review_metadata(self, review: Locator) -> Dict[str, str]:
+        extras: Dict[str, str] = {}
+        blocks = review.locator('div.PBK6be')
+        count = blocks.count()
+        for idx in range(count):
+            block = blocks.nth(idx)
+            label = self._clean_label(
+                self._safe_inner_text(
+                    block.locator('span[style*="font-weight"], span b, span strong').first
+                )
+            )
+            rows = block.locator(':scope > div')
+            value = ""
+            if rows.count() >= 2:
+                if not label:
+                    label = self._clean_label(self._safe_inner_text(rows.nth(0)))
+                value = self._safe_inner_text(rows.nth(1)).strip()
+                if not value:
+                    aria_node = rows.nth(1).locator('[aria-label]').first
+                    aria_value = self._safe_get_attribute(aria_node, "aria-label") if aria_node.count() else None
+                    if aria_value:
+                        value = aria_value.strip()
+            else:
+                block_text = self._safe_inner_text(block).strip()
+                if not block_text:
+                    continue
+                if label:
+                    remainder = block_text
+                    if remainder.startswith(label):
+                        remainder = remainder[len(label) :]
+                    elif remainder.lower().startswith(label.lower()):
+                        remainder = remainder[len(label) :]
+                    value = remainder.lstrip(":").strip()
+                elif ":" in block_text:
+                    before, after = block_text.split(":", 1)
+                    label = self._clean_label(before)
+                    value = after.strip()
+                else:
+                    continue
+            if label and value:
+                extras[label] = value
+        return extras
+
+    @staticmethod
+    def _clean_label(value: Optional[str]) -> str:
+        if not value:
+            return ""
+        return value.strip().rstrip(":").strip()
 
     def _extract_share_location(self, page: Page) -> Optional[str]:
         selectors = [
@@ -2217,6 +2316,10 @@ class Application(tk.Tk):
                 if review.profile_photo_url:
                     review_lines.append(
                         f"  {self._('review_profile')}: {review.profile_photo_url}"
+                    )
+                if review.review_photo_urls:
+                    review_lines.append(
+                        f"  {self._('review_media')}: {' | '.join(review.review_photo_urls)}"
                     )
                 review_lines.append(f"  {self._('review_text')}: {review.text or '-'}")
                 if review.text_extra:
