@@ -9,7 +9,6 @@ import logging
 import re
 import threading
 import time
-import unicodedata
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -271,103 +270,10 @@ class PlaceResult:
         }
 
 
-def _normalize_extra_key(value: str) -> str:
-    """Normalize review metadata labels for easier comparison."""
-
-    if not value:
-        return ""
-    normalized = unicodedata.normalize("NFKD", value)
-    simplified = "".join(ch for ch in normalized if not unicodedata.combining(ch))
-    return simplified.strip().lower()
-
-
-REVIEW_EXTRA_KEYS = {
-    "yiyecek",
-    "hizmet",
-    "atmosfer",
-    "food",
-    "service",
-    "atmosphere",
-    "kisi basi fiyat",
-    "kisi basi ucret",
-    "price per person",
-    "per person price",
-    "per person cost",
-    "grup buyuklugu",
-    "group size",
-    "ozel etkinlikler",
-    "special events",
-    "oturma alani turu",
-    "seating type",
-    "rezervasyon",
-    "reservation",
-    "gurultu seviyesi",
-    "noise level",
-    "bekleme suresi",
-    "wait time",
-    "park yeri",
-    "parking",
-    "park yeri secenekleri",
-    "parking options",
-    "otopark",
-    "parking availability",
-    "ogun",
-    "meal",
-}
-
-
 def split_review_text(text: str) -> tuple[str, Dict[str, str]]:
-    """Split review text into narrative content and structured metadata."""
+    """Return review text without attempting to extract structured metadata."""
 
-    if not text:
-        return "", {}
-
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    if not lines:
-        return "", {}
-
-    extras: Dict[str, str] = {}
-    main_lines: List[str] = []
-    idx = 0
-
-    while idx < len(lines):
-        line = lines[idx]
-        captured = False
-
-        if ":" in line:
-            key, value = line.split(":", 1)
-            normalized = _normalize_extra_key(key)
-            if normalized in REVIEW_EXTRA_KEYS:
-                value = value.strip()
-                if not value and idx + 1 < len(lines):
-                    next_line = lines[idx + 1]
-                    if next_line:
-                        value = next_line
-                        idx += 1
-                if value:
-                    extras[key.strip()] = value
-                    captured = True
-
-        if not captured:
-            normalized_line = _normalize_extra_key(line)
-            if normalized_line in REVIEW_EXTRA_KEYS:
-                value = ""
-                if idx + 1 < len(lines):
-                    next_line = lines[idx + 1]
-                    normalized_next = _normalize_extra_key(next_line)
-                    if next_line and normalized_next not in REVIEW_EXTRA_KEYS:
-                        value = next_line
-                        idx += 1
-                if value:
-                    extras[line] = value
-                    captured = True
-
-        if not captured:
-            main_lines.append(line)
-
-        idx += 1
-
-    return "\n".join(main_lines), extras
+    return (text or "").strip(), {}
 
 
 class GoogleMapsError(Exception):
@@ -1018,7 +924,7 @@ class GoogleMapsPlaywrightScraper:
             with suppress(PlaywrightError):
                 review.scroll_into_view_if_needed(timeout=1500)
             self._expand_review_content(review)
-            dom_extras = self._extract_review_metadata(review)
+            content, extras = self._review_text_and_extras(review)
             media_urls = self._extract_review_media(review)
             author = self._safe_inner_text(review.locator('div.d4r55, button.al6Kxe div.d4r55').first)
             rating_text = self._safe_get_attribute(review.locator('span.kvMYJc').first, "aria-label")
@@ -1029,13 +935,6 @@ class GoogleMapsPlaywrightScraper:
                 with suppress(ValueError):
                     rating = float(digits)
             relative = self._safe_inner_text(review.locator('span.rsqaWe').first)
-            raw_content = self._safe_inner_text(review.locator('div.MyEned span.wiI7pd, div.MyEned').first)
-            if not raw_content:
-                raw_content = self._safe_inner_text(review.locator('span.wiI7pd').first)
-            content, parsed_extras = split_review_text(raw_content)
-            extras: Dict[str, str] = dict(dom_extras)
-            for key, value in parsed_extras.items():
-                extras.setdefault(key, value)
             photo = self._safe_get_attribute(review.locator('img.NBa7we').first, "src") or None
             signature_source = self._safe_get_attribute(review, "data-review-id")
             if not signature_source:
@@ -1057,6 +956,18 @@ class GoogleMapsPlaywrightScraper:
             )
             idx += 1
         return reviews
+
+    def _review_text_and_extras(self, review: Locator) -> tuple[str, Dict[str, str]]:
+        """Extract the main review text and DOM-based metadata."""
+
+        container = review.locator('div.MyEned').first
+        if not container.count():
+            container = review
+        text = self._safe_inner_text(container.locator('span.wiI7pd').first)
+        if not text:
+            text = self._safe_inner_text(container)
+        extras = self._extract_review_metadata(container)
+        return text.strip(), extras
 
     def _ensure_reviews_loaded(self, page: Page, reviews_locator: Locator, target: int) -> None:
         if target <= 0:
@@ -1142,45 +1053,52 @@ class GoogleMapsPlaywrightScraper:
             return None
         return html.unescape(candidate)
 
-    def _extract_review_metadata(self, review: Locator) -> Dict[str, str]:
+    def _extract_review_metadata(self, context: Locator) -> Dict[str, str]:
         extras: Dict[str, str] = {}
-        blocks = review.locator('div.PBK6be')
+        blocks = context.locator('div.PBK6be')
         count = blocks.count()
         for idx in range(count):
             block = blocks.nth(idx)
+            block_text = self._safe_inner_text(block).strip()
+            if not block_text:
+                continue
+            lines = [line.strip() for line in block_text.splitlines() if line.strip()]
             label = self._clean_label(
                 self._safe_inner_text(
                     block.locator('span[style*="font-weight"], span b, span strong').first
                 )
             )
-            rows = block.locator(':scope > div')
             value = ""
-            if rows.count() >= 2:
-                if not label:
-                    label = self._clean_label(self._safe_inner_text(rows.nth(0)))
-                value = self._safe_inner_text(rows.nth(1)).strip()
-                if not value:
-                    aria_node = rows.nth(1).locator('[aria-label]').first
-                    aria_value = self._safe_get_attribute(aria_node, "aria-label") if aria_node.count() else None
-                    if aria_value:
-                        value = aria_value.strip()
-            else:
-                block_text = self._safe_inner_text(block).strip()
-                if not block_text:
-                    continue
-                if label:
-                    remainder = block_text
-                    if remainder.startswith(label):
-                        remainder = remainder[len(label) :]
-                    elif remainder.lower().startswith(label.lower()):
-                        remainder = remainder[len(label) :]
-                    value = remainder.lstrip(":").strip()
-                elif ":" in block_text:
-                    before, after = block_text.split(":", 1)
-                    label = self._clean_label(before)
-                    value = after.strip()
-                else:
-                    continue
+            if lines:
+                first = lines[0]
+                if ":" in first:
+                    candidate_label, remainder = first.split(":", 1)
+                    candidate_label = self._clean_label(candidate_label)
+                    if candidate_label:
+                        if not label:
+                            label = candidate_label
+                        value = remainder.strip()
+                    if not value and len(lines) > 1:
+                        value = lines[1]
+                elif len(lines) > 1:
+                    if not label:
+                        label = self._clean_label(first)
+                    value = lines[1]
+            if not value:
+                rows = block.locator(':scope > div')
+                if rows.count() >= 2:
+                    if not label:
+                        label = self._clean_label(self._safe_inner_text(rows.nth(0)))
+                    value = self._safe_inner_text(rows.nth(1)).strip()
+                    if not value:
+                        aria_node = rows.nth(1).locator('[aria-label]').first
+                        aria_value = (
+                            self._safe_get_attribute(aria_node, "aria-label")
+                            if aria_node.count()
+                            else None
+                        )
+                        if aria_value:
+                            value = aria_value.strip()
             if label and value:
                 extras[label] = value
         return extras
