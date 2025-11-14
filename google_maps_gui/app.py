@@ -1130,10 +1130,17 @@ class GoogleMapsPlaywrightScraper:
     def _parse_background_url(value: Optional[str]) -> Optional[str]:
         if not value:
             return None
-        match = re.search(r"url\\((?:\"|')?(?P<url>[^\"')]+)", value)
-        if match:
-            return html.unescape(match.group("url")).strip()
-        return None
+        start = value.find("url(")
+        if start == -1:
+            return None
+        start += 4
+        end = value.find(")", start)
+        if end == -1:
+            return None
+        candidate = value[start:end].strip().strip(" \"'")
+        if not candidate:
+            return None
+        return html.unescape(candidate)
 
     def _extract_review_metadata(self, review: Locator) -> Dict[str, str]:
         extras: Dict[str, str] = {}
