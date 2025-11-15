@@ -18,6 +18,7 @@ from telethon.errors import (
     UserPrivacyRestrictedError,
     UsersTooMuchError,
 )
+from telethon.errors.rpcbaseerrors import BadRequestError
 from telethon.tl import functions, types
 
 from app.core.entity_utils import normalize_entity
@@ -304,6 +305,11 @@ class SessionTask:
                 logger.warning("log.users_too_much")
                 status_cb("status.users_too_much")
                 status_key = "status.users_too_much"
+                stop_after_update = True
+            except BadRequestError as exc:
+                logger.warning("log.member_add_failed: %s", exc)
+                status_cb("status.member_add_failed")
+                status_key = "status.member_add_failed"
                 stop_after_update = True
             await self._throttle(self.settings.rate_limit.join_interval)
             self.storage.remove_user(user.user_id)
