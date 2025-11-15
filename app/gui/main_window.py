@@ -105,6 +105,8 @@ EMOJI_CHOICES: List[str] = [
 GROUP_TABLE_HEADERS: List[str] = [
     "table.column.select",
     "label.group_name",
+    "label.group_username",
+    "label.group_link",
     "label.group_type",
     "label.members",
     "label.group_online",
@@ -595,8 +597,6 @@ class MainWindow(QMainWindow):
         self.group_export_selected_button.clicked.connect(self.export_selected_groups)
         self.group_delete_selected_button = QPushButton(translator.translate("button.delete_selected"))
         self.group_delete_selected_button.clicked.connect(self.delete_selected_groups)
-        self.group_join_selected_button = QPushButton(translator.translate("button.join_selected_groups"))
-        self.group_join_selected_button.clicked.connect(partial(self.start_task, task_type="group_join"))
         button_row.addWidget(self.group_import_button)
         button_row.addWidget(self.group_export_button)
         button_row.addWidget(self.group_add_button)
@@ -605,7 +605,6 @@ class MainWindow(QMainWindow):
         button_row.addWidget(self.group_clear_selection_button)
         button_row.addWidget(self.group_export_selected_button)
         button_row.addWidget(self.group_delete_selected_button)
-        button_row.addWidget(self.group_join_selected_button)
         button_row.addStretch()
         table_layout.addLayout(button_row)
         table_group.setLayout(table_layout)
@@ -1255,6 +1254,22 @@ class MainWindow(QMainWindow):
                     translator.translate("dialog.group_filter_required"),
                 )
                 return
+        elif task_type == "group_join":
+            sessions = self.get_selected_sessions(self.group_scan_session_list)
+            target = ""
+            limit = None
+            interval = None
+            container = self.group_scan_progress_container
+            persist = False
+            storage = self.group_storage
+            pending_group_join = self._selected_groups()
+            if not pending_group_join:
+                QMessageBox.warning(
+                    self,
+                    self.windowTitle(),
+                    translator.translate("dialog.no_groups_selected"),
+                )
+                return
         elif task_type == "add":
             sessions = self.get_selected_sessions(self.add_session_list)
             target = self.add_target_input.text().strip()
@@ -1659,7 +1674,6 @@ class MainWindow(QMainWindow):
         for attr in [
             "group_search_start_button",
             "group_join_button",
-            "group_join_selected_button",
             "message_start_button",
             "group_message_start_button",
         ]:
@@ -1758,14 +1772,17 @@ class MainWindow(QMainWindow):
             checkbox.setData(Qt.UserRole, group)
             self.group_table.setItem(row, 0, checkbox)
             self.group_table.setItem(row, 1, QTableWidgetItem(group.title))
-            self.group_table.setItem(row, 2, QTableWidgetItem(self._group_type_text(group)))
+            username_display = f"@{group.username}" if group.username else ""
+            self.group_table.setItem(row, 2, QTableWidgetItem(username_display))
+            self.group_table.setItem(row, 3, QTableWidgetItem(group.link or ""))
+            self.group_table.setItem(row, 4, QTableWidgetItem(self._group_type_text(group)))
             members_item = NumericTableWidgetItem(group.members)
-            self.group_table.setItem(row, 3, members_item)
+            self.group_table.setItem(row, 5, members_item)
             online_item = NumericTableWidgetItem(group.online)
-            self.group_table.setItem(row, 4, online_item)
-            self.group_table.setItem(row, 5, QTableWidgetItem(self._group_visibility_text(group)))
-            self.group_table.setItem(row, 6, QTableWidgetItem(self._group_messaging_text(group)))
-            self.group_table.setItem(row, 7, QTableWidgetItem(group.source or ""))
+            self.group_table.setItem(row, 6, online_item)
+            self.group_table.setItem(row, 7, QTableWidgetItem(self._group_visibility_text(group)))
+            self.group_table.setItem(row, 8, QTableWidgetItem(self._group_messaging_text(group)))
+            self.group_table.setItem(row, 9, QTableWidgetItem(group.source or ""))
         self.group_table.setSortingEnabled(True)
 
     def _group_visibility_text(self, group: StoredGroup) -> str:
