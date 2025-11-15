@@ -44,6 +44,7 @@ from app.core.logger import configure_logging
 from app.core.session_manager import PendingLogin, SessionManager
 from app.core.settings import POPULAR_TIMEZONES, SettingsRepository
 from app.core.tasks import ProgressUpdate, TaskOrchestrator
+from app.data.template_storage import MessageTemplate, TemplateStorage
 from app.data.user_storage import StoredUser, UserStorage
 from app.gui.widgets.session_progress import SessionProgressWidget
 from app.gui.workers import SessionWorkerThread, TaskRequest
@@ -83,6 +84,7 @@ class MainWindow(QMainWindow):
                 timezone_name=self.settings.timezone,
             ),
         }
+        self.template_storage = TemplateStorage(Path("config") / "message_templates.json")
         self.user_table_meta: List[Tuple[str, bool, str]] = [
             ("scanned", False, "tab.users_scanned"),
             ("active", True, "tab.users_active"),
@@ -97,6 +99,7 @@ class MainWindow(QMainWindow):
             "scan": {},
             "add": {},
             "active": {},
+            "message": {},
         }
         self._pending_completion_notifications: set[str] = set()
         self._cancelling = False
@@ -112,6 +115,7 @@ class MainWindow(QMainWindow):
         self._build_scan_tab()
         self._build_add_tab()
         self._build_active_tab()
+        self._build_message_tab()
         self._build_rate_tab()
         self._build_settings_tab()
         self._build_user_tab()
@@ -318,6 +322,87 @@ class MainWindow(QMainWindow):
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("tab.active_senders"))
 
+    def _build_message_tab(self) -> None:
+        tab = QWidget()
+        layout = QGridLayout()
+
+        self.message_session_list = QListWidget()
+        self.message_session_list.setSelectionMode(QListWidget.MultiSelection)
+        self.message_session_list.currentItemChanged.connect(self._handle_message_session_change)
+        layout.addWidget(self.message_session_list, 0, 0, 6, 1)
+
+        form_layout = QFormLayout()
+        self.message_source_combo = QComboBox()
+        for key, _, title_key in self.user_table_meta:
+            self.message_source_combo.addItem(translator.translate(title_key), key)
+        form_layout.addRow(translator.translate("label.message_source"), self.message_source_combo)
+
+        self.message_limit_input = QLineEdit()
+        form_layout.addRow(translator.translate("label.message_limit"), self.message_limit_input)
+
+        self.message_body_input = QTextEdit()
+        form_layout.addRow(translator.translate("label.message_body"), self.message_body_input)
+
+        media_row = QHBoxLayout()
+        self.message_media_input = QLineEdit()
+        self.message_media_button = QPushButton(translator.translate("button.choose_file"))
+        self.message_media_button.clicked.connect(partial(self._browse_media_file, self.message_media_input))
+        media_row.addWidget(self.message_media_input)
+        media_row.addWidget(self.message_media_button)
+        form_layout.addRow(translator.translate("label.message_media"), media_row)
+
+        layout.addLayout(form_layout, 0, 1, 2, 2)
+
+        template_group = QGroupBox(translator.translate("group.message_templates"))
+        template_layout = QFormLayout()
+        self.message_template_combo = QComboBox()
+        self.message_template_combo.currentTextChanged.connect(self._populate_template_fields)
+        template_layout.addRow(translator.translate("label.template_select"), self.message_template_combo)
+
+        self.template_name_input = QLineEdit()
+        template_layout.addRow(translator.translate("label.template_name"), self.template_name_input)
+
+        self.template_body_input = QTextEdit()
+        template_layout.addRow(translator.translate("label.template_body"), self.template_body_input)
+
+        template_media_row = QHBoxLayout()
+        self.template_media_input = QLineEdit()
+        self.template_media_button = QPushButton(translator.translate("button.choose_file"))
+        self.template_media_button.clicked.connect(partial(self._browse_media_file, self.template_media_input))
+        template_media_row.addWidget(self.template_media_input)
+        template_media_row.addWidget(self.template_media_button)
+        template_layout.addRow(translator.translate("label.template_media"), template_media_row)
+
+        template_button_layout = QHBoxLayout()
+        self.template_save_button = QPushButton(translator.translate("button.save_template"))
+        self.template_save_button.clicked.connect(self._save_message_template)
+        self.template_delete_button = QPushButton(translator.translate("button.delete_template"))
+        self.template_delete_button.clicked.connect(self._delete_message_template)
+        self.template_assign_button = QPushButton(translator.translate("button.assign_template"))
+        self.template_assign_button.clicked.connect(self._assign_template_to_session)
+        template_button_layout.addWidget(self.template_save_button)
+        template_button_layout.addWidget(self.template_delete_button)
+        template_button_layout.addWidget(self.template_assign_button)
+        template_layout.addRow(template_button_layout)
+
+        template_group.setLayout(template_layout)
+        layout.addWidget(template_group, 2, 1, 2, 2)
+
+        self.message_start_button = QPushButton(translator.translate("button.start"))
+        self.message_start_button.clicked.connect(partial(self.start_task, task_type="message"))
+        message_control_layout = QHBoxLayout()
+        message_control_layout.addWidget(self.message_start_button)
+        layout.addLayout(message_control_layout, 4, 1, 1, 2)
+
+        self.message_progress_container = QVBoxLayout()
+        progress_group = QGroupBox(translator.translate("label.progress"))
+        progress_group.setLayout(self.message_progress_container)
+        layout.addWidget(progress_group, 5, 1, 1, 2)
+
+        tab.setLayout(layout)
+        self.tab_widget.addTab(tab, translator.translate("tab.direct_messages"))
+        self._refresh_template_combo(self._current_message_session())
+
     def _build_rate_tab(self) -> None:
         tab = QWidget()
         form_layout = QFormLayout()
@@ -462,8 +547,13 @@ class MainWindow(QMainWindow):
         self.scan_session_list.clear()
         self.add_session_list.clear()
         self.active_session_list.clear()
+        if hasattr(self, "message_session_list"):
+            self.message_session_list.clear()
         for info in self.session_manager.list_sessions():
-            for widget in [self.session_list, self.scan_session_list, self.add_session_list, self.active_session_list]:
+            widgets = [self.session_list, self.scan_session_list, self.add_session_list, self.active_session_list]
+            if hasattr(self, "message_session_list"):
+                widgets.append(self.message_session_list)
+            for widget in widgets:
                 item = QListWidgetItem(info.name)
                 item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
                 item.setCheckState(Qt.Unchecked)
@@ -581,6 +671,15 @@ class MainWindow(QMainWindow):
             container = self.add_progress_container
             persist = True
             storage_key = self._current_add_storage_key()
+        elif task_type == "message":
+            sessions = self.get_selected_sessions(self.message_session_list)
+            target = ""
+            limit = self._parse_int(self.message_limit_input.text())
+            interval = None
+            container = self.message_progress_container
+            persist = False
+            storage_key = self._current_message_storage_key()
+            include_no_username = True
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
@@ -591,9 +690,17 @@ class MainWindow(QMainWindow):
             storage_key = "active"
             include_no_username = self.active_include_no_username_checkbox.isChecked()
 
-        if not sessions or not target:
+        if task_type != "message" and (not sessions or not target):
             QMessageBox.warning(self, self.windowTitle(), "Oturum ve hedef girilmeli")
             return
+        if task_type == "message" and not sessions:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
+            return
+        if task_type == "message" and not (self.message_body_input.toPlainText().strip() or self.message_media_input.text().strip()):
+            has_template = any(self.template_storage.get_assignment(session) for session in sessions)
+            if not has_template:
+                QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.message_missing_body"))
+                return
 
         storage = self.user_storages.get(storage_key)
         if storage is None:
@@ -615,6 +722,7 @@ class MainWindow(QMainWindow):
         session_count = len(sessions)
         per_session_limits: List[Optional[int]] = [None] * session_count
         offsets: List[int] = [0] * session_count
+        message_payloads: List[Tuple[str, Optional[str]]] = []
         if task_type == "add":
             users = storage.get_users()
             if not users:
@@ -625,6 +733,30 @@ class MainWindow(QMainWindow):
                 selected_users = users[:limit]
             user_chunks = self._split_users_for_sessions(selected_users, session_count)
             per_session_limits = [len(chunk) for chunk in user_chunks]
+        elif task_type == "message":
+            users = storage.get_users()
+            if not users:
+                QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.no_users_available"))
+                return
+            selected_users = users
+            if limit and limit > 0:
+                selected_users = users[:limit]
+            user_chunks = self._split_users_for_sessions(selected_users, session_count)
+            per_session_limits = [len(chunk) for chunk in user_chunks]
+            for session in sessions:
+                body, media = self._resolve_message_payload(
+                    session,
+                    self.message_body_input.toPlainText().strip(),
+                    self.message_media_input.text().strip(),
+                )
+                if not (body or media):
+                    QMessageBox.warning(
+                        self,
+                        self.windowTitle(),
+                        translator.translate("dialog.message_missing_body"),
+                    )
+                    return
+                message_payloads.append((body, media))
         else:
             user_chunks = [None] * session_count
             if task_type == "scan":
@@ -645,7 +777,7 @@ class MainWindow(QMainWindow):
             per_session_limit = per_session_limits[idx] if idx < len(per_session_limits) else None
             offset_value = offsets[idx] if idx < len(offsets) else 0
 
-            if task_type == "add":
+            if task_type in {"add", "message"}:
                 session_users = user_chunks[idx] or []
                 total_target = len(session_users)
                 if total_target == 0:
@@ -661,7 +793,7 @@ class MainWindow(QMainWindow):
             widget.update_state(0, total_target or 0, status_key="status.running")
 
             request_limit: Optional[int] = None
-            if task_type != "add" and isinstance(per_session_limit, int) and per_session_limit > 0:
+            if task_type not in {"add", "message"} and isinstance(per_session_limit, int) and per_session_limit > 0:
                 request_limit = per_session_limit
 
             request = TaskRequest(
@@ -676,6 +808,8 @@ class MainWindow(QMainWindow):
                 include_no_username=include_no_username,
                 offset=offset_value if request_limit else 0,
                 result_storage=result_storage,
+                message_body=message_payloads[idx][0] if task_type == "message" else None,
+                message_media=message_payloads[idx][1] if task_type == "message" else None,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -843,7 +977,10 @@ class MainWindow(QMainWindow):
 
     def _update_task_controls(self) -> None:
         enabled = not self.worker_threads and not self._cancelling
-        for button in [self.scan_start_button, self.add_start_button, self.active_start_button]:
+        buttons = [self.scan_start_button, self.add_start_button, self.active_start_button]
+        if hasattr(self, "message_start_button"):
+            buttons.append(self.message_start_button)
+        for button in buttons:
             button.setEnabled(enabled)
 
     def _build_interval(self, index: int, value: int) -> Optional[timedelta]:
@@ -923,6 +1060,141 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _add_result_storage_key(source_key: str) -> str:
         return "scanned_added" if source_key == "scanned" else "active_added"
+
+    def _current_message_storage_key(self) -> str:
+        data = self.message_source_combo.currentData()
+        if isinstance(data, str):
+            return data
+        index = self.message_source_combo.currentIndex()
+        if 0 <= index < len(self.user_table_meta):
+            return self.user_table_meta[index][0]
+        return "scanned"
+
+    def _current_message_session(self) -> Optional[str]:
+        if not hasattr(self, "message_session_list"):
+            return None
+        item = self.message_session_list.currentItem()
+        if item:
+            return item.text()
+        if self.message_session_list.count() > 0:
+            return self.message_session_list.item(0).text()
+        return None
+
+    def _handle_message_session_change(self) -> None:
+        session = self._current_message_session()
+        self._refresh_template_combo(session)
+
+    def _refresh_template_combo(self, session: Optional[str]) -> None:
+        if not hasattr(self, "message_template_combo"):
+            return
+        self.message_template_combo.blockSignals(True)
+        self.message_template_combo.clear()
+        if not session:
+            self.message_template_combo.blockSignals(False)
+            self._clear_template_fields()
+            return
+        templates = self.template_storage.list_templates(session)
+        for template in templates:
+            self.message_template_combo.addItem(template.name)
+        assigned = self.template_storage.get_assignment(session)
+        if assigned:
+            index = self.message_template_combo.findText(assigned)
+            if index >= 0:
+                self.message_template_combo.setCurrentIndex(index)
+        self.message_template_combo.blockSignals(False)
+        current = self.message_template_combo.currentText()
+        if current:
+            self._populate_template_fields(current)
+        else:
+            self._clear_template_fields()
+
+    def _populate_template_fields(self, template_name: str) -> None:
+        session = self._current_message_session()
+        if not session:
+            return
+        template = self.template_storage.get_template(session, template_name)
+        if not template:
+            self._clear_template_fields()
+            return
+        self.template_name_input.setText(template.name)
+        self.template_body_input.setPlainText(template.body)
+        self.template_media_input.setText(template.media or "")
+
+    def _clear_template_fields(self) -> None:
+        self.template_name_input.clear()
+        self.template_body_input.clear()
+        self.template_media_input.clear()
+
+    def _save_message_template(self) -> None:
+        session = self._current_message_session()
+        if not session:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
+            return
+        name = self.template_name_input.text().strip()
+        body = self.template_body_input.toPlainText().strip()
+        media = self.template_media_input.text().strip()
+        if not name:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
+            return
+        if not body and not media:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.message_missing_body"))
+            return
+        template = MessageTemplate(name=name, body=body, media=media or None)
+        self.template_storage.upsert_template(session, template)
+        self.template_storage.save()
+        self._refresh_template_combo(session)
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_saved"))
+
+    def _delete_message_template(self) -> None:
+        session = self._current_message_session()
+        if not session:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
+            return
+        template_name = self.message_template_combo.currentText().strip()
+        if not template_name:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
+            return
+        self.template_storage.delete_template(session, template_name)
+        self.template_storage.save()
+        self._refresh_template_combo(session)
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_deleted"))
+
+    def _assign_template_to_session(self) -> None:
+        session = self._current_message_session()
+        if not session:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
+            return
+        template_name = self.message_template_combo.currentText().strip()
+        if not template_name:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
+            return
+        self.template_storage.set_assignment(session, template_name)
+        self.template_storage.save()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_assigned"))
+
+    def _browse_media_file(self, target: QLineEdit) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            translator.translate("dialog.media_select"),
+            str(Path.home()),
+            "All Files (*.*)",
+        )
+        if path:
+            target.setText(path)
+
+    def _resolve_message_payload(self, session: str, manual_body: str, manual_media: str) -> Tuple[str, Optional[str]]:
+        template_name = self.template_storage.get_assignment(session)
+        if template_name:
+            template = self.template_storage.get_template(session, template_name)
+        else:
+            template = None
+        if template:
+            body = template.body or ""
+            media = template.media
+        else:
+            body = manual_body
+            media = manual_media or None
+        return body, media
 
     def _split_users_for_sessions(self, users: List[StoredUser], count: int) -> List[List[StoredUser]]:
         if count <= 0:
@@ -1242,6 +1514,7 @@ class MainWindow(QMainWindow):
             "tab.scan",
             "tab.add_members",
             "tab.active_senders",
+            "tab.direct_messages",
             "tab.rate_limit",
             "tab.settings",
             "tab.users_root",
@@ -1265,6 +1538,18 @@ class MainWindow(QMainWindow):
         self.add_cancel_button.setText(translator.translate("button.cancel"))
         self.active_start_button.setText(translator.translate("button.start"))
         self.active_cancel_button.setText(translator.translate("button.cancel"))
+        if hasattr(self, "message_start_button"):
+            self.message_start_button.setText(translator.translate("button.start"))
+        if hasattr(self, "message_media_button"):
+            self.message_media_button.setText(translator.translate("button.choose_file"))
+        if hasattr(self, "template_media_button"):
+            self.template_media_button.setText(translator.translate("button.choose_file"))
+        if hasattr(self, "template_save_button"):
+            self.template_save_button.setText(translator.translate("button.save_template"))
+        if hasattr(self, "template_delete_button"):
+            self.template_delete_button.setText(translator.translate("button.delete_template"))
+        if hasattr(self, "template_assign_button"):
+            self.template_assign_button.setText(translator.translate("button.assign_template"))
         if hasattr(self, "max_active_messages_label"):
             self.max_active_messages_label.setText(translator.translate("label.max_active_messages"))
         if hasattr(self, "flood_checkbox"):

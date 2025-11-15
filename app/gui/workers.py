@@ -29,6 +29,8 @@ class TaskRequest:
     include_no_username: bool = True
     offset: int = 0
     result_storage: Optional[UserStorage] = None
+    message_body: Optional[str] = None
+    message_media: Optional[str] = None
 
 
 class SessionWorkerThread(QThread):
@@ -112,6 +114,14 @@ class SessionWorkerThread(QThread):
                     status_handler,
                     include_no_username=self.request.include_no_username,
                     offset=self.request.offset,
+                )
+            elif self.request.task_type == "message":
+                await task.send_messages(
+                    self.request.users or [],
+                    self.request.message_body,
+                    self.request.message_media,
+                    progress_handler,
+                    status_handler,
                 )
             else:
                 raise ValueError(f"Unknown task type {self.request.task_type}")

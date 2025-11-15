@@ -10,6 +10,8 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Hedef Gruba Üye Ekleme:** Kayıtlı kullanıcı listesinden hedef gruba üyeleri eşit bölerek ekleme, isteğe bağlı kullanıcı limiti belirleme ve flood wait yönetimi.
 - **Üye Limiti Dağıtımı:** Örneğin 50 kişilik kota girildiğinde seçilen oturumlara otomatik olarak paylaştırılır ve her oturum yalnızca kendi payını işler.
 - **Aktif Mesaj Atanları Bulma:** Belirlenen zaman aralığında mesaj atan kullanıcıları, ayarlardaki maksimum mesaj tarama sınırını oturumlara bölerek ve isteğe bağlı kullanıcı adı filtresiyle kayıt altına alma.
+- **Kayıtlı Kullanıcılara DM Gönderme:** Yeni DM sekmesi üzerinden her oturum için şablon seçerek veya manuel mesaj/medya girerek kayıtlı üyelere mesaj yollama, {user_name}/{first_name}/{last_name} değişkenlerini otomatik doldurma ve mesaj oranını rate-limit ayarlarına göre yönetme.
+- **Mesaj Şablonları:** Her oturum için sınırsız şablon tutma, şablonlara medya dosyası/URL iliştirme ve seçilen şablonu ilgili oturuma atama; DM işlemi sırasında atanmış şablon yoksa manuel alanlar kullanılır.
 - **Esnek İlerleme ve Kayıt Kontrolleri:** Kullanıcı adı olmayanları hariç tutma, kayıtlı listeleri temizleme ve işlemleri iptal ederek baştan başlatma seçenekleri.
 - **CSV Dışa Aktarımı:** Kullanıcı tablolarını UTF-8 BOM'lu, sıralanabilir başlıklara sahip CSV dosyalarına aktararak Türkçe karakter sorunlarını ortadan kaldırır.
 - **Rate Limit Yönetimi:** Flood hatalarını azaltmak için ayarlanabilir süreler.
@@ -87,6 +89,7 @@ Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanm
 - `session/` klasörü Telethon oturum dosyalarını tutar.
 - `users/` klasöründeki `scanned_users.json` ve `active_users.json` dosyaları ilgili sekmelerdeki kullanıcı kayıtlarını saklar. İşlenen kullanıcılar otomatik olarak silinir veya güncellenir.
 - `users/scanned_added_users.json` ve `users/active_added_users.json` dosyaları hedef kanala başarıyla eklenen üyeleri kaydeder.
+- `config/message_templates.json` her oturuma ait DM şablonlarını ve atanmış varsayılanları saklar.
 - `config/settings.json` uygulama ayarlarını barındırır.
 - `config/license.json` doğrulanmış lisans kaydını tutar.
 - `logs/application.log` dosyası hata ve işlem günlüklerini içerir.

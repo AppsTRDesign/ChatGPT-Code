@@ -95,6 +95,31 @@ class SessionTask:
     async def _throttle(self, interval: float) -> None:
         await asyncio.sleep(max(interval, 0.1))
 
+    def _render_message(self, template: Optional[str], user: StoredUser) -> str:
+        if not template:
+            return ""
+        replacements = {
+            "user_name": user.username or "",
+            "first_name": user.first_name or "",
+            "last_name": user.last_name or "",
+        }
+        rendered = template
+        for key, value in replacements.items():
+            rendered = rendered.replace(f"{{{key}}}", value)
+        return rendered
+
+    def _emit_inline_status(self, progress_callback: Callable[[ProgressUpdate], None], message: str) -> None:
+        total = self._total or self._processed or 1
+        progress_callback(
+            ProgressUpdate(
+                session_name=self.session_name,
+                processed=self._processed,
+                total=total,
+                user=None,
+                status=message,
+            )
+        )
+
     async def scan_members(
         self,
         entity: str,
@@ -430,6 +455,73 @@ class SessionTask:
                 break
             await self._throttle(self.settings.rate_limit.scan_interval)
         logger.info("log.active_finished")
+
+    async def send_messages(
+        self,
+        users: Iterable[StoredUser],
+        message_body: Optional[str],
+        media: Optional[str],
+        progress_callback: Callable[[ProgressUpdate], None],
+        status_callback: Optional[Callable[[str], None]] = None,
+    ) -> None:
+        candidates = list(users)
+        if not candidates:
+            logger.info("log.message_no_users")
+            return
+        if not (message_body or media):
+            raise ValueError(translator.translate("dialog.message_missing_body"))
+        status_cb = status_callback or (lambda _: None)
+        status_cb("status.running")
+        total = len(candidates)
+        for user in candidates:
+            await self._check_cancelled()
+            if user.is_bot:
+                progress_callback(self.build_progress(total, user, status="status.skipped_bot"))
+                continue
+            input_user = await self._resolve_input_user(user)
+            if input_user is None:
+                logger.warning("log.member_input_missing")
+                self._emit_inline_status(progress_callback, translator.translate("log.member_input_missing"))
+                progress_callback(self.build_progress(total, user, status="status.message_failed"))
+                continue
+            rendered_text = self._render_message(message_body, user)
+            send_coro: Optional[asyncio.Future] = None
+            try:
+                if media:
+                    caption = rendered_text or None
+                    send_coro = self.client.send_file(input_user, media, caption=caption)
+                else:
+                    if not rendered_text:
+                        raise ValueError(translator.translate("dialog.message_missing_body"))
+                    send_coro = self.client.send_message(input_user, rendered_text, link_preview=False)
+                await send_coro
+                status_key = "status.message_sent"
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                continue
+            except PeerFloodError:
+                detail = self._peer_flood_detail()
+                status_cb(detail)
+                self._emit_inline_status(progress_callback, detail)
+                break
+            except ChatWriteForbiddenError:
+                status_key = "status.chat_write_forbidden"
+                self._emit_inline_status(progress_callback, translator.translate("log.chat_write_forbidden"))
+            except UserPrivacyRestrictedError:
+                status_key = "status.message_failed"
+                self._emit_inline_status(progress_callback, translator.translate("log.message_privacy"))
+            except Exception as exc:  # pragma: no cover - network/runtime failures
+                logger.warning("log.message_send_failed: %s", exc)
+                status_key = "status.message_failed"
+                self._emit_inline_status(
+                    progress_callback,
+                    f"{translator.translate('log.message_send_failed')}: {exc}",
+                )
+            else:
+                logger.info("log.message_sent")
+            await self._throttle(self.settings.rate_limit.message_interval)
+            progress_callback(self.build_progress(total, user, status=status_key))
+        logger.info("log.message_finished")
 
     async def _resolve_input_user(self, user: StoredUser) -> Optional[types.InputUser]:
         try:
