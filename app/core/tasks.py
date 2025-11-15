@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from telethon import TelegramClient
@@ -23,6 +23,7 @@ from telethon.tl import functions, types
 
 from app.core.entity_utils import normalize_entity
 from app.core.settings import AppSettings
+from app.data.group_storage import GroupStorage, StoredGroup
 from app.data.user_storage import StoredUser, UserStorage
 from app.i18n.strings import translator
 
@@ -36,6 +37,7 @@ class ProgressUpdate:
     total: int
     user: Optional[StoredUser] = None
     status: Optional[str] = None
+    group: Optional[StoredGroup] = None
 
 
 class TaskCancelled(Exception):
@@ -48,7 +50,7 @@ class SessionTask:
         session_name: str,
         client: TelegramClient,
         settings: AppSettings,
-        storage: UserStorage,
+        storage: Union[UserStorage, GroupStorage],
         result_storage: Optional[UserStorage] = None,
         flood_tracker: Optional[Dict[str, datetime]] = None,
         flood_key: Optional[str] = None,
@@ -74,7 +76,11 @@ class SessionTask:
             raise TaskCancelled()
 
     def build_progress(
-        self, total: Optional[int] = None, user: Optional[StoredUser] = None, status: Optional[str] = None
+        self,
+        total: Optional[int] = None,
+        user: Optional[StoredUser] = None,
+        status: Optional[str] = None,
+        group: Optional[StoredGroup] = None,
     ) -> ProgressUpdate:
         self._processed += 1
         if total and total > 0:
@@ -90,6 +96,7 @@ class SessionTask:
             total=self._total,
             user=user,
             status=status,
+            group=group,
         )
 
     async def _throttle(self, interval: float) -> None:
@@ -450,6 +457,63 @@ class SessionTask:
             await self._throttle(self.settings.rate_limit.scan_interval)
         logger.info("log.active_finished")
 
+    async def search_groups(
+        self,
+        keyword: str,
+        limit: Optional[int],
+        progress_callback: Callable[[ProgressUpdate], None],
+        persist: bool,
+        status_callback: Optional[Callable[[str], None]] = None,
+    ) -> None:
+        keyword = keyword.strip()
+        if not keyword:
+            raise ValueError(translator.translate("dialog.group_keyword_required"))
+        status_cb = status_callback or (lambda _: None)
+        status_cb("status.running")
+        limit = limit or 25
+        processed = 0
+        seen: set[int] = set()
+        while processed < limit:
+            batch = min(50, limit - processed)
+            try:
+                result = await self.client(
+                    functions.contacts.SearchRequest(q=keyword, limit=batch)
+                )
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                continue
+            chats = getattr(result, "chats", []) or []
+            if not chats:
+                break
+            for chat in chats:
+                await self._check_cancelled()
+                if not isinstance(chat, (types.Chat, types.Channel)):
+                    continue
+                if chat.id in seen:
+                    continue
+                seen.add(chat.id)
+                try:
+                    record = await self._build_group_record(chat, keyword)
+                except FloodWaitError as exc:
+                    await self._handle_flood_wait(exc.seconds, status_cb)
+                    continue
+                except Exception:
+                    continue
+                if not record:
+                    continue
+                processed += 1
+                if persist and isinstance(self.storage, GroupStorage):
+                    self.storage.add_groups([record])
+                progress_callback(
+                    self.build_progress(limit, status="status.running", group=record)
+                )
+                await self._throttle(self.settings.rate_limit.scan_interval)
+                if processed >= limit:
+                    break
+            if len(chats) < batch:
+                break
+        status_cb("status.completed")
+
     async def send_messages(
         self,
         users: Iterable[StoredUser],
@@ -531,6 +595,81 @@ class SessionTask:
             progress_callback(self.build_progress(total, user, status=status_key))
         logger.info("log.message_finished")
 
+    async def send_group_messages(
+        self,
+        groups: Iterable[StoredGroup],
+        message_body: Optional[str],
+        media: Optional[str],
+        progress_callback: Callable[[ProgressUpdate], None],
+        status_callback: Optional[Callable[[str], None]] = None,
+    ) -> None:
+        targets = [group for group in groups if group]
+        if not targets:
+            logger.info("log.group_message_no_targets")
+            return
+        if not (message_body or media):
+            raise ValueError(translator.translate("dialog.message_missing_body"))
+        status_cb = status_callback or (lambda _: None)
+        status_cb("status.running")
+        total = len(targets)
+        for group in targets:
+            await self._check_cancelled()
+            input_entity = await self._resolve_group_entity(group)
+            if input_entity is None:
+                warning = translator.translate("log.group_target_invalid")
+                logger.warning("log.group_target_invalid")
+                self._emit_inline_status(progress_callback, warning)
+                progress_callback(
+                    self.build_progress(total, status="status.message_failed", group=group)
+                )
+                continue
+            joined = await self._ensure_group_membership(input_entity, status_cb)
+            if not joined:
+                progress_callback(
+                    self.build_progress(total, status="status.group_join_failed", group=group)
+                )
+                continue
+            status_key = "status.message_failed"
+            try:
+                if media:
+                    caption = message_body or None
+                    await self.client.send_file(input_entity, media, caption=caption)
+                else:
+                    if not message_body:
+                        raise ValueError(translator.translate("dialog.message_missing_body"))
+                    await self.client.send_message(input_entity, message_body, link_preview=False)
+                status_key = "status.message_sent"
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                continue
+            except PeerFloodError:
+                detail = self._peer_flood_detail()
+                status_cb(detail)
+                self._emit_inline_status(progress_callback, detail)
+                break
+            except ChatWriteForbiddenError:
+                warning = translator.translate("log.group_write_forbidden")
+                logger.warning("log.group_write_forbidden")
+                self._remove_group_record(group)
+                self._emit_inline_status(progress_callback, warning)
+            except UserPrivacyRestrictedError:
+                warning = translator.translate("log.group_privacy_block")
+                logger.warning("log.group_privacy_block")
+                self._emit_inline_status(progress_callback, warning)
+            except BadRequestError as exc:
+                warning = f"{translator.translate('log.message_send_failed')}: {exc}"
+                logger.warning(warning)
+                self._emit_inline_status(progress_callback, warning)
+            except Exception as exc:  # pragma: no cover
+                warning = f"{translator.translate('log.message_send_failed')}: {exc}"
+                logger.warning(warning)
+                self._emit_inline_status(progress_callback, warning)
+            await self._throttle(self.settings.rate_limit.message_interval)
+            progress_callback(
+                self.build_progress(total, status=status_key, group=group)
+            )
+        status_cb("status.completed")
+
     async def _resolve_input_user(self, user: StoredUser) -> Optional[types.InputUser]:
         try:
             entity = await self.client.get_input_entity(types.PeerUser(user.user_id))
@@ -555,6 +694,104 @@ class SessionTask:
         if hasattr(self.storage, "has_user") and self.storage.has_user(user.user_id):
             self.storage.update_user(user)
         return resolved
+
+    async def _build_group_record(
+        self,
+        chat: types.TypeChat,
+        source: str,
+    ) -> Optional[StoredGroup]:
+        title = getattr(chat, "title", None) or getattr(chat, "username", None) or str(chat.id)
+        members = getattr(chat, "participants_count", None)
+        messages_restricted = False
+        if isinstance(chat, types.Channel):
+            access_hash = getattr(chat, "access_hash", None)
+            if access_hash is None:
+                return None
+            input_channel = types.InputChannel(chat.id, access_hash)
+            try:
+                full = await self.client(functions.channels.GetFullChannelRequest(channel=input_channel))
+                members = getattr(full.full_chat, "participants_count", members)
+                banned = getattr(full.full_chat, "default_banned_rights", None)
+                messages_restricted = bool(getattr(banned, "send_messages", False))
+            except FloodWaitError:
+                raise
+            except Exception:
+                pass
+        elif isinstance(chat, types.Chat):
+            try:
+                full_chat = await self.client(functions.messages.GetFullChatRequest(chat_id=chat.id))
+                members = getattr(full_chat.full_chat, "participants_count", members)
+                banned = getattr(full_chat.full_chat, "default_banned_rights", None)
+                messages_restricted = bool(getattr(banned, "send_messages", False))
+            except FloodWaitError:
+                raise
+            except Exception:
+                pass
+        link = None
+        if getattr(chat, "username", None):
+            link = f"https://t.me/{chat.username}"
+        record = StoredGroup(
+            group_id=getattr(chat, "id", None),
+            access_hash=getattr(chat, "access_hash", None),
+            title=title,
+            username=getattr(chat, "username", None),
+            link=link,
+            members=members,
+            is_public=bool(getattr(chat, "username", None)),
+            is_megagroup=bool(getattr(chat, "megagroup", False)),
+            is_broadcast=bool(getattr(chat, "broadcast", False)),
+            messages_restricted=messages_restricted,
+            source=source,
+        )
+        return record
+
+    async def _resolve_group_entity(self, group: StoredGroup):
+        hints: List[object] = []
+        if group.group_id and group.access_hash and (group.is_megagroup or group.is_broadcast):
+            hints.append(types.InputChannel(group.group_id, group.access_hash))
+            hints.append(types.PeerChannel(group.group_id))
+        if group.group_id and not group.is_megagroup and not group.is_broadcast:
+            hints.append(types.InputPeerChat(group.group_id))
+            hints.append(types.PeerChat(group.group_id))
+        if group.username:
+            hints.append(group.username)
+            hints.append(f"https://t.me/{group.username}")
+        if group.link:
+            hints.append(group.link)
+        for hint in hints:
+            try:
+                return await self.client.get_input_entity(hint)
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    async def _ensure_group_membership(
+        self,
+        entity,
+        status_callback: Callable[[str], None],
+    ) -> bool:
+        if isinstance(entity, types.InputPeerChannel):
+            channel = types.InputChannel(entity.channel_id, entity.access_hash)
+        elif isinstance(entity, types.InputChannel):
+            channel = entity
+        else:
+            return True
+        while True:
+            try:
+                await self.client(functions.channels.JoinChannelRequest(channel=channel))
+                return True
+            except UserAlreadyParticipantError:
+                return True
+            except FloodWaitError as exc:
+                await self._handle_flood_wait(exc.seconds, status_callback)
+            except ChatWriteForbiddenError:
+                return False
+            except Exception:
+                return False
+
+    def _remove_group_record(self, group: StoredGroup) -> None:
+        if isinstance(self.storage, GroupStorage):
+            self.storage.remove_group(group)
 
     async def _resolve_target_peer(
         self, entity: str
@@ -672,7 +909,7 @@ class TaskOrchestrator:
         session_name: str,
         task_type: str,
         client: TelegramClient,
-        storage: UserStorage,
+        storage: Union[UserStorage, GroupStorage],
         result_storage: Optional[UserStorage] = None,
     ) -> SessionTask:
         key = (session_name, task_type)

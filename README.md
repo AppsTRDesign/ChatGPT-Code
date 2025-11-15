@@ -13,6 +13,9 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Kayıtlı Kullanıcılara DM Gönderme:** Yeni DM sekmesi üzerinden her oturum için şablon seçerek veya manuel mesaj/medya girerek kayıtlı üyelere mesaj yollama, {user_name}/{first_name}/{last_name} değişkenlerini otomatik doldurma ve mesaj oranını rate-limit ayarlarına göre yönetme.
 - **Şablon Yönetimi Sekmesi:** Ayrı bir "Şablon Yönetimi" sekmesinde oturum bazlı şablonları listeleme, düzenleme, kopyalanabilir {user_name}/{first_name}/{last_name} kısayollarını tek tıkla gövdeye ekleme ve emoji seçicisi ile mesajları zenginleştirme; her oturuma atanmış şablonlar DM sekmesinde özet olarak listelenir.
 - **Mesaj Şablonları:** Her oturum için sınırsız şablon tutma, şablonlara medya dosyası/URL iliştirme ve seçilen şablonu ilgili oturuma atama; DM işlemi sırasında atanmış şablon yoksa manuel alanlar kullanılır.
+- **Grup Taraması ve Kaydı:** "Grup Taraması" sekmesi belirli anahtar kelimelerle grupları arar, üyelik sayısı, herkese açık/özel ve mesaj izni gibi verileri toplar. Sonuçlar tabloda sıralanabilir, içe/dışa aktarılabilir, manuel eklenebilir ve `users/groups.json` dosyasında saklanır.
+- **Grup Mesaj Şablonları:** DM şablonlarına benzer şekilde, her oturum için grup mesaj şablonları oluşturulur; kısayol ve emoji butonları gövdeye içerik ekler, medya URL/dosyaları iliştirilebilir ve şablonlar oturumlara atanabilir.
+- **Gruba Mesaj Gönderimi:** Kayıtlı ya da manuel yazılan gruplara seçilen şablon veya manuel gövde/medya ile mesaj gönderilir. Sistem gerekirse gruba katılır, mesaj izni yoksa grubu listeden çıkarır ve rate limit ayarındaki bekleme süresini uygular.
 - **Esnek İlerleme ve Kayıt Kontrolleri:** Kullanıcı adı olmayanları hariç tutma, kayıtlı listeleri temizleme ve işlemleri iptal ederek baştan başlatma seçenekleri.
 - **CSV Dışa Aktarımı:** Kullanıcı tablolarını UTF-8 BOM'lu, sıralanabilir başlıklara sahip CSV dosyalarına aktararak Türkçe karakter sorunlarını ortadan kaldırır.
 - **Rate Limit Yönetimi:** Flood hatalarını azaltmak için ayarlanabilir süreler.
@@ -21,6 +24,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Dil ve Zaman Dilimi Ayarları:** 30 popüler zaman dilimi ve anlık TR/EN dil değişimi.
 - **Kullanıcı Kaydı:** Taranan üyeler `users/scanned_users.json`, aktif mesaj atanlar `users/active_users.json` dosyasında saklanır ve arayüzde tablo olarak gösterilir.
 - **Makineye Özel Lisanslama:** Ayarlar sekmesinde cihaz kimliği ve kalan süre görülebilir, lisans anahtarları yalnızca hedef PC'de çalışır.
+- **Modern Üst Başlık:** Uygulama penceresinin üst tarafında Telegram benzeri SVG ikon, başlık ve açıklama yer alır ve seçilen dile göre dinamik güncellenir.
 
 ## Kurulum Adımları (Windows 11)
 
@@ -85,12 +89,20 @@ Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanm
 
 > Lisans süresi dolduğunda veya lisans hiç girilmemişse iş başlatma butonları devre dışı kalır ve kullanıcıya uyarı gösterilir.
 
+## Grup Araçları Kullanımı
+
+1. **Grup Taraması:** "Grup Taraması" sekmesinde oturum(lar)ı işaretleyin, aramak istediğiniz anahtar kelimeyi ve isteğe bağlı limiti girin. "Sonuçları kaydet" seçeneği açıksa bulunan gruplar `users/groups.json` dosyasına eklenir ve tabloya düşer.
+2. **Grup Şablonları:** "Grup Şablonları" sekmesinde bir oturum seçip şablon adı/gövde/medya alanlarını doldurun. {user_name}, {first_name}, {last_name} kısayol butonları ve emoji seçici gövdeye metin ekler; kaydedilen şablonlar hemen düzenlenebilir veya oturuma varsayılan olarak atanabilir.
+3. **Gruba Mesaj Gönderimi:** "Grup Mesaj Gönderimi" sekmesinde oturumları, kayıtlı grupları ve/veya manuel girilen linkleri seçin. Kota girerseniz toplam gruplar eşit bölünür. Mesaj gövdesi/medyası veya atanmış şablonlar kullanılarak gönderim yapılır; istemci gruba katılımı dener, mesaj izni yoksa ilgili kayıt tabloda işaretlenir ve ilerleme barı rate limit ayarlarına göre güncellenir.
+
 ## Veri Kayıt Yapısı
 
 - `session/` klasörü Telethon oturum dosyalarını tutar.
 - `users/` klasöründeki `scanned_users.json` ve `active_users.json` dosyaları ilgili sekmelerdeki kullanıcı kayıtlarını saklar. İşlenen kullanıcılar otomatik olarak silinir veya güncellenir.
 - `users/scanned_added_users.json` ve `users/active_added_users.json` dosyaları hedef kanala başarıyla eklenen üyeleri kaydeder.
+- `users/groups.json` grup taraması sonuçlarını, kaynak bilgisini ve mesaj izin durumunu saklar.
 - `config/message_templates.json` her oturuma ait DM şablonlarını ve atanmış varsayılanları saklar.
+- `config/group_templates.json` grup mesaj şablonlarını ve oturum bazlı varsayılan atamalarını saklar.
 - `config/settings.json` uygulama ayarlarını barındırır.
 - `config/license.json` doğrulanmış lisans kaydını tutar.
 - `logs/application.log` dosyası hata ve işlem günlüklerini içerir.

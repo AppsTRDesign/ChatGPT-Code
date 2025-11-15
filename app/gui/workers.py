@@ -4,13 +4,14 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Callable, Iterable, List, Optional
+from typing import Callable, Iterable, List, Optional, Union
 
 from PySide6.QtCore import QThread, Signal
 from telethon import TelegramClient
 
 from app.core.session_manager import SessionManager
 from app.core.tasks import ProgressUpdate, SessionTask, TaskCancelled, TaskOrchestrator
+from app.data.group_storage import GroupStorage, StoredGroup
 from app.data.user_storage import StoredUser, UserStorage
 
 logger = logging.getLogger(__name__)
@@ -25,12 +26,13 @@ class TaskRequest:
     interval: Optional[timedelta]
     users: Optional[List[StoredUser]] = None
     persist_results: bool = True
-    storage: Optional[UserStorage] = None
+    storage: Optional[Union[UserStorage, GroupStorage]] = None
     include_no_username: bool = True
     offset: int = 0
     result_storage: Optional[UserStorage] = None
     message_body: Optional[str] = None
     message_media: Optional[str] = None
+    groups: Optional[List[StoredGroup]] = None
 
 
 class SessionWorkerThread(QThread):
@@ -97,6 +99,14 @@ class SessionWorkerThread(QThread):
                     include_no_username=self.request.include_no_username,
                     offset=self.request.offset,
                 )
+            elif self.request.task_type == "group_scan":
+                await task.search_groups(
+                    self.request.entity,
+                    self.request.limit,
+                    progress_handler,
+                    self.request.persist_results,
+                    status_handler,
+                )
             elif self.request.task_type == "add":
                 await task.add_members(
                     self.request.entity,
@@ -118,6 +128,14 @@ class SessionWorkerThread(QThread):
             elif self.request.task_type == "message":
                 await task.send_messages(
                     self.request.users or [],
+                    self.request.message_body,
+                    self.request.message_media,
+                    progress_handler,
+                    status_handler,
+                )
+            elif self.request.task_type == "group_message":
+                await task.send_group_messages(
+                    self.request.groups or [],
                     self.request.message_body,
                     self.request.message_media,
                     progress_handler,

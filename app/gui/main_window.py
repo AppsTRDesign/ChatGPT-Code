@@ -5,10 +5,11 @@ import csv
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtGui import QColor, QCloseEvent, QPainter, QPixmap, QPolygon
+from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -45,6 +46,7 @@ from app.core.logger import configure_logging
 from app.core.session_manager import PendingLogin, SessionManager
 from app.core.settings import POPULAR_TIMEZONES, SettingsRepository
 from app.core.tasks import ProgressUpdate, TaskOrchestrator
+from app.data.group_storage import GroupStorage, StoredGroup
 from app.data.template_storage import MessageTemplate, TemplateStorage
 from app.data.user_storage import StoredUser, UserStorage
 from app.gui.widgets.session_progress import SessionProgressWidget
@@ -99,6 +101,14 @@ EMOJI_CHOICES: List[str] = [
     "📌",
 ]
 
+GROUP_TABLE_HEADERS: List[str] = [
+    "label.group_name",
+    "label.members",
+    "label.group_visibility",
+    "label.group_messaging",
+    "label.source",
+]
+
 
 class MainWindow(QMainWindow):
     def __init__(self, settings_repo: SettingsRepository, parent: Optional[QWidget] = None) -> None:
@@ -134,6 +144,8 @@ class MainWindow(QMainWindow):
             ),
         }
         self.template_storage = TemplateStorage(Path("config") / "message_templates.json")
+        self.group_template_storage = TemplateStorage(Path("config") / "group_templates.json")
+        self.group_storage = GroupStorage(self.settings.user_directory / "groups.json")
         self.user_table_meta: List[Tuple[str, bool, str]] = [
             ("scanned", False, "tab.users_scanned"),
             ("active", True, "tab.users_active"),
@@ -149,6 +161,8 @@ class MainWindow(QMainWindow):
             "add": {},
             "active": {},
             "message": {},
+            "group_scan": {},
+            "group_message": {},
         }
         self._pending_completion_notifications: set[str] = set()
         self._cancelling = False
@@ -156,16 +170,26 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(translator.translate("app.title"))
         self.resize(1280, 860)
 
+        central = QWidget()
+        central_layout = QVBoxLayout(central)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
+        self.header_widget = self._build_header_bar()
+        central_layout.addWidget(self.header_widget)
         self.tab_widget = QTabWidget()
-        self.setCentralWidget(self.tab_widget)
+        central_layout.addWidget(self.tab_widget)
+        self.setCentralWidget(central)
 
         self._build_sessions_tab()
         self._build_ban_tab()
         self._build_scan_tab()
         self._build_add_tab()
         self._build_active_tab()
+        self._build_group_discovery_tab()
         self._build_message_tab()
+        self._build_group_message_tab()
         self._build_template_tab()
+        self._build_group_template_tab()
         self._build_rate_tab()
         self._build_settings_tab()
         self._build_user_tab()
@@ -175,6 +199,58 @@ class MainWindow(QMainWindow):
         self._update_task_controls()
 
     # region builders
+    def _build_header_bar(self) -> QWidget:
+        widget = QWidget()
+        widget.setObjectName("appHeader")
+        widget.setStyleSheet(
+            "#appHeader {background-color: #0d8dc0;}"
+            "#headerTitle {color: white; font-size: 20px; font-weight: 600;}"
+            "#headerSubtitle {color: white; font-size: 12px;}"
+        )
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(24, 16, 24, 16)
+        layout.setSpacing(16)
+        logo = QLabel()
+        logo.setPixmap(self._create_logo_pixmap())
+        layout.addWidget(logo, 0, Qt.AlignVCenter)
+        text_layout = QVBoxLayout()
+        self.header_title_label = QLabel()
+        self.header_title_label.setObjectName("headerTitle")
+        self.header_subtitle_label = QLabel()
+        self.header_subtitle_label.setObjectName("headerSubtitle")
+        text_layout.addWidget(self.header_title_label)
+        text_layout.addWidget(self.header_subtitle_label)
+        layout.addLayout(text_layout)
+        layout.addStretch()
+        self._update_header_text()
+        return widget
+
+    def _create_logo_pixmap(self, size: int = 64) -> QPixmap:
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor("#29A8E0"))
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(0, 0, size, size)
+        painter.setBrush(QColor("#FFFFFF"))
+        triangle = QPolygon(
+            [
+                QPoint(int(size * 0.25), int(size * 0.40)),
+                QPoint(int(size * 0.75), int(size * 0.55)),
+                QPoint(int(size * 0.25), int(size * 0.70)),
+            ]
+        )
+        painter.drawPolygon(triangle)
+        painter.end()
+        return pixmap
+
+    def _update_header_text(self) -> None:
+        if hasattr(self, "header_title_label"):
+            self.header_title_label.setText(translator.translate("header.title"))
+        if hasattr(self, "header_subtitle_label"):
+            self.header_subtitle_label.setText(translator.translate("header.subtitle"))
+
     def _build_sessions_tab(self) -> None:
         tab = QWidget()
         layout = QGridLayout()
@@ -372,6 +448,70 @@ class MainWindow(QMainWindow):
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("tab.active_senders"))
 
+    def _build_group_discovery_tab(self) -> None:
+        tab = QWidget()
+        layout = QGridLayout()
+
+        self.group_scan_session_list = QListWidget()
+        self.group_scan_session_list.setSelectionMode(QListWidget.MultiSelection)
+        layout.addWidget(self.group_scan_session_list, 0, 0, 3, 1)
+
+        form_layout = QFormLayout()
+        self.group_search_keyword_input = QLineEdit()
+        self.group_search_limit_input = QLineEdit()
+        self.group_search_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
+        self.group_search_save_checkbox.setChecked(True)
+        form_layout.addRow(translator.translate("label.group_keyword"), self.group_search_keyword_input)
+        form_layout.addRow(translator.translate("label.limit"), self.group_search_limit_input)
+        form_layout.addRow(self.group_search_save_checkbox)
+        layout.addLayout(form_layout, 0, 1, 1, 2)
+
+        control_layout = QHBoxLayout()
+        self.group_search_start_button = QPushButton(translator.translate("button.start"))
+        self.group_search_start_button.clicked.connect(partial(self.start_task, task_type="group_scan"))
+        self.group_search_cancel_button = QPushButton(translator.translate("button.cancel"))
+        self.group_search_cancel_button.clicked.connect(partial(self.cancel_tasks, task_type="group_scan"))
+        control_layout.addWidget(self.group_search_start_button)
+        control_layout.addWidget(self.group_search_cancel_button)
+        layout.addLayout(control_layout, 1, 1, 1, 2)
+
+        self.group_scan_progress_container = QVBoxLayout()
+        progress_group = QGroupBox(translator.translate("label.progress"))
+        progress_group.setLayout(self.group_scan_progress_container)
+        layout.addWidget(progress_group, 2, 1, 1, 2)
+
+        table_group = QGroupBox(translator.translate("group.saved_groups"))
+        table_layout = QVBoxLayout()
+        self.group_table = QTableWidget(0, len(GROUP_TABLE_HEADERS))
+        self.group_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.group_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.group_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.group_table.verticalHeader().setVisible(False)
+        self.group_table.setSortingEnabled(True)
+        table_layout.addWidget(self.group_table)
+
+        button_row = QHBoxLayout()
+        self.group_import_button = QPushButton(translator.translate("button.import_groups"))
+        self.group_import_button.clicked.connect(self.import_groups)
+        self.group_export_button = QPushButton(translator.translate("button.export_groups"))
+        self.group_export_button.clicked.connect(self.export_groups)
+        self.group_add_button = QPushButton(translator.translate("button.add_group"))
+        self.group_add_button.clicked.connect(self.add_group_manual)
+        self.group_clear_button = QPushButton(translator.translate("button.clear_groups"))
+        self.group_clear_button.clicked.connect(self.clear_groups)
+        button_row.addWidget(self.group_import_button)
+        button_row.addWidget(self.group_export_button)
+        button_row.addWidget(self.group_add_button)
+        button_row.addWidget(self.group_clear_button)
+        button_row.addStretch()
+        table_layout.addLayout(button_row)
+        table_group.setLayout(table_layout)
+        layout.addWidget(table_group, 3, 0, 1, 3)
+
+        tab.setLayout(layout)
+        self.tab_widget.addTab(tab, translator.translate("tab.group_discovery"))
+        self._refresh_group_table()
+
     def _build_message_tab(self) -> None:
         tab = QWidget()
         layout = QGridLayout()
@@ -428,6 +568,66 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(tab, translator.translate("tab.direct_messages"))
         self._refresh_message_template_summary()
 
+    def _build_group_message_tab(self) -> None:
+        tab = QWidget()
+        layout = QGridLayout()
+
+        self.group_message_session_list = QListWidget()
+        self.group_message_session_list.setSelectionMode(QListWidget.MultiSelection)
+        layout.addWidget(self.group_message_session_list, 0, 0, 4, 1)
+
+        form_layout = QFormLayout()
+        self.group_message_limit_input = QLineEdit()
+        form_layout.addRow(translator.translate("label.limit"), self.group_message_limit_input)
+
+        self.group_message_list = QListWidget()
+        self.group_message_list.setSelectionMode(QListWidget.MultiSelection)
+        form_layout.addRow(translator.translate("label.saved_groups"), self.group_message_list)
+
+        self.group_message_manual_input = QTextEdit()
+        form_layout.addRow(translator.translate("label.manual_groups"), self.group_message_manual_input)
+
+        self.group_message_body_input = QTextEdit()
+        form_layout.addRow(translator.translate("label.message_body"), self.group_message_body_input)
+        group_placeholder_bar = self._build_placeholder_toolbar(self.group_message_body_input)
+        form_layout.addRow(translator.translate("label.placeholders"), group_placeholder_bar)
+
+        media_row = QHBoxLayout()
+        self.group_message_media_input = QLineEdit()
+        self.group_message_media_button = QPushButton(translator.translate("button.choose_file"))
+        self.group_message_media_button.clicked.connect(partial(self._browse_media_file, self.group_message_media_input))
+        media_row.addWidget(self.group_message_media_input)
+        media_row.addWidget(self.group_message_media_button)
+        form_layout.addRow(translator.translate("label.message_media"), media_row)
+
+        layout.addLayout(form_layout, 0, 1, 3, 1)
+
+        assignment_group = QGroupBox(translator.translate("group.assigned_templates"))
+        assignment_layout = QVBoxLayout()
+        self.group_message_template_summary = QListWidget()
+        assignment_layout.addWidget(self.group_message_template_summary)
+        assignment_group.setLayout(assignment_layout)
+        layout.addWidget(assignment_group, 0, 2, 3, 1)
+
+        self.group_message_start_button = QPushButton(translator.translate("button.start"))
+        self.group_message_start_button.clicked.connect(partial(self.start_task, task_type="group_message"))
+        self.group_message_cancel_button = QPushButton(translator.translate("button.cancel"))
+        self.group_message_cancel_button.clicked.connect(partial(self.cancel_tasks, task_type="group_message"))
+        control_layout = QHBoxLayout()
+        control_layout.addWidget(self.group_message_start_button)
+        control_layout.addWidget(self.group_message_cancel_button)
+        layout.addLayout(control_layout, 3, 1, 1, 2)
+
+        self.group_message_progress_container = QVBoxLayout()
+        progress_group = QGroupBox(translator.translate("label.progress"))
+        progress_group.setLayout(self.group_message_progress_container)
+        layout.addWidget(progress_group, 4, 1, 2, 2)
+
+        tab.setLayout(layout)
+        self.tab_widget.addTab(tab, translator.translate("tab.group_messages"))
+        self._refresh_group_message_list()
+        self._refresh_group_message_template_summary()
+
     def _build_template_tab(self) -> None:
         tab = QWidget()
         layout = QGridLayout()
@@ -476,6 +676,52 @@ class MainWindow(QMainWindow):
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("tab.templates"))
         self._refresh_template_combo(self._current_template_session())
+
+    def _build_group_template_tab(self) -> None:
+        tab = QWidget()
+        layout = QGridLayout()
+
+        self.group_template_session_list = QListWidget()
+        self.group_template_session_list.setSelectionMode(QListWidget.SingleSelection)
+        self.group_template_session_list.currentItemChanged.connect(self._handle_group_template_session_change)
+        layout.addWidget(self.group_template_session_list, 0, 0, 3, 1)
+
+        self.group_template_list_widget = QListWidget()
+        self.group_template_list_widget.setSelectionMode(QListWidget.SingleSelection)
+        self.group_template_list_widget.currentItemChanged.connect(self._handle_group_template_selection_change)
+        layout.addWidget(self.group_template_list_widget, 0, 1, 3, 1)
+
+        form_layout = QFormLayout()
+        self.group_template_name_input = QLineEdit()
+        form_layout.addRow(translator.translate("label.template_name"), self.group_template_name_input)
+        self.group_template_body_input = QTextEdit()
+        form_layout.addRow(translator.translate("label.template_body"), self.group_template_body_input)
+        group_template_toolbar = self._build_placeholder_toolbar(self.group_template_body_input)
+        form_layout.addRow(translator.translate("label.placeholders"), group_template_toolbar)
+        media_row = QHBoxLayout()
+        self.group_template_media_input = QLineEdit()
+        self.group_template_media_button = QPushButton(translator.translate("button.choose_file"))
+        self.group_template_media_button.clicked.connect(partial(self._browse_media_file, self.group_template_media_input))
+        media_row.addWidget(self.group_template_media_input)
+        media_row.addWidget(self.group_template_media_button)
+        form_layout.addRow(translator.translate("label.template_media"), media_row)
+        button_row = QHBoxLayout()
+        self.group_template_save_button = QPushButton(translator.translate("button.save_template"))
+        self.group_template_save_button.clicked.connect(self._save_group_template)
+        self.group_template_delete_button = QPushButton(translator.translate("button.delete_template"))
+        self.group_template_delete_button.clicked.connect(self._delete_group_template)
+        self.group_template_assign_button = QPushButton(translator.translate("button.assign_template"))
+        self.group_template_assign_button.clicked.connect(self._assign_group_template)
+        button_row.addWidget(self.group_template_save_button)
+        button_row.addWidget(self.group_template_delete_button)
+        button_row.addWidget(self.group_template_assign_button)
+        form_layout.addRow(button_row)
+
+        layout.addLayout(form_layout, 0, 2, 3, 1)
+
+        tab.setLayout(layout)
+        self.tab_widget.addTab(tab, translator.translate("tab.group_templates"))
+        self._refresh_group_template_combo(self._current_group_template_session())
 
     def _build_rate_tab(self) -> None:
         tab = QWidget()
@@ -623,14 +869,35 @@ class MainWindow(QMainWindow):
         self.active_session_list.clear()
         message_widget = getattr(self, "message_session_list", None)
         template_widget = getattr(self, "template_session_list", None)
+        group_scan_widget = getattr(self, "group_scan_session_list", None)
+        group_message_widget = getattr(self, "group_message_session_list", None)
+        group_template_widget = getattr(self, "group_template_session_list", None)
+        if group_scan_widget:
+            group_scan_widget.clear()
+        if group_message_widget:
+            group_message_widget.clear()
+        if group_template_widget:
+            group_template_widget.clear()
         if message_widget:
             message_widget.blockSignals(True)
             message_widget.clear()
         if template_widget:
             template_widget.blockSignals(True)
             template_widget.clear()
+        if group_template_widget:
+            group_template_widget.blockSignals(True)
+        session_widgets = [
+            self.session_list,
+            self.scan_session_list,
+            self.add_session_list,
+            self.active_session_list,
+        ]
         for info in self.session_manager.list_sessions():
-            widgets = [self.session_list, self.scan_session_list, self.add_session_list, self.active_session_list]
+            widgets = list(session_widgets)
+            if group_scan_widget:
+                widgets.append(group_scan_widget)
+            if group_message_widget:
+                widgets.append(group_message_widget)
             if message_widget:
                 widgets.append(message_widget)
             for widget in widgets:
@@ -642,14 +909,24 @@ class MainWindow(QMainWindow):
                 template_item = QListWidgetItem(info.name)
                 template_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
                 template_widget.addItem(template_item)
+            if group_template_widget:
+                group_template_item = QListWidgetItem(info.name)
+                group_template_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                group_template_widget.addItem(group_template_item)
         if message_widget:
             message_widget.blockSignals(False)
         if template_widget:
             template_widget.blockSignals(False)
             if template_widget.count() > 0 and template_widget.currentRow() == -1:
                 template_widget.setCurrentRow(0)
+        if group_template_widget:
+            group_template_widget.blockSignals(False)
+            if group_template_widget.count() > 0 and group_template_widget.currentRow() == -1:
+                group_template_widget.setCurrentRow(0)
         self._refresh_message_template_summary()
+        self._refresh_group_message_template_summary()
         self._refresh_template_combo(self._current_template_session())
+        self._refresh_group_template_combo(self._current_group_template_session())
 
     def get_selected_sessions(self, widget: QListWidget) -> List[str]:
         selected: List[str] = []
@@ -746,6 +1023,9 @@ class MainWindow(QMainWindow):
             return
 
         include_no_username = True
+        storage: Optional[Union[UserStorage, GroupStorage]] = None
+        group_chunks: List[List[StoredGroup]] = []
+        message_payloads: Dict[str, Tuple[str, Optional[str]]] = {}
         if task_type == "scan":
             sessions = self.get_selected_sessions(self.scan_session_list)
             target = self.scan_target_input.text().strip()
@@ -753,8 +1033,16 @@ class MainWindow(QMainWindow):
             interval = self._build_interval(self.scan_interval_combo.currentIndex(), self.scan_interval_value.value())
             container = self.scan_progress_container
             persist = self.scan_save_checkbox.isChecked()
-            storage_key = "scanned"
+            storage = self.user_storages["scanned"]
             include_no_username = self.scan_include_no_username_checkbox.isChecked()
+        elif task_type == "group_scan":
+            sessions = self.get_selected_sessions(self.group_scan_session_list)
+            target = self.group_search_keyword_input.text().strip()
+            limit = self._parse_int(self.group_search_limit_input.text())
+            interval = None
+            container = self.group_scan_progress_container
+            persist = self.group_search_save_checkbox.isChecked()
+            storage = self.group_storage
         elif task_type == "add":
             sessions = self.get_selected_sessions(self.add_session_list)
             target = self.add_target_input.text().strip()
@@ -762,7 +1050,7 @@ class MainWindow(QMainWindow):
             interval = None
             container = self.add_progress_container
             persist = True
-            storage_key = self._current_add_storage_key()
+            storage = self.user_storages[self._current_add_storage_key()]
         elif task_type == "message":
             sessions = self.get_selected_sessions(self.message_session_list)
             target = ""
@@ -770,8 +1058,15 @@ class MainWindow(QMainWindow):
             interval = None
             container = self.message_progress_container
             persist = False
-            storage_key = self._current_message_storage_key()
-            include_no_username = True
+            storage = self.user_storages[self._current_message_storage_key()]
+        elif task_type == "group_message":
+            sessions = self.get_selected_sessions(self.group_message_session_list)
+            target = ""
+            limit = self._parse_int(self.group_message_limit_input.text())
+            interval = None
+            container = self.group_message_progress_container
+            persist = False
+            storage = self.group_storage
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
@@ -779,13 +1074,14 @@ class MainWindow(QMainWindow):
             interval = self._build_interval(self.active_interval_combo.currentIndex(), self.active_interval_value.value())
             container = self.active_progress_container
             persist = self.active_save_checkbox.isChecked()
-            storage_key = "active"
+            storage = self.user_storages["active"]
             include_no_username = self.active_include_no_username_checkbox.isChecked()
 
-        if task_type != "message" and (not sessions or not target):
-            QMessageBox.warning(self, self.windowTitle(), "Oturum ve hedef girilmeli")
+        requires_target = task_type in {"scan", "group_scan", "add", "active"}
+        if requires_target and (not sessions or not target):
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
-        if task_type == "message" and not sessions:
+        if task_type in {"message", "group_message"} and not sessions:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
         if task_type == "message" and not (self.message_body_input.toPlainText().strip() or self.message_media_input.text().strip()):
@@ -793,14 +1089,20 @@ class MainWindow(QMainWindow):
             if not has_template:
                 QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.message_missing_body"))
                 return
+        if task_type == "group_message" and not (
+            self.group_message_body_input.toPlainText().strip() or self.group_message_media_input.text().strip()
+        ):
+            has_template = any(self.group_template_storage.get_assignment(session) for session in sessions)
+            if not has_template:
+                QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.message_missing_body"))
+                return
 
-        storage = self.user_storages.get(storage_key)
         if storage is None:
             QMessageBox.critical(self, self.windowTitle(), translator.translate("dialog.storage_missing"))
             return
         result_storage: Optional[UserStorage] = None
         if task_type == "add":
-            result_key = self._add_result_storage_key(storage_key)
+            result_key = self._add_result_storage_key("scanned" if storage is self.user_storages["scanned"] else "active")
             result_storage = self.user_storages.get(result_key)
 
         progress_map = self.progress_widgets[task_type]
@@ -814,9 +1116,8 @@ class MainWindow(QMainWindow):
         session_count = len(sessions)
         per_session_limits: List[Optional[int]] = [None] * session_count
         offsets: List[int] = [0] * session_count
-        message_payloads: List[Tuple[str, Optional[str]]] = []
         if task_type == "add":
-            users = storage.get_users()
+            users = storage.get_users()  # type: ignore[attr-defined]
             if not users:
                 QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.no_users_available"))
                 return
@@ -826,7 +1127,7 @@ class MainWindow(QMainWindow):
             user_chunks = self._split_users_for_sessions(selected_users, session_count)
             per_session_limits = [len(chunk) for chunk in user_chunks]
         elif task_type == "message":
-            users = storage.get_users()
+            users = storage.get_users()  # type: ignore[attr-defined]
             if not users:
                 QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.no_users_available"))
                 return
@@ -848,11 +1149,37 @@ class MainWindow(QMainWindow):
                         translator.translate("dialog.message_missing_body"),
                     )
                     return
-                message_payloads.append((body, media))
+                message_payloads[session] = (body, media)
+        elif task_type == "group_message":
+            groups = self._collect_group_targets(limit)
+            if not groups:
+                QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.no_groups_available"))
+                return
+            group_chunks = self._split_groups_for_sessions(groups, session_count)
+            per_session_limits = [len(chunk) for chunk in group_chunks]
+            manual_body = self.group_message_body_input.toPlainText().strip()
+            manual_media = self.group_message_media_input.text().strip()
+            for session in sessions:
+                body, media = self._resolve_message_payload(
+                    session,
+                    manual_body,
+                    manual_media,
+                    storage=self.group_template_storage,
+                )
+                if not (body or media):
+                    QMessageBox.warning(
+                        self,
+                        self.windowTitle(),
+                        translator.translate("dialog.message_missing_body"),
+                    )
+                    return
+                message_payloads[session] = (body, media)
         else:
             user_chunks = [None] * session_count
             if task_type == "scan":
                 per_session_limits, offsets = self._scan_distribution(limit, target, sessions)
+            elif task_type == "group_scan":
+                per_session_limits = [limit] * session_count if limit else [None] * session_count
             else:
                 per_session_limits, offsets = self._active_distribution(limit, session_count)
 
@@ -869,9 +1196,17 @@ class MainWindow(QMainWindow):
             per_session_limit = per_session_limits[idx] if idx < len(per_session_limits) else None
             offset_value = offsets[idx] if idx < len(offsets) else 0
 
+            session_groups = group_chunks[idx] if idx < len(group_chunks) else None
             if task_type in {"add", "message"}:
                 session_users = user_chunks[idx] or []
                 total_target = len(session_users)
+                if total_target == 0:
+                    widget.update_state(0, 0, status_key="status.completed")
+                    continue
+            elif task_type == "group_message":
+                session_users = None
+                group_list = session_groups or []
+                total_target = len(group_list)
                 if total_target == 0:
                     widget.update_state(0, 0, status_key="status.completed")
                     continue
@@ -888,6 +1223,7 @@ class MainWindow(QMainWindow):
             if task_type not in {"add", "message"} and isinstance(per_session_limit, int) and per_session_limit > 0:
                 request_limit = per_session_limit
 
+            payload = message_payloads.get(session_name)
             request = TaskRequest(
                 task_type=task_type,
                 session_name=session_name,
@@ -900,8 +1236,9 @@ class MainWindow(QMainWindow):
                 include_no_username=include_no_username,
                 offset=offset_value if request_limit else 0,
                 result_storage=result_storage,
-                message_body=message_payloads[idx][0] if task_type == "message" else None,
-                message_media=message_payloads[idx][1] if task_type == "message" else None,
+                message_body=payload[0] if payload else None,
+                message_media=payload[1] if payload else None,
+                groups=session_groups if task_type == "group_message" else None,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -954,6 +1291,11 @@ class MainWindow(QMainWindow):
         if update.user:
             widget.append_user(self._format_user(update.user))
             self.populate_user_tables()
+        elif update.group:
+            widget.append_user(self._format_group(update.group))
+            if widget.task_type in {"group_scan", "group_message"}:
+                self._refresh_group_table()
+                self._refresh_group_message_list()
         else:
             if update.status and not update.status.startswith("status."):
                 widget.append_user(update.status)
@@ -968,6 +1310,9 @@ class MainWindow(QMainWindow):
         thread = self.worker_threads.pop(key, None)
         if thread:
             thread.wait(1000)
+        if task_type in {"group_scan", "group_message"}:
+            self._refresh_group_table()
+            self._refresh_group_message_list()
         self._notify_completion_if_ready()
         self._update_task_controls()
 
@@ -1070,8 +1415,13 @@ class MainWindow(QMainWindow):
     def _update_task_controls(self) -> None:
         enabled = not self.worker_threads and not self._cancelling
         buttons = [self.scan_start_button, self.add_start_button, self.active_start_button]
-        if hasattr(self, "message_start_button"):
-            buttons.append(self.message_start_button)
+        for attr in [
+            "group_search_start_button",
+            "message_start_button",
+            "group_message_start_button",
+        ]:
+            if hasattr(self, attr):
+                buttons.append(getattr(self, attr))
         for button in buttons:
             button.setEnabled(enabled)
 
@@ -1104,6 +1454,15 @@ class MainWindow(QMainWindow):
             parts.append(name)
         return " | ".join(parts)
 
+    @staticmethod
+    def _format_group(group: StoredGroup) -> str:
+        parts = [group.title]
+        if group.members:
+            parts.append(str(group.members))
+        if group.link:
+            parts.append(group.link)
+        return " | ".join(parts)
+
     def populate_user_tables(self) -> None:
         for key, has_message, _ in self.user_table_meta:
             storage = self.user_storages.get(key)
@@ -1132,6 +1491,200 @@ class MainWindow(QMainWindow):
                     message_text = user.last_message or ""
                     table.setItem(row, 9, QTableWidgetItem(message_text))
             table.setSortingEnabled(True)
+
+    def _refresh_group_table(self) -> None:
+        if not hasattr(self, "group_table"):
+            return
+        groups = self.group_storage.get_groups()
+        self.group_table.setSortingEnabled(False)
+        self.group_table.setRowCount(len(groups))
+        for col, header_key in enumerate(GROUP_TABLE_HEADERS):
+            item = QTableWidgetItem(translator.translate(header_key))
+            self.group_table.setHorizontalHeaderItem(col, item)
+        for row, group in enumerate(groups):
+            self.group_table.setItem(row, 0, QTableWidgetItem(group.title))
+            members = str(group.members) if group.members is not None else "-"
+            self.group_table.setItem(row, 1, QTableWidgetItem(members))
+            self.group_table.setItem(row, 2, QTableWidgetItem(self._group_visibility_text(group)))
+            self.group_table.setItem(row, 3, QTableWidgetItem(self._group_messaging_text(group)))
+            self.group_table.setItem(row, 4, QTableWidgetItem(group.source or ""))
+        self.group_table.setSortingEnabled(True)
+
+    def _group_visibility_text(self, group: StoredGroup) -> str:
+        key = "label.group_public" if group.is_public else "label.group_private"
+        return translator.translate(key)
+
+    def _group_messaging_text(self, group: StoredGroup) -> str:
+        key = "label.group_open_chat" if not group.messages_restricted else "label.group_closed_chat"
+        return translator.translate(key)
+
+    def _refresh_group_message_list(self) -> None:
+        if not hasattr(self, "group_message_list"):
+            return
+        self.group_message_list.clear()
+        for group in self.group_storage.get_groups():
+            label = group.title
+            if group.members:
+                label = f"{group.title} ({group.members})"
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, group)
+            self.group_message_list.addItem(item)
+
+    def import_groups(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            translator.translate("dialog.group_import_title"),
+            str(self.settings.user_directory),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        try:
+            self.group_storage.import_from_file(Path(path))
+        except Exception as exc:
+            QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.group_import_failure')}: {exc}")
+            return
+        self._refresh_group_table()
+        self._refresh_group_message_list()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.group_import_success"))
+
+    def export_groups(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            translator.translate("dialog.group_export_title"),
+            str(self.settings.user_directory / "exported_groups.json"),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        try:
+            self.group_storage.export_to_file(Path(path))
+        except Exception as exc:
+            QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.group_export_failure')}: {exc}")
+        else:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.group_export_success"))
+
+    def clear_groups(self) -> None:
+        reply = QMessageBox.question(
+            self,
+            self.windowTitle(),
+            translator.translate("dialog.group_clear_confirm"),
+        )
+        if reply != QMessageBox.Yes:
+            return
+        self.group_storage.clear()
+        self._refresh_group_table()
+        self._refresh_group_message_list()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.group_clear_success"))
+
+    def add_group_manual(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle(translator.translate("dialog.group_add_title"))
+        form = QFormLayout(dialog)
+        name_input = QLineEdit()
+        link_input = QLineEdit()
+        member_input = QLineEdit()
+        visibility_combo = QComboBox()
+        visibility_combo.addItems(
+            [
+                translator.translate("label.group_public"),
+                translator.translate("label.group_private"),
+            ]
+        )
+        messaging_combo = QComboBox()
+        messaging_combo.addItems(
+            [
+                translator.translate("label.group_open_chat"),
+                translator.translate("label.group_closed_chat"),
+            ]
+        )
+        form.addRow(translator.translate("label.group_name"), name_input)
+        form.addRow(translator.translate("label.group_link"), link_input)
+        form.addRow(translator.translate("label.members"), member_input)
+        form.addRow(translator.translate("label.group_visibility"), visibility_combo)
+        form.addRow(translator.translate("label.group_messaging"), messaging_combo)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        form.addRow(buttons)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        title = name_input.text().strip()
+        if not title:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.group_name_required"))
+            return
+        members = self._parse_int(member_input.text())
+        link = link_input.text().strip() or None
+        is_public = visibility_combo.currentIndex() == 0
+        restricted = messaging_combo.currentIndex() == 1
+        record = StoredGroup(
+            group_id=None,
+            access_hash=None,
+            title=title,
+            username=None,
+            link=link,
+            members=members,
+            is_public=is_public,
+            is_megagroup=True,
+            is_broadcast=False,
+            messages_restricted=restricted,
+            source="manual",
+        )
+        self.group_storage.add_groups([record])
+        self._refresh_group_table()
+        self._refresh_group_message_list()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.group_add_success"))
+
+    def _selected_group_records(self) -> List[StoredGroup]:
+        records: List[StoredGroup] = []
+        if not hasattr(self, "group_message_list"):
+            return records
+        for item in self.group_message_list.selectedItems():
+            group = item.data(Qt.UserRole)
+            if isinstance(group, StoredGroup):
+                records.append(group)
+        return records
+
+    def _collect_group_targets(self, limit: Optional[int]) -> List[StoredGroup]:
+        targets = list(self._selected_group_records())
+        manual_entries = []
+        if hasattr(self, "group_message_manual_input"):
+            manual_entries = [line.strip() for line in self.group_message_manual_input.toPlainText().splitlines() if line.strip()]
+        for entry in manual_entries:
+            targets.append(
+                StoredGroup(
+                    group_id=None,
+                    access_hash=None,
+                    title=entry,
+                    username=None,
+                    link=entry,
+                    members=None,
+                    is_public=True,
+                    is_megagroup=True,
+                    is_broadcast=False,
+                    messages_restricted=False,
+                    source="manual",
+                )
+            )
+        if limit and limit > 0:
+            return targets[:limit]
+        return targets
+
+    def _split_groups_for_sessions(self, groups: List[StoredGroup], count: int) -> List[List[StoredGroup]]:
+        if count <= 0:
+            return []
+        total = len(groups)
+        base = total // count
+        remainder = total % count
+        chunks: List[List[StoredGroup]] = []
+        start = 0
+        for idx in range(count):
+            size = base + (1 if idx < remainder else 0)
+            end = start + size
+            chunks.append(groups[start:end])
+            start = end
+        return chunks
+
 
     def _current_user_key(self) -> str:
         if not hasattr(self, "user_tab_widget"):
@@ -1299,6 +1852,139 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_assigned"))
         self._refresh_template_combo(session)
         self._refresh_message_template_summary()
+
+    def _refresh_group_message_template_summary(self) -> None:
+        if not hasattr(self, "group_message_template_summary"):
+            return
+        self.group_message_template_summary.clear()
+        sessions = self.get_selected_sessions(getattr(self, "group_message_session_list", QListWidget()))
+        if not sessions:
+            return
+        for session in sessions:
+            template_name = self.group_template_storage.get_assignment(session)
+            display = template_name or translator.translate("label.template_unassigned")
+            self.group_message_template_summary.addItem(f"{session} → {display}")
+
+    def _handle_group_template_session_change(self, current: Optional[QListWidgetItem]) -> None:
+        session = current.text() if current else None
+        self._refresh_group_template_combo(session)
+
+    def _handle_group_template_selection_change(self, current: Optional[QListWidgetItem]) -> None:
+        if not current:
+            self._clear_group_template_fields()
+            return
+        session = self._current_group_template_session()
+        if not session:
+            return
+        template = self.group_template_storage.get_template(session, current.data(Qt.UserRole))
+        if not template:
+            self._clear_group_template_fields()
+            return
+        self.group_template_name_input.setText(template.name)
+        self.group_template_body_input.setPlainText(template.body)
+        self.group_template_media_input.setText(template.media or "")
+
+    def _clear_group_template_fields(self) -> None:
+        self.group_template_name_input.clear()
+        self.group_template_body_input.clear()
+        self.group_template_media_input.clear()
+
+    def _save_group_template(self) -> None:
+        session = self._current_group_template_session()
+        if not session:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
+            return
+        name = self.group_template_name_input.text().strip()
+        body = self.group_template_body_input.toPlainText().strip()
+        media = self.group_template_media_input.text().strip()
+        if not name:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
+            return
+        if not body and not media:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.message_missing_body"))
+            return
+        template = MessageTemplate(name=name, body=body, media=media or None)
+        self.group_template_storage.upsert_template(session, template)
+        self.group_template_storage.save()
+        self._refresh_group_template_combo(session)
+        self._select_group_template_in_list(template.name)
+        self._refresh_group_message_template_summary()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_saved"))
+
+    def _delete_group_template(self) -> None:
+        session = self._current_group_template_session()
+        if not session:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
+            return
+        name = self._current_group_template_name()
+        if not name:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
+            return
+        self.group_template_storage.delete_template(session, name)
+        self.group_template_storage.save()
+        self._refresh_group_template_combo(session)
+        self._refresh_group_message_template_summary()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_deleted"))
+
+    def _assign_group_template(self) -> None:
+        session = self._current_group_template_session()
+        if not session:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
+            return
+        name = self._current_group_template_name()
+        if not name:
+            QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
+            return
+        self.group_template_storage.set_assignment(session, name)
+        self.group_template_storage.save()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_assigned"))
+        self._refresh_group_template_combo(session)
+        self._refresh_group_message_template_summary()
+
+    def _current_group_template_session(self) -> Optional[str]:
+        item = self.group_template_session_list.currentItem()
+        return item.text() if item else None
+
+    def _current_group_template_name(self) -> Optional[str]:
+        item = self.group_template_list_widget.currentItem()
+        if not item:
+            return None
+        data = item.data(Qt.UserRole)
+        if isinstance(data, str):
+            return data
+        return item.text().split(" (")[0].strip()
+
+    def _select_group_template_in_list(self, template_name: str) -> None:
+        for row in range(self.group_template_list_widget.count()):
+            item = self.group_template_list_widget.item(row)
+            if item.data(Qt.UserRole) == template_name:
+                self.group_template_list_widget.setCurrentRow(row)
+                return
+
+    def _refresh_group_template_combo(self, session: Optional[str]) -> None:
+        self.group_template_list_widget.clear()
+        if not session:
+            return
+        templates = self.group_template_storage.list_templates(session)
+        assignment = self.group_template_storage.get_assignment(session)
+        if assignment:
+            templates.sort(key=lambda tpl: (tpl.name != assignment, tpl.name.lower()))
+        else:
+            templates.sort(key=lambda tpl: tpl.name.lower())
+        for template in templates:
+            label = template.name
+            if template.name == assignment:
+                label = f"{label} ({translator.translate('label.template_default')})"
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, template.name)
+            self.group_template_list_widget.addItem(item)
+        if templates:
+            if assignment:
+                self._select_group_template_in_list(assignment)
+            else:
+                self.group_template_list_widget.setCurrentRow(0)
+        else:
+            self._clear_group_template_fields()
 
     def _current_template_name(self) -> Optional[str]:
         if not hasattr(self, "template_list_widget"):
@@ -1707,13 +2393,18 @@ class MainWindow(QMainWindow):
 
     def retranslate_ui(self) -> None:
         self.setWindowTitle(translator.translate("app.title"))
+        self._update_header_text()
         tab_keys = [
             "tab.sessions",
             "tab.ban_check",
             "tab.scan",
             "tab.add_members",
             "tab.active_senders",
+            "tab.group_discovery",
             "tab.direct_messages",
+            "tab.group_messages",
+            "tab.templates",
+            "tab.group_templates",
             "tab.rate_limit",
             "tab.settings",
             "tab.users_root",
