@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import csv
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
@@ -236,6 +237,7 @@ class MainWindow(QMainWindow):
 
         form_layout = QFormLayout()
         self.add_target_input = QLineEdit()
+        self.add_limit_input = QLineEdit()
         self.add_source_combo = QComboBox()
         self.add_source_combo.addItems(
             [
@@ -244,6 +246,7 @@ class MainWindow(QMainWindow):
             ]
         )
         form_layout.addRow(translator.translate("label.target_group"), self.add_target_input)
+        form_layout.addRow(translator.translate("label.limit"), self.add_limit_input)
         form_layout.addRow(translator.translate("label.add_source"), self.add_source_combo)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
@@ -432,8 +435,9 @@ class MainWindow(QMainWindow):
         self.user_tab_widget = QTabWidget()
         self.user_tables: Dict[str, QTableWidget] = {}
 
+        base_columns = 9
         for key, has_message, title_key in self.user_table_meta:
-            column_count = 8 if has_message else 7
+            column_count = base_columns + (1 if has_message else 0)
             table = QTableWidget(0, column_count)
             table.setSelectionBehavior(QTableWidget.SelectRows)
             table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -572,7 +576,7 @@ class MainWindow(QMainWindow):
         elif task_type == "add":
             sessions = self.get_selected_sessions(self.add_session_list)
             target = self.add_target_input.text().strip()
-            limit = None
+            limit = self._parse_int(self.add_limit_input.text())
             interval = None
             container = self.add_progress_container
             persist = True
@@ -616,7 +620,10 @@ class MainWindow(QMainWindow):
             if not users:
                 QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.no_users_available"))
                 return
-            user_chunks = self._split_users_for_sessions(users, session_count)
+            selected_users = users
+            if limit and limit > 0:
+                selected_users = users[:limit]
+            user_chunks = self._split_users_for_sessions(selected_users, session_count)
             per_session_limits = [len(chunk) for chunk in user_chunks]
         else:
             user_chunks = [None] * session_count
@@ -889,9 +896,12 @@ class MainWindow(QMainWindow):
                 if user.status:
                     status_value = translator.translate(user.status)
                 table.setItem(row, 6, QTableWidgetItem(status_value))
+                table.setItem(row, 7, QTableWidgetItem(user.source or ""))
+                bot_key = "table.value.yes" if getattr(user, "is_bot", False) else "table.value.no"
+                table.setItem(row, 8, QTableWidgetItem(translator.translate(bot_key)))
                 if has_message:
                     message_text = user.last_message or ""
-                    table.setItem(row, 7, QTableWidgetItem(message_text))
+                    table.setItem(row, 9, QTableWidgetItem(message_text))
             table.setSortingEnabled(True)
 
     def _current_user_key(self) -> str:
@@ -928,6 +938,42 @@ class MainWindow(QMainWindow):
             chunks.append(users[start:end])
             start = end
         return chunks
+
+    def _storage_has_message(self, key: str) -> bool:
+        for storage_key, has_message, _ in self.user_table_meta:
+            if storage_key == key:
+                return has_message
+        return False
+
+    def _export_users_to_csv(self, storage: UserStorage, file_path: Path, include_message: bool) -> None:
+        headers = [
+            ("user_id", translator.translate("table.column.user_id")),
+            ("username", translator.translate("table.column.username")),
+            ("first_name", translator.translate("table.column.first_name")),
+            ("last_name", translator.translate("table.column.last_name")),
+            ("phone", translator.translate("table.column.phone")),
+            ("last_seen", translator.translate("table.column.last_seen")),
+            ("status", translator.translate("table.column.status")),
+            ("source", translator.translate("table.column.source")),
+            ("is_bot", translator.translate("table.column.is_bot")),
+        ]
+        if include_message:
+            headers.append(("last_message", translator.translate("table.column.message")))
+
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with file_path.open("w", encoding="utf-8-sig", newline="") as fp:
+            writer = csv.writer(fp)
+            writer.writerow([label for _, label in headers])
+            for user in storage.get_users():
+                row: List[str] = []
+                for field, _ in headers:
+                    value = getattr(user, field, "")
+                    if value is None:
+                        value = ""
+                    elif isinstance(value, bool):
+                        value = translator.translate("table.value.yes" if value else "table.value.no")
+                    row.append(str(value))
+                writer.writerow(row)
 
     def _scan_distribution(
         self, limit: Optional[int], target: str, sessions: List[str]
@@ -1023,24 +1069,35 @@ class MainWindow(QMainWindow):
     def export_users(self) -> None:
         storage_key = self._current_user_key()
         default_names = {
-            "scanned": "exported_scanned_users.json",
-            "active": "exported_active_users.json",
-            "scanned_added": "exported_added_scanned_users.json",
-            "active_added": "exported_added_active_users.json",
+            "scanned": "exported_scanned_users",
+            "active": "exported_active_users",
+            "scanned_added": "exported_added_scanned_users",
+            "active_added": "exported_added_active_users",
         }
-        default_name = default_names.get(storage_key, "exported_users.json")
+        default_name = default_names.get(storage_key, "exported_users")
         default_path = self.settings.user_directory / default_name
-        path, _ = QFileDialog.getSaveFileName(
+        path, selected_filter = QFileDialog.getSaveFileName(
             self,
             translator.translate("dialog.export_title"),
             str(default_path),
-            "JSON (*.json)",
+            "CSV (*.csv);;JSON (*.json)",
         )
         if not path:
             return
         try:
             storage = self._current_user_storage()
-            storage.export_to_file(Path(path))
+            file_path = Path(path)
+            suffix = file_path.suffix.lower()
+            export_csv = suffix == ".csv" or "CSV" in selected_filter
+            if export_csv:
+                if suffix != ".csv":
+                    file_path = file_path.with_suffix(".csv")
+                has_message = self._storage_has_message(storage_key)
+                self._export_users_to_csv(storage, file_path, has_message)
+            else:
+                if suffix != ".json":
+                    file_path = file_path.with_suffix(".json")
+                storage.export_to_file(file_path)
         except Exception as exc:  # pragma: no cover - file system errors
             QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.export_failure')}: {exc}")
         else:
@@ -1263,13 +1320,15 @@ class MainWindow(QMainWindow):
 
     def _update_user_table_headers(self) -> None:
         base_headers = [
-            "ID",
+            translator.translate("table.column.user_id"),
             translator.translate("table.column.username"),
             translator.translate("table.column.first_name"),
             translator.translate("table.column.last_name"),
             translator.translate("table.column.phone"),
             translator.translate("table.column.last_seen"),
             translator.translate("table.column.status"),
+            translator.translate("table.column.source"),
+            translator.translate("table.column.is_bot"),
         ]
         message_header = translator.translate("table.column.message")
         for key, has_message, _ in self.user_table_meta:
@@ -1299,7 +1358,7 @@ class ManualUserDialog(QDialog):
         self.is_bot_checkbox = QCheckBox(translator.translate("label.is_bot"))
         self.message_input = QLineEdit()
 
-        form_layout.addRow("ID", self.user_id_input)
+        form_layout.addRow(translator.translate("table.column.user_id"), self.user_id_input)
         form_layout.addRow(translator.translate("table.column.username"), self.username_input)
         form_layout.addRow(translator.translate("table.column.phone"), self.phone_input)
         form_layout.addRow(translator.translate("label.access_hash"), self.access_hash_input)
@@ -1307,7 +1366,7 @@ class ManualUserDialog(QDialog):
         form_layout.addRow(translator.translate("label.last_name"), self.last_name_input)
         form_layout.addRow(translator.translate("table.column.last_seen"), self.last_seen_input)
         form_layout.addRow(translator.translate("table.column.status"), self.status_input)
-        form_layout.addRow(translator.translate("label.target_group"), self.source_input)
+        form_layout.addRow(translator.translate("table.column.source"), self.source_input)
         if include_message:
             form_layout.addRow(translator.translate("label.last_message"), self.message_input)
         form_layout.addRow(self.is_bot_checkbox)
