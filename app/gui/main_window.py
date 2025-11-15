@@ -187,14 +187,14 @@ class MainWindow(QMainWindow):
         self._build_scan_tab()
         self._build_add_tab()
         self._build_active_tab()
-        self._build_group_discovery_tab()
-        self._build_message_tab()
-        self._build_group_message_tab()
+        self._build_user_tab()
         self._build_template_tab()
+        self._build_message_tab()
+        self._build_group_discovery_tab()
         self._build_group_template_tab()
+        self._build_group_message_tab()
         self._build_rate_tab()
         self._build_settings_tab()
-        self._build_user_tab()
 
         self.refresh_sessions()
         self.populate_user_tables()
@@ -289,22 +289,49 @@ class MainWindow(QMainWindow):
         self.session_list.setSelectionMode(QListWidget.MultiSelection)
         refresh_button = QPushButton(translator.translate("button.refresh_sessions"))
         refresh_button.clicked.connect(self.refresh_sessions)
+        self.session_clear_selection_button = QPushButton(
+            translator.translate("button.clear_selection")
+        )
+        self.session_clear_selection_button.clicked.connect(self.clear_session_selection)
 
         layout.addWidget(self.session_list, 0, 2, 4, 1)
-        layout.addWidget(refresh_button, 4, 2)
+        session_button_row = QHBoxLayout()
+        session_button_row.addWidget(refresh_button)
+        session_button_row.addWidget(self.session_clear_selection_button)
+        session_button_row.addStretch()
+        layout.addLayout(session_button_row, 4, 2)
 
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("tab.sessions"))
 
     def _build_ban_tab(self) -> None:
         tab = QWidget()
-        layout = QVBoxLayout()
-        self.ban_result = QTextEdit()
-        self.ban_result.setReadOnly(True)
+        layout = QGridLayout()
+
+        self.ban_session_list = QListWidget()
+        self.ban_session_list.setSelectionMode(QListWidget.MultiSelection)
+        layout.addWidget(self.ban_session_list, 0, 0, 4, 1)
+
+        ban_button_row = QHBoxLayout()
+        self.ban_select_all_button = QPushButton(translator.translate("button.select_all"))
+        self.ban_select_all_button.clicked.connect(self.select_all_ban_sessions)
+        self.ban_clear_selection_button = QPushButton(
+            translator.translate("button.clear_selection")
+        )
+        self.ban_clear_selection_button.clicked.connect(self.clear_ban_selection)
+        ban_button_row.addWidget(self.ban_select_all_button)
+        ban_button_row.addWidget(self.ban_clear_selection_button)
+        ban_button_row.addStretch()
+        layout.addLayout(ban_button_row, 4, 0, 1, 1)
+
         check_button = QPushButton(translator.translate("button.check_ban"))
         check_button.clicked.connect(self.handle_ban_check)
-        layout.addWidget(check_button)
-        layout.addWidget(self.ban_result)
+        layout.addWidget(check_button, 0, 1)
+
+        self.ban_result = QTextEdit()
+        self.ban_result.setReadOnly(True)
+        layout.addWidget(self.ban_result, 1, 1, 4, 1)
+
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("tab.ban_check"))
 
@@ -536,6 +563,10 @@ class MainWindow(QMainWindow):
         self.group_clear_button.clicked.connect(self.clear_groups)
         self.group_select_all_button = QPushButton(translator.translate("button.select_all"))
         self.group_select_all_button.clicked.connect(self.select_all_groups)
+        self.group_clear_selection_button = QPushButton(
+            translator.translate("button.clear_selection")
+        )
+        self.group_clear_selection_button.clicked.connect(self.clear_group_selection)
         self.group_export_selected_button = QPushButton(translator.translate("button.export_selected"))
         self.group_export_selected_button.clicked.connect(self.export_selected_groups)
         self.group_delete_selected_button = QPushButton(translator.translate("button.delete_selected"))
@@ -545,6 +576,7 @@ class MainWindow(QMainWindow):
         button_row.addWidget(self.group_add_button)
         button_row.addWidget(self.group_clear_button)
         button_row.addWidget(self.group_select_all_button)
+        button_row.addWidget(self.group_clear_selection_button)
         button_row.addWidget(self.group_export_selected_button)
         button_row.addWidget(self.group_delete_selected_button)
         button_row.addStretch()
@@ -882,6 +914,10 @@ class MainWindow(QMainWindow):
         self.clear_users_button.clicked.connect(self.clear_users)
         self.select_all_users_button = QPushButton(translator.translate("button.select_all"))
         self.select_all_users_button.clicked.connect(self.select_all_users)
+        self.clear_selection_users_button = QPushButton(
+            translator.translate("button.clear_selection")
+        )
+        self.clear_selection_users_button.clicked.connect(self.clear_user_selection)
         self.export_selected_users_button = QPushButton(translator.translate("button.export_selected"))
         self.export_selected_users_button.clicked.connect(self.export_selected_users)
         self.delete_selected_users_button = QPushButton(translator.translate("button.delete_selected"))
@@ -891,6 +927,7 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(self.add_user_button)
         button_layout.addWidget(self.clear_users_button)
         button_layout.addWidget(self.select_all_users_button)
+        button_layout.addWidget(self.clear_selection_users_button)
         button_layout.addWidget(self.export_selected_users_button)
         button_layout.addWidget(self.delete_selected_users_button)
 
@@ -930,6 +967,7 @@ class MainWindow(QMainWindow):
         group_scan_widget = getattr(self, "group_scan_session_list", None)
         group_message_widget = getattr(self, "group_message_session_list", None)
         group_template_widget = getattr(self, "group_template_session_list", None)
+        ban_widget = getattr(self, "ban_session_list", None)
         if group_scan_widget:
             group_scan_widget.clear()
         if group_message_widget:
@@ -950,6 +988,8 @@ class MainWindow(QMainWindow):
             self.add_session_list,
             self.active_session_list,
         ]
+        if ban_widget:
+            session_widgets.append(ban_widget)
         for info in self.session_manager.list_sessions():
             widgets = list(session_widgets)
             if group_scan_widget:
@@ -993,6 +1033,23 @@ class MainWindow(QMainWindow):
             if item.checkState() == Qt.Checked:
                 selected.append(item.text())
         return selected
+
+    def _set_session_checks(self, widget: Optional[QListWidget], state: Qt.CheckState) -> None:
+        if not widget:
+            return
+        for index in range(widget.count()):
+            item = widget.item(index)
+            if item:
+                item.setCheckState(state)
+
+    def clear_session_selection(self) -> None:
+        self._set_session_checks(self.session_list, Qt.Unchecked)
+
+    def select_all_ban_sessions(self) -> None:
+        self._set_session_checks(getattr(self, "ban_session_list", None), Qt.Checked)
+
+    def clear_ban_selection(self) -> None:
+        self._set_session_checks(getattr(self, "ban_session_list", None), Qt.Unchecked)
 
     def handle_login(self) -> None:
         api_id = self.api_id_input.text().strip()
@@ -1038,7 +1095,8 @@ class MainWindow(QMainWindow):
         self.pending_login = None
 
     def handle_ban_check(self) -> None:
-        sessions = self.get_selected_sessions(self.session_list)
+        target_widget = getattr(self, "ban_session_list", self.session_list)
+        sessions = self.get_selected_sessions(target_widget)
         if not sessions:
             QMessageBox.warning(self, self.windowTitle(), "Oturum seçin")
             return
@@ -1396,8 +1454,8 @@ class MainWindow(QMainWindow):
     def on_finished(self, widget: SessionProgressWidget, session_name: str, task_type: str) -> None:
         key = (task_type, session_name)
         processed_total = widget.state.processed
-        final_total = processed_total or widget.state.total
-        widget.update_state(final_total, final_total, status_key="status.completed")
+        total_value = widget.state.total or processed_total
+        widget.update_state(processed_total, total_value, status_key="status.completed")
         thread = self.worker_threads.pop(key, None)
         if thread:
             thread.wait(1000)
@@ -1743,6 +1801,14 @@ class MainWindow(QMainWindow):
             item = self.group_table.item(row, 0)
             if item:
                 item.setCheckState(Qt.Checked)
+
+    def clear_group_selection(self) -> None:
+        if not hasattr(self, "group_table"):
+            return
+        for row in range(self.group_table.rowCount()):
+            item = self.group_table.item(row, 0)
+            if item:
+                item.setCheckState(Qt.Unchecked)
 
     def _selected_groups(self) -> List[StoredGroup]:
         if not hasattr(self, "group_table"):
@@ -2503,6 +2569,15 @@ class MainWindow(QMainWindow):
             if item:
                 item.setCheckState(Qt.Checked)
 
+    def clear_user_selection(self) -> None:
+        table = self._current_user_table()
+        if not table:
+            return
+        for row in range(table.rowCount()):
+            item = table.item(row, 0)
+            if item:
+                item.setCheckState(Qt.Unchecked)
+
     def export_selected_users(self) -> None:
         selected_ids = self._selected_user_ids()
         if not selected_ids:
@@ -2679,14 +2754,14 @@ class MainWindow(QMainWindow):
             "tab.scan",
             "tab.add_members",
             "tab.active_senders",
-            "tab.group_discovery",
-            "tab.direct_messages",
-            "tab.group_messages",
+            "tab.users_root",
             "tab.templates",
+            "tab.direct_messages",
+            "tab.group_discovery",
             "tab.group_templates",
+            "tab.group_messages",
             "tab.rate_limit",
             "tab.settings",
-            "tab.users_root",
         ]
         for index, key in enumerate(tab_keys):
             self.tab_widget.setTabText(index, translator.translate(key))
@@ -2709,6 +2784,12 @@ class MainWindow(QMainWindow):
         self.add_cancel_button.setText(translator.translate("button.cancel"))
         self.active_start_button.setText(translator.translate("button.start"))
         self.active_cancel_button.setText(translator.translate("button.cancel"))
+        if hasattr(self, "session_clear_selection_button"):
+            self.session_clear_selection_button.setText(translator.translate("button.clear_selection"))
+        if hasattr(self, "ban_select_all_button"):
+            self.ban_select_all_button.setText(translator.translate("button.select_all"))
+        if hasattr(self, "ban_clear_selection_button"):
+            self.ban_clear_selection_button.setText(translator.translate("button.clear_selection"))
         if hasattr(self, "group_search_start_button"):
             self.group_search_start_button.setText(translator.translate("button.start"))
         if hasattr(self, "group_search_cancel_button"):
@@ -2750,6 +2831,8 @@ class MainWindow(QMainWindow):
         self.add_user_button.setText(translator.translate("button.add_user"))
         self.clear_users_button.setText(translator.translate("button.clear_users"))
         self.select_all_users_button.setText(translator.translate("button.select_all"))
+        if hasattr(self, "clear_selection_users_button"):
+            self.clear_selection_users_button.setText(translator.translate("button.clear_selection"))
         self.export_selected_users_button.setText(translator.translate("button.export_selected"))
         self.delete_selected_users_button.setText(translator.translate("button.delete_selected"))
         self.add_source_combo.setItemText(0, translator.translate("option.add_source_scanned"))
@@ -2758,6 +2841,8 @@ class MainWindow(QMainWindow):
             for index, (_, __, title_key) in enumerate(self.user_table_meta):
                 self.user_tab_widget.setTabText(index, translator.translate(title_key))
         self.group_select_all_button.setText(translator.translate("button.select_all"))
+        if hasattr(self, "group_clear_selection_button"):
+            self.group_clear_selection_button.setText(translator.translate("button.clear_selection"))
         self.group_export_selected_button.setText(translator.translate("button.export_selected"))
         self.group_delete_selected_button.setText(translator.translate("button.delete_selected"))
         if hasattr(self, "license_group"):

@@ -500,7 +500,7 @@ class SessionTask:
         seen: set[Tuple[str, Optional[int]]] = set()
         offset_date = None
         offset_id = 0
-        offset_peer = None
+        offset_peer = types.InputPeerEmpty()
         current_page = 0
         keyword_lower = keyword.lower()
         filters = filters or {}
@@ -522,7 +522,15 @@ class SessionTask:
             last = dialogs[-1]
             offset_date = getattr(last, "date", None)
             offset_id = getattr(last, "id", 0)
-            offset_peer = getattr(last, "entity", None)
+            input_entity = getattr(last, "input_entity", None)
+            if input_entity is None:
+                entity_obj = getattr(last, "entity", None)
+                if entity_obj is not None:
+                    try:
+                        input_entity = await self.client.get_input_entity(entity_obj)
+                    except Exception:
+                        input_entity = None
+            offset_peer = input_entity or types.InputPeerEmpty()
             if current_page < skip_pages:
                 current_page += 1
                 continue
