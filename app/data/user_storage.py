@@ -22,6 +22,7 @@ class StoredUser:
     is_bot: bool = False
     last_seen_utc: Optional[str] = None
     last_message: Optional[str] = None
+    dm_status: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
@@ -56,6 +57,7 @@ class UserStorage:
                 "is_bot": bool(item.get("is_bot", False)),
                 "last_seen_utc": item.get("last_seen_utc"),
                 "last_message": item.get("last_message"),
+                "dm_status": item.get("dm_status"),
             }
             user_id = payload["user_id"]
             if user_id is None:
@@ -86,6 +88,27 @@ class UserStorage:
             del self._users[user_id]
             self.save()
 
+    def remove_users(self, user_ids: Iterable[int]) -> None:
+        changed = False
+        for user_id in user_ids:
+            key = int(user_id)
+            if key in self._users:
+                del self._users[key]
+                changed = True
+        if changed:
+            self.save()
+
+    def get_user(self, user_id: int) -> Optional[StoredUser]:
+        return self._users.get(int(user_id))
+
+    def get_users_by_ids(self, user_ids: Iterable[int]) -> List[StoredUser]:
+        results: List[StoredUser] = []
+        for user_id in user_ids:
+            stored = self.get_user(int(user_id))
+            if stored:
+                results.append(stored)
+        return results
+
     def get_users(self) -> List[StoredUser]:
         return sorted(self._users.values(), key=lambda user: user.user_id)
 
@@ -111,6 +134,7 @@ class UserStorage:
                 "is_bot": bool(item.get("is_bot", False)),
                 "last_seen_utc": item.get("last_seen_utc"),
                 "last_message": item.get("last_message"),
+                "dm_status": item.get("dm_status"),
             }
             imported.append(StoredUser(**payload))
         self.add_users(imported)
@@ -141,6 +165,7 @@ class UserStorage:
             if formatted:
                 user.last_seen = formatted
         user.status = self._normalize_status(user.status)
+        user.dm_status = self._normalize_dm_status(user.dm_status)
         return user
 
     def set_timezone(self, timezone_name: str) -> None:
@@ -198,6 +223,19 @@ class UserStorage:
         if mapped:
             return mapped
         return "status.unknown_label"
+
+    def _normalize_dm_status(self, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        key = value.strip()
+        if not key:
+            return None
+        if key.startswith("status.dm_"):
+            return key
+        mapped = _DM_STATUS_MAP.get(key.lower())
+        if mapped:
+            return mapped
+        return None
 
 
 _FALLBACK_TIMEZONES: Dict[str, tzinfo] = {
@@ -257,3 +295,16 @@ _STATUS_NORMALIZATION: Dict[str, str] = {
 }
 
 _STATUS_NORMALIZATION.update({key.lower(): value for key, value in list(_STATUS_NORMALIZATION.items())})
+
+_DM_STATUS_MAP: Dict[str, str] = {
+    "acik": "status.dm_open",
+    "açık": "status.dm_open",
+    "open": "status.dm_open",
+    "available": "status.dm_open",
+    "dm açık": "status.dm_open",
+    "kapali": "status.dm_closed",
+    "kapalı": "status.dm_closed",
+    "closed": "status.dm_closed",
+    "restricted": "status.dm_closed",
+    "dm kapalı": "status.dm_closed",
+}

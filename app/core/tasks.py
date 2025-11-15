@@ -115,6 +115,21 @@ class SessionTask:
             rendered = rendered.replace(f"{{{key}}}", value)
         return rendered
 
+    @staticmethod
+    def _determine_dm_status(user: types.User, access_hash: Optional[int]) -> str:
+        closed = "status.dm_closed"
+        if getattr(user, "bot", False):
+            return closed
+        if getattr(user, "deleted", False):
+            return closed
+        if access_hash is None:
+            return closed
+        if not getattr(user, "username", None) and not getattr(user, "phone", None):
+            return closed
+        if getattr(user, "restricted", False):
+            return closed
+        return "status.dm_open"
+
     def _emit_inline_status(self, progress_callback: Callable[[ProgressUpdate], None], message: str) -> None:
         total = self._total or self._processed or 1
         progress_callback(
@@ -213,9 +228,10 @@ class SessionTask:
                         input_entity = await self.client.get_input_entity(user.id)
                     except (TypeError, ValueError):
                         input_entity = None
-                if isinstance(input_entity, (types.InputPeerUser, types.InputUser)):
-                    access_hash = input_entity.access_hash
+            if isinstance(input_entity, (types.InputPeerUser, types.InputUser)):
+                access_hash = input_entity.access_hash
 
+            dm_status = self._determine_dm_status(user, access_hash)
             stored = StoredUser(
                 user_id=user.id,
                 username=user.username,
@@ -229,6 +245,7 @@ class SessionTask:
                 is_bot=bool(getattr(user, "bot", False)),
                 last_seen_utc=UserStorage.to_iso(last_seen),
                 last_message=None,
+                dm_status=dm_status,
             )
             stored = self.storage.prepare_user(stored)
             if persist:
@@ -431,6 +448,7 @@ class SessionTask:
                 else:
                     logger.warning("log.active_sender_missing_entity")
                     continue
+            dm_status = self._determine_dm_status(sender, access_hash)
             stored = StoredUser(
                 user_id=sender.id,
                 username=sender.username,
@@ -444,6 +462,7 @@ class SessionTask:
                 is_bot=False,
                 last_seen_utc=UserStorage.to_iso(message.date.replace(tzinfo=timezone.utc) if message.date else None),
                 last_message=(message.message or "") if getattr(message, "message", None) else None,
+                dm_status=dm_status,
             )
             stored = self.storage.prepare_user(stored)
             if persist:

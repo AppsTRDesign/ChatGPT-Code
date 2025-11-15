@@ -10,6 +10,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Hedef Gruba Üye Ekleme:** Kayıtlı kullanıcı listesinden hedef gruba üyeleri eşit bölerek ekleme, isteğe bağlı kullanıcı limiti belirleme ve flood wait yönetimi.
 - **Üye Limiti Dağıtımı:** Örneğin 50 kişilik kota girildiğinde seçilen oturumlara otomatik olarak paylaştırılır ve her oturum yalnızca kendi payını işler.
 - **Aktif Mesaj Atanları Bulma:** Belirlenen zaman aralığında mesaj atan kullanıcıları, ayarlardaki maksimum mesaj tarama sınırını oturumlara bölerek ve isteğe bağlı kullanıcı adı filtresiyle kayıt altına alma.
+- **DM Durumu Analizi:** Üyeler taranırken veya aktif mesaj atanlar toplanırken her kullanıcının DM isteği kabul edip etmediği otomatik olarak test edilir; sonuçlar tabloda "DM Durumu" sütununda gösterilir ve CSV/JSON dışa aktarımlarına dahil edilir.
 - **Kayıtlı Kullanıcılara DM Gönderme:** Yeni DM sekmesi üzerinden her oturum için şablon seçerek veya manuel mesaj/medya girerek kayıtlı üyelere mesaj yollama, {user_name}/{first_name}/{last_name} değişkenlerini otomatik doldurma ve mesaj oranını rate-limit ayarlarına göre yönetme.
 - **Şablon Yönetimi Sekmesi:** Ayrı bir "Şablon Yönetimi" sekmesinde oturum bazlı şablonları listeleme, düzenleme, kopyalanabilir {user_name}/{first_name}/{last_name} kısayollarını tek tıkla gövdeye ekleme ve emoji seçicisi ile mesajları zenginleştirme; her oturuma atanmış şablonlar DM sekmesinde özet olarak listelenir.
 - **Mesaj Şablonları:** Her oturum için sınırsız şablon tutma, şablonlara medya dosyası/URL iliştirme ve seçilen şablonu ilgili oturuma atama; DM işlemi sırasında atanmış şablon yoksa manuel alanlar kullanılır.
@@ -18,6 +19,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Gruba Mesaj Gönderimi:** Kayıtlı ya da manuel yazılan gruplara seçilen şablon veya manuel gövde/medya ile mesaj gönderilir. Sistem gerekirse gruba katılır, mesaj izni yoksa grubu listeden çıkarır ve rate limit ayarındaki bekleme süresini uygular.
 - **Esnek İlerleme ve Kayıt Kontrolleri:** Kullanıcı adı olmayanları hariç tutma, kayıtlı listeleri temizleme ve işlemleri iptal ederek baştan başlatma seçenekleri.
 - **CSV Dışa Aktarımı:** Kullanıcı tablolarını UTF-8 BOM'lu, sıralanabilir başlıklara sahip CSV dosyalarına aktararak Türkçe karakter sorunlarını ortadan kaldırır.
+- **Seç-Sil/Dışa Aktar:** Kayıtlı kullanıcı ve grup tablolarında satırların başına gelen onay kutuları sayesinde tek tıkla hepsini seçebilir, yalnızca işaretlediğiniz kayıtları JSON/CSV'ye aktarabilir veya kalıcı olarak silebilirsiniz.
 - **Rate Limit Yönetimi:** Flood hatalarını azaltmak için ayarlanabilir süreler.
 - **Davet Kotası Uyarıları:** Davet sınırı aşıldığında kaç kullanıcı denendiğini ve tahmini bekleme süresini anlık olarak gösterir, yetki eksikliklerini açıkça bildirir.
 - **Eklenen Üye Takibi:** Hem grup taramasından hem de aktif mesaj atanlar listesinden eklenen üyeler ayrı JSON dosyalarına kaydedilir ve tablolar üzerinden yönetilir.

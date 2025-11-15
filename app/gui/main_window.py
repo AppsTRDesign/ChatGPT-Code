@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import json
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
@@ -102,6 +103,7 @@ EMOJI_CHOICES: List[str] = [
 ]
 
 GROUP_TABLE_HEADERS: List[str] = [
+    "table.column.select",
     "label.group_name",
     "label.members",
     "label.group_visibility",
@@ -499,10 +501,19 @@ class MainWindow(QMainWindow):
         self.group_add_button.clicked.connect(self.add_group_manual)
         self.group_clear_button = QPushButton(translator.translate("button.clear_groups"))
         self.group_clear_button.clicked.connect(self.clear_groups)
+        self.group_select_all_button = QPushButton(translator.translate("button.select_all"))
+        self.group_select_all_button.clicked.connect(self.select_all_groups)
+        self.group_export_selected_button = QPushButton(translator.translate("button.export_selected"))
+        self.group_export_selected_button.clicked.connect(self.export_selected_groups)
+        self.group_delete_selected_button = QPushButton(translator.translate("button.delete_selected"))
+        self.group_delete_selected_button.clicked.connect(self.delete_selected_groups)
         button_row.addWidget(self.group_import_button)
         button_row.addWidget(self.group_export_button)
         button_row.addWidget(self.group_add_button)
         button_row.addWidget(self.group_clear_button)
+        button_row.addWidget(self.group_select_all_button)
+        button_row.addWidget(self.group_export_selected_button)
+        button_row.addWidget(self.group_delete_selected_button)
         button_row.addStretch()
         table_layout.addLayout(button_row)
         table_group.setLayout(table_layout)
@@ -832,17 +843,26 @@ class MainWindow(QMainWindow):
         self.add_user_button.clicked.connect(self.add_user_manual)
         self.clear_users_button = QPushButton(translator.translate("button.clear_users"))
         self.clear_users_button.clicked.connect(self.clear_users)
+        self.select_all_users_button = QPushButton(translator.translate("button.select_all"))
+        self.select_all_users_button.clicked.connect(self.select_all_users)
+        self.export_selected_users_button = QPushButton(translator.translate("button.export_selected"))
+        self.export_selected_users_button.clicked.connect(self.export_selected_users)
+        self.delete_selected_users_button = QPushButton(translator.translate("button.delete_selected"))
+        self.delete_selected_users_button.clicked.connect(self.delete_selected_users)
         button_layout.addWidget(self.export_users_button)
         button_layout.addWidget(self.import_users_button)
         button_layout.addWidget(self.add_user_button)
         button_layout.addWidget(self.clear_users_button)
+        button_layout.addWidget(self.select_all_users_button)
+        button_layout.addWidget(self.export_selected_users_button)
+        button_layout.addWidget(self.delete_selected_users_button)
 
         self.user_tab_widget = QTabWidget()
         self.user_tables: Dict[str, QTableWidget] = {}
 
-        base_columns = 9
+        base_columns = 10
         for key, has_message, title_key in self.user_table_meta:
-            column_count = base_columns + (1 if has_message else 0)
+            column_count = 1 + base_columns + (1 if has_message else 0)
             table = QTableWidget(0, column_count)
             table.setSelectionBehavior(QTableWidget.SelectRows)
             table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -851,6 +871,7 @@ class MainWindow(QMainWindow):
             if header:
                 header.setSectionsClickable(True)
                 header.setSectionResizeMode(QHeaderView.Stretch)
+            table.verticalHeader().setVisible(False)
             self.user_tables[key] = table
             self.user_tab_widget.addTab(table, translator.translate(title_key))
 
@@ -1474,22 +1495,27 @@ class MainWindow(QMainWindow):
             table.clearContents()
             table.setRowCount(len(users))
             for row, user in enumerate(users):
-                table.setItem(row, 0, QTableWidgetItem(str(user.user_id)))
-                table.setItem(row, 1, QTableWidgetItem(user.username or ""))
-                table.setItem(row, 2, QTableWidgetItem(user.first_name or ""))
-                table.setItem(row, 3, QTableWidgetItem(user.last_name or ""))
-                table.setItem(row, 4, QTableWidgetItem(user.phone or ""))
-                table.setItem(row, 5, QTableWidgetItem(user.last_seen or ""))
-                status_value = ""
-                if user.status:
-                    status_value = translator.translate(user.status)
-                table.setItem(row, 6, QTableWidgetItem(status_value))
-                table.setItem(row, 7, QTableWidgetItem(user.source or ""))
+                checkbox = QTableWidgetItem()
+                checkbox.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                checkbox.setCheckState(Qt.Unchecked)
+                checkbox.setData(Qt.UserRole, user.user_id)
+                table.setItem(row, 0, checkbox)
+                table.setItem(row, 1, QTableWidgetItem(str(user.user_id)))
+                table.setItem(row, 2, QTableWidgetItem(user.username or ""))
+                table.setItem(row, 3, QTableWidgetItem(user.first_name or ""))
+                table.setItem(row, 4, QTableWidgetItem(user.last_name or ""))
+                table.setItem(row, 5, QTableWidgetItem(user.phone or ""))
+                table.setItem(row, 6, QTableWidgetItem(user.last_seen or ""))
+                status_value = translator.translate(user.status) if user.status else ""
+                table.setItem(row, 7, QTableWidgetItem(status_value))
+                dm_value = translator.translate(user.dm_status) if user.dm_status else ""
+                table.setItem(row, 8, QTableWidgetItem(dm_value))
+                table.setItem(row, 9, QTableWidgetItem(user.source or ""))
                 bot_key = "table.value.yes" if getattr(user, "is_bot", False) else "table.value.no"
-                table.setItem(row, 8, QTableWidgetItem(translator.translate(bot_key)))
+                table.setItem(row, 10, QTableWidgetItem(translator.translate(bot_key)))
                 if has_message:
                     message_text = user.last_message or ""
-                    table.setItem(row, 9, QTableWidgetItem(message_text))
+                    table.setItem(row, 11, QTableWidgetItem(message_text))
             table.setSortingEnabled(True)
 
     def _refresh_group_table(self) -> None:
@@ -1502,12 +1528,17 @@ class MainWindow(QMainWindow):
             item = QTableWidgetItem(translator.translate(header_key))
             self.group_table.setHorizontalHeaderItem(col, item)
         for row, group in enumerate(groups):
-            self.group_table.setItem(row, 0, QTableWidgetItem(group.title))
+            checkbox = QTableWidgetItem()
+            checkbox.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            checkbox.setCheckState(Qt.Unchecked)
+            checkbox.setData(Qt.UserRole, group)
+            self.group_table.setItem(row, 0, checkbox)
+            self.group_table.setItem(row, 1, QTableWidgetItem(group.title))
             members = str(group.members) if group.members is not None else "-"
-            self.group_table.setItem(row, 1, QTableWidgetItem(members))
-            self.group_table.setItem(row, 2, QTableWidgetItem(self._group_visibility_text(group)))
-            self.group_table.setItem(row, 3, QTableWidgetItem(self._group_messaging_text(group)))
-            self.group_table.setItem(row, 4, QTableWidgetItem(group.source or ""))
+            self.group_table.setItem(row, 2, QTableWidgetItem(members))
+            self.group_table.setItem(row, 3, QTableWidgetItem(self._group_visibility_text(group)))
+            self.group_table.setItem(row, 4, QTableWidgetItem(self._group_messaging_text(group)))
+            self.group_table.setItem(row, 5, QTableWidgetItem(group.source or ""))
         self.group_table.setSortingEnabled(True)
 
     def _group_visibility_text(self, group: StoredGroup) -> str:
@@ -1635,6 +1666,68 @@ class MainWindow(QMainWindow):
         self._refresh_group_message_list()
         QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.group_add_success"))
 
+    def select_all_groups(self) -> None:
+        if not hasattr(self, "group_table"):
+            return
+        for row in range(self.group_table.rowCount()):
+            item = self.group_table.item(row, 0)
+            if item:
+                item.setCheckState(Qt.Checked)
+
+    def _selected_groups(self) -> List[StoredGroup]:
+        if not hasattr(self, "group_table"):
+            return []
+        selected: List[StoredGroup] = []
+        for row in range(self.group_table.rowCount()):
+            item = self.group_table.item(row, 0)
+            if item and item.checkState() == Qt.Checked:
+                group = item.data(Qt.UserRole)
+                if isinstance(group, StoredGroup):
+                    selected.append(group)
+        return selected
+
+    def export_selected_groups(self) -> None:
+        groups = self._selected_groups()
+        if not groups:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_groups_selected"))
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            translator.translate("dialog.group_export_title"),
+            str(self.settings.user_directory / "selected_groups.json"),
+            "JSON (*.json)",
+        )
+        if not path:
+            return
+        file_path = Path(path)
+        if file_path.suffix.lower() != ".json":
+            file_path = file_path.with_suffix(".json")
+        try:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            with file_path.open("w", encoding="utf-8") as fp:
+                json.dump([group.to_dict() for group in groups], fp, indent=2, ensure_ascii=False)
+        except Exception as exc:
+            QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.group_export_failure')}: {exc}")
+        else:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.group_export_success"))
+
+    def delete_selected_groups(self) -> None:
+        groups = self._selected_groups()
+        if not groups:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_groups_selected"))
+            return
+        confirm = QMessageBox.question(
+            self,
+            self.windowTitle(),
+            translator.translate("dialog.delete_selected_groups_confirm"),
+        )
+        if confirm != QMessageBox.Yes:
+            return
+        for group in groups:
+            self.group_storage.remove_group(group)
+        self._refresh_group_table()
+        self._refresh_group_message_list()
+
     def _selected_group_records(self) -> List[StoredGroup]:
         records: List[StoredGroup] = []
         if not hasattr(self, "group_message_list"):
@@ -1698,6 +1791,23 @@ class MainWindow(QMainWindow):
     def _current_user_storage(self) -> UserStorage:
         key = self._current_user_key()
         return self.user_storages[key]
+
+    def _current_user_table(self) -> Optional[QTableWidget]:
+        key = self._current_user_key()
+        return self.user_tables.get(key)
+
+    def _selected_user_ids(self) -> List[int]:
+        table = self._current_user_table()
+        if not table:
+            return []
+        selected: List[int] = []
+        for row in range(table.rowCount()):
+            item = table.item(row, 0)
+            if item and item.checkState() == Qt.Checked:
+                value = item.data(Qt.UserRole)
+                if isinstance(value, int):
+                    selected.append(value)
+        return selected
 
     def _current_add_storage_key(self) -> str:
         return "scanned" if self.add_source_combo.currentIndex() == 0 else "active"
@@ -2102,7 +2212,7 @@ class MainWindow(QMainWindow):
                 return has_message
         return False
 
-    def _export_users_to_csv(self, storage: UserStorage, file_path: Path, include_message: bool) -> None:
+    def _export_users_to_csv(self, users: List[StoredUser], file_path: Path, include_message: bool) -> None:
         headers = [
             ("user_id", translator.translate("table.column.user_id")),
             ("username", translator.translate("table.column.username")),
@@ -2111,6 +2221,7 @@ class MainWindow(QMainWindow):
             ("phone", translator.translate("table.column.phone")),
             ("last_seen", translator.translate("table.column.last_seen")),
             ("status", translator.translate("table.column.status")),
+            ("dm_status", translator.translate("table.column.dm_status")),
             ("source", translator.translate("table.column.source")),
             ("is_bot", translator.translate("table.column.is_bot")),
         ]
@@ -2121,7 +2232,7 @@ class MainWindow(QMainWindow):
         with file_path.open("w", encoding="utf-8-sig", newline="") as fp:
             writer = csv.writer(fp)
             writer.writerow([label for _, label in headers])
-            for user in storage.get_users():
+            for user in users:
                 row: List[str] = []
                 for field, _ in headers:
                     value = getattr(user, field, "")
@@ -2129,6 +2240,10 @@ class MainWindow(QMainWindow):
                         value = ""
                     elif isinstance(value, bool):
                         value = translator.translate("table.value.yes" if value else "table.value.no")
+                    elif field == "dm_status" and value:
+                        value = translator.translate(value)
+                    elif field == "status" and value:
+                        value = translator.translate(value)
                     row.append(str(value))
                 writer.writerow(row)
 
@@ -2250,7 +2365,7 @@ class MainWindow(QMainWindow):
                 if suffix != ".csv":
                     file_path = file_path.with_suffix(".csv")
                 has_message = self._storage_has_message(storage_key)
-                self._export_users_to_csv(storage, file_path, has_message)
+                self._export_users_to_csv(storage.get_users(), file_path, has_message)
             else:
                 if suffix != ".json":
                     file_path = file_path.with_suffix(".json")
@@ -2277,6 +2392,69 @@ class MainWindow(QMainWindow):
         else:
             self.populate_user_tables()
             QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.import_success"))
+
+    def select_all_users(self) -> None:
+        table = self._current_user_table()
+        if not table:
+            return
+        for row in range(table.rowCount()):
+            item = table.item(row, 0)
+            if item:
+                item.setCheckState(Qt.Checked)
+
+    def export_selected_users(self) -> None:
+        selected_ids = self._selected_user_ids()
+        if not selected_ids:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_users_selected"))
+            return
+        storage = self._current_user_storage()
+        users = storage.get_users_by_ids(selected_ids)
+        if not users:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_users_selected"))
+            return
+        path, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            translator.translate("dialog.export_title"),
+            str(self.settings.user_directory / "selected_users.json"),
+            "CSV (*.csv);;JSON (*.json)",
+        )
+        if not path:
+            return
+        file_path = Path(path)
+        suffix = file_path.suffix.lower()
+        export_csv = suffix == ".csv" or "CSV" in selected_filter
+        has_message = self._storage_has_message(self._current_user_key())
+        try:
+            if export_csv:
+                if suffix != ".csv":
+                    file_path = file_path.with_suffix(".csv")
+                self._export_users_to_csv(users, file_path, has_message)
+            else:
+                if suffix != ".json":
+                    file_path = file_path.with_suffix(".json")
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                with file_path.open("w", encoding="utf-8") as fp:
+                    json.dump([user.to_dict() for user in users], fp, indent=2, ensure_ascii=False)
+        except Exception as exc:
+            QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.export_failure')}: {exc}")
+        else:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.export_success"))
+
+    def delete_selected_users(self) -> None:
+        selected_ids = self._selected_user_ids()
+        if not selected_ids:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_users_selected"))
+            return
+        confirm = QMessageBox.question(
+            self,
+            self.windowTitle(),
+            translator.translate("dialog.delete_selected_users_confirm"),
+        )
+        if confirm != QMessageBox.Yes:
+            return
+        storage = self._current_user_storage()
+        storage.remove_users(selected_ids)
+        self.populate_user_tables()
 
     def add_user_manual(self) -> None:
         include_message = self._current_user_key() in {
@@ -2448,11 +2626,17 @@ class MainWindow(QMainWindow):
         self.import_users_button.setText(translator.translate("button.import_users"))
         self.add_user_button.setText(translator.translate("button.add_user"))
         self.clear_users_button.setText(translator.translate("button.clear_users"))
+        self.select_all_users_button.setText(translator.translate("button.select_all"))
+        self.export_selected_users_button.setText(translator.translate("button.export_selected"))
+        self.delete_selected_users_button.setText(translator.translate("button.delete_selected"))
         self.add_source_combo.setItemText(0, translator.translate("option.add_source_scanned"))
         self.add_source_combo.setItemText(1, translator.translate("option.add_source_active"))
         if hasattr(self, "user_tab_widget"):
             for index, (_, __, title_key) in enumerate(self.user_table_meta):
                 self.user_tab_widget.setTabText(index, translator.translate(title_key))
+        self.group_select_all_button.setText(translator.translate("button.select_all"))
+        self.group_export_selected_button.setText(translator.translate("button.export_selected"))
+        self.group_delete_selected_button.setText(translator.translate("button.delete_selected"))
         if hasattr(self, "license_group"):
             self.license_group.setTitle(translator.translate("group.license"))
             self.license_status_caption.setText(translator.translate("label.license_status"))
@@ -2495,6 +2679,7 @@ class MainWindow(QMainWindow):
 
     def _update_user_table_headers(self) -> None:
         base_headers = [
+            translator.translate("table.column.select"),
             translator.translate("table.column.user_id"),
             translator.translate("table.column.username"),
             translator.translate("table.column.first_name"),
@@ -2502,6 +2687,7 @@ class MainWindow(QMainWindow):
             translator.translate("table.column.phone"),
             translator.translate("table.column.last_seen"),
             translator.translate("table.column.status"),
+            translator.translate("table.column.dm_status"),
             translator.translate("table.column.source"),
             translator.translate("table.column.is_bot"),
         ]
@@ -2532,6 +2718,10 @@ class ManualUserDialog(QDialog):
         self.source_input = QLineEdit()
         self.is_bot_checkbox = QCheckBox(translator.translate("label.is_bot"))
         self.message_input = QLineEdit()
+        self.dm_status_combo = QComboBox()
+        self.dm_status_combo.addItem(translator.translate("option.dm_status_auto"), "")
+        self.dm_status_combo.addItem(translator.translate("status.dm_open"), "status.dm_open")
+        self.dm_status_combo.addItem(translator.translate("status.dm_closed"), "status.dm_closed")
 
         form_layout.addRow(translator.translate("table.column.user_id"), self.user_id_input)
         form_layout.addRow(translator.translate("table.column.username"), self.username_input)
@@ -2541,6 +2731,7 @@ class ManualUserDialog(QDialog):
         form_layout.addRow(translator.translate("label.last_name"), self.last_name_input)
         form_layout.addRow(translator.translate("table.column.last_seen"), self.last_seen_input)
         form_layout.addRow(translator.translate("table.column.status"), self.status_input)
+        form_layout.addRow(translator.translate("label.dm_status"), self.dm_status_combo)
         form_layout.addRow(translator.translate("table.column.source"), self.source_input)
         if include_message:
             form_layout.addRow(translator.translate("label.last_message"), self.message_input)
@@ -2561,6 +2752,7 @@ class ManualUserDialog(QDialog):
         access_hash_text = self.access_hash_input.text().strip()
         access_hash = int(access_hash_text) if access_hash_text else None
         last_message = self.message_input.text().strip() or None
+        dm_status = self.dm_status_combo.currentData() or None
         return StoredUser(
             user_id=user_id,
             username=self.username_input.text().strip() or None,
@@ -2573,6 +2765,7 @@ class ManualUserDialog(QDialog):
             source=self.source_input.text().strip() or None,
             is_bot=self.is_bot_checkbox.isChecked(),
             last_message=last_message,
+            dm_status=dm_status,
         )
 
 
