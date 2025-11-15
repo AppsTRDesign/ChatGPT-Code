@@ -106,6 +106,7 @@ GROUP_TABLE_HEADERS: List[str] = [
     "table.column.select",
     "label.group_name",
     "label.members",
+    "label.group_online",
     "label.group_visibility",
     "label.group_messaging",
     "label.source",
@@ -1608,6 +1609,8 @@ class MainWindow(QMainWindow):
         parts = [group.title]
         if group.members:
             parts.append(str(group.members))
+        if group.online:
+            parts.append(translator.translate("label.group_online_short").format(count=group.online))
         if group.link:
             parts.append(group.link)
         return " | ".join(parts)
@@ -1664,9 +1667,11 @@ class MainWindow(QMainWindow):
             self.group_table.setItem(row, 1, QTableWidgetItem(group.title))
             members = str(group.members) if group.members is not None else "-"
             self.group_table.setItem(row, 2, QTableWidgetItem(members))
-            self.group_table.setItem(row, 3, QTableWidgetItem(self._group_visibility_text(group)))
-            self.group_table.setItem(row, 4, QTableWidgetItem(self._group_messaging_text(group)))
-            self.group_table.setItem(row, 5, QTableWidgetItem(group.source or ""))
+            online = str(group.online) if group.online is not None else "-"
+            self.group_table.setItem(row, 3, QTableWidgetItem(online))
+            self.group_table.setItem(row, 4, QTableWidgetItem(self._group_visibility_text(group)))
+            self.group_table.setItem(row, 5, QTableWidgetItem(self._group_messaging_text(group)))
+            self.group_table.setItem(row, 6, QTableWidgetItem(group.source or ""))
         self.group_table.setSortingEnabled(True)
 
     def _group_visibility_text(self, group: StoredGroup) -> str:
@@ -1783,6 +1788,7 @@ class MainWindow(QMainWindow):
             username=None,
             link=link,
             members=members,
+            online=None,
             is_public=is_public,
             is_megagroup=True,
             is_broadcast=False,
@@ -1888,6 +1894,7 @@ class MainWindow(QMainWindow):
                     username=None,
                     link=entry,
                     members=None,
+                    online=None,
                     is_public=True,
                     is_megagroup=True,
                     is_broadcast=False,

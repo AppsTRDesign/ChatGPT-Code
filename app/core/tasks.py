@@ -487,70 +487,52 @@ class SessionTask:
         filters: Optional[Dict[str, bool]] = None,
         page_offset: int = 0,
     ) -> None:
-        keyword = keyword.strip()
-        if not keyword:
+        keywords = [part.strip() for part in keyword.replace("\n", ",").split(",") if part.strip()]
+        if not keywords:
             raise ValueError(translator.translate("dialog.group_keyword_required"))
         status_cb = status_callback or (lambda _: None)
         status_cb("status.running")
         per_page_limit = max(min(per_page or 25, 100), 1)
         total_pages = max(pages or 1, 1)
-        total_expected = per_page_limit * total_pages
         skip_pages = max(page_offset, 0)
-        processed = 0
-        seen: set[Tuple[str, Optional[int]]] = set()
-        offset_date = None
-        offset_id = 0
-        offset_peer = types.InputPeerEmpty()
-        current_page = 0
-        keyword_lower = keyword.lower()
         filters = filters or {}
-        while current_page < skip_pages + total_pages:
+        results_per_keyword = per_page_limit * total_pages
+        total_expected = results_per_keyword * len(keywords)
+        if total_expected <= 0:
+            total_expected = len(keywords)
+        seen: set[Tuple[str, Optional[int]]] = set()
+        processed = 0
+        for term in keywords:
+            requested_pages = skip_pages + total_pages
+            fetch_limit = per_page_limit * requested_pages
+            fetch_limit = max(fetch_limit, per_page_limit)
+            fetch_limit = min(fetch_limit, 100)
+            start_index = skip_pages * per_page_limit
             try:
-                dialogs = await self.client.get_dialogs(
-                    limit=per_page_limit,
-                    offset_date=offset_date,
-                    offset_id=offset_id,
-                    offset_peer=offset_peer,
-                )
+                result = await self.client(functions.contacts.SearchRequest(q=term, limit=fetch_limit))
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 continue
             except Exception:
-                break
-            if not dialogs:
-                break
-            last = dialogs[-1]
-            offset_date = getattr(last, "date", None)
-            offset_id = getattr(last, "id", 0)
-            input_entity = getattr(last, "input_entity", None)
-            if input_entity is None:
-                entity_obj = getattr(last, "entity", None)
-                if entity_obj is not None:
-                    try:
-                        input_entity = await self.client.get_input_entity(entity_obj)
-                    except Exception:
-                        input_entity = None
-            offset_peer = input_entity or types.InputPeerEmpty()
-            if current_page < skip_pages:
-                current_page += 1
                 continue
-            current_page += 1
-            for dialog in dialogs:
+            chats = getattr(result, "chats", [])
+            keyword_processed = 0
+            for idx, chat in enumerate(chats):
                 await self._check_cancelled()
-                entity = getattr(dialog, "entity", None)
-                if not entity:
+                if idx < start_index:
                     continue
-                title = getattr(dialog, "name", None) or getattr(entity, "title", None) or ""
-                if keyword_lower not in title.lower():
+                if keyword_processed >= results_per_keyword:
+                    break
+                if not isinstance(chat, (types.Chat, types.Channel)):
                     continue
-                if not self._dialog_matches_filters(dialog, filters):
+                if not self._chat_matches_filters(chat, filters):
                     continue
-                key = (entity.__class__.__name__, getattr(entity, "id", None))
+                key = (chat.__class__.__name__, getattr(chat, "id", None))
                 if key in seen:
                     continue
                 seen.add(key)
                 try:
-                    record = await self._build_group_record(entity, keyword)
+                    record = await self._build_group_record(chat, term)
                 except FloodWaitError as exc:
                     await self._handle_flood_wait(exc.seconds, status_cb)
                     continue
@@ -558,6 +540,7 @@ class SessionTask:
                     continue
                 if not record:
                     continue
+                keyword_processed += 1
                 processed += 1
                 if persist and isinstance(self.storage, GroupStorage):
                     self.storage.add_groups([record])
@@ -565,10 +548,6 @@ class SessionTask:
                     self.build_progress(total_expected, status="status.running", group=record)
                 )
                 await self._throttle(self.settings.rate_limit.scan_interval)
-                if processed >= total_expected:
-                    break
-            if processed >= total_expected:
-                break
         status_cb("status.completed")
 
     async def send_messages(
@@ -759,6 +738,7 @@ class SessionTask:
     ) -> Optional[StoredGroup]:
         title = getattr(chat, "title", None) or getattr(chat, "username", None) or str(chat.id)
         members = getattr(chat, "participants_count", None)
+        online = getattr(chat, "online_count", None)
         messages_restricted = False
         if isinstance(chat, types.Channel):
             access_hash = getattr(chat, "access_hash", None)
@@ -768,6 +748,7 @@ class SessionTask:
             try:
                 full = await self.client(functions.channels.GetFullChannelRequest(channel=input_channel))
                 members = getattr(full.full_chat, "participants_count", members)
+                online = getattr(full.full_chat, "online_count", online)
                 banned = getattr(full.full_chat, "default_banned_rights", None)
                 messages_restricted = bool(getattr(banned, "send_messages", False))
             except FloodWaitError:
@@ -778,6 +759,7 @@ class SessionTask:
             try:
                 full_chat = await self.client(functions.messages.GetFullChatRequest(chat_id=chat.id))
                 members = getattr(full_chat.full_chat, "participants_count", members)
+                online = getattr(full_chat.full_chat, "online_count", online)
                 banned = getattr(full_chat.full_chat, "default_banned_rights", None)
                 messages_restricted = bool(getattr(banned, "send_messages", False))
             except FloodWaitError:
@@ -794,6 +776,7 @@ class SessionTask:
             username=getattr(chat, "username", None),
             link=link,
             members=members,
+            online=online,
             is_public=bool(getattr(chat, "username", None)),
             is_megagroup=bool(getattr(chat, "megagroup", False)),
             is_broadcast=bool(getattr(chat, "broadcast", False)),
@@ -851,13 +834,10 @@ class SessionTask:
             self.storage.remove_group(group)
 
     @staticmethod
-    def _dialog_matches_filters(dialog, filters: Dict[str, bool]) -> bool:
-        entity = getattr(dialog, "entity", None)
-        if not entity:
-            return False
-        is_channel = isinstance(entity, types.Channel) and bool(getattr(entity, "broadcast", False))
-        is_supergroup = isinstance(entity, types.Channel) and bool(getattr(entity, "megagroup", False))
-        is_group = isinstance(entity, types.Chat)
+    def _chat_matches_filters(chat: types.TypeChat, filters: Dict[str, bool]) -> bool:
+        is_channel = isinstance(chat, types.Channel) and bool(getattr(chat, "broadcast", False))
+        is_supergroup = isinstance(chat, types.Channel) and bool(getattr(chat, "megagroup", False))
+        is_group = isinstance(chat, types.Chat)
         filter_channel = filters.get("channel", False)
         filter_supergroup = filters.get("supergroup", False)
         filter_group = filters.get("group", False)
@@ -872,8 +852,8 @@ class SessionTask:
         if not matches_type:
             return False
         if filters.get("admin", False):
-            rights = getattr(entity, "admin_rights", None)
-            creator = bool(getattr(entity, "creator", False))
+            rights = getattr(chat, "admin_rights", None)
+            creator = bool(getattr(chat, "creator", False))
             has_admin = creator or bool(rights)
             if not has_admin:
                 return False

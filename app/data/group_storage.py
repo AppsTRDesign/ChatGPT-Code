@@ -14,6 +14,7 @@ class StoredGroup:
     username: Optional[str]
     link: Optional[str]
     members: Optional[int]
+    online: Optional[int]
     is_public: bool
     is_megagroup: bool
     is_broadcast: bool
@@ -57,6 +58,7 @@ class GroupStorage:
                 "username": item.get("username"),
                 "link": item.get("link"),
                 "members": item.get("members") or item.get("participants_count"),
+                "online": item.get("online") or item.get("online_count"),
                 "is_public": bool(item.get("is_public", False)),
                 "is_megagroup": bool(item.get("is_megagroup", False)),
                 "is_broadcast": bool(item.get("is_broadcast", False)),
@@ -116,6 +118,7 @@ class GroupStorage:
                 "username": item.get("username"),
                 "link": item.get("link"),
                 "members": item.get("members") or item.get("participants_count"),
+                "online": item.get("online") or item.get("online_count"),
                 "is_public": bool(item.get("is_public", False)),
                 "is_megagroup": bool(item.get("is_megagroup", False)),
                 "is_broadcast": bool(item.get("is_broadcast", False)),
