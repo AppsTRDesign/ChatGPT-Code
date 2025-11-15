@@ -200,8 +200,8 @@ class MainWindow(QMainWindow):
         self._build_sessions_tab()
         self._build_ban_tab()
         self._build_scan_tab()
-        self._build_add_tab()
         self._build_active_tab()
+        self._build_add_tab()
         self._build_user_tab()
         self._build_template_tab()
         self._build_message_tab()
@@ -304,15 +304,22 @@ class MainWindow(QMainWindow):
         self.session_list.setSelectionMode(QListWidget.MultiSelection)
         refresh_button = QPushButton(translator.translate("button.refresh_sessions"))
         refresh_button.clicked.connect(self.refresh_sessions)
+        self.session_refresh_button = refresh_button
+        self.session_select_all_button = QPushButton(translator.translate("button.select_all"))
+        self.session_select_all_button.clicked.connect(self.select_all_sessions)
         self.session_clear_selection_button = QPushButton(
             translator.translate("button.clear_selection")
         )
         self.session_clear_selection_button.clicked.connect(self.clear_session_selection)
+        self.session_remove_button = QPushButton(translator.translate("button.remove_sessions"))
+        self.session_remove_button.clicked.connect(self.remove_selected_sessions)
 
         layout.addWidget(self.session_list, 0, 2, 4, 1)
         session_button_row = QHBoxLayout()
-        session_button_row.addWidget(refresh_button)
+        session_button_row.addWidget(self.session_refresh_button)
+        session_button_row.addWidget(self.session_select_all_button)
         session_button_row.addWidget(self.session_clear_selection_button)
+        session_button_row.addWidget(self.session_remove_button)
         session_button_row.addStretch()
         layout.addLayout(session_button_row, 4, 2)
 
@@ -1004,6 +1011,8 @@ class MainWindow(QMainWindow):
         if template_widget:
             template_widget.blockSignals(True)
             template_widget.clear()
+        if ban_widget:
+            ban_widget.clear()
         if group_template_widget:
             group_template_widget.blockSignals(True)
         session_widgets = [
@@ -1069,11 +1078,47 @@ class MainWindow(QMainWindow):
     def clear_session_selection(self) -> None:
         self._set_session_checks(self.session_list, Qt.Unchecked)
 
+    def select_all_sessions(self) -> None:
+        self._set_session_checks(self.session_list, Qt.Checked)
+
     def select_all_ban_sessions(self) -> None:
         self._set_session_checks(getattr(self, "ban_session_list", None), Qt.Checked)
 
     def clear_ban_selection(self) -> None:
         self._set_session_checks(getattr(self, "ban_session_list", None), Qt.Unchecked)
+
+    def remove_selected_sessions(self) -> None:
+        sessions = self.get_selected_sessions(self.session_list)
+        if not sessions:
+            QMessageBox.warning(
+                self,
+                self.windowTitle(),
+                translator.translate("dialog.no_sessions_selected"),
+            )
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            self.windowTitle(),
+            translator.translate("dialog.delete_selected_sessions_confirm"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+
+        async def runner() -> None:
+            for name in sessions:
+                await self.session_manager.remove_session(name)
+
+        try:
+            asyncio.run(runner())
+        except Exception as exc:  # pragma: no cover - filesystem/network errors
+            QMessageBox.critical(self, self.windowTitle(), str(exc))
+            return
+
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.success"))
+        self.refresh_sessions()
 
     def handle_login(self) -> None:
         api_id = self.api_id_input.text().strip()
@@ -2829,8 +2874,8 @@ class MainWindow(QMainWindow):
             "tab.sessions",
             "tab.ban_check",
             "tab.scan",
-            "tab.add_members",
             "tab.active_senders",
+            "tab.add_members",
             "tab.users_root",
             "tab.templates",
             "tab.direct_messages",
@@ -2861,8 +2906,14 @@ class MainWindow(QMainWindow):
         self.add_cancel_button.setText(translator.translate("button.cancel"))
         self.active_start_button.setText(translator.translate("button.start"))
         self.active_cancel_button.setText(translator.translate("button.cancel"))
+        if hasattr(self, "session_refresh_button"):
+            self.session_refresh_button.setText(translator.translate("button.refresh_sessions"))
+        if hasattr(self, "session_select_all_button"):
+            self.session_select_all_button.setText(translator.translate("button.select_all"))
         if hasattr(self, "session_clear_selection_button"):
             self.session_clear_selection_button.setText(translator.translate("button.clear_selection"))
+        if hasattr(self, "session_remove_button"):
+            self.session_remove_button.setText(translator.translate("button.remove_sessions"))
         if hasattr(self, "ban_select_all_button"):
             self.ban_select_all_button.setText(translator.translate("button.select_all"))
         if hasattr(self, "ban_clear_selection_button"):
@@ -2960,7 +3011,14 @@ class MainWindow(QMainWindow):
         layout.itemAtPosition(2, 0).widget().setText(translator.translate("label.password"))
         layout.itemAtPosition(3, 0).widget().setText(translator.translate("button.login"))
         layout.itemAtPosition(3, 1).widget().setText(translator.translate("button.confirm_code"))
-        layout.itemAtPosition(4, 2).widget().setText(translator.translate("button.refresh_sessions"))
+        if hasattr(self, "session_refresh_button"):
+            self.session_refresh_button.setText(translator.translate("button.refresh_sessions"))
+        if hasattr(self, "session_select_all_button"):
+            self.session_select_all_button.setText(translator.translate("button.select_all"))
+        if hasattr(self, "session_clear_selection_button"):
+            self.session_clear_selection_button.setText(translator.translate("button.clear_selection"))
+        if hasattr(self, "session_remove_button"):
+            self.session_remove_button.setText(translator.translate("button.remove_sessions"))
 
     def _update_user_table_headers(self) -> None:
         base_headers = [
