@@ -479,40 +479,70 @@ class SessionTask:
     async def search_groups(
         self,
         keyword: str,
-        limit: Optional[int],
+        per_page: Optional[int],
         progress_callback: Callable[[ProgressUpdate], None],
         persist: bool,
         status_callback: Optional[Callable[[str], None]] = None,
+        pages: Optional[int] = None,
+        filters: Optional[Dict[str, bool]] = None,
+        page_offset: int = 0,
     ) -> None:
         keyword = keyword.strip()
         if not keyword:
             raise ValueError(translator.translate("dialog.group_keyword_required"))
         status_cb = status_callback or (lambda _: None)
         status_cb("status.running")
-        limit = limit or 25
+        per_page_limit = max(min(per_page or 25, 100), 1)
+        total_pages = max(pages or 1, 1)
+        total_expected = per_page_limit * total_pages
+        skip_pages = max(page_offset, 0)
         processed = 0
-        seen: set[int] = set()
-        while processed < limit:
-            batch = min(50, limit - processed)
+        seen: set[Tuple[str, Optional[int]]] = set()
+        offset_date = None
+        offset_id = 0
+        offset_peer = None
+        current_page = 0
+        keyword_lower = keyword.lower()
+        filters = filters or {}
+        while current_page < skip_pages + total_pages:
             try:
-                result = await self.client(
-                    functions.contacts.SearchRequest(q=keyword, limit=batch)
+                dialogs = await self.client.get_dialogs(
+                    limit=per_page_limit,
+                    offset_date=offset_date,
+                    offset_id=offset_id,
+                    offset_peer=offset_peer,
                 )
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 continue
-            chats = getattr(result, "chats", []) or []
-            if not chats:
+            except Exception:
                 break
-            for chat in chats:
+            if not dialogs:
+                break
+            last = dialogs[-1]
+            offset_date = getattr(last, "date", None)
+            offset_id = getattr(last, "id", 0)
+            offset_peer = getattr(last, "entity", None)
+            if current_page < skip_pages:
+                current_page += 1
+                continue
+            current_page += 1
+            for dialog in dialogs:
                 await self._check_cancelled()
-                if not isinstance(chat, (types.Chat, types.Channel)):
+                entity = getattr(dialog, "entity", None)
+                if not entity:
                     continue
-                if chat.id in seen:
+                title = getattr(dialog, "name", None) or getattr(entity, "title", None) or ""
+                if keyword_lower not in title.lower():
                     continue
-                seen.add(chat.id)
+                if not self._dialog_matches_filters(dialog, filters):
+                    continue
+                key = (entity.__class__.__name__, getattr(entity, "id", None))
+                if key in seen:
+                    continue
+                seen.add(key)
                 try:
-                    record = await self._build_group_record(chat, keyword)
+                    record = await self._build_group_record(entity, keyword)
                 except FloodWaitError as exc:
                     await self._handle_flood_wait(exc.seconds, status_cb)
                     continue
@@ -524,12 +554,12 @@ class SessionTask:
                 if persist and isinstance(self.storage, GroupStorage):
                     self.storage.add_groups([record])
                 progress_callback(
-                    self.build_progress(limit, status="status.running", group=record)
+                    self.build_progress(total_expected, status="status.running", group=record)
                 )
                 await self._throttle(self.settings.rate_limit.scan_interval)
-                if processed >= limit:
+                if processed >= total_expected:
                     break
-            if len(chats) < batch:
+            if processed >= total_expected:
                 break
         status_cb("status.completed")
 
@@ -811,6 +841,35 @@ class SessionTask:
     def _remove_group_record(self, group: StoredGroup) -> None:
         if isinstance(self.storage, GroupStorage):
             self.storage.remove_group(group)
+
+    @staticmethod
+    def _dialog_matches_filters(dialog, filters: Dict[str, bool]) -> bool:
+        entity = getattr(dialog, "entity", None)
+        if not entity:
+            return False
+        is_channel = isinstance(entity, types.Channel) and bool(getattr(entity, "broadcast", False))
+        is_supergroup = isinstance(entity, types.Channel) and bool(getattr(entity, "megagroup", False))
+        is_group = isinstance(entity, types.Chat)
+        filter_channel = filters.get("channel", False)
+        filter_supergroup = filters.get("supergroup", False)
+        filter_group = filters.get("group", False)
+        type_filters = filter_channel or filter_supergroup or filter_group
+        matches_type = True
+        if type_filters:
+            matches_type = (
+                (filter_channel and is_channel)
+                or (filter_supergroup and is_supergroup)
+                or (filter_group and is_group)
+            )
+        if not matches_type:
+            return False
+        if filters.get("admin", False):
+            rights = getattr(entity, "admin_rights", None)
+            creator = bool(getattr(entity, "creator", False))
+            has_admin = creator or bool(rights)
+            if not has_admin:
+                return False
+        return True
 
     async def _resolve_target_peer(
         self, entity: str

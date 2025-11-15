@@ -460,11 +460,44 @@ class MainWindow(QMainWindow):
 
         form_layout = QFormLayout()
         self.group_search_keyword_input = QLineEdit()
-        self.group_search_limit_input = QLineEdit()
-        self.group_search_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
+        self.group_search_limit_input = QSpinBox()
+        self.group_search_limit_input.setRange(1, 100)
+        self.group_search_limit_input.setValue(25)
+        self.group_search_pages_input = QSpinBox()
+        self.group_search_pages_input.setRange(1, 50)
+        self.group_search_pages_input.setValue(1)
+        self.group_search_save_checkbox = QCheckBox(translator.translate("checkbox.save_groups"))
         self.group_search_save_checkbox.setChecked(True)
         form_layout.addRow(translator.translate("label.group_keyword"), self.group_search_keyword_input)
-        form_layout.addRow(translator.translate("label.limit"), self.group_search_limit_input)
+        form_layout.addRow(
+            translator.translate("label.group_results_per_page"), self.group_search_limit_input
+        )
+        form_layout.addRow(translator.translate("label.group_pages"), self.group_search_pages_input)
+        filter_row = QWidget()
+        filter_layout = QHBoxLayout(filter_row)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        filter_layout.setSpacing(6)
+        self.group_filter_channel_checkbox = QCheckBox(
+            translator.translate("checkbox.group_filter_channel")
+        )
+        self.group_filter_channel_checkbox.setChecked(True)
+        self.group_filter_supergroup_checkbox = QCheckBox(
+            translator.translate("checkbox.group_filter_supergroup")
+        )
+        self.group_filter_supergroup_checkbox.setChecked(True)
+        self.group_filter_group_checkbox = QCheckBox(
+            translator.translate("checkbox.group_filter_group")
+        )
+        self.group_filter_group_checkbox.setChecked(True)
+        self.group_filter_admin_checkbox = QCheckBox(
+            translator.translate("checkbox.group_filter_admin")
+        )
+        filter_layout.addWidget(self.group_filter_channel_checkbox)
+        filter_layout.addWidget(self.group_filter_supergroup_checkbox)
+        filter_layout.addWidget(self.group_filter_group_checkbox)
+        filter_layout.addWidget(self.group_filter_admin_checkbox)
+        filter_layout.addStretch()
+        form_layout.addRow(translator.translate("label.group_filters"), filter_row)
         form_layout.addRow(self.group_search_save_checkbox)
         layout.addLayout(form_layout, 0, 1, 1, 2)
 
@@ -600,7 +633,9 @@ class MainWindow(QMainWindow):
 
         self.group_message_body_input = QTextEdit()
         form_layout.addRow(translator.translate("label.message_body"), self.group_message_body_input)
-        group_placeholder_bar = self._build_placeholder_toolbar(self.group_message_body_input)
+        group_placeholder_bar = self._build_placeholder_toolbar(
+            self.group_message_body_input, placeholders=[]
+        )
         form_layout.addRow(translator.translate("label.placeholders"), group_placeholder_bar)
 
         media_row = QHBoxLayout()
@@ -707,7 +742,9 @@ class MainWindow(QMainWindow):
         form_layout.addRow(translator.translate("label.template_name"), self.group_template_name_input)
         self.group_template_body_input = QTextEdit()
         form_layout.addRow(translator.translate("label.template_body"), self.group_template_body_input)
-        group_template_toolbar = self._build_placeholder_toolbar(self.group_template_body_input)
+        group_template_toolbar = self._build_placeholder_toolbar(
+            self.group_template_body_input, placeholders=[]
+        )
         form_layout.addRow(translator.translate("label.placeholders"), group_template_toolbar)
         media_row = QHBoxLayout()
         self.group_template_media_input = QLineEdit()
@@ -1047,6 +1084,10 @@ class MainWindow(QMainWindow):
         storage: Optional[Union[UserStorage, GroupStorage]] = None
         group_chunks: List[List[StoredGroup]] = []
         message_payloads: Dict[str, Tuple[str, Optional[str]]] = {}
+        pages: Optional[int] = None
+        group_filters: Optional[Dict[str, bool]] = None
+        group_page_counts: List[int] = []
+        group_page_offsets: List[int] = []
         if task_type == "scan":
             sessions = self.get_selected_sessions(self.scan_session_list)
             target = self.scan_target_input.text().strip()
@@ -1059,11 +1100,27 @@ class MainWindow(QMainWindow):
         elif task_type == "group_scan":
             sessions = self.get_selected_sessions(self.group_scan_session_list)
             target = self.group_search_keyword_input.text().strip()
-            limit = self._parse_int(self.group_search_limit_input.text())
+            limit = self.group_search_limit_input.value()
+            pages = self.group_search_pages_input.value()
             interval = None
             container = self.group_scan_progress_container
             persist = self.group_search_save_checkbox.isChecked()
             storage = self.group_storage
+            group_filters = self._collect_group_filters()
+            type_selected = any(
+                [
+                    group_filters.get("channel", False),
+                    group_filters.get("supergroup", False),
+                    group_filters.get("group", False),
+                ]
+            )
+            if not type_selected:
+                QMessageBox.warning(
+                    self,
+                    self.windowTitle(),
+                    translator.translate("dialog.group_filter_required"),
+                )
+                return
         elif task_type == "add":
             sessions = self.get_selected_sessions(self.add_session_list)
             target = self.add_target_input.text().strip()
@@ -1200,7 +1257,10 @@ class MainWindow(QMainWindow):
             if task_type == "scan":
                 per_session_limits, offsets = self._scan_distribution(limit, target, sessions)
             elif task_type == "group_scan":
-                per_session_limits = [limit] * session_count if limit else [None] * session_count
+                per_page_limit = max(limit or 1, 1)
+                group_page_counts = self._split_pages_for_sessions(pages, session_count)
+                group_page_offsets = self._compute_page_offsets(group_page_counts)
+                per_session_limits = [count * per_page_limit for count in group_page_counts]
             else:
                 per_session_limits, offsets = self._active_distribution(limit, session_count)
 
@@ -1240,8 +1300,12 @@ class MainWindow(QMainWindow):
 
             widget.update_state(0, total_target or 0, status_key="status.running")
 
+            session_pages = group_page_counts[idx] if task_type == "group_scan" and idx < len(group_page_counts) else 0
+
             request_limit: Optional[int] = None
-            if task_type not in {"add", "message"} and isinstance(per_session_limit, int) and per_session_limit > 0:
+            if task_type == "group_scan":
+                request_limit = max(limit or 1, 1)
+            elif task_type not in {"add", "message"} and isinstance(per_session_limit, int) and per_session_limit > 0:
                 request_limit = per_session_limit
 
             payload = message_payloads.get(session_name)
@@ -1260,6 +1324,12 @@ class MainWindow(QMainWindow):
                 message_body=payload[0] if payload else None,
                 message_media=payload[1] if payload else None,
                 groups=session_groups if task_type == "group_message" else None,
+                pages=session_pages if task_type == "group_scan" else None,
+                page_offset=
+                    group_page_offsets[idx]
+                    if task_type == "group_scan" and idx < len(group_page_offsets)
+                    else 0,
+                group_filters=group_filters if task_type == "group_scan" else None,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -2118,12 +2188,15 @@ class MainWindow(QMainWindow):
                 self.template_list_widget.setCurrentRow(row)
                 return
 
-    def _build_placeholder_toolbar(self, target: QTextEdit) -> QWidget:
+    def _build_placeholder_toolbar(
+        self, target: QTextEdit, placeholders: Optional[List[Tuple[str, str]]] = None
+    ) -> QWidget:
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        for label_key, token in PLACEHOLDER_BUTTONS:
+        tokens = PLACEHOLDER_BUTTONS if placeholders is None else placeholders
+        for label_key, token in tokens:
             button = QPushButton(translator.translate(label_key))
             button.setAutoDefault(False)
             button.clicked.connect(lambda _, t=token: self._insert_text_at_cursor(target, t))
@@ -2205,6 +2278,34 @@ class MainWindow(QMainWindow):
             chunks.append(users[start:end])
             start = end
         return chunks
+
+    def _split_pages_for_sessions(self, pages: Optional[int], count: int) -> List[int]:
+        if count <= 0:
+            return []
+        total_pages = pages or 1
+        total_pages = max(total_pages, 1)
+        base = total_pages // count
+        remainder = total_pages % count
+        return [base + (1 if idx < remainder else 0) for idx in range(count)]
+
+    @staticmethod
+    def _compute_page_offsets(page_counts: List[int]) -> List[int]:
+        offsets: List[int] = []
+        cursor = 0
+        for count in page_counts:
+            offsets.append(cursor)
+            cursor += count
+        return offsets
+
+    def _collect_group_filters(self) -> Dict[str, bool]:
+        if not hasattr(self, "group_filter_channel_checkbox"):
+            return {"channel": True, "supergroup": True, "group": True, "admin": False}
+        return {
+            "channel": self.group_filter_channel_checkbox.isChecked(),
+            "supergroup": self.group_filter_supergroup_checkbox.isChecked(),
+            "group": self.group_filter_group_checkbox.isChecked(),
+            "admin": self.group_filter_admin_checkbox.isChecked(),
+        }
 
     def _storage_has_message(self, key: str) -> bool:
         for storage_key, has_message, _ in self.user_table_meta:
@@ -2594,6 +2695,8 @@ class MainWindow(QMainWindow):
         self._update_user_table_headers()
         self.scan_save_checkbox.setText(translator.translate("checkbox.save_results"))
         self.active_save_checkbox.setText(translator.translate("checkbox.save_results"))
+        if hasattr(self, "group_search_save_checkbox"):
+            self.group_search_save_checkbox.setText(translator.translate("checkbox.save_groups"))
         self.scan_include_no_username_checkbox.setText(
             translator.translate("checkbox.include_no_username")
         )
@@ -2606,6 +2709,26 @@ class MainWindow(QMainWindow):
         self.add_cancel_button.setText(translator.translate("button.cancel"))
         self.active_start_button.setText(translator.translate("button.start"))
         self.active_cancel_button.setText(translator.translate("button.cancel"))
+        if hasattr(self, "group_search_start_button"):
+            self.group_search_start_button.setText(translator.translate("button.start"))
+        if hasattr(self, "group_search_cancel_button"):
+            self.group_search_cancel_button.setText(translator.translate("button.cancel"))
+        if hasattr(self, "group_filter_channel_checkbox"):
+            self.group_filter_channel_checkbox.setText(
+                translator.translate("checkbox.group_filter_channel")
+            )
+        if hasattr(self, "group_filter_supergroup_checkbox"):
+            self.group_filter_supergroup_checkbox.setText(
+                translator.translate("checkbox.group_filter_supergroup")
+            )
+        if hasattr(self, "group_filter_group_checkbox"):
+            self.group_filter_group_checkbox.setText(
+                translator.translate("checkbox.group_filter_group")
+            )
+        if hasattr(self, "group_filter_admin_checkbox"):
+            self.group_filter_admin_checkbox.setText(
+                translator.translate("checkbox.group_filter_admin")
+            )
         if hasattr(self, "message_start_button"):
             self.message_start_button.setText(translator.translate("button.start"))
         if hasattr(self, "message_media_button"):

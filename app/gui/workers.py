@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Callable, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from PySide6.QtCore import QThread, Signal
 from telethon import TelegramClient
@@ -33,6 +33,9 @@ class TaskRequest:
     message_body: Optional[str] = None
     message_media: Optional[str] = None
     groups: Optional[List[StoredGroup]] = None
+    pages: Optional[int] = None
+    page_offset: int = 0
+    group_filters: Optional[Dict[str, bool]] = None
 
 
 class SessionWorkerThread(QThread):
@@ -106,6 +109,9 @@ class SessionWorkerThread(QThread):
                     progress_handler,
                     self.request.persist_results,
                     status_handler,
+                    pages=self.request.pages,
+                    filters=self.request.group_filters,
+                    page_offset=self.request.page_offset,
                 )
             elif self.request.task_type == "add":
                 await task.add_members(
