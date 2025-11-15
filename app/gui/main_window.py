@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTabWidget,
     QTableWidget,
@@ -49,6 +50,54 @@ from app.data.user_storage import StoredUser, UserStorage
 from app.gui.widgets.session_progress import SessionProgressWidget
 from app.gui.workers import SessionWorkerThread, TaskRequest
 from app.i18n.strings import translator
+
+PLACEHOLDER_BUTTONS: List[Tuple[str, str]] = [
+    ("button.placeholder.username", "{user_name}"),
+    ("button.placeholder.first_name", "{first_name}"),
+    ("button.placeholder.last_name", "{last_name}"),
+]
+
+EMOJI_CHOICES: List[str] = [
+    "😀",
+    "😁",
+    "😂",
+    "🤣",
+    "😊",
+    "😍",
+    "😘",
+    "😎",
+    "🤩",
+    "🤗",
+    "😇",
+    "🤖",
+    "🤝",
+    "🙏",
+    "🔥",
+    "⭐",
+    "⚡",
+    "💎",
+    "💬",
+    "💡",
+    "✅",
+    "❗",
+    "❕",
+    "🎯",
+    "🏆",
+    "📣",
+    "📈",
+    "💰",
+    "🧠",
+    "🚀",
+    "🌟",
+    "🎁",
+    "🆕",
+    "📱",
+    "🔒",
+    "💼",
+    "🕒",
+    "🎉",
+    "📌",
+]
 
 
 class MainWindow(QMainWindow):
@@ -116,6 +165,7 @@ class MainWindow(QMainWindow):
         self._build_add_tab()
         self._build_active_tab()
         self._build_message_tab()
+        self._build_template_tab()
         self._build_rate_tab()
         self._build_settings_tab()
         self._build_user_tab()
@@ -329,6 +379,7 @@ class MainWindow(QMainWindow):
         self.message_session_list = QListWidget()
         self.message_session_list.setSelectionMode(QListWidget.MultiSelection)
         self.message_session_list.currentItemChanged.connect(self._handle_message_session_change)
+        self.message_session_list.itemChanged.connect(lambda _: self._refresh_message_template_summary())
         layout.addWidget(self.message_session_list, 0, 0, 6, 1)
 
         form_layout = QFormLayout()
@@ -342,6 +393,8 @@ class MainWindow(QMainWindow):
 
         self.message_body_input = QTextEdit()
         form_layout.addRow(translator.translate("label.message_body"), self.message_body_input)
+        placeholder_bar = self._build_placeholder_toolbar(self.message_body_input)
+        form_layout.addRow(translator.translate("label.placeholders"), placeholder_bar)
 
         media_row = QHBoxLayout()
         self.message_media_input = QLineEdit()
@@ -351,19 +404,52 @@ class MainWindow(QMainWindow):
         media_row.addWidget(self.message_media_button)
         form_layout.addRow(translator.translate("label.message_media"), media_row)
 
-        layout.addLayout(form_layout, 0, 1, 2, 2)
+        layout.addLayout(form_layout, 0, 1, 3, 1)
 
-        template_group = QGroupBox(translator.translate("group.message_templates"))
-        template_layout = QFormLayout()
-        self.message_template_combo = QComboBox()
-        self.message_template_combo.currentTextChanged.connect(self._populate_template_fields)
-        template_layout.addRow(translator.translate("label.template_select"), self.message_template_combo)
+        assignment_group = QGroupBox(translator.translate("group.assigned_templates"))
+        assignment_layout = QVBoxLayout()
+        self.message_template_summary = QListWidget()
+        assignment_layout.addWidget(self.message_template_summary)
+        assignment_group.setLayout(assignment_layout)
+        layout.addWidget(assignment_group, 0, 2, 3, 1)
 
+        self.message_start_button = QPushButton(translator.translate("button.start"))
+        self.message_start_button.clicked.connect(partial(self.start_task, task_type="message"))
+        message_control_layout = QHBoxLayout()
+        message_control_layout.addWidget(self.message_start_button)
+        layout.addLayout(message_control_layout, 3, 1, 1, 2)
+
+        self.message_progress_container = QVBoxLayout()
+        progress_group = QGroupBox(translator.translate("label.progress"))
+        progress_group.setLayout(self.message_progress_container)
+        layout.addWidget(progress_group, 4, 1, 2, 2)
+
+        tab.setLayout(layout)
+        self.tab_widget.addTab(tab, translator.translate("tab.direct_messages"))
+        self._refresh_message_template_summary()
+
+    def _build_template_tab(self) -> None:
+        tab = QWidget()
+        layout = QGridLayout()
+
+        self.template_session_list = QListWidget()
+        self.template_session_list.setSelectionMode(QListWidget.SingleSelection)
+        self.template_session_list.currentItemChanged.connect(self._handle_template_session_change)
+        layout.addWidget(self.template_session_list, 0, 0, 3, 1)
+
+        self.template_list_widget = QListWidget()
+        self.template_list_widget.setSelectionMode(QListWidget.SingleSelection)
+        self.template_list_widget.currentItemChanged.connect(self._handle_template_selection_change)
+        layout.addWidget(self.template_list_widget, 0, 1, 3, 1)
+
+        form_layout = QFormLayout()
         self.template_name_input = QLineEdit()
-        template_layout.addRow(translator.translate("label.template_name"), self.template_name_input)
+        form_layout.addRow(translator.translate("label.template_name"), self.template_name_input)
 
         self.template_body_input = QTextEdit()
-        template_layout.addRow(translator.translate("label.template_body"), self.template_body_input)
+        form_layout.addRow(translator.translate("label.template_body"), self.template_body_input)
+        template_placeholder_bar = self._build_placeholder_toolbar(self.template_body_input)
+        form_layout.addRow(translator.translate("label.placeholders"), template_placeholder_bar)
 
         template_media_row = QHBoxLayout()
         self.template_media_input = QLineEdit()
@@ -371,7 +457,7 @@ class MainWindow(QMainWindow):
         self.template_media_button.clicked.connect(partial(self._browse_media_file, self.template_media_input))
         template_media_row.addWidget(self.template_media_input)
         template_media_row.addWidget(self.template_media_button)
-        template_layout.addRow(translator.translate("label.template_media"), template_media_row)
+        form_layout.addRow(translator.translate("label.template_media"), template_media_row)
 
         template_button_layout = QHBoxLayout()
         self.template_save_button = QPushButton(translator.translate("button.save_template"))
@@ -383,25 +469,13 @@ class MainWindow(QMainWindow):
         template_button_layout.addWidget(self.template_save_button)
         template_button_layout.addWidget(self.template_delete_button)
         template_button_layout.addWidget(self.template_assign_button)
-        template_layout.addRow(template_button_layout)
+        form_layout.addRow(template_button_layout)
 
-        template_group.setLayout(template_layout)
-        layout.addWidget(template_group, 2, 1, 2, 2)
-
-        self.message_start_button = QPushButton(translator.translate("button.start"))
-        self.message_start_button.clicked.connect(partial(self.start_task, task_type="message"))
-        message_control_layout = QHBoxLayout()
-        message_control_layout.addWidget(self.message_start_button)
-        layout.addLayout(message_control_layout, 4, 1, 1, 2)
-
-        self.message_progress_container = QVBoxLayout()
-        progress_group = QGroupBox(translator.translate("label.progress"))
-        progress_group.setLayout(self.message_progress_container)
-        layout.addWidget(progress_group, 5, 1, 1, 2)
+        layout.addLayout(form_layout, 0, 2, 3, 1)
 
         tab.setLayout(layout)
-        self.tab_widget.addTab(tab, translator.translate("tab.direct_messages"))
-        self._refresh_template_combo(self._current_message_session())
+        self.tab_widget.addTab(tab, translator.translate("tab.templates"))
+        self._refresh_template_combo(self._current_template_session())
 
     def _build_rate_tab(self) -> None:
         tab = QWidget()
@@ -547,17 +621,35 @@ class MainWindow(QMainWindow):
         self.scan_session_list.clear()
         self.add_session_list.clear()
         self.active_session_list.clear()
-        if hasattr(self, "message_session_list"):
-            self.message_session_list.clear()
+        message_widget = getattr(self, "message_session_list", None)
+        template_widget = getattr(self, "template_session_list", None)
+        if message_widget:
+            message_widget.blockSignals(True)
+            message_widget.clear()
+        if template_widget:
+            template_widget.blockSignals(True)
+            template_widget.clear()
         for info in self.session_manager.list_sessions():
             widgets = [self.session_list, self.scan_session_list, self.add_session_list, self.active_session_list]
-            if hasattr(self, "message_session_list"):
-                widgets.append(self.message_session_list)
+            if message_widget:
+                widgets.append(message_widget)
             for widget in widgets:
                 item = QListWidgetItem(info.name)
                 item.setFlags(item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsSelectable | Qt.ItemIsEnabled)
                 item.setCheckState(Qt.Unchecked)
                 widget.addItem(item)
+            if template_widget:
+                template_item = QListWidgetItem(info.name)
+                template_item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                template_widget.addItem(template_item)
+        if message_widget:
+            message_widget.blockSignals(False)
+        if template_widget:
+            template_widget.blockSignals(False)
+            if template_widget.count() > 0 and template_widget.currentRow() == -1:
+                template_widget.setCurrentRow(0)
+        self._refresh_message_template_summary()
+        self._refresh_template_combo(self._current_template_session())
 
     def get_selected_sessions(self, widget: QListWidget) -> List[str]:
         selected: List[str] = []
@@ -1070,46 +1162,77 @@ class MainWindow(QMainWindow):
             return self.user_table_meta[index][0]
         return "scanned"
 
-    def _current_message_session(self) -> Optional[str]:
-        if not hasattr(self, "message_session_list"):
+    def _handle_message_session_change(self) -> None:
+        self._refresh_message_template_summary()
+
+    def _current_template_session(self) -> Optional[str]:
+        if not hasattr(self, "template_session_list"):
             return None
-        item = self.message_session_list.currentItem()
+        item = self.template_session_list.currentItem()
         if item:
             return item.text()
-        if self.message_session_list.count() > 0:
-            return self.message_session_list.item(0).text()
+        if self.template_session_list.count() > 0:
+            return self.template_session_list.item(0).text()
         return None
 
-    def _handle_message_session_change(self) -> None:
-        session = self._current_message_session()
+    def _handle_template_session_change(self) -> None:
+        session = self._current_template_session()
         self._refresh_template_combo(session)
 
-    def _refresh_template_combo(self, session: Optional[str]) -> None:
-        if not hasattr(self, "message_template_combo"):
+    def _handle_template_selection_change(self) -> None:
+        name = self._current_template_name()
+        if name:
+            self._populate_template_fields(name)
+        else:
+            self._clear_template_fields()
+
+    def _refresh_message_template_summary(self) -> None:
+        if not hasattr(self, "message_template_summary"):
             return
-        self.message_template_combo.blockSignals(True)
-        self.message_template_combo.clear()
+        self.message_template_summary.clear()
+        if not hasattr(self, "message_session_list"):
+            return
+        sessions = self.get_selected_sessions(self.message_session_list)
+        if not sessions:
+            return
+        for session in sessions:
+            template_name = self.template_storage.get_assignment(session)
+            display = template_name or translator.translate("label.template_unassigned")
+            self.message_template_summary.addItem(f"{session} → {display}")
+
+    def _refresh_template_combo(self, session: Optional[str]) -> None:
+        if not hasattr(self, "template_list_widget"):
+            return
+        self.template_list_widget.blockSignals(True)
+        self.template_list_widget.clear()
         if not session:
-            self.message_template_combo.blockSignals(False)
+            self.template_list_widget.blockSignals(False)
             self._clear_template_fields()
             return
         templates = self.template_storage.list_templates(session)
-        for template in templates:
-            self.message_template_combo.addItem(template.name)
         assigned = self.template_storage.get_assignment(session)
         if assigned:
-            index = self.message_template_combo.findText(assigned)
-            if index >= 0:
-                self.message_template_combo.setCurrentIndex(index)
-        self.message_template_combo.blockSignals(False)
-        current = self.message_template_combo.currentText()
-        if current:
-            self._populate_template_fields(current)
+            templates.sort(key=lambda tpl: (tpl.name != assigned, tpl.name.lower()))
+        else:
+            templates.sort(key=lambda tpl: tpl.name.lower())
+        for template in templates:
+            label = template.name
+            if template.name == assigned:
+                label = f"{label} ({translator.translate('label.template_default')})"
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, template.name)
+            self.template_list_widget.addItem(item)
+        self.template_list_widget.blockSignals(False)
+        if self.template_list_widget.count() > 0:
+            if assigned:
+                self._select_template_in_list(assigned)
+            else:
+                self.template_list_widget.setCurrentRow(0)
         else:
             self._clear_template_fields()
 
     def _populate_template_fields(self, template_name: str) -> None:
-        session = self._current_message_session()
+        session = self._current_template_session()
         if not session:
             return
         template = self.template_storage.get_template(session, template_name)
@@ -1126,7 +1249,7 @@ class MainWindow(QMainWindow):
         self.template_media_input.clear()
 
     def _save_message_template(self) -> None:
-        session = self._current_message_session()
+        session = self._current_template_session()
         if not session:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
@@ -1143,34 +1266,110 @@ class MainWindow(QMainWindow):
         self.template_storage.upsert_template(session, template)
         self.template_storage.save()
         self._refresh_template_combo(session)
+        self._select_template_in_list(template.name)
+        self._refresh_message_template_summary()
         QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_saved"))
 
     def _delete_message_template(self) -> None:
-        session = self._current_message_session()
+        session = self._current_template_session()
         if not session:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
-        template_name = self.message_template_combo.currentText().strip()
+        template_name = self._current_template_name()
         if not template_name:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
             return
         self.template_storage.delete_template(session, template_name)
         self.template_storage.save()
         self._refresh_template_combo(session)
+        self._refresh_message_template_summary()
         QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_deleted"))
 
     def _assign_template_to_session(self) -> None:
-        session = self._current_message_session()
+        session = self._current_template_session()
         if not session:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
-        template_name = self.message_template_combo.currentText().strip()
+        template_name = self._current_template_name()
         if not template_name:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.template_name_required"))
             return
         self.template_storage.set_assignment(session, template_name)
         self.template_storage.save()
         QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.template_assigned"))
+        self._refresh_template_combo(session)
+        self._refresh_message_template_summary()
+
+    def _current_template_name(self) -> Optional[str]:
+        if not hasattr(self, "template_list_widget"):
+            return None
+        item = self.template_list_widget.currentItem()
+        if item is None:
+            return None
+        data = item.data(Qt.UserRole)
+        if isinstance(data, str) and data:
+            return data
+        text = item.text().split(" (")[0].strip()
+        return text or None
+
+    def _select_template_in_list(self, template_name: str) -> None:
+        if not hasattr(self, "template_list_widget"):
+            return
+        for row in range(self.template_list_widget.count()):
+            item = self.template_list_widget.item(row)
+            data = item.data(Qt.UserRole)
+            if data == template_name:
+                self.template_list_widget.setCurrentRow(row)
+                return
+
+    def _build_placeholder_toolbar(self, target: QTextEdit) -> QWidget:
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        for label_key, token in PLACEHOLDER_BUTTONS:
+            button = QPushButton(translator.translate(label_key))
+            button.setAutoDefault(False)
+            button.clicked.connect(lambda _, t=token: self._insert_text_at_cursor(target, t))
+            layout.addWidget(button)
+        emoji_button = QPushButton(translator.translate("button.emoji_picker"))
+        emoji_button.setAutoDefault(False)
+        emoji_button.clicked.connect(lambda: self._open_emoji_dialog(target))
+        layout.addWidget(emoji_button)
+        layout.addStretch()
+        return container
+
+    def _insert_text_at_cursor(self, editor: QTextEdit, value: str) -> None:
+        cursor = editor.textCursor()
+        cursor.insertText(value)
+        editor.setTextCursor(cursor)
+        editor.setFocus()
+
+    def _open_emoji_dialog(self, target: QTextEdit) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle(translator.translate("dialog.emoji_select"))
+        scroll = QScrollArea(dialog)
+        scroll.setWidgetResizable(True)
+        container = QWidget()
+        grid = QGridLayout(container)
+        grid.setContentsMargins(4, 4, 4, 4)
+        grid.setSpacing(4)
+        for idx, emoji in enumerate(EMOJI_CHOICES):
+            button = QPushButton(emoji)
+            button.setFixedSize(36, 36)
+            button.setAutoDefault(False)
+            button.clicked.connect(partial(self._insert_emoji_and_close, dialog, target, emoji))
+            grid.addWidget(button, idx // 8, idx % 8)
+        scroll.setWidget(container)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(scroll)
+        dialog.setLayout(layout)
+        dialog.resize(360, 280)
+        dialog.exec()
+
+    def _insert_emoji_and_close(self, dialog: QDialog, target: QTextEdit, emoji: str) -> None:
+        self._insert_text_at_cursor(target, emoji)
+        dialog.accept()
 
     def _browse_media_file(self, target: QLineEdit) -> None:
         path, _ = QFileDialog.getOpenFileName(

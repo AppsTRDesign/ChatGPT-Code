@@ -275,7 +275,6 @@ class SessionTask:
                 self.storage.remove_user(user.user_id)
                 continue
             status_key = "status.error"
-            stop_after_update = False
             try:
                 if target_channel:
                     await self.client(
@@ -325,22 +324,17 @@ class SessionTask:
                 logger.warning("log.chat_write_forbidden")
                 status_cb("status.chat_write_forbidden")
                 status_key = "status.chat_write_forbidden"
-                stop_after_update = True
             except UsersTooMuchError:
                 logger.warning("log.users_too_much")
                 status_cb("status.users_too_much")
                 status_key = "status.users_too_much"
-                stop_after_update = True
             except BadRequestError as exc:
                 logger.warning("log.member_add_failed: %s", exc)
                 status_cb("status.member_add_failed")
                 status_key = "status.member_add_failed"
-                stop_after_update = True
             await self._throttle(self.settings.rate_limit.join_interval)
             self.storage.remove_user(user.user_id)
             progress_callback(self.build_progress(total, user, status=status_key))
-            if stop_after_update:
-                break
         logger.info("log.add_finished")
 
     async def fetch_active_senders(
@@ -510,6 +504,20 @@ class SessionTask:
             except UserPrivacyRestrictedError:
                 status_key = "status.message_failed"
                 self._emit_inline_status(progress_callback, translator.translate("log.message_privacy"))
+            except BadRequestError as exc:
+                message_text = str(exc)
+                if "PRIVACY_PREMIUM_REQUIRED" in message_text.upper():
+                    status_key = "status.message_premium_required"
+                    warning = translator.translate("log.message_premium_required")
+                    logger.warning(warning)
+                    self._emit_inline_status(progress_callback, warning)
+                else:
+                    logger.warning("log.message_send_failed: %s", exc)
+                    status_key = "status.message_failed"
+                    self._emit_inline_status(
+                        progress_callback,
+                        f"{translator.translate('log.message_send_failed')}: {exc}",
+                    )
             except Exception as exc:  # pragma: no cover - network/runtime failures
                 logger.warning("log.message_send_failed: %s", exc)
                 status_key = "status.message_failed"

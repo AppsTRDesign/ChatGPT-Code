@@ -58,7 +58,9 @@ class TemplateStorage:
             json.dump(payload, fp, indent=2, ensure_ascii=False)
 
     def list_templates(self, session_name: str) -> List[MessageTemplate]:
-        return list(self._templates.get(session_name, []))
+        templates = list(self._templates.get(session_name, []))
+        templates.sort(key=lambda template: template.name.lower())
+        return templates
 
     def get_template(self, session_name: str, template_name: str) -> Optional[MessageTemplate]:
         for template in self._templates.get(session_name, []):
