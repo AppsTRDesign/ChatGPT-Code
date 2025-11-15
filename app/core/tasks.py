@@ -216,6 +216,7 @@ class SessionTask:
                     continue
 
             access_hash = getattr(user, "access_hash", None)
+            input_entity: Optional[types.TypeInputPeer] = None
             if access_hash is None:
                 try:
                     input_entity = await self.client.get_input_entity(types.PeerUser(user.id))
@@ -562,6 +563,7 @@ class SessionTask:
                 continue
             rendered_text = self._render_message(message_body, user)
             send_coro: Optional[asyncio.Future] = None
+            status_key = "status.message_failed"
             try:
                 if media:
                     caption = rendered_text or None
@@ -588,9 +590,15 @@ class SessionTask:
                 self._emit_inline_status(progress_callback, translator.translate("log.message_privacy"))
             except BadRequestError as exc:
                 message_text = str(exc)
-                if "PRIVACY_PREMIUM_REQUIRED" in message_text.upper():
+                normalized = message_text.upper()
+                if "PRIVACY_PREMIUM_REQUIRED" in normalized:
                     status_key = "status.message_premium_required"
                     warning = translator.translate("log.message_premium_required")
+                    logger.warning(warning)
+                    self._emit_inline_status(progress_callback, warning)
+                elif "CHAT_SEND_PLAIN_FORBIDDEN" in normalized:
+                    status_key = "status.message_plain_forbidden"
+                    warning = translator.translate("log.message_plain_forbidden")
                     logger.warning(warning)
                     self._emit_inline_status(progress_callback, warning)
                 else:
@@ -675,7 +683,13 @@ class SessionTask:
                 logger.warning("log.group_privacy_block")
                 self._emit_inline_status(progress_callback, warning)
             except BadRequestError as exc:
-                warning = f"{translator.translate('log.message_send_failed')}: {exc}"
+                message_text = str(exc)
+                normalized = message_text.upper()
+                if "CHAT_SEND_PLAIN_FORBIDDEN" in normalized:
+                    warning = translator.translate("log.message_plain_forbidden")
+                    status_key = "status.message_plain_forbidden"
+                else:
+                    warning = f"{translator.translate('log.message_send_failed')}: {exc}"
                 logger.warning(warning)
                 self._emit_inline_status(progress_callback, warning)
             except Exception as exc:  # pragma: no cover
