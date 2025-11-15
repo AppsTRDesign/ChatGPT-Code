@@ -14,13 +14,14 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Kayıtlı Kullanıcılara DM Gönderme:** Yeni DM sekmesi üzerinden her oturum için şablon seçerek veya manuel mesaj/medya girerek kayıtlı üyelere mesaj yollama, {user_name}/{first_name}/{last_name} değişkenlerini otomatik doldurma ve mesaj oranını rate-limit ayarlarına göre yönetme.
 - **Şablon Yönetimi Sekmesi:** Ayrı bir "Şablon Yönetimi" sekmesinde oturum bazlı şablonları listeleme, düzenleme, kopyalanabilir {user_name}/{first_name}/{last_name} kısayollarını tek tıkla gövdeye ekleme ve emoji seçicisi ile mesajları zenginleştirme; her oturuma atanmış şablonlar DM sekmesinde özet olarak listelenir.
 - **Mesaj Şablonları:** Her oturum için sınırsız şablon tutma, şablonlara medya dosyası/URL iliştirme ve seçilen şablonu ilgili oturuma atama; DM işlemi sırasında atanmış şablon yoksa manuel alanlar kullanılır.
-- **Grup Taraması ve Kaydı:** "Grup Taraması" sekmesi belirli anahtar kelimelerle grupları arar, üyelik sayısı, herkese açık/özel ve mesaj izni gibi verileri toplar. Sonuçlar tabloda sıralanabilir, içe/dışa aktarılabilir, manuel eklenebilir ve `users/groups.json` dosyasında saklanır.
+- **Grup/Kanal Taraması ve Kaydı:** "Grup/Kanal Taraması" sekmesi virgülle ayrılmış çoklu anahtar kelimeyi oturumlara paylaştırır, kanal/süper grup/normal grup ve admin filtreleri uygular, tabloya tür (kanal/süper grup/grup) ve çevrim içi sayısı kolonlarını ekler. Sonuçlar `users/groups.json` dosyasında saklanır, tablo sıralanabilir ve içe/dışa aktarılabilir.
+- **Grup Katılımı:** Taramadan seçtiğiniz gruplar için "Seçili gruplara katıl" butonu, seçili oturumlara kayıtları eşit paylaştırarak Telegram'a katılma isteği gönderir; rate limit sekmesindeki "Gruba Katılma Bekleme" değeri her denemenin arasındaki beklemeyi yönetir ve başarılı/başarısız sonuçlar tabloda işaretlenir.
 - **Grup Mesaj Şablonları:** DM şablonlarına benzer şekilde, her oturum için grup mesaj şablonları oluşturulur; kısayol ve emoji butonları gövdeye içerik ekler, medya URL/dosyaları iliştirilebilir ve şablonlar oturumlara atanabilir.
 - **Gruba Mesaj Gönderimi:** Kayıtlı ya da manuel yazılan gruplara seçilen şablon veya manuel gövde/medya ile mesaj gönderilir. Sistem gerekirse gruba katılır, mesaj izni yoksa grubu listeden çıkarır ve rate limit ayarındaki bekleme süresini uygular.
 - **Esnek İlerleme ve Kayıt Kontrolleri:** Kullanıcı adı olmayanları hariç tutma, kayıtlı listeleri temizleme ve işlemleri iptal ederek baştan başlatma seçenekleri.
 - **CSV Dışa Aktarımı:** Kullanıcı tablolarını UTF-8 BOM'lu, sıralanabilir başlıklara sahip CSV dosyalarına aktararak Türkçe karakter sorunlarını ortadan kaldırır.
 - **Seç-Sil/Dışa Aktar:** Kayıtlı kullanıcı ve grup tablolarında satırların başına gelen onay kutuları sayesinde tek tıkla hepsini seçebilir, yalnızca işaretlediğiniz kayıtları JSON/CSV'ye aktarabilir veya kalıcı olarak silebilirsiniz.
-- **Rate Limit Yönetimi:** Flood hatalarını azaltmak için ayarlanabilir süreler.
+- **Rate Limit Yönetimi:** Üye daveti, DM/grup mesajı ve grup katılımı için ayrı gecikme alanlarıyla flood hatalarını azaltabilirsiniz.
 - **Davet Kotası Uyarıları:** Davet sınırı aşıldığında kaç kullanıcı denendiğini ve tahmini bekleme süresini anlık olarak gösterir, yetki eksikliklerini açıkça bildirir.
 - **Eklenen Üye Takibi:** Hem grup taramasından hem de aktif mesaj atanlar listesinden eklenen üyeler ayrı JSON dosyalarına kaydedilir ve tablolar üzerinden yönetilir.
 - **Dil ve Zaman Dilimi Ayarları:** 30 popüler zaman dilimi ve anlık TR/EN dil değişimi.
@@ -93,9 +94,10 @@ Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanm
 
 ## Grup Araçları Kullanımı
 
-1. **Grup Taraması:** "Grup Taraması" sekmesinde oturum(lar)ı işaretleyin, aramak istediğiniz anahtar kelimeyi ve isteğe bağlı limiti girin. "Sonuçları kaydet" seçeneği açıksa bulunan gruplar `users/groups.json` dosyasına eklenir ve tabloya düşer.
+1. **Grup/Kanal Taraması:** "Grup/Kanal Taraması" sekmesinde oturum(lar)ı işaretleyin, virgülle ayrılmış anahtar kelimeleri ve her kelime için kaç sonuç alınacağını belirtin. Kanal/süper grup/grup ve "admin olduğum" filtrelerini kullanabilir, sonuçları doğrudan grup/kanal listesine kaydedebilirsiniz.
 2. **Grup Şablonları:** "Grup Şablonları" sekmesinde bir oturum seçip şablon adı/gövde/medya alanlarını doldurun. {user_name}, {first_name}, {last_name} kısayol butonları ve emoji seçici gövdeye metin ekler; kaydedilen şablonlar hemen düzenlenebilir veya oturuma varsayılan olarak atanabilir.
 3. **Gruba Mesaj Gönderimi:** "Grup Mesaj Gönderimi" sekmesinde oturumları, kayıtlı grupları ve/veya manuel girilen linkleri seçin. Kota girerseniz toplam gruplar eşit bölünür. Mesaj gövdesi/medyası veya atanmış şablonlar kullanılarak gönderim yapılır; istemci gruba katılımı dener, mesaj izni yoksa ilgili kayıt tabloda işaretlenir ve ilerleme barı rate limit ayarlarına göre güncellenir.
+4. **Grup Katılımı:** Grup taraması tablosundan istediğiniz satırları işaretleyip "Seçili gruplara katıl" tuşuna bastığınızda seçili oturumlar, ayarlardaki "Gruba Katılma Bekleme" süresine göre katılım isteği gönderir ve başarılı/başarısız durumlar ilerleme alanında gösterilir.
 
 ## Veri Kayıt Yapısı
 

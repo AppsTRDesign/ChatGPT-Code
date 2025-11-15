@@ -33,8 +33,6 @@ class TaskRequest:
     message_body: Optional[str] = None
     message_media: Optional[str] = None
     groups: Optional[List[StoredGroup]] = None
-    pages: Optional[int] = None
-    page_offset: int = 0
     group_filters: Optional[Dict[str, bool]] = None
 
 
@@ -109,9 +107,7 @@ class SessionWorkerThread(QThread):
                     progress_handler,
                     self.request.persist_results,
                     status_handler,
-                    pages=self.request.pages,
                     filters=self.request.group_filters,
-                    page_offset=self.request.page_offset,
                 )
             elif self.request.task_type == "add":
                 await task.add_members(
@@ -144,6 +140,12 @@ class SessionWorkerThread(QThread):
                     self.request.groups or [],
                     self.request.message_body,
                     self.request.message_media,
+                    progress_handler,
+                    status_handler,
+                )
+            elif self.request.task_type == "group_join":
+                await task.join_groups(
+                    self.request.groups or [],
                     progress_handler,
                     status_handler,
                 )

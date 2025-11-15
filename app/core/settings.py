@@ -12,6 +12,7 @@ DEFAULT_LANGUAGE = "tr"
 @dataclass
 class RateLimitConfig:
     join_interval: float = 45.0
+    group_join_interval: float = 15.0
     message_interval: float = 5.0
     scan_interval: float = 1.0
     flood_wait_handling: bool = True
@@ -19,6 +20,7 @@ class RateLimitConfig:
     def to_dict(self) -> Dict[str, float]:
         return {
             "join_interval": self.join_interval,
+            "group_join_interval": self.group_join_interval,
             "message_interval": self.message_interval,
             "scan_interval": self.scan_interval,
             "flood_wait_handling": self.flood_wait_handling,
@@ -28,6 +30,7 @@ class RateLimitConfig:
     def from_dict(cls, data: Dict[str, float]) -> "RateLimitConfig":
         return cls(
             join_interval=float(data.get("join_interval", 45.0)),
+            group_join_interval=float(data.get("group_join_interval", 15.0)),
             message_interval=float(data.get("message_interval", 5.0)),
             scan_interval=float(data.get("scan_interval", 1.0)),
             flood_wait_handling=bool(data.get("flood_wait_handling", True)),

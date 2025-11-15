@@ -105,12 +105,25 @@ EMOJI_CHOICES: List[str] = [
 GROUP_TABLE_HEADERS: List[str] = [
     "table.column.select",
     "label.group_name",
+    "label.group_type",
     "label.members",
     "label.group_online",
     "label.group_visibility",
     "label.group_messaging",
     "label.source",
 ]
+
+
+class NumericTableWidgetItem(QTableWidgetItem):
+    def __init__(self, value: Optional[int]):
+        display = "-" if value is None else f"{value}"
+        super().__init__(display)
+        self.numeric_value = value if value is not None else 0
+
+    def __lt__(self, other: object) -> bool:  # pragma: no cover - Qt runtime comparison
+        if isinstance(other, NumericTableWidgetItem):
+            return self.numeric_value < other.numeric_value
+        return super().__lt__(other)
 
 
 class MainWindow(QMainWindow):
@@ -166,6 +179,7 @@ class MainWindow(QMainWindow):
             "message": {},
             "group_scan": {},
             "group_message": {},
+            "group_join": {},
         }
         self._pending_completion_notifications: set[str] = set()
         self._cancelling = False
@@ -491,16 +505,12 @@ class MainWindow(QMainWindow):
         self.group_search_limit_input = QSpinBox()
         self.group_search_limit_input.setRange(1, 100)
         self.group_search_limit_input.setValue(25)
-        self.group_search_pages_input = QSpinBox()
-        self.group_search_pages_input.setRange(1, 50)
-        self.group_search_pages_input.setValue(1)
         self.group_search_save_checkbox = QCheckBox(translator.translate("checkbox.save_groups"))
         self.group_search_save_checkbox.setChecked(True)
         form_layout.addRow(translator.translate("label.group_keyword"), self.group_search_keyword_input)
         form_layout.addRow(
-            translator.translate("label.group_results_per_page"), self.group_search_limit_input
+            translator.translate("label.group_results_per_keyword"), self.group_search_limit_input
         )
-        form_layout.addRow(translator.translate("label.group_pages"), self.group_search_pages_input)
         filter_row = QWidget()
         filter_layout = QHBoxLayout(filter_row)
         filter_layout.setContentsMargins(0, 0, 0, 0)
@@ -534,8 +544,14 @@ class MainWindow(QMainWindow):
         self.group_search_start_button.clicked.connect(partial(self.start_task, task_type="group_scan"))
         self.group_search_cancel_button = QPushButton(translator.translate("button.cancel"))
         self.group_search_cancel_button.clicked.connect(partial(self.cancel_tasks, task_type="group_scan"))
+        self.group_join_button = QPushButton(translator.translate("button.join_groups"))
+        self.group_join_button.clicked.connect(partial(self.start_task, task_type="group_join"))
+        self.group_join_cancel_button = QPushButton(translator.translate("button.cancel_group_join"))
+        self.group_join_cancel_button.clicked.connect(partial(self.cancel_tasks, task_type="group_join"))
         control_layout.addWidget(self.group_search_start_button)
         control_layout.addWidget(self.group_search_cancel_button)
+        control_layout.addWidget(self.group_join_button)
+        control_layout.addWidget(self.group_join_cancel_button)
         layout.addLayout(control_layout, 1, 1, 1, 2)
 
         self.group_scan_progress_container = QVBoxLayout()
@@ -572,6 +588,8 @@ class MainWindow(QMainWindow):
         self.group_export_selected_button.clicked.connect(self.export_selected_groups)
         self.group_delete_selected_button = QPushButton(translator.translate("button.delete_selected"))
         self.group_delete_selected_button.clicked.connect(self.delete_selected_groups)
+        self.group_join_selected_button = QPushButton(translator.translate("button.join_selected_groups"))
+        self.group_join_selected_button.clicked.connect(partial(self.start_task, task_type="group_join"))
         button_row.addWidget(self.group_import_button)
         button_row.addWidget(self.group_export_button)
         button_row.addWidget(self.group_add_button)
@@ -580,6 +598,7 @@ class MainWindow(QMainWindow):
         button_row.addWidget(self.group_clear_selection_button)
         button_row.addWidget(self.group_export_selected_button)
         button_row.addWidget(self.group_delete_selected_button)
+        button_row.addWidget(self.group_join_selected_button)
         button_row.addStretch()
         table_layout.addLayout(button_row)
         table_group.setLayout(table_layout)
@@ -810,6 +829,9 @@ class MainWindow(QMainWindow):
         self.join_interval_input = QSpinBox()
         self.join_interval_input.setRange(1, 3600)
         self.join_interval_input.setValue(int(self.settings.rate_limit.join_interval))
+        self.group_join_interval_input = QSpinBox()
+        self.group_join_interval_input.setRange(1, 3600)
+        self.group_join_interval_input.setValue(int(self.settings.rate_limit.group_join_interval))
         self.message_interval_input = QSpinBox()
         self.message_interval_input.setRange(1, 3600)
         self.message_interval_input.setValue(int(self.settings.rate_limit.message_interval))
@@ -824,6 +846,7 @@ class MainWindow(QMainWindow):
         self.flood_checkbox.setChecked(self.settings.rate_limit.flood_wait_handling)
 
         form_layout.addRow(translator.translate("label.rate_join"), self.join_interval_input)
+        form_layout.addRow(translator.translate("label.rate_group_join"), self.group_join_interval_input)
         form_layout.addRow(translator.translate("label.rate_message"), self.message_interval_input)
         form_layout.addRow(translator.translate("label.rate_scan"), self.scan_interval_input)
         form_layout.addRow(self.max_active_messages_label, self.max_active_messages_input)
@@ -1142,11 +1165,11 @@ class MainWindow(QMainWindow):
         include_no_username = True
         storage: Optional[Union[UserStorage, GroupStorage]] = None
         group_chunks: List[List[StoredGroup]] = []
+        keyword_pool: List[str] = []
+        pending_group_join: List[StoredGroup] = []
         message_payloads: Dict[str, Tuple[str, Optional[str]]] = {}
-        pages: Optional[int] = None
         group_filters: Optional[Dict[str, bool]] = None
-        group_page_counts: List[int] = []
-        group_page_offsets: List[int] = []
+        session_targets: List[str] = []
         if task_type == "scan":
             sessions = self.get_selected_sessions(self.scan_session_list)
             target = self.scan_target_input.text().strip()
@@ -1160,12 +1183,19 @@ class MainWindow(QMainWindow):
             sessions = self.get_selected_sessions(self.group_scan_session_list)
             target = self.group_search_keyword_input.text().strip()
             limit = self.group_search_limit_input.value()
-            pages = self.group_search_pages_input.value()
             interval = None
             container = self.group_scan_progress_container
             persist = self.group_search_save_checkbox.isChecked()
             storage = self.group_storage
             group_filters = self._collect_group_filters()
+            keyword_pool = self._parse_keywords(target)
+            if not keyword_pool:
+                QMessageBox.warning(
+                    self,
+                    self.windowTitle(),
+                    translator.translate("dialog.group_keyword_required"),
+                )
+                return
             type_selected = any(
                 [
                     group_filters.get("channel", False),
@@ -1218,7 +1248,7 @@ class MainWindow(QMainWindow):
         if requires_target and (not sessions or not target):
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
-        if task_type in {"message", "group_message"} and not sessions:
+        if task_type in {"message", "group_message", "group_join"} and not sessions:
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
         if task_type == "message" and not (self.message_body_input.toPlainText().strip() or self.message_media_input.text().strip()):
@@ -1311,17 +1341,28 @@ class MainWindow(QMainWindow):
                     )
                     return
                 message_payloads[session] = (body, media)
+        elif task_type == "group_join":
+            group_chunks = self._split_groups_for_sessions(pending_group_join, session_count)
+            per_session_limits = [len(chunk) for chunk in group_chunks]
         else:
             user_chunks = [None] * session_count
             if task_type == "scan":
                 per_session_limits, offsets = self._scan_distribution(limit, target, sessions)
             elif task_type == "group_scan":
-                per_page_limit = max(limit or 1, 1)
-                group_page_counts = self._split_pages_for_sessions(pages, session_count)
-                group_page_offsets = self._compute_page_offsets(group_page_counts)
-                per_session_limits = [count * per_page_limit for count in group_page_counts]
+                pass
             else:
                 per_session_limits, offsets = self._active_distribution(limit, session_count)
+
+        keyword_chunks: List[List[str]] = []
+        session_targets = [target] * session_count
+        if task_type == "group_scan":
+            keyword_chunks = self._split_keywords_for_sessions(keyword_pool, session_count)
+            if not any(keyword_chunks) and keyword_pool:
+                keyword_chunks = [keyword_pool]
+            session_targets = [",".join(chunk) if chunk else "" for chunk in keyword_chunks]
+            per_session_limits = [
+                (limit or 1) * len(chunk) if chunk else 0 for chunk in keyword_chunks
+            ]
 
         requests_started = 0
         for idx, session_name in enumerate(sessions):
@@ -1333,6 +1374,7 @@ class MainWindow(QMainWindow):
             else:
                 widget.reset()
 
+            session_target = session_targets[idx] if idx < len(session_targets) else target
             per_session_limit = per_session_limits[idx] if idx < len(per_session_limits) else None
             offset_value = offsets[idx] if idx < len(offsets) else 0
 
@@ -1350,6 +1392,13 @@ class MainWindow(QMainWindow):
                 if total_target == 0:
                     widget.update_state(0, 0, status_key="status.completed")
                     continue
+            elif task_type == "group_join":
+                session_users = None
+                group_list = session_groups or []
+                total_target = len(group_list)
+                if total_target == 0:
+                    widget.update_state(0, 0, status_key="status.completed")
+                    continue
             else:
                 session_users = None
                 if per_session_limit == 0:
@@ -1357,9 +1406,11 @@ class MainWindow(QMainWindow):
                     continue
                 total_target = per_session_limit or 0
 
-            widget.update_state(0, total_target or 0, status_key="status.running")
+            if task_type == "group_scan" and not session_target.strip():
+                widget.update_state(0, 0, status_key="status.completed")
+                continue
 
-            session_pages = group_page_counts[idx] if task_type == "group_scan" and idx < len(group_page_counts) else 0
+            widget.update_state(0, total_target or 0, status_key="status.running")
 
             request_limit: Optional[int] = None
             if task_type == "group_scan":
@@ -1371,7 +1422,7 @@ class MainWindow(QMainWindow):
             request = TaskRequest(
                 task_type=task_type,
                 session_name=session_name,
-                entity=target,
+                entity=session_target,
                 limit=request_limit,
                 interval=interval,
                 users=session_users,
@@ -1382,12 +1433,7 @@ class MainWindow(QMainWindow):
                 result_storage=result_storage,
                 message_body=payload[0] if payload else None,
                 message_media=payload[1] if payload else None,
-                groups=session_groups if task_type == "group_message" else None,
-                pages=session_pages if task_type == "group_scan" else None,
-                page_offset=
-                    group_page_offsets[idx]
-                    if task_type == "group_scan" and idx < len(group_page_offsets)
-                    else 0,
+                groups=session_groups if task_type in {"group_message", "group_join"} else None,
                 group_filters=group_filters if task_type == "group_scan" else None,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
@@ -1567,6 +1613,8 @@ class MainWindow(QMainWindow):
         buttons = [self.scan_start_button, self.add_start_button, self.active_start_button]
         for attr in [
             "group_search_start_button",
+            "group_join_button",
+            "group_join_selected_button",
             "message_start_button",
             "group_message_start_button",
         ]:
@@ -1665,17 +1713,27 @@ class MainWindow(QMainWindow):
             checkbox.setData(Qt.UserRole, group)
             self.group_table.setItem(row, 0, checkbox)
             self.group_table.setItem(row, 1, QTableWidgetItem(group.title))
-            members = str(group.members) if group.members is not None else "-"
-            self.group_table.setItem(row, 2, QTableWidgetItem(members))
-            online = str(group.online) if group.online is not None else "-"
-            self.group_table.setItem(row, 3, QTableWidgetItem(online))
-            self.group_table.setItem(row, 4, QTableWidgetItem(self._group_visibility_text(group)))
-            self.group_table.setItem(row, 5, QTableWidgetItem(self._group_messaging_text(group)))
-            self.group_table.setItem(row, 6, QTableWidgetItem(group.source or ""))
+            self.group_table.setItem(row, 2, QTableWidgetItem(self._group_type_text(group)))
+            members_item = NumericTableWidgetItem(group.members)
+            self.group_table.setItem(row, 3, members_item)
+            online_item = NumericTableWidgetItem(group.online)
+            self.group_table.setItem(row, 4, online_item)
+            self.group_table.setItem(row, 5, QTableWidgetItem(self._group_visibility_text(group)))
+            self.group_table.setItem(row, 6, QTableWidgetItem(self._group_messaging_text(group)))
+            self.group_table.setItem(row, 7, QTableWidgetItem(group.source or ""))
         self.group_table.setSortingEnabled(True)
 
     def _group_visibility_text(self, group: StoredGroup) -> str:
         key = "label.group_public" if group.is_public else "label.group_private"
+        return translator.translate(key)
+
+    def _group_type_text(self, group: StoredGroup) -> str:
+        if group.is_broadcast and not group.is_megagroup:
+            key = "label.group_type_channel"
+        elif group.is_megagroup:
+            key = "label.group_type_supergroup"
+        else:
+            key = "label.group_type_group"
         return translator.translate(key)
 
     def _group_messaging_text(self, group: StoredGroup) -> str:
@@ -2323,10 +2381,17 @@ class MainWindow(QMainWindow):
         if path:
             target.setText(path)
 
-    def _resolve_message_payload(self, session: str, manual_body: str, manual_media: str) -> Tuple[str, Optional[str]]:
-        template_name = self.template_storage.get_assignment(session)
+    def _resolve_message_payload(
+        self,
+        session: str,
+        manual_body: str,
+        manual_media: str,
+        storage: Optional[TemplateStorage] = None,
+    ) -> Tuple[str, Optional[str]]:
+        template_repo = storage or self.template_storage
+        template_name = template_repo.get_assignment(session)
         if template_name:
-            template = self.template_storage.get_template(session, template_name)
+            template = template_repo.get_template(session, template_name)
         else:
             template = None
         if template:
@@ -2352,23 +2417,27 @@ class MainWindow(QMainWindow):
             start = end
         return chunks
 
-    def _split_pages_for_sessions(self, pages: Optional[int], count: int) -> List[int]:
+    def _split_keywords_for_sessions(self, keywords: List[str], count: int) -> List[List[str]]:
         if count <= 0:
             return []
-        total_pages = pages or 1
-        total_pages = max(total_pages, 1)
-        base = total_pages // count
-        remainder = total_pages % count
-        return [base + (1 if idx < remainder else 0) for idx in range(count)]
+        total = len(keywords)
+        if total == 0:
+            return [[] for _ in range(count)]
+        base = total // count
+        remainder = total % count
+        chunks: List[List[str]] = []
+        start = 0
+        for idx in range(count):
+            size = base + (1 if idx < remainder else 0)
+            end = start + size
+            chunks.append(keywords[start:end])
+            start = end
+        return chunks
 
     @staticmethod
-    def _compute_page_offsets(page_counts: List[int]) -> List[int]:
-        offsets: List[int] = []
-        cursor = 0
-        for count in page_counts:
-            offsets.append(cursor)
-            cursor += count
-        return offsets
+    def _parse_keywords(raw: str) -> List[str]:
+        tokens = raw.replace("\n", ",").split(",")
+        return [token.strip() for token in tokens if token.strip()]
 
     def _collect_group_filters(self) -> Dict[str, bool]:
         if not hasattr(self, "group_filter_channel_checkbox"):
@@ -2675,6 +2744,7 @@ class MainWindow(QMainWindow):
 
     def save_rate_limits(self) -> None:
         self.settings.rate_limit.join_interval = float(self.join_interval_input.value())
+        self.settings.rate_limit.group_join_interval = float(self.group_join_interval_input.value())
         self.settings.rate_limit.message_interval = float(self.message_interval_input.value())
         self.settings.rate_limit.scan_interval = float(self.scan_interval_input.value())
         self.settings.rate_limit.flood_wait_handling = self.flood_checkbox.isChecked()

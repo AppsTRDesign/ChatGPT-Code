@@ -479,50 +479,34 @@ class SessionTask:
     async def search_groups(
         self,
         keyword: str,
-        per_page: Optional[int],
+        per_keyword: Optional[int],
         progress_callback: Callable[[ProgressUpdate], None],
         persist: bool,
         status_callback: Optional[Callable[[str], None]] = None,
-        pages: Optional[int] = None,
         filters: Optional[Dict[str, bool]] = None,
-        page_offset: int = 0,
     ) -> None:
         keywords = [part.strip() for part in keyword.replace("\n", ",").split(",") if part.strip()]
         if not keywords:
             raise ValueError(translator.translate("dialog.group_keyword_required"))
         status_cb = status_callback or (lambda _: None)
         status_cb("status.running")
-        per_page_limit = max(min(per_page or 25, 100), 1)
-        total_pages = max(pages or 1, 1)
-        skip_pages = max(page_offset, 0)
         filters = filters or {}
-        results_per_keyword = per_page_limit * total_pages
-        total_expected = results_per_keyword * len(keywords)
+        limit = max(min(per_keyword or 25, 100), 1)
+        total_expected = limit * len(keywords)
         if total_expected <= 0:
             total_expected = len(keywords)
         seen: set[Tuple[str, Optional[int]]] = set()
-        processed = 0
         for term in keywords:
-            requested_pages = skip_pages + total_pages
-            fetch_limit = per_page_limit * requested_pages
-            fetch_limit = max(fetch_limit, per_page_limit)
-            fetch_limit = min(fetch_limit, 100)
-            start_index = skip_pages * per_page_limit
             try:
-                result = await self.client(functions.contacts.SearchRequest(q=term, limit=fetch_limit))
+                result = await self.client(functions.contacts.SearchRequest(q=term, limit=limit))
             except FloodWaitError as exc:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 continue
             except Exception:
                 continue
             chats = getattr(result, "chats", [])
-            keyword_processed = 0
-            for idx, chat in enumerate(chats):
+            for chat in chats:
                 await self._check_cancelled()
-                if idx < start_index:
-                    continue
-                if keyword_processed >= results_per_keyword:
-                    break
                 if not isinstance(chat, (types.Chat, types.Channel)):
                     continue
                 if not self._chat_matches_filters(chat, filters):
@@ -540,8 +524,6 @@ class SessionTask:
                     continue
                 if not record:
                     continue
-                keyword_processed += 1
-                processed += 1
                 if persist and isinstance(self.storage, GroupStorage):
                     self.storage.add_groups([record])
                 progress_callback(
@@ -704,6 +686,32 @@ class SessionTask:
             progress_callback(
                 self.build_progress(total, status=status_key, group=group)
             )
+        status_cb("status.completed")
+
+    async def join_groups(
+        self,
+        groups: Iterable[StoredGroup],
+        progress_callback: Callable[[ProgressUpdate], None],
+        status_callback: Optional[Callable[[str], None]] = None,
+    ) -> None:
+        targets = [group for group in groups if group]
+        if not targets:
+            return
+        status_cb = status_callback or (lambda _: None)
+        status_cb("status.running")
+        total = len(targets)
+        for group in targets:
+            await self._check_cancelled()
+            input_entity = await self._resolve_group_entity(group)
+            if input_entity is None:
+                progress_callback(
+                    self.build_progress(total, status="status.group_join_failed", group=group)
+                )
+                continue
+            joined = await self._ensure_group_membership(input_entity, status_cb)
+            status_key = "status.group_joined" if joined else "status.group_join_failed"
+            progress_callback(self.build_progress(total, status=status_key, group=group))
+            await self._throttle(self.settings.rate_limit.group_join_interval)
         status_cb("status.completed")
 
     async def _resolve_input_user(self, user: StoredUser) -> Optional[types.InputUser]:
