@@ -7,6 +7,7 @@ import io
 import json
 import logging
 import re
+import textwrap
 import threading
 import time
 from contextlib import suppress
@@ -20,7 +21,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from PIL import Image, ImageDraw, ImageTk, UnidentifiedImageError
-from fpdf import FPDF
+from fpdf import FPDF, XPos, YPos
 from playwright.sync_api import (
     TimeoutError as PlaywrightTimeoutError,
     Error as PlaywrightError,
@@ -100,6 +101,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_opening_hours": "Çalışma Saatleri",
         "field_rating": "Puan",
         "field_user_ratings_total": "Toplam Değerlendirme",
+        "field_share_location": "Paylaşım Konumu",
         "field_reviews": "Müşteri Yorumları",
         "field_review_photo_urls": "Yorum Fotoğrafları",
         "field_text_extra": "Yorum Ek Bilgileri",
@@ -195,6 +197,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_opening_hours": "Opening Hours",
         "field_rating": "Rating",
         "field_user_ratings_total": "Rating Count",
+        "field_share_location": "Share Location",
         "field_reviews": "Customer Reviews",
         "field_review_photo_urls": "Review Photos",
         "field_text_extra": "Review Extras",
@@ -329,6 +332,7 @@ FIELD_OPTION_KEYS = [
     "opening_hours",
     "rating",
     "user_ratings_total",
+    "share_location",
     "reviews",
     "review_photo_urls",
     "text_extra",
@@ -342,8 +346,9 @@ class FieldSelection:
     formatted_phone_number: bool = True
     business_type: bool = True
     opening_hours: bool = False
-    rating: bool = False
-    user_ratings_total: bool = False
+    rating: bool = True
+    user_ratings_total: bool = True
+    share_location: bool = True
     reviews: bool = False
     review_photo_urls: bool = False
     text_extra: bool = False
@@ -366,6 +371,8 @@ class FieldSelection:
             result.rating = None
         if not self.user_ratings_total:
             result.user_ratings_total = None
+        if not self.share_location:
+            result.share_location = None
         if not self.wants_reviews():
             result.reviews = []
         else:
@@ -382,6 +389,7 @@ class ResultPdfExporter:
     """Generate a UTF-8 friendly PDF report for place results."""
 
     MAX_REVIEWS = 5
+    WRAP_WIDTH = 95
 
     def __init__(self, font_path: Path) -> None:
         self.font_path = font_path
@@ -396,11 +404,11 @@ class ResultPdfExporter:
             raise FileNotFoundError(self.font_path)
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.add_font("DejaVu", "", str(self.font_path), uni=True)
-        pdf.add_font("DejaVu", "B", str(self.font_path), uni=True)
+        pdf.add_font("DejaVu", "", str(self.font_path))
+        pdf.add_font("DejaVu", "B", str(self.font_path))
         pdf.add_page()
         pdf.set_font("DejaVu", "B", 16)
-        pdf.cell(0, 10, translate("pdf_title"), ln=True)
+        pdf.cell(0, 10, translate("pdf_title"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         pdf.ln(4)
         for index, result in enumerate(results, 1):
             self._write_result_block(pdf, index, result, translate)
@@ -415,7 +423,7 @@ class ResultPdfExporter:
     ) -> None:
         name = result.name or translate("pdf_unknown")
         pdf.set_font("DejaVu", "B", 12)
-        pdf.multi_cell(0, 8, f"{index}. {name}")
+        self._write_wrapped(pdf, f"{index}. {name}", line_height=8)
         pdf.set_font("DejaVu", "", 10)
         details = [
             f"{translate('column_phone')}: {result.formatted_phone_number or '-'}",
@@ -427,42 +435,84 @@ class ResultPdfExporter:
         if result.share_location:
             details.append(f"{translate('share_location')}: {result.share_location}")
         for line in details:
-            pdf.multi_cell(0, 6, line)
+            self._write_wrapped(pdf, line)
         if result.opening_hours:
             pdf.ln(1)
             pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 6, translate("opening_hours"), ln=True)
+            pdf.cell(0, 6, translate("opening_hours"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font("DejaVu", "", 10)
             for row in result.opening_hours:
-                pdf.multi_cell(0, 5, f"  • {row}")
+                self._write_wrapped(pdf, f"  • {row}", line_height=5)
         if result.reviews:
             pdf.ln(1)
             pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 6, translate("reviews"), ln=True)
+            pdf.cell(0, 6, translate("reviews"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_font("DejaVu", "", 10)
             for review in result.reviews[: self.MAX_REVIEWS]:
                 self._write_review(pdf, review, translate)
         pdf.ln(2)
 
     def _write_review(self, pdf: FPDF, review: PlaceReview, translate: Callable[[str], str]) -> None:
-        pdf.multi_cell(0, 5, f"  {translate('review_author')}: {review.author_name or '-'}")
+        self._write_wrapped(pdf, f"  {translate('review_author')}: {review.author_name or '-'}", line_height=5)
         if review.rating is not None:
-            pdf.multi_cell(0, 5, f"    {translate('review_rating')}: {review.rating}")
+            self._write_wrapped(pdf, f"    {translate('review_rating')}: {review.rating}", line_height=5)
         if review.relative_time:
-            pdf.multi_cell(0, 5, f"    {translate('review_time')}: {review.relative_time}")
+            self._write_wrapped(pdf, f"    {translate('review_time')}: {review.relative_time}", line_height=5)
         if review.profile_photo_url:
-            pdf.multi_cell(0, 5, f"    {translate('review_profile')}: {review.profile_photo_url}")
-        if review.review_photo_urls:
-            pdf.multi_cell(
-                0,
-                5,
-                f"    {translate('review_media')}: {', '.join(review.review_photo_urls)}",
+            self._write_wrapped(
+                pdf,
+                f"    {translate('review_profile')}: {review.profile_photo_url}",
+                line_height=5,
             )
-        pdf.multi_cell(0, 5, f"    {translate('review_text')}: {review.text or '-'}")
+        if review.review_photo_urls:
+            self._write_wrapped(
+                pdf,
+                f"    {translate('review_media')}: {', '.join(review.review_photo_urls)}",
+                line_height=5,
+            )
+        self._write_wrapped(
+            pdf,
+            f"    {translate('review_text')}: {review.text or '-'}",
+            line_height=5,
+        )
         if review.text_extra:
             for key, value in review.text_extra.items():
-                pdf.multi_cell(0, 5, f"      - {key}: {value}")
+                self._write_wrapped(pdf, f"      - {key}: {value}", line_height=5)
         pdf.ln(1)
+
+    def _write_wrapped(self, pdf: FPDF, text: str, line_height: float = 6) -> None:
+        content = self._wrap_text(text)
+        pdf.multi_cell(0, line_height, content, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    def _wrap_text(self, text: Optional[str]) -> str:
+        if text is None:
+            return ""
+        raw_lines = text.splitlines() or [""]
+        wrapped_lines: List[str] = []
+        for paragraph in raw_lines:
+            if not paragraph:
+                wrapped_lines.append("")
+                continue
+            prefix_len = len(paragraph) - len(paragraph.lstrip())
+            prefix = paragraph[:prefix_len]
+            content = paragraph[prefix_len:].strip()
+            if not content:
+                wrapped_lines.append(prefix.rstrip())
+                continue
+            effective_width = max(20, self.WRAP_WIDTH - prefix_len)
+            chunks = textwrap.wrap(
+                content,
+                width=effective_width,
+                break_long_words=True,
+                break_on_hyphens=False,
+            )
+            if not chunks:
+                wrapped_lines.append(prefix + content)
+                continue
+            wrapped_lines.append(prefix + chunks[0])
+            for chunk in chunks[1:]:
+                wrapped_lines.append(" " * prefix_len + chunk)
+        return "\n".join(wrapped_lines)
 
 
 class GoogleMapsError(Exception):
@@ -963,7 +1013,9 @@ class GoogleMapsPlaywrightScraper:
             if not reviews:
                 reviews = self._extract_reviews(page, rating_count)
 
-        share_location = self._extract_share_location(page)
+        share_location = (
+            self._extract_share_location(page) if selection.share_location else None
+        )
 
         return selection.apply(
             PlaceResult(
@@ -1141,10 +1193,21 @@ class GoogleMapsPlaywrightScraper:
         reviews: List[PlaceReview] = []
         seen_ids: set[str] = set()
         idx = 0
+        stalled = 0
         while len(reviews) < target:
             total = reviews_locator.count()
             if idx >= total:
-                break
+                previous_total = total
+                self._ensure_reviews_loaded(page, reviews_locator, target)
+                total = reviews_locator.count()
+                if total <= previous_total:
+                    stalled += 1
+                    if stalled > 2:
+                        break
+                else:
+                    stalled = 0
+                continue
+            stalled = 0
             review = reviews_locator.nth(idx)
             with suppress(PlaywrightError):
                 review.scroll_into_view_if_needed(timeout=1500)
@@ -1225,17 +1288,18 @@ class GoogleMapsPlaywrightScraper:
             'button:has-text("More")',
         ]
         for selector in selectors:
-            button = review.locator(selector)
-            if not button.count():
-                continue
-            btn = button.first
             try:
+                button = review.locator(selector)
+                if button.count() == 0:
+                    continue
+                btn = button.first
                 btn.scroll_into_view_if_needed(timeout=800)
                 expanded = self._safe_get_attribute(btn, "aria-expanded")
                 if expanded and expanded.lower() == "true":
                     return
                 btn.click(timeout=800)
-                review.page.wait_for_timeout(150)  # type: ignore[attr-defined]
+                with suppress(PlaywrightError, AttributeError):
+                    review.page.wait_for_timeout(150)  # type: ignore[attr-defined]
                 return
             except PlaywrightError:
                 continue
@@ -1578,13 +1642,17 @@ class Application(tk.Tk):
             key: [] for key in FIELD_OPTION_KEYS
         }
         self._field_option_controls: List[tuple[ttk.Checkbutton, str]] = []
+        default_selected = {
+            "name",
+            "formatted_address",
+            "formatted_phone_number",
+            "business_type",
+            "rating",
+            "user_ratings_total",
+            "share_location",
+        }
         for key in FIELD_OPTION_KEYS:
-            default = key in {
-                "name",
-                "formatted_address",
-                "formatted_phone_number",
-                "business_type",
-            }
+            default = key in default_selected
             self.field_option_vars[key] = tk.BooleanVar(value=default)
         self.license_expiry_var = tk.StringVar()
         self.license_duration_var = tk.StringVar()
