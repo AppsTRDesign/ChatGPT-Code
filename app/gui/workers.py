@@ -29,7 +29,6 @@ class TaskRequest:
     include_no_username: bool = True
     offset: int = 0
     result_storage: Optional[UserStorage] = None
-    invite_storage: Optional[UserStorage] = None
 
 
 class SessionWorkerThread(QThread):
@@ -64,7 +63,7 @@ class SessionWorkerThread(QThread):
         except Exception as exc:  # pragma: no cover - network failure
             logger.exception("Worker start failure")
             if client:
-                await client.disconnect()
+                await self.session_manager._release_client(self.request.session_name, client)
             self.error.emit(self.request.session_name, self.request.task_type, str(exc))
             return
         storage = self.request.storage
@@ -76,7 +75,6 @@ class SessionWorkerThread(QThread):
             client,
             storage,
             self.request.result_storage,
-            self.request.invite_storage,
         )
 
         def progress_handler(update: ProgressUpdate) -> None:
@@ -126,4 +124,4 @@ class SessionWorkerThread(QThread):
             self.finished.emit(self.request.session_name, self.request.task_type)
         finally:
             self.orchestrator.complete_task(self.request.session_name, self.request.task_type)
-            await client.disconnect()
+            await self.session_manager._release_client(self.request.session_name, client)

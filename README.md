@@ -86,7 +86,6 @@ Uygulama yalnızca lisanslandığı bilgisayarda çalışacak şekilde tasarlanm
 - `session/` klasörü Telethon oturum dosyalarını tutar.
 - `users/` klasöründeki `scanned_users.json` ve `active_users.json` dosyaları ilgili sekmelerdeki kullanıcı kayıtlarını saklar. İşlenen kullanıcılar otomatik olarak silinir veya güncellenir.
 - `users/scanned_added_users.json` ve `users/active_added_users.json` dosyaları hedef kanala başarıyla eklenen üyeleri kaydeder.
-- `users/scanned_invited_users.json` ve `users/active_invited_users.json` dosyaları, doğrudan eklenemeyip özel mesajla davet gönderilen kullanıcıları saklar.
 - `config/settings.json` uygulama ayarlarını barındırır.
 - `config/license.json` doğrulanmış lisans kaydını tutar.
 - `logs/application.log` dosyası hata ve işlem günlüklerini içerir.

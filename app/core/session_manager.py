@@ -34,6 +34,14 @@ class SessionManager:
         self.settings.ensure_directories()
         self._pending: Dict[str, PendingLogin] = {}
         self._lock = asyncio.Lock()
+        self._session_locks: Dict[str, asyncio.Lock] = {}
+
+    def _get_session_lock(self, session_name: str) -> asyncio.Lock:
+        lock = self._session_locks.get(session_name)
+        if not lock:
+            lock = asyncio.Lock()
+            self._session_locks[session_name] = lock
+        return lock
 
     def list_sessions(self) -> List[SessionInfo]:
         sessions = []
@@ -46,25 +54,49 @@ class SessionManager:
 
     async def _create_client(self, session_name: str) -> TelegramClient:
         session_path = self.settings.session_directory / f"{session_name}.session"
+        lock = self._get_session_lock(session_name)
+        await lock.acquire()
         attempts = 0
-        while True:
-            client = TelegramClient(
-                str(session_path),
-                self.settings.api_id,
-                self.settings.api_hash,
-                lang_code=self.settings.language,
-            )
-            try:
-                await client.connect()
-                return client
-            except sqlite3.OperationalError as exc:
-                await client.disconnect()
-                message = str(exc).lower()
-                attempts += 1
-                if "database is locked" in message and attempts < 5:
-                    await asyncio.sleep(0.5)
-                    continue
-                raise
+        try:
+            while True:
+                client = TelegramClient(
+                    str(session_path),
+                    self.settings.api_id,
+                    self.settings.api_hash,
+                    lang_code=self.settings.language,
+                )
+                try:
+                    await client.connect()
+                    setattr(client, "_session_lock", lock)
+                    setattr(client, "_session_name", session_name)
+                    return client
+                except sqlite3.OperationalError as exc:
+                    await client.disconnect()
+                    message = str(exc).lower()
+                    attempts += 1
+                    if "database is locked" in message and attempts < 5:
+                        await asyncio.sleep(0.5)
+                        continue
+                    raise
+        except Exception:
+            if lock.locked():
+                lock.release()
+            raise
+
+    async def _release_client(self, session_name: str, client: TelegramClient) -> None:
+        session_key = getattr(client, "_session_name", session_name)
+        try:
+            await client.disconnect()
+        finally:
+            lock: Optional[asyncio.Lock] = getattr(client, "_session_lock", None)
+            if not lock:
+                lock = self._session_locks.get(session_key)
+            if lock and lock.locked():
+                lock.release()
+            if hasattr(client, "_session_lock"):
+                delattr(client, "_session_lock")
+            if hasattr(client, "_session_name"):
+                delattr(client, "_session_name")
 
     async def start_login(self, session_name: str, phone: str) -> PendingLogin:
         async with self._lock:
@@ -77,7 +109,7 @@ class SessionManager:
                 self._pending[session_name] = pending
                 return pending
             finally:
-                await client.disconnect()
+                await self._release_client(session_name, client)
 
     async def confirm_code(self, session_name: str, code: str, password: Optional[str] = None) -> None:
         async with self._lock:
@@ -100,7 +132,7 @@ class SessionManager:
                 logger.info("log.login_success")
             finally:
                 self._pending.pop(session_name, None)
-                await client.disconnect()
+                await self._release_client(session_name, client)
 
     async def close_pending(self, session_name: str) -> None:
         async with self._lock:
@@ -123,14 +155,14 @@ class SessionManager:
                 await self.remove_session(session_name)
                 return False
         finally:
-            await client.disconnect()
+            await self._release_client(session_name, client)
 
     async def run_with_client(self, session_name: str, coroutine):
         client = await self._create_client(session_name)
         try:
             return await coroutine(client)
         finally:
-            await client.disconnect()
+            await self._release_client(session_name, client)
 
     async def gather_clients(self, session_names: List[str]) -> List[TelegramClient]:
         clients: List[TelegramClient] = []
@@ -141,7 +173,10 @@ class SessionManager:
 
     async def release_clients(self, clients: List[TelegramClient]) -> None:
         for client in clients:
-            await client.disconnect()
+            session_name = getattr(client, "_session_name", None)
+            if not session_name and getattr(client, "session", None):
+                session_name = Path(client.session.filename).stem
+            await self._release_client(session_name or "", client)
 
 
 async def handle_flood_wait(async_fn, *args, **kwargs):

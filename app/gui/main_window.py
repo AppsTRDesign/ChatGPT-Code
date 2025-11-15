@@ -81,22 +81,12 @@ class MainWindow(QMainWindow):
                 self.settings.user_directory / "active_added_users.json",
                 timezone_name=self.settings.timezone,
             ),
-            "scanned_invited": UserStorage(
-                self.settings.user_directory / "scanned_invited_users.json",
-                timezone_name=self.settings.timezone,
-            ),
-            "active_invited": UserStorage(
-                self.settings.user_directory / "active_invited_users.json",
-                timezone_name=self.settings.timezone,
-            ),
         }
         self.user_table_meta: List[Tuple[str, bool, str]] = [
             ("scanned", False, "tab.users_scanned"),
             ("active", True, "tab.users_active"),
             ("scanned_added", False, "tab.users_scanned_added"),
             ("active_added", True, "tab.users_active_added"),
-            ("scanned_invited", True, "tab.users_scanned_invited"),
-            ("active_invited", True, "tab.users_active_invited"),
         ]
         self.orchestrator = TaskOrchestrator(self.settings)
 
@@ -587,7 +577,6 @@ class MainWindow(QMainWindow):
             container = self.add_progress_container
             persist = True
             storage_key = self._current_add_storage_key()
-            invite_key = self._add_invite_storage_key(storage_key)
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
@@ -607,11 +596,9 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, self.windowTitle(), translator.translate("dialog.storage_missing"))
             return
         result_storage: Optional[UserStorage] = None
-        invite_storage: Optional[UserStorage] = None
         if task_type == "add":
             result_key = self._add_result_storage_key(storage_key)
             result_storage = self.user_storages.get(result_key)
-            invite_storage = self.user_storages.get(invite_key)
 
         progress_map = self.progress_widgets[task_type]
         for session_name in list(progress_map.keys()):
@@ -682,7 +669,6 @@ class MainWindow(QMainWindow):
                 include_no_username=include_no_username,
                 offset=offset_value if request_limit else 0,
                 result_storage=result_storage,
-                invite_storage=invite_storage,
             )
             thread = SessionWorkerThread(self.session_manager, self.orchestrator, request)
             thread.setParent(self)
@@ -928,10 +914,6 @@ class MainWindow(QMainWindow):
     def _add_result_storage_key(source_key: str) -> str:
         return "scanned_added" if source_key == "scanned" else "active_added"
 
-    @staticmethod
-    def _add_invite_storage_key(source_key: str) -> str:
-        return "scanned_invited" if source_key == "scanned" else "active_invited"
-
     def _split_users_for_sessions(self, users: List[StoredUser], count: int) -> List[List[StoredUser]]:
         if count <= 0:
             return []
@@ -1045,8 +1027,6 @@ class MainWindow(QMainWindow):
             "active": "exported_active_users.json",
             "scanned_added": "exported_added_scanned_users.json",
             "active_added": "exported_added_active_users.json",
-            "scanned_invited": "exported_invited_scanned_users.json",
-            "active_invited": "exported_invited_active_users.json",
         }
         default_name = default_names.get(storage_key, "exported_users.json")
         default_path = self.settings.user_directory / default_name
@@ -1088,8 +1068,6 @@ class MainWindow(QMainWindow):
         include_message = self._current_user_key() in {
             "active",
             "active_added",
-            "scanned_invited",
-            "active_invited",
         }
         dialog = ManualUserDialog(self, include_message=include_message)
         if dialog.exec() != QDialog.Accepted:

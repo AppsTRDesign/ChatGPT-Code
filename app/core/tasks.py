@@ -49,7 +49,6 @@ class SessionTask:
         settings: AppSettings,
         storage: UserStorage,
         result_storage: Optional[UserStorage] = None,
-        invite_storage: Optional[UserStorage] = None,
         flood_tracker: Optional[Dict[str, datetime]] = None,
         flood_key: Optional[str] = None,
     ) -> None:
@@ -58,7 +57,6 @@ class SessionTask:
         self.settings = settings
         self.storage = storage
         self.result_storage = result_storage
-        self.invite_storage = invite_storage
         self._cancel_event = asyncio.Event()
         self._processed = 0
         self._total = 0
@@ -229,7 +227,6 @@ class SessionTask:
         chat_members: set[int] = set()
         if target_chat:
             chat_members = await self._preload_chat_members(target_chat, status_cb)
-        add_blocked = False
         for user in users_list:
             await self._check_cancelled()
             if user.is_bot:
@@ -252,36 +249,31 @@ class SessionTask:
                 self.storage.remove_user(user.user_id)
                 continue
             status_key = "status.error"
+            stop_after_update = False
             try:
-                if not add_blocked:
-                    if target_channel:
-                        await self.client(
-                            functions.channels.InviteToChannelRequest(
-                                channel=target_channel,
-                                users=[input_user],
-                            )
+                if target_channel:
+                    await self.client(
+                        functions.channels.InviteToChannelRequest(
+                            channel=target_channel,
+                            users=[input_user],
                         )
-                    elif target_chat:
-                        await self.client(
-                            functions.messages.AddChatUserRequest(
-                                chat_id=target_chat.chat_id,
-                                user_id=input_user,
-                                fwd_limit=0,
-                            )
+                    )
+                elif target_chat:
+                    await self.client(
+                        functions.messages.AddChatUserRequest(
+                            chat_id=target_chat.chat_id,
+                            user_id=input_user,
+                            fwd_limit=0,
                         )
-                        chat_members.add(user.user_id)
-                    status_key = "status.added"
-                    self._record_added_user(user, entity)
-                else:
-                    invited = await self._invite_via_message(user, input_user, entity, status_cb)
-                    status_key = "status.invited_dm" if invited else "status.invite_failed"
+                    )
+                    chat_members.add(user.user_id)
+                status_key = "status.added"
+                self._record_added_user(user, entity)
             except UserPrivacyRestrictedError:
-                invited = await self._invite_via_message(user, input_user, entity, status_cb)
-                status_key = "status.invited_dm" if invited else "status.invite_failed"
+                status_key = "status.error"
             except UserIdInvalidError:
                 logger.warning("log.member_input_invalid")
-                invited = await self._invite_via_message(user, input_user, entity, status_cb)
-                status_key = "status.invited_dm" if invited else "status.invite_failed"
+                status_key = "status.error"
             except UserAlreadyParticipantError:
                 status_key = "status.already_member"
             except FloodWaitError as exc:
@@ -306,18 +298,18 @@ class SessionTask:
             except ChatWriteForbiddenError:
                 logger.warning("log.chat_write_forbidden")
                 status_cb("status.chat_write_forbidden")
-                add_blocked = True
-                invited = await self._invite_via_message(user, input_user, entity, status_cb)
-                status_key = "status.invited_dm" if invited else "status.chat_write_forbidden"
+                status_key = "status.chat_write_forbidden"
+                stop_after_update = True
             except UsersTooMuchError:
                 logger.warning("log.users_too_much")
                 status_cb("status.users_too_much")
-                add_blocked = True
-                invited = await self._invite_via_message(user, input_user, entity, status_cb)
-                status_key = "status.invited_dm" if invited else "status.users_too_much"
+                status_key = "status.users_too_much"
+                stop_after_update = True
             await self._throttle(self.settings.rate_limit.join_interval)
             self.storage.remove_user(user.user_id)
             progress_callback(self.build_progress(total, user, status=status_key))
+            if stop_after_update:
+                break
         logger.info("log.add_finished")
 
     async def fetch_active_senders(
@@ -553,40 +545,6 @@ class SessionTask:
         recorded = StoredUser(**payload)
         self.result_storage.add_users([recorded])
 
-    def _record_invited_user(self, user: StoredUser, target: str, message: str) -> None:
-        if not self.invite_storage:
-            return
-        payload = user.to_dict()
-        payload["source"] = target
-        payload["last_message"] = message
-        recorded = StoredUser(**payload)
-        self.invite_storage.add_users([recorded])
-
-    async def _invite_via_message(
-        self,
-        user: StoredUser,
-        input_user: types.InputUser,
-        link: str,
-        status_callback: Callable[[str], None],
-    ) -> bool:
-        message_template = translator.translate("message.invite_template")
-        invite_text = message_template.format(link=link)
-        try:
-            await self.client.send_message(input_user, invite_text, link_preview=False)
-            status_callback("status.invited_dm")
-            logger.info("log.invite_message_sent")
-            self._record_invited_user(user, link, invite_text)
-            await self._throttle(self.settings.rate_limit.message_interval)
-            return True
-        except FloodWaitError as exc:
-            await self._handle_flood_wait(exc.seconds, status_callback)
-        except PeerFloodError:
-            detail = self._peer_flood_detail()
-            status_callback(detail)
-        except Exception:
-            pass
-        return False
-
     def _current_timezone(self):
         if self._timezone_obj is not None:
             return self._timezone_obj
@@ -610,7 +568,6 @@ class TaskOrchestrator:
         client: TelegramClient,
         storage: UserStorage,
         result_storage: Optional[UserStorage] = None,
-        invite_storage: Optional[UserStorage] = None,
     ) -> SessionTask:
         key = (session_name, task_type)
         flood_key = f"{session_name}:{task_type}"
@@ -620,7 +577,6 @@ class TaskOrchestrator:
             self.settings,
             storage,
             result_storage,
-            invite_storage,
             flood_tracker=self._peer_flood_resets,
             flood_key=flood_key,
         )
