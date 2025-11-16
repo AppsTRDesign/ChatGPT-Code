@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -41,12 +42,13 @@ from PySide6.QtWidgets import (
 )
 
 from telethon import functions, types
+from telethon.errors import FloodWaitError
 
 from app.core.license import LicenseError, LicenseManager
 from app.core.logger import configure_logging
 from app.core.session_manager import PendingLogin, SessionManager
 from app.core.settings import POPULAR_TIMEZONES, SettingsRepository
-from app.core.tasks import ProgressUpdate, TaskOrchestrator
+from app.core.tasks import ProgressUpdate, TaskOrchestrator, build_dm_profile
 from app.data.group_storage import GroupStorage, StoredGroup
 from app.data.template_storage import MessageTemplate, TemplateStorage
 from app.data.user_storage import StoredUser, UserStorage
@@ -380,7 +382,7 @@ class MainWindow(QMainWindow):
             ]
         )
         self.scan_interval_value = QSpinBox()
-        self.scan_interval_value.setRange(1, 10000)
+        self.scan_interval_value.setRange(1, 2_147_483_647)
         self.scan_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
         self.scan_save_checkbox.setChecked(True)
         self.scan_include_no_username_checkbox = QCheckBox(
@@ -471,7 +473,7 @@ class MainWindow(QMainWindow):
             ]
         )
         self.active_interval_value = QSpinBox()
-        self.active_interval_value.setRange(1, 10000)
+        self.active_interval_value.setRange(1, 2_147_483_647)
         self.active_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
         self.active_save_checkbox.setChecked(True)
         self.active_include_no_username_checkbox = QCheckBox(
@@ -953,6 +955,8 @@ class MainWindow(QMainWindow):
         self.export_selected_users_button.clicked.connect(self.export_selected_users)
         self.delete_selected_users_button = QPushButton(translator.translate("button.delete_selected"))
         self.delete_selected_users_button.clicked.connect(self.delete_selected_users)
+        self.refresh_dm_button = QPushButton(translator.translate("button.refresh_dm"))
+        self.refresh_dm_button.clicked.connect(self.refresh_dm_statuses)
         button_layout.addWidget(self.export_users_button)
         button_layout.addWidget(self.import_users_button)
         button_layout.addWidget(self.add_user_button)
@@ -961,11 +965,12 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(self.clear_selection_users_button)
         button_layout.addWidget(self.export_selected_users_button)
         button_layout.addWidget(self.delete_selected_users_button)
+        button_layout.addWidget(self.refresh_dm_button)
 
         self.user_tab_widget = QTabWidget()
         self.user_tables: Dict[str, QTableWidget] = {}
 
-        base_columns = 10
+        base_columns = 12
         for key, has_message, title_key in self.user_table_meta:
             column_count = 1 + base_columns + (1 if has_message else 0)
             table = QTableWidget(0, column_count)
@@ -1749,12 +1754,16 @@ class MainWindow(QMainWindow):
                 table.setItem(row, 7, QTableWidgetItem(status_value))
                 dm_value = translator.translate(user.dm_status) if user.dm_status else ""
                 table.setItem(row, 8, QTableWidgetItem(dm_value))
-                table.setItem(row, 9, QTableWidgetItem(user.source or ""))
+                score_item = NumericTableWidgetItem(user.dm_score)
+                table.setItem(row, 9, score_item)
+                label_text = translator.translate(user.dm_score_label) if user.dm_score_label else ""
+                table.setItem(row, 10, QTableWidgetItem(label_text))
+                table.setItem(row, 11, QTableWidgetItem(user.source or ""))
                 bot_key = "table.value.yes" if getattr(user, "is_bot", False) else "table.value.no"
-                table.setItem(row, 10, QTableWidgetItem(translator.translate(bot_key)))
+                table.setItem(row, 12, QTableWidgetItem(translator.translate(bot_key)))
                 if has_message:
                     message_text = user.last_message or ""
-                    table.setItem(row, 11, QTableWidgetItem(message_text))
+                    table.setItem(row, 13, QTableWidgetItem(message_text))
             table.setSortingEnabled(True)
 
     def _refresh_group_table(self) -> None:
@@ -2532,6 +2541,8 @@ class MainWindow(QMainWindow):
             ("last_seen", translator.translate("table.column.last_seen")),
             ("status", translator.translate("table.column.status")),
             ("dm_status", translator.translate("table.column.dm_status")),
+            ("dm_score", translator.translate("table.column.dm_score")),
+            ("dm_score_label", translator.translate("table.column.dm_score_label")),
             ("source", translator.translate("table.column.source")),
             ("is_bot", translator.translate("table.column.is_bot")),
         ]
@@ -2553,6 +2564,8 @@ class MainWindow(QMainWindow):
                     elif field == "dm_status" and value:
                         value = translator.translate(value)
                     elif field == "status" and value:
+                        value = translator.translate(value)
+                    elif field == "dm_score_label" and value:
                         value = translator.translate(value)
                     row.append(str(value))
                 writer.writerow(row)
@@ -2758,6 +2771,94 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, self.windowTitle(), f"{translator.translate('dialog.export_failure')}: {exc}")
         else:
             QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.export_success"))
+
+    def refresh_dm_statuses(self) -> None:
+        storage = self._current_user_storage()
+        if not storage:
+            return
+        selected_ids = self._selected_user_ids()
+        if not selected_ids:
+            users = storage.get_users()
+            if not users:
+                QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_users_selected"))
+                return
+            selected_ids = [user.user_id for user in users]
+        sessions = self.session_manager.list_sessions()
+        if not sessions:
+            QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.no_sessions_selected"))
+            return
+        session_names = [session.name for session in sessions]
+        session_name, ok = QInputDialog.getItem(
+            self,
+            translator.translate("dialog.select_session"),
+            translator.translate("dialog.select_session"),
+            session_names,
+            0,
+            False,
+        )
+        if not ok or not session_name:
+            return
+        try:
+            asyncio.run(self._refresh_dm_statuses_async(session_name, storage, selected_ids))
+        except Exception as exc:  # pragma: no cover - runtime errors
+            QMessageBox.critical(
+                self,
+                self.windowTitle(),
+                f"{translator.translate('dialog.dm_refresh_failure')}: {exc}",
+            )
+            return
+        self.populate_user_tables()
+        QMessageBox.information(self, self.windowTitle(), translator.translate("dialog.dm_refresh_success"))
+
+    async def _refresh_dm_statuses_async(
+        self, session_name: str, storage: UserStorage, user_ids: List[int]
+    ) -> None:
+        async def runner(client):
+            for user_id in user_ids:
+                try:
+                    entity = await client.get_entity(int(user_id))
+                except FloodWaitError as exc:
+                    await asyncio.sleep(int(exc.seconds) + 1)
+                    continue
+                except Exception:
+                    continue
+                if not isinstance(entity, types.User):
+                    continue
+                access_hash = getattr(entity, "access_hash", None)
+                profile = await build_dm_profile(client, entity, access_hash)
+                stored = storage.get_user(int(user_id))
+                if not stored:
+                    stored = StoredUser(
+                        user_id=int(user_id),
+                        username=getattr(entity, "username", None),
+                        phone=getattr(entity, "phone", None),
+                        access_hash=access_hash,
+                        first_name=getattr(entity, "first_name", None),
+                        last_name=getattr(entity, "last_name", None),
+                        last_seen=None,
+                        status=type(entity.status).__name__ if getattr(entity, "status", None) else None,
+                        source=None,
+                        is_bot=bool(getattr(entity, "bot", False)),
+                        last_seen_utc=UserStorage.to_iso(
+                            entity.status.was_online
+                            if isinstance(getattr(entity, "status", None), types.UserStatusOffline)
+                            else None
+                        ),
+                        last_message=None,
+                        dm_status=None,
+                    )
+                stored.dm_status = profile.dm_status
+                stored.dm_score = profile.dm_score
+                stored.dm_score_label = profile.dm_score_label
+                stored.access_hash = access_hash or stored.access_hash
+                stored.username = getattr(entity, "username", stored.username)
+                stored.phone = getattr(entity, "phone", stored.phone)
+                stored.first_name = getattr(entity, "first_name", stored.first_name)
+                stored.last_name = getattr(entity, "last_name", stored.last_name)
+                stored.is_bot = bool(getattr(entity, "bot", stored.is_bot))
+                storage.update_user(stored)
+
+        await self.session_manager.run_with_client(session_name, runner)
 
     def delete_selected_users(self) -> None:
         selected_ids = self._selected_user_ids()
@@ -2985,6 +3086,8 @@ class MainWindow(QMainWindow):
             self.clear_selection_users_button.setText(translator.translate("button.clear_selection"))
         self.export_selected_users_button.setText(translator.translate("button.export_selected"))
         self.delete_selected_users_button.setText(translator.translate("button.delete_selected"))
+        if hasattr(self, "refresh_dm_button"):
+            self.refresh_dm_button.setText(translator.translate("button.refresh_dm"))
         self.add_source_combo.setItemText(0, translator.translate("option.add_source_scanned"))
         self.add_source_combo.setItemText(1, translator.translate("option.add_source_active"))
         if hasattr(self, "user_tab_widget"):
@@ -3053,6 +3156,8 @@ class MainWindow(QMainWindow):
             translator.translate("table.column.last_seen"),
             translator.translate("table.column.status"),
             translator.translate("table.column.dm_status"),
+            translator.translate("table.column.dm_score"),
+            translator.translate("table.column.dm_score_label"),
             translator.translate("table.column.source"),
             translator.translate("table.column.is_bot"),
         ]
@@ -3087,6 +3192,14 @@ class ManualUserDialog(QDialog):
         self.dm_status_combo.addItem(translator.translate("option.dm_status_auto"), "")
         self.dm_status_combo.addItem(translator.translate("status.dm_open"), "status.dm_open")
         self.dm_status_combo.addItem(translator.translate("status.dm_closed"), "status.dm_closed")
+        self.dm_score_input = QLineEdit()
+        self.dm_score_label_combo = QComboBox()
+        self.dm_score_label_combo.addItem(translator.translate("option.dm_status_auto"), "")
+        self.dm_score_label_combo.addItem(translator.translate("status.dm_score_closed_like"), "status.dm_score_closed_like")
+        self.dm_score_label_combo.addItem(translator.translate("status.dm_score_uncertain"), "status.dm_score_uncertain")
+        self.dm_score_label_combo.addItem(translator.translate("status.dm_score_medium"), "status.dm_score_medium")
+        self.dm_score_label_combo.addItem(translator.translate("status.dm_score_maybe_open"), "status.dm_score_maybe_open")
+        self.dm_score_label_combo.addItem(translator.translate("status.dm_score_likely_open"), "status.dm_score_likely_open")
 
         form_layout.addRow(translator.translate("table.column.user_id"), self.user_id_input)
         form_layout.addRow(translator.translate("table.column.username"), self.username_input)
@@ -3097,6 +3210,8 @@ class ManualUserDialog(QDialog):
         form_layout.addRow(translator.translate("table.column.last_seen"), self.last_seen_input)
         form_layout.addRow(translator.translate("table.column.status"), self.status_input)
         form_layout.addRow(translator.translate("label.dm_status"), self.dm_status_combo)
+        form_layout.addRow(translator.translate("label.dm_score"), self.dm_score_input)
+        form_layout.addRow(translator.translate("label.dm_score_label"), self.dm_score_label_combo)
         form_layout.addRow(translator.translate("table.column.source"), self.source_input)
         if include_message:
             form_layout.addRow(translator.translate("label.last_message"), self.message_input)
@@ -3118,6 +3233,9 @@ class ManualUserDialog(QDialog):
         access_hash = int(access_hash_text) if access_hash_text else None
         last_message = self.message_input.text().strip() or None
         dm_status = self.dm_status_combo.currentData() or None
+        dm_score_text = self.dm_score_input.text().strip()
+        dm_score = int(dm_score_text) if dm_score_text else None
+        dm_score_label = self.dm_score_label_combo.currentData() or None
         return StoredUser(
             user_id=user_id,
             username=self.username_input.text().strip() or None,
@@ -3131,6 +3249,8 @@ class ManualUserDialog(QDialog):
             is_bot=self.is_bot_checkbox.isChecked(),
             last_message=last_message,
             dm_status=dm_status,
+            dm_score=dm_score,
+            dm_score_label=dm_score_label,
         )
 
 

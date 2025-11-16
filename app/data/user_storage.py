@@ -23,6 +23,8 @@ class StoredUser:
     last_seen_utc: Optional[str] = None
     last_message: Optional[str] = None
     dm_status: Optional[str] = None
+    dm_score: Optional[int] = None
+    dm_score_label: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
         return asdict(self)
@@ -44,6 +46,11 @@ class UserStorage:
             data = json.load(fp)
         self._users = {}
         for item in data:
+            score_value = item.get("dm_score")
+            try:
+                dm_score = int(score_value) if score_value is not None else None
+            except (TypeError, ValueError):
+                dm_score = None
             payload = {
                 "user_id": item.get("user_id"),
                 "username": item.get("username"),
@@ -58,6 +65,8 @@ class UserStorage:
                 "last_seen_utc": item.get("last_seen_utc"),
                 "last_message": item.get("last_message"),
                 "dm_status": item.get("dm_status"),
+                "dm_score": dm_score,
+                "dm_score_label": item.get("dm_score_label"),
             }
             user_id = payload["user_id"]
             if user_id is None:
@@ -121,6 +130,11 @@ class UserStorage:
         for item in data:
             if not isinstance(item, dict) or "user_id" not in item:
                 continue
+            score_value = item.get("dm_score")
+            try:
+                dm_score = int(score_value) if score_value is not None else None
+            except (TypeError, ValueError):
+                dm_score = None
             payload = {
                 "user_id": item.get("user_id"),
                 "username": item.get("username"),
@@ -135,6 +149,8 @@ class UserStorage:
                 "last_seen_utc": item.get("last_seen_utc"),
                 "last_message": item.get("last_message"),
                 "dm_status": item.get("dm_status"),
+                "dm_score": dm_score,
+                "dm_score_label": item.get("dm_score_label"),
             }
             imported.append(StoredUser(**payload))
         self.add_users(imported)
@@ -166,6 +182,11 @@ class UserStorage:
                 user.last_seen = formatted
         user.status = self._normalize_status(user.status)
         user.dm_status = self._normalize_dm_status(user.dm_status)
+        user.dm_score_label = self._normalize_dm_score_label(user.dm_score_label)
+        try:
+            user.dm_score = int(user.dm_score) if user.dm_score is not None else None
+        except (TypeError, ValueError):
+            user.dm_score = None
         return user
 
     def set_timezone(self, timezone_name: str) -> None:
@@ -233,6 +254,19 @@ class UserStorage:
         if key.startswith("status.dm_"):
             return key
         mapped = _DM_STATUS_MAP.get(key.lower())
+        if mapped:
+            return mapped
+        return None
+
+    def _normalize_dm_score_label(self, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        key = value.strip()
+        if not key:
+            return None
+        if key.startswith("status.dm_score_"):
+            return key
+        mapped = _DM_SCORE_MAP.get(key.lower())
         if mapped:
             return mapped
         return None
@@ -307,4 +341,18 @@ _DM_STATUS_MAP: Dict[str, str] = {
     "closed": "status.dm_closed",
     "restricted": "status.dm_closed",
     "dm kapalı": "status.dm_closed",
+}
+
+_DM_SCORE_MAP: Dict[str, str] = {
+    "bot": "status.dm_score_bot",
+    "kapali_benzeri": "status.dm_score_closed_like",
+    "kapalı_benzeri": "status.dm_score_closed_like",
+    "belirsiz": "status.dm_score_uncertain",
+    "orta": "status.dm_score_medium",
+    "acik_olabilir": "status.dm_score_maybe_open",
+    "açik_olabilir": "status.dm_score_maybe_open",
+    "açık_olabilir": "status.dm_score_maybe_open",
+    "buyuk_ihtimal_acik": "status.dm_score_likely_open",
+    "büyük_ihtimal_açık": "status.dm_score_likely_open",
+    "buyuk ihtimal acik": "status.dm_score_likely_open",
 }

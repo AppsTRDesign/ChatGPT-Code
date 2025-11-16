@@ -20,6 +20,7 @@ from telethon.errors import (
 )
 from telethon.errors.rpcbaseerrors import BadRequestError
 from telethon.tl import functions, types
+from telethon.tl.functions.users import GetFullUserRequest
 
 from app.core.entity_utils import normalize_entity
 from app.core.settings import AppSettings
@@ -38,6 +39,94 @@ class ProgressUpdate:
     user: Optional[StoredUser] = None
     status: Optional[str] = None
     group: Optional[StoredGroup] = None
+
+
+@dataclass
+class DMProfile:
+    dm_status: str
+    dm_score: Optional[int]
+    dm_score_label: Optional[str]
+
+
+def _label_for_dm_score(score: int, is_bot: bool) -> str:
+    if is_bot:
+        return "status.dm_score_bot"
+    if score <= 20:
+        return "status.dm_score_closed_like"
+    if score <= 40:
+        return "status.dm_score_uncertain"
+    if score <= 60:
+        return "status.dm_score_medium"
+    if score <= 80:
+        return "status.dm_score_maybe_open"
+    return "status.dm_score_likely_open"
+
+
+async def _fetch_full_user(client: TelegramClient, user: types.User) -> Optional[types.users.UserFull]:
+    try:
+        return await client(GetFullUserRequest(user))
+    except FloodWaitError as exc:  # pragma: no cover - network behavior
+        await asyncio.sleep(int(exc.seconds) + 1)
+    except Exception:
+        return None
+    return None
+
+
+def _predict_dm_score(user: types.User, full: Optional[types.users.UserFull]) -> tuple[int, str]:
+    info_score = 0
+    if getattr(user, "username", None):
+        info_score += 30
+    if getattr(user, "phone", None):
+        info_score += 25
+    if getattr(user, "premium", False):
+        info_score += 15
+    if getattr(user, "photo", None):
+        info_score += 10
+    about = None
+    common = 0
+    if full and getattr(full, "full_user", None):
+        about = getattr(full.full_user, "about", None)
+        common = getattr(full.full_user, "common_chats_count", 0) or 0
+    if about:
+        info_score += 10
+    if common >= 5:
+        info_score += 10
+    elif 1 <= common <= 4:
+        info_score += 5
+
+    status = getattr(user, "status", None)
+    if isinstance(status, types.UserStatusOnline):
+        info_score += 20
+    elif isinstance(status, types.UserStatusRecently):
+        info_score += 20
+    elif isinstance(status, types.UserStatusLastWeek):
+        info_score += 10
+    elif isinstance(status, types.UserStatusLastMonth):
+        info_score += 5
+    elif isinstance(status, types.UserStatusEmpty):
+        info_score -= 20
+
+    info_score = max(0, min(info_score, 100))
+    label = _label_for_dm_score(info_score, bool(getattr(user, "bot", False)))
+    return info_score, label
+
+
+async def build_dm_profile(client: TelegramClient, user: types.User, access_hash: Optional[int]) -> DMProfile:
+    closed = "status.dm_closed"
+    if getattr(user, "bot", False):
+        return DMProfile(dm_status=closed, dm_score=0, dm_score_label=_label_for_dm_score(0, True))
+    if getattr(user, "deleted", False):
+        return DMProfile(dm_status=closed, dm_score=0, dm_score_label=_label_for_dm_score(0, False))
+    if access_hash is None:
+        return DMProfile(dm_status=closed, dm_score=0, dm_score_label=_label_for_dm_score(0, False))
+    if not getattr(user, "username", None) and not getattr(user, "phone", None):
+        return DMProfile(dm_status=closed, dm_score=0, dm_score_label=_label_for_dm_score(0, False))
+    if getattr(user, "restricted", False):
+        return DMProfile(dm_status=closed, dm_score=0, dm_score_label=_label_for_dm_score(0, False))
+
+    full = await _fetch_full_user(client, user)
+    score, label = _predict_dm_score(user, full)
+    return DMProfile(dm_status="status.dm_open", dm_score=score, dm_score_label=label)
 
 
 class TaskCancelled(Exception):
@@ -114,21 +203,6 @@ class SessionTask:
         for key, value in replacements.items():
             rendered = rendered.replace(f"{{{key}}}", value)
         return rendered
-
-    @staticmethod
-    def _determine_dm_status(user: types.User, access_hash: Optional[int]) -> str:
-        closed = "status.dm_closed"
-        if getattr(user, "bot", False):
-            return closed
-        if getattr(user, "deleted", False):
-            return closed
-        if access_hash is None:
-            return closed
-        if not getattr(user, "username", None) and not getattr(user, "phone", None):
-            return closed
-        if getattr(user, "restricted", False):
-            return closed
-        return "status.dm_open"
 
     def _emit_inline_status(self, progress_callback: Callable[[ProgressUpdate], None], message: str) -> None:
         total = self._total or self._processed or 1
@@ -232,7 +306,7 @@ class SessionTask:
             if isinstance(input_entity, (types.InputPeerUser, types.InputUser)):
                 access_hash = input_entity.access_hash
 
-            dm_status = self._determine_dm_status(user, access_hash)
+            dm_profile = await build_dm_profile(self.client, user, access_hash)
             stored = StoredUser(
                 user_id=user.id,
                 username=user.username,
@@ -246,7 +320,9 @@ class SessionTask:
                 is_bot=bool(getattr(user, "bot", False)),
                 last_seen_utc=UserStorage.to_iso(last_seen),
                 last_message=None,
-                dm_status=dm_status,
+                dm_status=dm_profile.dm_status,
+                dm_score=dm_profile.dm_score,
+                dm_score_label=dm_profile.dm_score_label,
             )
             stored = self.storage.prepare_user(stored)
             if persist:
@@ -449,7 +525,7 @@ class SessionTask:
                 else:
                     logger.warning("log.active_sender_missing_entity")
                     continue
-            dm_status = self._determine_dm_status(sender, access_hash)
+            dm_profile = await build_dm_profile(self.client, sender, access_hash)
             stored = StoredUser(
                 user_id=sender.id,
                 username=sender.username,
@@ -463,7 +539,9 @@ class SessionTask:
                 is_bot=False,
                 last_seen_utc=UserStorage.to_iso(message.date.replace(tzinfo=timezone.utc) if message.date else None),
                 last_message=(message.message or "") if getattr(message, "message", None) else None,
-                dm_status=dm_status,
+                dm_status=dm_profile.dm_status,
+                dm_score=dm_profile.dm_score,
+                dm_score_label=dm_profile.dm_score_label,
             )
             stored = self.storage.prepare_user(stored)
             if persist:
