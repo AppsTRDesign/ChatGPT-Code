@@ -1366,7 +1366,7 @@ class MainWindow(QMainWindow):
             interval = None
             container = self.user_search_progress_container
             persist = self.user_search_save_checkbox.isChecked()
-            storage = self.user_storages["scanned"]
+            storage = self.user_storages["searched"]
             include_no_username = self.user_search_include_no_username_checkbox.isChecked()
             keyword_pool = self._parse_keywords(target)
             if not keyword_pool:
