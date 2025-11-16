@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from telethon import TelegramClient
 from telethon.errors import (
+    ChatAdminRequiredError,
     ChatWriteForbiddenError,
     FloodWaitError,
     PeerFloodError,
@@ -253,6 +254,15 @@ class SessionTask:
                 await self._handle_flood_wait(exc.seconds, status_cb)
                 await self._throttle(self.settings.rate_limit.scan_interval)
                 continue
+            except ChatAdminRequiredError:
+                status_cb("log.member_admin_required")
+                progress_callback(
+                    self.build_progress(
+                        total or processed or 1, None, status="log.member_admin_required"
+                    )
+                )
+                logger.warning("log.member_admin_required")
+                break
             if offset and skipped < offset:
                 skipped += 1
                 continue
