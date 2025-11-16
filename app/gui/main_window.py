@@ -163,12 +163,17 @@ class MainWindow(QMainWindow):
                 self.settings.user_directory / "active_added_users.json",
                 timezone_name=self.settings.timezone,
             ),
+            "searched": UserStorage(
+                self.settings.user_directory / "searched_users.json",
+                timezone_name=self.settings.timezone,
+            ),
         }
         self.template_storage = TemplateStorage(Path("config") / "message_templates.json")
         self.group_template_storage = TemplateStorage(Path("config") / "group_templates.json")
         self.group_storage = GroupStorage(self.settings.user_directory / "groups.json")
         self.user_table_meta: List[Tuple[str, bool, str]] = [
             ("scanned", False, "tab.users_scanned"),
+            ("searched", False, "tab.users_searched"),
             ("active", True, "tab.users_active"),
             ("scanned_added", False, "tab.users_scanned_added"),
             ("active_added", True, "tab.users_active_added"),
@@ -519,7 +524,9 @@ class MainWindow(QMainWindow):
         self.user_search_limit_input = QSpinBox()
         self.user_search_limit_input.setRange(1, 1000)
         self.user_search_limit_input.setValue(100)
-        self.user_search_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
+        self.user_search_save_checkbox = QCheckBox(
+            translator.translate("checkbox.save_search_results")
+        )
         self.user_search_save_checkbox.setChecked(True)
         self.user_search_include_no_username_checkbox = QCheckBox(
             translator.translate("checkbox.include_no_username")
@@ -1279,7 +1286,7 @@ class MainWindow(QMainWindow):
             interval = self._build_interval(self.scan_interval_combo.currentIndex(), self.scan_interval_value.value())
             container = self.scan_progress_container
             persist = self.scan_save_checkbox.isChecked()
-            storage = self.user_storages["scanned"]
+            storage = self.user_storages["searched"]
             include_no_username = self.scan_include_no_username_checkbox.isChecked()
         elif task_type == "group_scan":
             sessions = self.get_selected_sessions(self.group_scan_session_list)

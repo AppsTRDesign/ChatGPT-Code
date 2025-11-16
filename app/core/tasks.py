@@ -516,7 +516,7 @@ class SessionTask:
                     last_name=user.last_name,
                     last_seen=None,
                     status=type(user.status).__name__ if user.status else None,
-                    source=f"search:{kw}",
+                    source=str(kw),
                     is_bot=bool(getattr(user, "bot", False)),
                     last_seen_utc=UserStorage.to_iso(last_seen),
                     last_message=None,

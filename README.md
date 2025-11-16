@@ -10,7 +10,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Hedef Gruba Üye Ekleme:** Kayıtlı kullanıcı listesinden hedef gruba üyeleri eşit bölerek ekleme, isteğe bağlı kullanıcı limiti belirleme ve flood wait yönetimi.
 - **Üye Limiti Dağıtımı:** Örneğin 50 kişilik kota girildiğinde seçilen oturumlara otomatik olarak paylaştırılır ve her oturum yalnızca kendi payını işler.
 - **Aktif Mesaj Atanları Bulma:** Belirlenen zaman aralığında mesaj atan kullanıcıları, ayarlardaki maksimum mesaj tarama sınırını oturumlara bölerek ve isteğe bağlı kullanıcı adı filtresiyle kayıt altına alma.
-- **Üye Araması:** Virgülle ayrılmış birden fazla anahtar kelimeyle public kullanıcı araması yapar, DM skoru ve durumunu çıkartarak sonuçları "Taranan Üyeler" listesine kaydeder; sonuçlar oturumlara dağıtılır ve ilerleme çubukları ile gösterilir.
+- **Üye Araması:** Virgülle ayrılmış birden fazla anahtar kelimeyle public kullanıcı araması yapar, DM skoru ve durumunu çıkartarak sonuçları "Aranan Üyeler" listesine kaydeder; sonuçlar oturumlara dağıtılır ve ilerleme çubukları ile gösterilir.
 - **DM Durumu Analizi:** Üyeler taranırken veya aktif mesaj atanlar toplanırken her kullanıcının DM isteği kabul edip etmediği otomatik olarak test edilir; yeni tahmini "DM Skoru"/"DM Tahmini" sütunları ile birlikte CSV/JSON dışa aktarımlarına dahil edilir ve "DM Durumunu Yenile" butonu ile kayıtlı kullanıcılar için güncellenebilir.
 - **Kayıtlı Kullanıcılara DM Gönderme:** Yeni DM sekmesi üzerinden her oturum için şablon seçerek veya manuel mesaj/medya girerek kayıtlı üyelere mesaj yollama, {user_name}/{first_name}/{last_name} değişkenlerini otomatik doldurma ve mesaj oranını rate-limit ayarlarına göre yönetme.
 - **Şablon Yönetimi Sekmesi:** Ayrı bir "Şablon Yönetimi" sekmesinde oturum bazlı şablonları listeleme, düzenleme, kopyalanabilir {user_name}/{first_name}/{last_name} kısayollarını tek tıkla gövdeye ekleme ve emoji seçicisi ile mesajları zenginleştirme; her oturuma atanmış şablonlar DM sekmesinde özet olarak listelenir.
@@ -28,7 +28,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **Davet Kotası Uyarıları:** Davet sınırı aşıldığında kaç kullanıcı denendiğini ve tahmini bekleme süresini anlık olarak gösterir, yetki eksikliklerini açıkça bildirir.
 - **Eklenen Üye Takibi:** Hem grup taramasından hem de aktif mesaj atanlar listesinden eklenen üyeler ayrı JSON dosyalarına kaydedilir ve tablolar üzerinden yönetilir.
 - **Dil ve Zaman Dilimi Ayarları:** 30 popüler zaman dilimi ve anlık TR/EN dil değişimi.
-- **Kullanıcı Kaydı:** Taranan üyeler `users/scanned_users.json`, aktif mesaj atanlar `users/active_users.json` dosyasında saklanır ve arayüzde tablo olarak gösterilir.
+- **Kullanıcı Kaydı:** Taranan üyeler `users/scanned_users.json`, aranan üyeler `users/searched_users.json`, aktif mesaj atanlar `users/active_users.json` dosyasında saklanır ve arayüzde tablo olarak gösterilir.
 - **Makineye Özel Lisanslama:** Ayarlar sekmesinde cihaz kimliği ve kalan süre görülebilir, lisans anahtarları yalnızca hedef PC'de çalışır.
 - **Modern Üst Başlık:** Uygulama penceresinin üst tarafında Telegram benzeri SVG ikon, başlık ve açıklama yer alır ve seçilen dile göre dinamik güncellenir.
 

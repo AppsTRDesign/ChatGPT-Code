@@ -8,6 +8,7 @@ users/scanned_users.json
 users/active_users.json
 users/scanned_added_users.json
 users/active_added_users.json
+users/searched_users.json
 users/groups.json
 logs/
 config/
