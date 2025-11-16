@@ -23,6 +23,7 @@ Bu proje, Windows 11 üzerinde Python 3.13 ile uyumlu, Telethon tabanlı çok ot
 - **CSV Dışa Aktarımı:** Kullanıcı tablolarını UTF-8 BOM'lu, sıralanabilir başlıklara sahip CSV dosyalarına aktararak Türkçe karakter sorunlarını ortadan kaldırır.
 - **Seç-Sil/Dışa Aktar:** Kayıtlı kullanıcı ve grup tablolarında satırların başına gelen onay kutuları sayesinde tek tıkla hepsini seçebilir, yalnızca işaretlediğiniz kayıtları JSON/CSV'ye aktarabilir veya kalıcı olarak silebilirsiniz.
 - **Rate Limit Yönetimi:** Üye daveti, DM/grup mesajı ve grup katılımı için ayrı gecikme alanlarıyla flood hatalarını azaltabilirsiniz.
+- **Maksimum Aktif Mesaj Kotası:** Rate Limit sekmesindeki "Maksimum aktif mesaj taraması" alanı artık milyonlarca değere (2.147.483.647'e kadar) izin verir; aktif mesaj tarama limitini ihtiyaçlarınıza göre yükseltebilirsiniz.
 - **Davet Kotası Uyarıları:** Davet sınırı aşıldığında kaç kullanıcı denendiğini ve tahmini bekleme süresini anlık olarak gösterir, yetki eksikliklerini açıkça bildirir.
 - **Eklenen Üye Takibi:** Hem grup taramasından hem de aktif mesaj atanlar listesinden eklenen üyeler ayrı JSON dosyalarına kaydedilir ve tablolar üzerinden yönetilir.
 - **Dil ve Zaman Dilimi Ayarları:** 30 popüler zaman dilimi ve anlık TR/EN dil değişimi.

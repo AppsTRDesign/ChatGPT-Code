@@ -846,7 +846,7 @@ class MainWindow(QMainWindow):
         self.scan_interval_input.setRange(1, 3600)
         self.scan_interval_input.setValue(int(self.settings.rate_limit.scan_interval))
         self.max_active_messages_input = QSpinBox()
-        self.max_active_messages_input.setRange(100, 50000)
+        self.max_active_messages_input.setRange(1, 2_147_483_647)
         self.max_active_messages_input.setValue(int(self.settings.max_active_messages))
         self.max_active_messages_label = QLabel(translator.translate("label.max_active_messages"))
         self.flood_checkbox = QCheckBox(translator.translate("label.flood_wait"))
