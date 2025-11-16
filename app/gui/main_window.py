@@ -1286,7 +1286,7 @@ class MainWindow(QMainWindow):
             interval = self._build_interval(self.scan_interval_combo.currentIndex(), self.scan_interval_value.value())
             container = self.scan_progress_container
             persist = self.scan_save_checkbox.isChecked()
-            storage = self.user_storages["searched"]
+            storage = self.user_storages["scanned"]
             include_no_username = self.scan_include_no_username_checkbox.isChecked()
         elif task_type == "group_scan":
             sessions = self.get_selected_sessions(self.group_scan_session_list)
