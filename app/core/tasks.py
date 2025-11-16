@@ -20,6 +20,7 @@ from telethon.errors import (
 )
 from telethon.errors.rpcbaseerrors import BadRequestError
 from telethon.tl import functions, types
+from telethon.tl.types import ChatBannedRights
 from telethon.tl.functions.users import GetFullUserRequest
 
 from app.core.entity_utils import normalize_entity
@@ -841,6 +842,7 @@ class SessionTask:
         online = getattr(chat, "online_count", None)
         messages_restricted = False
         members_hidden = False
+        group_type = self._detect_group_type(chat)
         if isinstance(chat, types.Channel):
             access_hash = getattr(chat, "access_hash", None)
             if access_hash is None:
@@ -851,12 +853,8 @@ class SessionTask:
                 full_chat = full.full_chat
                 members = getattr(full_chat, "participants_count", members)
                 online = getattr(full_chat, "online_count", online)
-                banned = getattr(full_chat, "default_banned_rights", None)
-                messages_restricted = bool(getattr(banned, "send_messages", False))
-                members_hidden = bool(
-                    getattr(full_chat, "participants_hidden", False)
-                    or (getattr(full_chat, "participants_count", None) and not getattr(full_chat, "participants", None))
-                )
+                messages_restricted = self._messages_restricted(group_type, full_chat, chat)
+                members_hidden = self._members_hidden(full_chat)
             except FloodWaitError:
                 raise
             except Exception:
@@ -867,12 +865,8 @@ class SessionTask:
                 chat_info = full_chat.full_chat
                 members = getattr(chat_info, "participants_count", members)
                 online = getattr(chat_info, "online_count", online)
-                banned = getattr(chat_info, "default_banned_rights", None)
-                messages_restricted = bool(getattr(banned, "send_messages", False))
-                members_hidden = bool(
-                    getattr(chat_info, "participants_hidden", False)
-                    or (getattr(chat_info, "participants_count", None) and not getattr(chat_info, "participants", None))
-                )
+                messages_restricted = self._messages_restricted(group_type, chat_info, chat)
+                members_hidden = self._members_hidden(chat_info)
             except FloodWaitError:
                 raise
             except Exception:
@@ -896,6 +890,40 @@ class SessionTask:
             source=source,
         )
         return record
+
+    def _detect_group_type(self, chat: types.TypeChat) -> str:
+        if isinstance(chat, types.Channel):
+            if getattr(chat, "megagroup", False):
+                return "supergroup"
+            if getattr(chat, "broadcast", False):
+                return "channel"
+        if isinstance(chat, types.Chat):
+            return "group"
+        return "unknown"
+
+    def _members_hidden(self, full_chat: object) -> bool:
+        hide_attr = getattr(full_chat, "hide_members", None)
+        if hide_attr is True:
+            return True
+        flags = getattr(full_chat, "flags", 0)
+        try:
+            if flags & 512:
+                return True
+        except Exception:
+            pass
+        if getattr(full_chat, "participants_hidden", False):
+            return True
+        if getattr(full_chat, "participants_count", None) and not getattr(full_chat, "participants", None):
+            return True
+        return False
+
+    def _messages_restricted(self, group_type: str, full_chat: object, chat: types.TypeChat) -> bool:
+        if group_type == "channel":
+            return True
+        banned = getattr(full_chat, "default_banned_rights", None) or getattr(chat, "default_banned_rights", None)
+        if isinstance(banned, ChatBannedRights) and getattr(banned, "send_messages", False):
+            return True
+        return False
 
     async def _resolve_group_entity(self, group: StoredGroup):
         hints: List[object] = []
