@@ -127,6 +127,15 @@ class SessionWorkerThread(QThread):
                     include_no_username=self.request.include_no_username,
                     offset=self.request.offset,
                 )
+            elif self.request.task_type == "user_search":
+                await task.search_public_users(
+                    self.request.entity,
+                    self.request.limit,
+                    progress_handler,
+                    self.request.persist_results,
+                    status_handler,
+                    include_no_username=self.request.include_no_username,
+                )
             elif self.request.task_type == "message":
                 await task.send_messages(
                     self.request.users or [],

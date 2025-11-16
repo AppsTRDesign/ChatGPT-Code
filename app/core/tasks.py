@@ -439,6 +439,99 @@ class SessionTask:
             progress_callback(self.build_progress(total, user, status=status_key))
         logger.info("log.add_finished")
 
+    async def search_public_users(
+        self,
+        keywords: str,
+        limit: Optional[int],
+        progress_callback: Callable[[ProgressUpdate], None],
+        persist: bool,
+        status_callback: Optional[Callable[[str], None]] = None,
+        include_no_username: bool = True,
+    ) -> None:
+        keyword_pool = [kw.strip() for kw in keywords.split(",") if kw.strip()]
+        status_cb = status_callback or (lambda _: None)
+        if not keyword_pool:
+            status_cb("status.completed")
+            return
+        status_cb("status.running")
+        seen_ids: set[int] = set()
+        total = (limit or 0) * len(keyword_pool)
+        for kw in keyword_pool:
+            await self._check_cancelled()
+            try:
+                result = await self.client(
+                    functions.contacts.SearchRequest(q=kw, limit=limit or 100)
+                )
+            except FloodWaitError as exc:  # pragma: no cover - network behavior
+                await self._handle_flood_wait(exc.seconds, status_cb)
+                await self._throttle(self.settings.rate_limit.scan_interval)
+                continue
+            except Exception:
+                continue
+            for user in result.users:
+                await self._check_cancelled()
+                if not isinstance(user, types.User):
+                    continue
+                if getattr(user, "bot", False):
+                    continue
+                if user.id in seen_ids:
+                    continue
+                if not include_no_username and not getattr(user, "username", None):
+                    continue
+                seen_ids.add(user.id)
+                last_seen = None
+                if isinstance(user.status, types.UserStatusOffline):
+                    was_online = user.status.was_online
+                    if isinstance(was_online, datetime):
+                        last_seen = was_online.astimezone(timezone.utc)
+                    else:
+                        last_seen = datetime.fromtimestamp(was_online, tz=timezone.utc)
+                elif isinstance(user.status, (types.UserStatusOnline, types.UserStatusRecently)):
+                    last_seen = datetime.now(tz=timezone.utc)
+                elif isinstance(user.status, types.UserStatusLastMonth):
+                    last_seen = datetime.now(tz=timezone.utc) - timedelta(days=30)
+                elif isinstance(user.status, types.UserStatusLastWeek):
+                    last_seen = datetime.now(tz=timezone.utc) - timedelta(days=7)
+
+                access_hash = getattr(user, "access_hash", None)
+                if access_hash is None:
+                    try:
+                        input_entity = await self.client.get_input_entity(types.PeerUser(user.id))
+                    except FloodWaitError as exc:
+                        await self._handle_flood_wait(exc.seconds, status_cb)
+                        await self._throttle(self.settings.rate_limit.scan_interval)
+                        continue
+                    except (TypeError, ValueError):
+                        input_entity = None
+                    if isinstance(input_entity, (types.InputPeerUser, types.InputUser)):
+                        access_hash = input_entity.access_hash
+
+                dm_profile = await build_dm_profile(self.client, user, access_hash)
+                stored = StoredUser(
+                    user_id=user.id,
+                    username=user.username,
+                    phone=user.phone,
+                    access_hash=access_hash,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    last_seen=None,
+                    status=type(user.status).__name__ if user.status else None,
+                    source=f"search:{kw}",
+                    is_bot=bool(getattr(user, "bot", False)),
+                    last_seen_utc=UserStorage.to_iso(last_seen),
+                    last_message=None,
+                    dm_status=dm_profile.dm_status,
+                    dm_score=dm_profile.dm_score,
+                    dm_score_label=dm_profile.dm_score_label,
+                )
+                stored = self.storage.prepare_user(stored)
+                if persist:
+                    self.storage.add_users([stored])
+                progress_callback(self.build_progress(total or None, stored, status="status.running"))
+                await self._throttle(self.settings.rate_limit.scan_interval)
+        status_cb("status.completed")
+        logger.info("log.user_search_finished")
+
     async def fetch_active_senders(
         self,
         entity: str,

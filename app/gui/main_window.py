@@ -181,6 +181,7 @@ class MainWindow(QMainWindow):
             "scan": {},
             "add": {},
             "active": {},
+            "user_search": {},
             "message": {},
             "group_scan": {},
             "group_message": {},
@@ -206,6 +207,7 @@ class MainWindow(QMainWindow):
         self._build_ban_tab()
         self._build_scan_tab()
         self._build_active_tab()
+        self._build_user_search_tab()
         self._build_add_tab()
         self._build_user_tab()
         self._build_template_tab()
@@ -503,6 +505,53 @@ class MainWindow(QMainWindow):
 
         tab.setLayout(layout)
         self.tab_widget.addTab(tab, translator.translate("tab.active_senders"))
+
+    def _build_user_search_tab(self) -> None:
+        tab = QWidget()
+        layout = QGridLayout()
+
+        self.user_search_session_list = QListWidget()
+        self.user_search_session_list.setSelectionMode(QListWidget.MultiSelection)
+        layout.addWidget(self.user_search_session_list, 0, 0, 4, 1)
+
+        form_layout = QFormLayout()
+        self.user_search_keyword_input = QLineEdit()
+        self.user_search_limit_input = QSpinBox()
+        self.user_search_limit_input.setRange(1, 1000)
+        self.user_search_limit_input.setValue(100)
+        self.user_search_save_checkbox = QCheckBox(translator.translate("checkbox.save_results"))
+        self.user_search_save_checkbox.setChecked(True)
+        self.user_search_include_no_username_checkbox = QCheckBox(
+            translator.translate("checkbox.include_no_username")
+        )
+        form_layout.addRow(
+            translator.translate("label.user_keywords"), self.user_search_keyword_input
+        )
+        form_layout.addRow(translator.translate("label.limit"), self.user_search_limit_input)
+        form_layout.addRow(self.user_search_save_checkbox)
+        form_layout.addRow(self.user_search_include_no_username_checkbox)
+        layout.addLayout(form_layout, 0, 1, 1, 2)
+
+        self.user_search_start_button = QPushButton(translator.translate("button.start"))
+        self.user_search_start_button.clicked.connect(
+            partial(self.start_task, task_type="user_search")
+        )
+        self.user_search_cancel_button = QPushButton(translator.translate("button.cancel"))
+        self.user_search_cancel_button.clicked.connect(
+            partial(self.cancel_tasks, task_type="user_search")
+        )
+        control_layout = QHBoxLayout()
+        control_layout.addWidget(self.user_search_start_button)
+        control_layout.addWidget(self.user_search_cancel_button)
+        layout.addLayout(control_layout, 1, 1, 1, 2)
+
+        self.user_search_progress_container = QVBoxLayout()
+        progress_group = QGroupBox(translator.translate("label.progress"))
+        progress_group.setLayout(self.user_search_progress_container)
+        layout.addWidget(progress_group, 2, 1, 2, 2)
+
+        tab.setLayout(layout)
+        self.tab_widget.addTab(tab, translator.translate("tab.user_search"))
 
     def _build_group_discovery_tab(self) -> None:
         tab = QWidget()
@@ -998,6 +1047,8 @@ class MainWindow(QMainWindow):
         self.scan_session_list.clear()
         self.add_session_list.clear()
         self.active_session_list.clear()
+        if hasattr(self, "user_search_session_list"):
+            self.user_search_session_list.clear()
         message_widget = getattr(self, "message_session_list", None)
         template_widget = getattr(self, "template_session_list", None)
         group_scan_widget = getattr(self, "group_scan_session_list", None)
@@ -1025,6 +1076,7 @@ class MainWindow(QMainWindow):
             self.scan_session_list,
             self.add_session_list,
             self.active_session_list,
+            getattr(self, "user_search_session_list", None),
         ]
         if ban_widget:
             session_widgets.append(ban_widget)
@@ -1300,6 +1352,23 @@ class MainWindow(QMainWindow):
             container = self.group_message_progress_container
             persist = False
             storage = self.group_storage
+        elif task_type == "user_search":
+            sessions = self.get_selected_sessions(self.user_search_session_list)
+            target = self.user_search_keyword_input.text().strip()
+            limit = self.user_search_limit_input.value()
+            interval = None
+            container = self.user_search_progress_container
+            persist = self.user_search_save_checkbox.isChecked()
+            storage = self.user_storages["scanned"]
+            include_no_username = self.user_search_include_no_username_checkbox.isChecked()
+            keyword_pool = self._parse_keywords(target)
+            if not keyword_pool:
+                QMessageBox.warning(
+                    self,
+                    self.windowTitle(),
+                    translator.translate("dialog.user_keyword_required"),
+                )
+                return
         else:
             sessions = self.get_selected_sessions(self.active_session_list)
             target = self.active_target_input.text().strip()
@@ -1310,7 +1379,7 @@ class MainWindow(QMainWindow):
             storage = self.user_storages["active"]
             include_no_username = self.active_include_no_username_checkbox.isChecked()
 
-        requires_target = task_type in {"scan", "group_scan", "add", "active"}
+        requires_target = task_type in {"scan", "group_scan", "add", "active", "user_search"}
         if requires_target and (not sessions or not target):
             QMessageBox.warning(self, self.windowTitle(), translator.translate("dialog.sessions_required"))
             return
@@ -1416,12 +1485,22 @@ class MainWindow(QMainWindow):
                 per_session_limits, offsets = self._scan_distribution(limit, target, sessions)
             elif task_type == "group_scan":
                 pass
+            elif task_type == "user_search":
+                pass
             else:
                 per_session_limits, offsets = self._active_distribution(limit, session_count)
 
         keyword_chunks: List[List[str]] = []
         session_targets = [target] * session_count
         if task_type == "group_scan":
+            keyword_chunks = self._split_keywords_for_sessions(keyword_pool, session_count)
+            if not any(keyword_chunks) and keyword_pool:
+                keyword_chunks = [keyword_pool]
+            session_targets = [",".join(chunk) if chunk else "" for chunk in keyword_chunks]
+            per_session_limits = [
+                (limit or 1) * len(chunk) if chunk else 0 for chunk in keyword_chunks
+            ]
+        elif task_type == "user_search":
             keyword_chunks = self._split_keywords_for_sessions(keyword_pool, session_count)
             if not any(keyword_chunks) and keyword_pool:
                 keyword_chunks = [keyword_pool]
@@ -1472,14 +1551,14 @@ class MainWindow(QMainWindow):
                     continue
                 total_target = per_session_limit or 0
 
-            if task_type == "group_scan" and not session_target.strip():
+            if task_type in {"group_scan", "user_search"} and not session_target.strip():
                 widget.update_state(0, 0, status_key="status.completed")
                 continue
 
             widget.update_state(0, total_target or 0, status_key="status.running")
 
             request_limit: Optional[int] = None
-            if task_type == "group_scan":
+            if task_type in {"group_scan", "user_search"}:
                 request_limit = max(limit or 1, 1)
             elif task_type not in {"add", "message"} and isinstance(per_session_limit, int) and per_session_limit > 0:
                 request_limit = per_session_limit
@@ -1575,6 +1654,8 @@ class MainWindow(QMainWindow):
         if task_type in {"group_scan", "group_message"}:
             self._refresh_group_table()
             self._refresh_group_message_list()
+        if task_type in {"scan", "active", "user_search"}:
+            self.populate_user_tables()
         self._notify_completion_if_ready()
         self._update_task_controls()
 
@@ -1676,7 +1757,12 @@ class MainWindow(QMainWindow):
 
     def _update_task_controls(self) -> None:
         enabled = not self.worker_threads and not self._cancelling
-        buttons = [self.scan_start_button, self.add_start_button, self.active_start_button]
+        buttons = [
+            self.scan_start_button,
+            self.add_start_button,
+            self.active_start_button,
+            self.user_search_start_button,
+        ]
         for attr in [
             "group_search_start_button",
             "group_join_button",
@@ -2998,6 +3084,7 @@ class MainWindow(QMainWindow):
             "tab.ban_check",
             "tab.scan",
             "tab.active_senders",
+            "tab.user_search",
             "tab.add_members",
             "tab.users_root",
             "tab.templates",
