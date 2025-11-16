@@ -112,6 +112,7 @@ GROUP_TABLE_HEADERS: List[str] = [
     "label.group_online",
     "label.group_visibility",
     "label.group_messaging",
+    "label.group_hidden_members",
     "label.source",
 ]
 
@@ -1782,7 +1783,9 @@ class MainWindow(QMainWindow):
             self.group_table.setItem(row, 6, online_item)
             self.group_table.setItem(row, 7, QTableWidgetItem(self._group_visibility_text(group)))
             self.group_table.setItem(row, 8, QTableWidgetItem(self._group_messaging_text(group)))
-            self.group_table.setItem(row, 9, QTableWidgetItem(group.source or ""))
+            hidden_key = "table.value.yes" if getattr(group, "members_hidden", False) else "table.value.no"
+            self.group_table.setItem(row, 9, QTableWidgetItem(translator.translate(hidden_key)))
+            self.group_table.setItem(row, 10, QTableWidgetItem(group.source or ""))
         self.group_table.setSortingEnabled(True)
 
     def _group_visibility_text(self, group: StoredGroup) -> str:
@@ -1913,6 +1916,7 @@ class MainWindow(QMainWindow):
             is_megagroup=True,
             is_broadcast=False,
             messages_restricted=restricted,
+            members_hidden=False,
             source="manual",
         )
         self.group_storage.add_groups([record])
@@ -2019,6 +2023,7 @@ class MainWindow(QMainWindow):
                     is_megagroup=True,
                     is_broadcast=False,
                     messages_restricted=False,
+                    members_hidden=False,
                     source="manual",
                 )
             )

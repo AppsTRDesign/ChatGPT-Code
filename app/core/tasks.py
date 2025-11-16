@@ -762,6 +762,7 @@ class SessionTask:
         members = getattr(chat, "participants_count", None)
         online = getattr(chat, "online_count", None)
         messages_restricted = False
+        members_hidden = False
         if isinstance(chat, types.Channel):
             access_hash = getattr(chat, "access_hash", None)
             if access_hash is None:
@@ -769,10 +770,15 @@ class SessionTask:
             input_channel = types.InputChannel(chat.id, access_hash)
             try:
                 full = await self.client(functions.channels.GetFullChannelRequest(channel=input_channel))
-                members = getattr(full.full_chat, "participants_count", members)
-                online = getattr(full.full_chat, "online_count", online)
-                banned = getattr(full.full_chat, "default_banned_rights", None)
+                full_chat = full.full_chat
+                members = getattr(full_chat, "participants_count", members)
+                online = getattr(full_chat, "online_count", online)
+                banned = getattr(full_chat, "default_banned_rights", None)
                 messages_restricted = bool(getattr(banned, "send_messages", False))
+                members_hidden = bool(
+                    getattr(full_chat, "participants_hidden", False)
+                    or (getattr(full_chat, "participants_count", None) and not getattr(full_chat, "participants", None))
+                )
             except FloodWaitError:
                 raise
             except Exception:
@@ -780,10 +786,15 @@ class SessionTask:
         elif isinstance(chat, types.Chat):
             try:
                 full_chat = await self.client(functions.messages.GetFullChatRequest(chat_id=chat.id))
-                members = getattr(full_chat.full_chat, "participants_count", members)
-                online = getattr(full_chat.full_chat, "online_count", online)
-                banned = getattr(full_chat.full_chat, "default_banned_rights", None)
+                chat_info = full_chat.full_chat
+                members = getattr(chat_info, "participants_count", members)
+                online = getattr(chat_info, "online_count", online)
+                banned = getattr(chat_info, "default_banned_rights", None)
                 messages_restricted = bool(getattr(banned, "send_messages", False))
+                members_hidden = bool(
+                    getattr(chat_info, "participants_hidden", False)
+                    or (getattr(chat_info, "participants_count", None) and not getattr(chat_info, "participants", None))
+                )
             except FloodWaitError:
                 raise
             except Exception:
@@ -803,6 +814,7 @@ class SessionTask:
             is_megagroup=bool(getattr(chat, "megagroup", False)),
             is_broadcast=bool(getattr(chat, "broadcast", False)),
             messages_restricted=messages_restricted,
+            members_hidden=members_hidden,
             source=source,
         )
         return record

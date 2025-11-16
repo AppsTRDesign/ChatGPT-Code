@@ -19,6 +19,7 @@ class StoredGroup:
     is_megagroup: bool
     is_broadcast: bool
     messages_restricted: bool
+    members_hidden: bool = False
     source: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
@@ -63,6 +64,7 @@ class GroupStorage:
                 "is_megagroup": bool(item.get("is_megagroup", False)),
                 "is_broadcast": bool(item.get("is_broadcast", False)),
                 "messages_restricted": bool(item.get("messages_restricted", False)),
+                "members_hidden": bool(item.get("members_hidden", False)),
                 "source": item.get("source"),
             }
             title = payload["title"].strip()
@@ -123,6 +125,7 @@ class GroupStorage:
                 "is_megagroup": bool(item.get("is_megagroup", False)),
                 "is_broadcast": bool(item.get("is_broadcast", False)),
                 "messages_restricted": bool(item.get("messages_restricted", False)),
+                "members_hidden": bool(item.get("members_hidden", False)),
                 "source": item.get("source"),
             }
             title = payload["title"].strip()
