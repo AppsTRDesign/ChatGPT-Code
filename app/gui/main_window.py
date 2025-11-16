@@ -1011,8 +1011,6 @@ class MainWindow(QMainWindow):
         self.export_selected_users_button.clicked.connect(self.export_selected_users)
         self.delete_selected_users_button = QPushButton(translator.translate("button.delete_selected"))
         self.delete_selected_users_button.clicked.connect(self.delete_selected_users)
-        self.refresh_dm_button = QPushButton(translator.translate("button.refresh_dm"))
-        self.refresh_dm_button.clicked.connect(self.refresh_dm_statuses)
         button_layout.addWidget(self.export_users_button)
         button_layout.addWidget(self.import_users_button)
         button_layout.addWidget(self.add_user_button)
@@ -1021,7 +1019,7 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(self.clear_selection_users_button)
         button_layout.addWidget(self.export_selected_users_button)
         button_layout.addWidget(self.delete_selected_users_button)
-        button_layout.addWidget(self.refresh_dm_button)
+        
 
         self.user_tab_widget = QTabWidget()
         self.user_tables: Dict[str, QTableWidget] = {}
@@ -3180,8 +3178,6 @@ class MainWindow(QMainWindow):
             self.clear_selection_users_button.setText(translator.translate("button.clear_selection"))
         self.export_selected_users_button.setText(translator.translate("button.export_selected"))
         self.delete_selected_users_button.setText(translator.translate("button.delete_selected"))
-        if hasattr(self, "refresh_dm_button"):
-            self.refresh_dm_button.setText(translator.translate("button.refresh_dm"))
         self.add_source_combo.setItemText(0, translator.translate("option.add_source_scanned"))
         self.add_source_combo.setItemText(1, translator.translate("option.add_source_active"))
         if hasattr(self, "user_tab_widget"):
