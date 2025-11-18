@@ -14,6 +14,20 @@ class Assets {
         wp_register_style( 'pro-ultra-main', PRO_ULTRA_AI_URI . 'style.css', array(), PRO_ULTRA_AI_VERSION );
         wp_register_script( 'pro-ultra-main', PRO_ULTRA_AI_URI . 'assets/js/main.js', array( 'jquery' ), PRO_ULTRA_AI_VERSION, true );
 
+        wp_register_style(
+            'pro-ultra-checkout-enhanced',
+            PRO_ULTRA_AI_URI . 'assets/css/checkout-enhanced.css',
+            array( 'pro-ultra-main' ),
+            PRO_ULTRA_AI_VERSION
+        );
+        wp_register_script(
+            'pro-ultra-checkout-enhanced',
+            PRO_ULTRA_AI_URI . 'assets/js/checkout-enhanced.js',
+            array( 'pro-ultra-main' ),
+            PRO_ULTRA_AI_VERSION,
+            true
+        );
+
         foreach ( self::get_layout_handles() as $key => $asset ) {
             wp_register_style(
                 'pro-ultra-layout-' . $key,
@@ -44,6 +58,14 @@ class Assets {
         if ( isset( $layouts[ $layout_settings['layout'] ] ) ) {
             wp_enqueue_style( 'pro-ultra-layout-' . $layout_settings['layout'] );
             wp_enqueue_script( 'pro-ultra-layout-' . $layout_settings['layout'] );
+        }
+
+        $checkout_settings = Theme_Options::get_checkout_settings();
+        $is_checkout       = function_exists( 'is_checkout' ) ? is_checkout() : false;
+        $is_thankyou       = function_exists( 'is_order_received_page' ) ? is_order_received_page() : false;
+        if ( $is_checkout && ! $is_thankyou && ! empty( $checkout_settings['advanced_ux'] ) ) {
+            wp_enqueue_style( 'pro-ultra-checkout-enhanced' );
+            wp_enqueue_script( 'pro-ultra-checkout-enhanced' );
         }
 
         wp_localize_script(

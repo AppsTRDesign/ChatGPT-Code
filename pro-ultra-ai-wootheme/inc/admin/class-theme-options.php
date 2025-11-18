@@ -502,6 +502,10 @@ class Theme_Options {
                                 <input type="checkbox" name="data[express_note]" value="1" <?php checked( $checkout['express_note'], true ); ?> />
                                 <span><?php esc_html_e( 'Hızlı ödeme notunu göster', 'pro-ultra-ai' ); ?></span>
                             </label>
+                            <label class="pro-ultra-switch">
+                                <input type="checkbox" name="data[advanced_ux]" value="1" <?php checked( $checkout['advanced_ux'], true ); ?> />
+                                <span><?php esc_html_e( 'Gelişmiş Checkout UX paketini etkinleştir', 'pro-ultra-ai' ); ?></span>
+                            </label>
                         </div>
                         <button type="button" class="button button-primary pro-ultra-save" data-section="checkout"><?php esc_html_e( 'Kaydet', 'pro-ultra-ai' ); ?></button>
                     </form>
@@ -788,6 +792,7 @@ class Theme_Options {
             'show_badges'  => true,
             'coupon_bar'   => true,
             'express_note' => true,
+            'advanced_ux'  => true,
         );
         $saved = get_option( self::OPTION_CHECKOUT, array() );
         return wp_parse_args( is_array( $saved ) ? $saved : array(), $defaults );
@@ -913,6 +918,7 @@ class Theme_Options {
             'show_badges'  => ! empty( $value['show_badges'] ),
             'coupon_bar'   => ! empty( $value['coupon_bar'] ),
             'express_note' => ! empty( $value['express_note'] ),
+            'advanced_ux'  => ! empty( $value['advanced_ux'] ),
         );
     }
 
