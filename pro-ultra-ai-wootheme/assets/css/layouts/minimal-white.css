@@ -1,0 +1,190 @@
+/* Minimal White layout */
+body.pro-ultra-layout-minimal-white,
+body.layout-minimal {
+  --layout-surface: #ffffff;
+  --layout-surface-alt: #f3f4f6;
+  --layout-border: #e5e7eb;
+  --layout-text: #111827;
+  --layout-muted: #6b7280;
+  background: var(--layout-surface-alt);
+  color: var(--layout-text);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-header,
+body.layout-minimal .pro-ultra-header {
+  background: var(--layout-surface);
+  border: 1px solid var(--layout-border);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.04);
+  padding: 18px 0;
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-header--elevated,
+body.layout-minimal .pro-ultra-header--elevated {
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.09);
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-header__inner,
+body.layout-minimal .pro-ultra-header__inner {
+  align-items: center;
+  gap: 28px;
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-nav a,
+body.layout-minimal .pro-ultra-nav a {
+  color: var(--layout-text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 500;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-nav a:hover,
+body.layout-minimal .pro-ultra-nav a:hover {
+  background: rgba(15, 124, 255, 0.08);
+  color: var(--pro-ultra-primary);
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-card,
+body.layout-minimal .pro-ultra-card {
+  background: var(--layout-surface);
+  border: 1px solid var(--layout-border);
+  border-radius: 18px;
+  box-shadow: 0 10px 32px rgba(17, 24, 39, 0.06);
+}
+
+body.pro-ultra-layout-minimal-white .woocommerce ul.products li.product,
+body.layout-minimal .woocommerce ul.products li.product {
+  background: var(--layout-surface);
+  border: 1px solid var(--layout-border);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+body.pro-ultra-layout-minimal-white .woocommerce ul.products li.product:hover,
+body.layout-minimal .woocommerce ul.products li.product:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(17, 24, 39, 0.08);
+}
+
+body.pro-ultra-layout-minimal-white .woocommerce ul.products li.product .price,
+body.layout-minimal .woocommerce ul.products li.product .price {
+  color: var(--pro-ultra-secondary);
+  font-weight: 600;
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-mini-cart__panel,
+body.layout-minimal .pro-ultra-mini-cart__panel {
+  background: var(--layout-surface);
+  border-left: 1px solid var(--layout-border);
+  box-shadow: -16px 0 40px rgba(15, 23, 42, 0.08);
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-mini-cart__item,
+body.layout-minimal .pro-ultra-mini-cart__item {
+  border-bottom: 1px solid var(--layout-border);
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-mini-cart__suggestions-title,
+body.layout-minimal .pro-ultra-mini-cart__suggestions-title {
+  font-weight: 600;
+  color: var(--layout-text);
+}
+
+body.pro-ultra-layout-minimal-white .button,
+body.pro-ultra-layout-minimal-white .woocommerce a.button,
+body.layout-minimal .button,
+body.layout-minimal .woocommerce a.button {
+  background: var(--pro-ultra-primary);
+  color: #fff;
+  border-radius: var(--pro-ultra-radius);
+  border: 1px solid transparent;
+  box-shadow: 0 10px 25px rgba(15, 124, 255, 0.28);
+}
+
+body.pro-ultra-layout-minimal-white .button:hover,
+body.pro-ultra-layout-minimal-white .woocommerce a.button:hover,
+body.layout-minimal .button:hover,
+body.layout-minimal .woocommerce a.button:hover {
+  background: linear-gradient(120deg, var(--pro-ultra-primary), var(--pro-ultra-accent));
+}
+
+body.pro-ultra-layout-minimal-white .woocommerce div.product .product_title,
+body.layout-minimal .woocommerce div.product .product_title {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+body.pro-ultra-layout-minimal-white .woocommerce div.product .woocommerce-tabs ul.tabs,
+body.layout-minimal .woocommerce div.product .woocommerce-tabs ul.tabs {
+  border-color: var(--layout-border);
+}
+
+body.pro-ultra-layout-minimal-white .woocommerce div.product .woocommerce-tabs ul.tabs li,
+body.layout-minimal .woocommerce div.product .woocommerce-tabs ul.tabs li {
+  border-color: var(--layout-border);
+  border-radius: 10px 10px 0 0;
+}
+
+body.pro-ultra-layout-minimal-white .woocommerce div.product .woocommerce-tabs ul.tabs li.active,
+body.layout-minimal .woocommerce div.product .woocommerce-tabs ul.tabs li.active {
+  background: var(--layout-surface);
+  border-bottom-color: var(--layout-surface);
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-footer,
+body.layout-minimal .pro-ultra-footer {
+  background: var(--layout-surface);
+  border-top: 1px solid var(--layout-border);
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-slider .swiper-pagination-bullet,
+body.layout-minimal .pro-ultra-slider .swiper-pagination-bullet {
+  background: var(--layout-border);
+}
+
+body.pro-ultra-layout-minimal-white .pro-ultra-slider .swiper-pagination-bullet-active,
+body.layout-minimal .pro-ultra-slider .swiper-pagination-bullet-active {
+  background: var(--pro-ultra-primary);
+}
+
+@media (max-width: 768px) {
+  body.pro-ultra-layout-minimal-white .pro-ultra-header,
+  body.layout-minimal .pro-ultra-header {
+    border-radius: 0;
+  }
+
+  body.pro-ultra-layout-minimal-white .woocommerce ul.products li.product,
+  body.layout-minimal .woocommerce ul.products li.product {
+    padding: 14px;
+  }
+}
+
+body.pro-ultra-layout-minimal-white .button,
+body.pro-ultra-layout-minimal-white .woocommerce a.button,
+body.layout-minimal .button,
+body.layout-minimal .woocommerce a.button {
+  position: relative;
+  overflow: hidden;
+}
+
+.pro-ultra-ripple {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  transform: translate(-50%, -50%) scale(0);
+  animation: proUltraRipple 0.5s ease;
+  pointer-events: none;
+}
+
+@keyframes proUltraRipple {
+  to {
+    transform: translate(-50%, -50%) scale(2.6);
+    opacity: 0;
+  }
+}

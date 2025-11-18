@@ -625,6 +625,17 @@ class Theme_Options {
         $layout   = self::get_layout_settings();
         $general  = self::get_general_settings();
         $classes[] = 'pro-ultra-layout-' . sanitize_html_class( $layout['layout'] );
+        $map = array(
+            'minimal-white'   => 'layout-minimal',
+            'dark-future'     => 'layout-dark',
+            'gradient-modern' => 'layout-gradient',
+            'classic-shop'    => 'layout-classic',
+            'luxury-gold'     => 'layout-luxury',
+        );
+        if ( isset( $map[ $layout['layout'] ] ) ) {
+            $classes[] = sanitize_html_class( $map[ $layout['layout'] ] );
+            $classes[] = 'layout-' . sanitize_html_class( $layout['layout'] );
+        }
         $classes[] = 'pro-ultra-container-' . sanitize_html_class( $general['container'] );
         return $classes;
     }
