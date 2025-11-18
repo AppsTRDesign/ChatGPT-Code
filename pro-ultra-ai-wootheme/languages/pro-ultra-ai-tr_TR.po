@@ -1,0 +1,336 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Pro Ultra AI WooTheme\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: tr_TR\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Pro Ultra Ayarları"
+msgstr "Pro Ultra Ayarları"
+
+msgid "Genel Ayarlar"
+msgstr "Genel Ayarlar"
+
+msgid "Tasarım & Layout"
+msgstr "Tasarım & Layout"
+
+msgid "Renk Ayarları"
+msgstr "Renk Ayarları"
+
+msgid "Logo & Favicon"
+msgstr "Logo & Favicon"
+
+msgid "AI Ayarları"
+msgstr "AI Ayarları"
+
+msgid "Ana Sayfa Blok Yönetimi"
+msgstr "Ana Sayfa Blok Yönetimi"
+
+msgid "Arşiv Ayarları"
+msgstr "Arşiv Ayarları"
+
+msgid "Ürün Sayfası Ayarları"
+msgstr "Ürün Sayfası Ayarları"
+
+msgid "Checkout Ayarları"
+msgstr "Checkout Ayarları"
+
+msgid "Çeviri Yönetimi (TR/EN)"
+msgstr "Çeviri Yönetimi (TR/EN)"
+
+msgid "Site genişliği (px)"
+msgstr "Site genişliği (px)"
+
+msgid "Container tipi"
+msgstr "Container tipi"
+
+msgid "Kutu"
+msgstr "Kutu"
+
+msgid "Tam genişlik"
+msgstr "Tam genişlik"
+
+msgid "AJAX-first mimariyi etkinleştir"
+msgstr "AJAX-first mimariyi etkinleştir"
+
+msgid "Lazy load medya"
+msgstr "Lazy load medya"
+
+msgid "Toast bildirimlerini etkinleştir"
+msgstr "Toast bildirimlerini etkinleştir"
+
+msgid "Layout Seçimi"
+msgstr "Layout Seçimi"
+
+msgid "Layout CSS/JS dosyalarını önceden yükle"
+msgstr "Layout CSS/JS dosyalarını önceden yükle"
+
+msgid "Primary Renk"
+msgstr "Primary Renk"
+
+msgid "Secondary Renk"
+msgstr "Secondary Renk"
+
+msgid "Accent Renk"
+msgstr "Accent Renk"
+
+msgid "Arka Plan Rengi"
+msgstr "Arka Plan Rengi"
+
+msgid "Buton Radius"
+msgstr "Buton Radius"
+
+msgid "Logo yükle"
+msgstr "Logo yükle"
+
+msgid "Koyu Logo"
+msgstr "Koyu Logo"
+
+msgid "Favicon"
+msgstr "Favicon"
+
+msgid "Logo genişliği"
+msgstr "Logo genişliği"
+
+msgid "API Sağlayıcı"
+msgstr "API Sağlayıcı"
+
+msgid "Model"
+msgstr "Model"
+
+msgid "ChatGPT API anahtarı"
+msgstr "ChatGPT API anahtarı"
+
+msgid "DeepSeek API anahtarı"
+msgstr "DeepSeek API anahtarı"
+
+msgid "Temperature"
+msgstr "Temperature"
+
+msgid "Maksimum Tokens"
+msgstr "Maksimum Tokens"
+
+msgid "Aktif Modüller"
+msgstr "Aktif Modüller"
+
+msgid "AI ürün yazarı"
+msgstr "AI ürün yazarı"
+
+msgid "AI görsel işleme"
+msgstr "AI görsel işleme"
+
+msgid "AI satış asistanı"
+msgstr "AI satış asistanı"
+
+msgid "AI sorgu motoru"
+msgstr "AI sorgu motoru"
+
+msgid "AI raporlama"
+msgstr "AI raporlama"
+
+msgid "Aktif bloklar"
+msgstr "Aktif bloklar"
+
+msgid "Slider"
+msgstr "Slider"
+
+msgid "AI önerilen ürünler"
+msgstr "AI önerilen ürünler"
+
+msgid "Çok satanlar"
+msgstr "Çok satanlar"
+
+msgid "İndirimdekiler"
+msgstr "İndirimdekiler"
+
+msgid "En çok favori"
+msgstr "En çok favori"
+
+msgid "En çok beğenilen"
+msgstr "En çok beğenilen"
+
+msgid "En çok ziyaret edilen"
+msgstr "En çok ziyaret edilen"
+
+msgid "Kampanya alanı"
+msgstr "Kampanya alanı"
+
+msgid "Sayfa başına ürün"
+msgstr "Sayfa başına ürün"
+
+msgid "Fiyat filtresi"
+msgstr "Fiyat filtresi"
+
+msgid "Kategori filtresi"
+msgstr "Kategori filtresi"
+
+msgid "Varyasyon filtresi"
+msgstr "Varyasyon filtresi"
+
+msgid "Grid / List görünüm"
+msgstr "Grid / List görünüm"
+
+msgid "Tek ürün AI panelleri"
+msgstr "Tek ürün AI panelleri"
+
+msgid "Favori / Beğeni göster"
+msgstr "Favori / Beğeni göster"
+
+msgid "Rozetleri göster"
+msgstr "Rozetleri göster"
+
+msgid "Sticky sepet"
+msgstr "Sticky sepet"
+
+msgid "Ödeme rozetleri"
+msgstr "Ödeme rozetleri"
+
+msgid "Kupon barı"
+msgstr "Kupon barı"
+
+msgid "Hızlı ödeme notunu göster"
+msgstr "Hızlı ödeme notunu göster"
+
+msgid "Dil Seçimi"
+msgstr "Dil Seçimi"
+
+msgid "JSON veya PO/MO yükle"
+msgstr "JSON veya PO/MO yükle"
+
+msgid "Inline çeviri JSON"
+msgstr "Inline çeviri JSON"
+
+msgid "Inline çeviri editörü"
+msgstr "Inline çeviri editörü"
+
+msgid "Anahtar"
+msgstr "Anahtar"
+
+msgid "TR"
+msgstr "TR"
+
+msgid "EN"
+msgstr "EN"
+
+msgid "JSON olarak indir"
+msgstr "JSON olarak indir"
+
+msgid "Kaydet"
+msgstr "Kaydet"
+
+msgid "Add to cart"
+msgstr "Sepete ekle"
+
+msgid "Added"
+msgstr "Eklendi"
+
+msgid "Removed"
+msgstr "Kaldırıldı"
+
+msgid "Success"
+msgstr "Başarılı"
+
+msgid "Error"
+msgstr "Hata"
+
+msgid "Deleted"
+msgstr "Silindi"
+
+msgid "Please enter a coupon code."
+msgstr "Lütfen kupon kodu girin."
+
+msgid "Processing..."
+msgstr "İşleniyor..."
+
+msgid "AI is generating content..."
+msgstr "AI içerik üretiyor..."
+
+msgid "AI content generated"
+msgstr "AI içerik hazırlandı"
+
+msgid "Wishlist"
+msgstr "İstek listesi"
+
+msgid "Favorites"
+msgstr "Favoriler"
+
+msgid "Likes"
+msgstr "Beğeniler"
+
+msgid "View more"
+msgstr "Daha fazlası"
+
+msgid "Load more"
+msgstr "Daha fazla yükle"
+
+msgid "Compare"
+msgstr "Karşılaştır"
+
+msgid "Checkout"
+msgstr "Ödeme"
+
+msgid "Settings saved"
+msgstr "Ayarlar kaydedildi"
+
+msgid "Save failed"
+msgstr "Kaydetme başarısız"
+
+msgid "Language updated"
+msgstr "Dil güncellendi"
+
+msgid "Invalid translation file."
+msgstr "Geçersiz çeviri dosyası."
+
+msgid "Translation uploaded."
+msgstr "Çeviri dosyası yüklendi."
+
+msgid "Inline translations saved."
+msgstr "Inline çeviriler kaydedildi."
+
+msgid "AI Assistant"
+msgstr "AI Asistanı"
+
+msgid "Start chat"
+msgstr "Sohbeti başlat"
+
+msgid "Send message"
+msgstr "Mesaj gönder"
+
+msgid "Search products..."
+msgstr "Ürün ara..."
+
+msgid "Filter"
+msgstr "Filtrele"
+
+msgid "Apply"
+msgstr "Uygula"
+
+msgid "Reset"
+msgstr "Sıfırla"
+
+msgid "AI Cross-sell"
+msgstr "AI çapraz satış"
+
+msgid "Report ready"
+msgstr "Rapor hazır"
+
+msgid "Report failed"
+msgstr "Rapor başarısız"
+
+msgid "Processing image..."
+msgstr "Görsel işleniyor..."
+
+msgid "Image processed"
+msgstr "Görsel işlendi"
+
+msgid "Image process failed"
+msgstr "Görsel işleme başarısız"
+
+msgid "Setup Wizard"
+msgstr "Kurulum Sihirbazı"
+
+msgid "Başlat"
+msgstr "Başlat"
+
+msgid "Sihirbazı tamamladınız"
+msgstr "Sihirbazı tamamladınız"
