@@ -373,3 +373,12 @@ msgstr "Would you like me to assist you?"
 
 msgid "Merhaba! Alışverişte size rehberlik edebilirim."
 msgstr "Hello! I can guide you while shopping."
+
+msgid "Satış Trendleri"
+msgstr "Sales Trends"
+
+msgid "Kategori Payları"
+msgstr "Category Share"
+
+msgid "İlk 5 Ürün"
+msgstr "Top 5 Products"

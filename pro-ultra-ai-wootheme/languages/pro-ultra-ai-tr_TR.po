@@ -373,3 +373,12 @@ msgstr "Size yardımcı olmamı ister misiniz?"
 
 msgid "Merhaba! Alışverişte size rehberlik edebilirim."
 msgstr "Merhaba! Alışverişte size rehberlik edebilirim."
+
+msgid "Satış Trendleri"
+msgstr "Satış Trendleri"
+
+msgid "Kategori Payları"
+msgstr "Kategori Payları"
+
+msgid "İlk 5 Ürün"
+msgstr "İlk 5 Ürün"

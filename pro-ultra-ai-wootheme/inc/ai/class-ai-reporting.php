@@ -90,21 +90,26 @@ if ( 'toplevel_page_pro-ultra-ai-reports' !== $hook ) {
 return;
 }
 
-wp_localize_script( 'pro-ultra-main', 'proUltraAIReports', array(
-'nonce'       => wp_create_nonce( 'pro-ultra-ai' ),
-'generate'    => 'pro_ultra_ai_generate_report',
-'delete'      => 'pro_ultra_ai_delete_report',
-'fetch'       => 'pro_ultra_ai_get_report',
-'downloadUrl' => admin_url( 'admin-post.php' ),
-'reports'     => self::get_reports(),
-'labels'      => array(
-'creating' => __( 'AI raporu oluşturuluyor...', 'pro-ultra-ai' ),
-'success'  => __( 'Rapor oluşturuldu.', 'pro-ultra-ai' ),
-'error'    => __( 'Rapor oluşturulamadı.', 'pro-ultra-ai' ),
-'noData'   => __( 'Veri bulunamadı.', 'pro-ultra-ai' ),
-),
-) );
-}
+        wp_localize_script( 'pro-ultra-main', 'proUltraAIReports', array(
+            'nonce'       => wp_create_nonce( 'pro-ultra-ai' ),
+            'generate'    => 'pro_ultra_ai_generate_report',
+            'delete'      => 'pro_ultra_ai_delete_report',
+            'fetch'       => 'pro_ultra_ai_get_report',
+            'downloadUrl' => admin_url( 'admin-post.php' ),
+            'reports'     => self::get_reports(),
+            'labels'      => array(
+                'creating' => __( 'AI raporu oluşturuluyor...', 'pro-ultra-ai' ),
+                'success'  => __( 'Rapor oluşturuldu.', 'pro-ultra-ai' ),
+                'error'    => __( 'Rapor oluşturulamadı.', 'pro-ultra-ai' ),
+                'noData'   => __( 'Veri bulunamadı.', 'pro-ultra-ai' ),
+                'charts'   => array(
+                    'trends'     => __( 'Satış Trendleri', 'pro-ultra-ai' ),
+                    'categories' => __( 'Kategori Payları', 'pro-ultra-ai' ),
+                    'products'   => __( 'İlk 5 Ürün', 'pro-ultra-ai' ),
+                ),
+            ),
+        ) );
+    }
 
 /**
  * AJAX: rapor oluştur.
@@ -231,12 +236,14 @@ $query  = new \WC_Order_Query( array(
 ) );
 $orders = $query->get_orders();
 
-$total_revenue  = 0;
-$total_orders   = 0;
-$product_sales  = array();
-$product_rev    = array();
-$category_count = array();
-$cancelled      = 0;
+        $total_revenue  = 0;
+        $total_orders   = 0;
+        $product_sales  = array();
+        $product_rev    = array();
+        $category_count = array();
+        $cancelled      = 0;
+        $daily_orders   = array();
+        $daily_revenue  = array();
 
 foreach ( $orders as $order ) {
 $total_orders++;
@@ -249,18 +256,25 @@ $qty       = (int) $item->get_quantity();
 $line_total = (float) $item->get_total();
 
 $product_sales[ $product_id ] = isset( $product_sales[ $product_id ] ) ? $product_sales[ $product_id ] + $qty : $qty;
-$product_rev[ $product_id ]   = isset( $product_rev[ $product_id ] ) ? $product_rev[ $product_id ] + $line_total : $line_total;
+                $product_rev[ $product_id ]   = isset( $product_rev[ $product_id ] ) ? $product_rev[ $product_id ] + $line_total : $line_total;
 
-if ( $product ) {
-$terms = get_the_terms( $product->get_id(), 'product_cat' );
-if ( $terms && ! is_wp_error( $terms ) ) {
-foreach ( $terms as $term ) {
-$category_count[ $term->term_id ] = isset( $category_count[ $term->term_id ] ) ? $category_count[ $term->term_id ] + $qty : $qty;
-}
-}
-}
-}
-}
+                if ( $product ) {
+                    $terms = get_the_terms( $product->get_id(), 'product_cat' );
+                    if ( $terms && ! is_wp_error( $terms ) ) {
+                        foreach ( $terms as $term ) {
+                            $category_count[ $term->term_id ] = isset( $category_count[ $term->term_id ] ) ? $category_count[ $term->term_id ] + $qty : $qty;
+                        }
+                    }
+                }
+
+                $created = $order->get_date_created();
+                if ( $created ) {
+                    $key = $created->date( 'Y-m-d' );
+                    $daily_orders[ $key ]  = isset( $daily_orders[ $key ] ) ? $daily_orders[ $key ] + 1 : 1;
+                    $daily_revenue[ $key ] = isset( $daily_revenue[ $key ] ) ? $daily_revenue[ $key ] + $line_total : $line_total;
+                }
+            }
+        }
 
 $cancel_query = new \WC_Order_Query( array(
 'limit'        => -1,
@@ -269,21 +283,48 @@ $cancel_query = new \WC_Order_Query( array(
 ) );
 $cancelled = count( $cancel_query->get_orders() );
 
-$top_products = self::build_top_products( $product_sales, $product_rev );
-$top_categories = self::build_top_categories( $category_count );
-$favorites = self::collect_favorites();
+        $top_products = self::build_top_products( $product_sales, $product_rev );
+        $top_categories = self::build_top_categories( $category_count );
+        $favorites = self::collect_favorites();
+        $daily     = self::normalize_daily_series( $daily_orders, $daily_revenue, $range_days );
 
-return array(
-'period_days'          => $range_days,
-'total_orders'         => $total_orders,
-'total_revenue'        => wc_price( $total_revenue ),
-'cancelled_orders'     => $cancelled,
-'top_products'         => $top_products,
-'top_categories'       => $top_categories,
-'most_favorited'       => $favorites,
-'abandoned_cart_ratio' => self::estimate_abandon_rate( $total_orders, $cancelled ),
-);
-}
+        return array(
+            'period_days'          => $range_days,
+            'total_orders'         => $total_orders,
+            'total_revenue'        => wc_price( $total_revenue ),
+            'total_revenue_raw'    => (float) $total_revenue,
+            'cancelled_orders'     => $cancelled,
+            'top_products'         => $top_products,
+            'top_categories'       => $top_categories,
+            'most_favorited'       => $favorites,
+            'abandoned_cart_ratio' => self::estimate_abandon_rate( $total_orders, $cancelled ),
+            'daily_labels'         => $daily['labels'],
+            'daily_orders'         => $daily['orders'],
+            'daily_revenue'        => $daily['revenue'],
+        );
+    }
+
+    /**
+     * Normalize daily data across the selected range.
+     */
+    protected static function normalize_daily_series( $orders, $revenue, $range_days ) {
+        $labels  = array();
+        $ordersv = array();
+        $rev     = array();
+
+        for ( $i = $range_days - 1; $i >= 0; $i-- ) {
+            $key       = gmdate( 'Y-m-d', strtotime( "-{$i} days" ) );
+            $labels[]  = date_i18n( 'M j', strtotime( $key ) );
+            $ordersv[] = isset( $orders[ $key ] ) ? (int) $orders[ $key ] : 0;
+            $rev[]     = isset( $revenue[ $key ] ) ? round( (float) $revenue[ $key ], 2 ) : 0;
+        }
+
+        return array(
+            'labels'  => $labels,
+            'orders'  => $ordersv,
+            'revenue' => $rev,
+        );
+    }
 
 /**
  * En çok satan ürün listesi.
@@ -593,6 +634,13 @@ foreach ( $report['stats']['top_products'] as $product ) {
 $lines[] = sprintf( '- %1$s (%2$s adet)', wp_strip_all_tags( $product['name'] ), (int) $product['quantity'] );
 }
 
+if ( ! empty( $report['stats']['top_categories'] ) ) {
+$lines[] = __( 'En Çok Satan Kategoriler:', 'pro-ultra-ai' );
+foreach ( $report['stats']['top_categories'] as $cat ) {
+$lines[] = sprintf( '- %1$s (%2$s adet)', wp_strip_all_tags( $cat['name'] ), (int) $cat['quantity'] );
+}
+}
+
 return implode( "\n", $lines );
 }
 
@@ -601,13 +649,14 @@ return implode( "\n", $lines );
  */
 protected static function render_simple_pdf( $title, $text ) {
 $title = wp_strip_all_tags( $title );
-$text  = str_replace( array( '\r', '\n' ), array( '', "\n" ), wp_strip_all_tags( $text ) );
+$text  = str_replace( array( "\r", "\n" ), array( '', "\n" ), wp_strip_all_tags( $text ) );
 
 $lines  = explode( "\n", $text );
-$stream = "BT /F1 12 Tf 72 760 Td (" . self::escape_pdf_text( $title ) . ") Tj\n";
+$stream = "BT /F1 12 Tf\n";
+$stream .= "1 0 0 1 72 760 Tm (" . self::escape_pdf_text( $title ) . ") Tj\n";
 $y      = 740;
 foreach ( $lines as $line ) {
-$stream .= "72 {$y} Td (" . self::escape_pdf_text( $line ) . ") Tj\n";
+$stream .= "1 0 0 1 72 {$y} Tm (" . self::escape_pdf_text( $line ) . ") Tj\n";
 $y      -= 16;
 if ( $y < 40 ) {
 break; // basit sayfa sınırı

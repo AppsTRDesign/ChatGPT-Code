@@ -460,10 +460,91 @@ aiButton.textContent = original;
    tableBody.prepend(tr);
   };
 
+  const charts = [];
+  const chartLabels = (proUltraAIReports.labels && proUltraAIReports.labels.charts) || {};
+  const renderCharts = ({stats, topProducts, topCategories}) => {
+    if(typeof Chart === 'undefined'){ return; }
+    while(charts.length){ const chart = charts.pop(); if(chart && chart.destroy){ chart.destroy(); } }
+    const dailyEl = detailBox.querySelector('[data-report-chart="daily"]');
+    const catEl = detailBox.querySelector('[data-report-chart="categories"]');
+    const prodEl = detailBox.querySelector('[data-report-chart="products"]');
+
+    if(dailyEl && stats.daily_labels && stats.daily_orders){
+      const ctx = dailyEl.getContext('2d');
+      charts.push(new Chart(ctx, {
+        type:'line',
+        data:{
+          labels: stats.daily_labels,
+          datasets:[{
+            label: 'Sipariş',
+            data: stats.daily_orders,
+            borderColor: '#6C63FF',
+            backgroundColor: 'rgba(108,99,255,0.15)',
+            tension:0.35,
+            fill:true,
+            pointRadius:4
+          },{
+            label: 'Gelir',
+            data: stats.daily_revenue || [],
+            borderColor: '#12B886',
+            backgroundColor: 'rgba(18,184,134,0.18)',
+            tension:0.35,
+            fill:true,
+            pointRadius:3,
+            yAxisID: 'y1'
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          scales:{
+            y:{ beginAtZero:true },
+            y1:{ beginAtZero:true, position:'right', grid:{ drawOnChartArea:false } }
+          },
+          plugins:{ legend:{ display:true } }
+        }
+      }));
+    }
+
+    if(catEl && Array.isArray(topCategories) && topCategories.length){
+      const ctx = catEl.getContext('2d');
+      charts.push(new Chart(ctx, {
+        type:'doughnut',
+        data:{
+          labels: topCategories.map(item=>item.name),
+          datasets:[{
+            data: topCategories.map(item=>item.quantity),
+            backgroundColor:['#6C63FF','#12B886','#FF7E67','#FFCA3A','#3298DC'],
+            borderWidth:0
+          }]
+        },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
+      }));
+    }
+
+    if(prodEl && Array.isArray(topProducts) && topProducts.length){
+      const ctx = prodEl.getContext('2d');
+      charts.push(new Chart(ctx, {
+        type:'bar',
+        data:{
+          labels: topProducts.map(item=>item.name),
+          datasets:[{
+            label: 'Adet',
+            data: topProducts.map(item=>item.quantity),
+            backgroundColor:'#3298DC'
+          }]
+        },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true } } }
+      }));
+    }
+  };
+
   const renderDetail = (report) => {
    if(!detailBox){ return; }
    const ai = report.ai || {};
    const stats = report.stats || {};
+   const topProducts = Array.isArray(stats.top_products) ? stats.top_products : [];
+   const topCategories = Array.isArray(stats.top_categories) ? stats.top_categories : [];
    detailBox.innerHTML = `
     <h2>${report.title}</h2>
     <p><strong>Genel Özet:</strong> ${ai.genel_ozet || ''}</p>
@@ -486,8 +567,23 @@ aiButton.textContent = original;
       </div>
     </div>
     <p><strong>Toplam Sipariş:</strong> ${stats.total_orders || 0} | <strong>Toplam Gelir:</strong> ${stats.total_revenue || ''} | <strong>İptal/terk:</strong> ${stats.abandoned_cart_ratio || ''}</p>
+    <div class="pro-ultra-report-charts">
+      <div class="pro-ultra-report-card">
+        <h3>${chartLabels.trends || 'Satış Trendleri'}</h3>
+        <canvas data-report-chart="daily"></canvas>
+      </div>
+      <div class="pro-ultra-report-card">
+        <h3>${chartLabels.categories || 'Kategori Payları'}</h3>
+        <canvas data-report-chart="categories"></canvas>
+      </div>
+      <div class="pro-ultra-report-card">
+        <h3>${chartLabels.products || 'İlk 5 Ürün'}</h3>
+        <canvas data-report-chart="products"></canvas>
+      </div>
+    </div>
    `;
    detailBox.style.display = 'block';
+   renderCharts({stats, topProducts, topCategories});
   };
 
   const toggleLoading = (state) => {
@@ -826,9 +922,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if(removeBtn){ event.preventDefault(); handleRemove(removeBtn.getAttribute('data-cart-remove')); }
 
   const addBtn = event.target.closest('.add_to_cart_button');
-  if(addBtn && addBtn.dataset.product_id){
+  if(addBtn){
    event.preventDefault();
-   handleAddToCart(addBtn.dataset.product_id, addBtn.dataset.quantity || 1);
+   const productId = addBtn.getAttribute('data-product_id') || addBtn.dataset.productId || addBtn.dataset.product_id;
+   const qty = addBtn.getAttribute('data-quantity') || addBtn.dataset.quantity || 1;
+   if(!productId){ toastMsg(proUltraCart.labels.error); return; }
+   handleAddToCart(productId, qty);
   }
  });
 

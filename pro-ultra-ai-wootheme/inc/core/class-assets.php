@@ -19,6 +19,7 @@ class Assets {
         $admin_style      = $debug ? 'assets/css/admin.css' : 'assets/dist/css/admin.min.css';
         $setup_style      = $debug ? 'assets/css/setup-wizard.css' : 'assets/dist/css/setup-wizard.min.css';
         $setup_script     = $debug ? 'assets/js/setup-wizard.js' : 'assets/dist/js/setup-wizard.min.js';
+        $chart_script     = $debug ? 'assets/js/chart-lite.js' : 'assets/dist/js/chart-lite.min.js';
 
         wp_register_style( 'pro-ultra-main', PRO_ULTRA_AI_URI . $main_style, array(), PRO_ULTRA_AI_VERSION );
         wp_register_script( 'pro-ultra-main', PRO_ULTRA_AI_URI . $main_script, array( 'jquery' ), PRO_ULTRA_AI_VERSION, true );
@@ -26,6 +27,7 @@ class Assets {
         wp_register_style( 'pro-ultra-admin', PRO_ULTRA_AI_URI . $admin_style, array( 'pro-ultra-main' ), PRO_ULTRA_AI_VERSION );
         wp_register_style( 'pro-ultra-setup', PRO_ULTRA_AI_URI . $setup_style, array( 'pro-ultra-main' ), PRO_ULTRA_AI_VERSION );
         wp_register_script( 'pro-ultra-setup', PRO_ULTRA_AI_URI . $setup_script, array( 'pro-ultra-main' ), PRO_ULTRA_AI_VERSION, true );
+        wp_register_script( 'pro-ultra-chart', PRO_ULTRA_AI_URI . $chart_script, array(), PRO_ULTRA_AI_VERSION, true );
 
         wp_register_style(
             'pro-ultra-checkout-enhanced',
@@ -99,15 +101,20 @@ class Assets {
      * Enqueue base assets in admin for shared UI pieces.
      */
     public static function enqueue_admin() {
+        $page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $is_report_page = 'pro-ultra-ai-reports' === $page;
+
         wp_enqueue_style( 'pro-ultra-main' );
         wp_enqueue_style( 'pro-ultra-admin' );
+        if ( $is_report_page ) {
+            wp_enqueue_script( 'pro-ultra-chart' );
+        }
         wp_enqueue_script( 'pro-ultra-main' );
         wp_localize_script( 'pro-ultra-main', 'proUltraAI', array(
             'ajaxUrl' => admin_url( 'admin-ajax.php' ),
             'nonce'   => wp_create_nonce( 'pro-ultra-ai' ),
         ) );
 
-        $page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         if ( 'pro-ultra-setup' === $page ) {
             wp_enqueue_style( 'pro-ultra-setup' );
             wp_enqueue_script( 'pro-ultra-setup' );

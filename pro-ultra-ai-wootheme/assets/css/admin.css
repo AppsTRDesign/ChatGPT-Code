@@ -72,3 +72,8 @@
 .pro-ultra-translation-table th{background:#f8fafc;text-align:left;font-weight:700;}
 .pro-ultra-translation-table input{width:100%;}
 .pro-ultra-export{margin-top:10px;}
+
+.pro-ultra-report-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px}
+.pro-ultra-report-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,0.04)}
+.pro-ultra-report-card h3{margin-top:0;margin-bottom:12px;font-size:14px;font-weight:600;color:#111}
+.pro-ultra-report-card canvas{width:100%;height:220px;display:block}
