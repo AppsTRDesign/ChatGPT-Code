@@ -22,6 +22,13 @@ class Language_Helper {
     protected static $base_strings;
 
     /**
+     * Guard flag to avoid recursive gettext lookups.
+     *
+     * @var bool
+     */
+    protected static $is_processing = false;
+
+    /**
      * Bootstrap hooks.
      *
      * @return void
@@ -86,21 +93,27 @@ class Language_Helper {
      * @return string
      */
     public static function filter_gettext( $translation, $text, $domain ) {
-        if ( 'noasoft-ai-woocommerce' !== $domain ) {
+        if ( 'noasoft-ai-woocommerce' !== $domain || self::$is_processing ) {
             return $translation;
         }
 
-        $locale = self::get_active_locale();
-        if ( ! self::is_supported_locale( $locale ) ) {
+        self::$is_processing = true;
+
+        try {
+            $locale = self::get_active_locale();
+            if ( ! self::is_supported_locale( $locale ) ) {
+                return $translation;
+            }
+
+            $overrides = self::get_overrides( $locale );
+            if ( isset( $overrides[ $text ] ) && '' !== $overrides[ $text ] ) {
+                return $overrides[ $text ];
+            }
+
             return $translation;
+        } finally {
+            self::$is_processing = false;
         }
-
-        $overrides = self::get_overrides( $locale );
-        if ( isset( $overrides[ $text ] ) && '' !== $overrides[ $text ] ) {
-            return $overrides[ $text ];
-        }
-
-        return $translation;
     }
 
     /**
