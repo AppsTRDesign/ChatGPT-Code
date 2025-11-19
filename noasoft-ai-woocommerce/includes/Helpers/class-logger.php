@@ -41,6 +41,20 @@ class Logger {
     protected static $last_fatal_signature;
 
     /**
+     * Track recently logged signatures to avoid duplicates.
+     *
+     * @var array
+     */
+    protected static $recent_signatures = array();
+
+    /**
+     * Guard flag to prevent recursive logging loops.
+     *
+     * @var bool
+     */
+    protected static $logging = false;
+
+    /**
      * Boot logger hooks.
      *
      * @return void
@@ -75,6 +89,11 @@ class Logger {
             return;
         }
 
+        // Prevent recursion if logging itself fails.
+        if ( self::$logging ) {
+            return;
+        }
+
         $path = self::prepare_log_file();
 
         if ( ! $path ) {
@@ -87,6 +106,13 @@ class Logger {
             'context' => self::sanitize_context( $context ),
         );
 
+        // De-duplicate identical entries within the same request to avoid log bloat.
+        $signature = md5( wp_json_encode( $entry ) );
+        if ( isset( self::$recent_signatures[ $signature ] ) ) {
+            return;
+        }
+        self::$recent_signatures[ $signature ] = true;
+
         $encoded = function_exists( 'wp_json_encode' ) ? wp_json_encode( $entry ) : json_encode( $entry );
         if ( ! $encoded ) {
             $encoded = json_encode( array( 'time' => $entry['time'], 'message' => 'log_encode_failure' ) );
@@ -95,9 +121,12 @@ class Logger {
         $line = $encoded . PHP_EOL;
 
         try {
+            self::$logging = true;
             file_put_contents( $path, $line, FILE_APPEND | LOCK_EX );
         } catch ( \Throwable $e ) {
             error_log( 'NoaSoft AI Woo log write failed: ' . $e->getMessage() );
+        } finally {
+            self::$logging = false;
         }
     }
 

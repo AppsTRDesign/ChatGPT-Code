@@ -58,8 +58,8 @@ class Class_Autoloader {
      * @return string
      */
     protected static function class_to_slug( $class ) {
+        // Keep acronyms (e.g. ChatGPT) intact by avoiding per-letter splitting.
         $slug = str_replace( '_', '-', $class );
-        $slug = preg_replace( '/([a-z\d])([A-Z])/', '$1-$2', $slug );
         $slug = strtolower( $slug );
         $slug = preg_replace( '/-+/', '-', $slug );
 
