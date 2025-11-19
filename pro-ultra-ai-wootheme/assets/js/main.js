@@ -75,11 +75,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const list = document.querySelector('[data-archive-list]');
   const pagination = document.querySelector('[data-archive-pagination]');
   const loading = document.querySelector('[data-archive-loading]');
+  const aside = document.querySelector('[data-archive-aside]');
+  const openFilter = document.querySelector('[data-filter-open]');
+  const closeFilter = document.querySelector('[data-filter-close]');
   if(!form || !list){ return; }
 
   const viewButtons = form.querySelectorAll('[data-view]');
   const viewInput = form.querySelector('input[name="view"]');
-  const attributeSelect = form.querySelector('#pro-ultra-attribute');
+  const filterSections = form.querySelectorAll('[data-filter-section]');
+  const searchInputs = form.querySelectorAll('[data-filter-search]');
 
   function setView(view){
    const safeView = view === 'list' ? 'list' : 'grid';
@@ -111,12 +115,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   function submitFilters(page){
    const data = new FormData(form);
-   if(attributeSelect){
-    const opt = attributeSelect.selectedOptions[0];
-    if(opt && opt.dataset.taxonomy){
-     data.append('attribute_tax', opt.dataset.taxonomy);
-    }
-   }
    if(page){ data.set('page', page); }
    setLoading(true);
    fetch(proUltraArchive.ajaxUrl, {method:'POST', body:data})
@@ -142,6 +140,48 @@ document.addEventListener('DOMContentLoaded', ()=>{
    }
   });
 
+  if(filterSections.length){
+    filterSections.forEach(section=>{
+      const toggle = section.querySelector('.pro-ultra-filter__toggle');
+      const content = section.querySelector('[data-filter-content]');
+      if(toggle && content){
+        toggle.addEventListener('click', ()=>{
+          const expanded = toggle.getAttribute('aria-expanded') === 'true';
+          toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+          section.classList.toggle('is-open', !expanded);
+          content.style.maxHeight = expanded ? '' : content.scrollHeight + 'px';
+        });
+      }
+    });
+  }
+
+  if(searchInputs.length){
+    searchInputs.forEach(input=>{
+      input.addEventListener('input', ()=>{
+        const term = input.value.toLowerCase();
+        const type = input.getAttribute('data-filter-search');
+        const items = form.querySelectorAll(`[data-filter-item="${type}"]`);
+        items.forEach(item=>{
+          const label = item.getAttribute('data-label') || '';
+          item.style.display = label.indexOf(term) !== -1 ? '' : 'none';
+        });
+      });
+    });
+  }
+
+  if(openFilter && aside){
+    const close = closeFilter;
+    const toggleMobile = (state)=>{
+      aside.classList.toggle('is-open', state);
+      document.body.classList.toggle('pro-ultra-filter-open', state);
+    };
+    openFilter.addEventListener('click', ()=>toggleMobile(true));
+    if(close){ close.addEventListener('click', ()=>toggleMobile(false)); }
+    aside.addEventListener('click',(e)=>{
+      if(e.target === aside){ toggleMobile(false); }
+    });
+  }
+
   if(pagination){
    pagination.addEventListener('click', (event)=>{
     const link = event.target.closest('a');
@@ -163,6 +203,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const presetView = proUltraArchive.view || 'grid';
   setView(presetView);
  });
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const header = document.querySelector('.pro-ultra-header');
+  const navToggle = document.querySelector('[data-mobile-nav]');
+  const navOverlay = document.querySelector('[data-nav-overlay]');
+  const navClose = document.querySelector('[data-nav-close]');
+  if(navToggle && navOverlay){
+    const toggleNav = (state)=>{
+      navOverlay.classList.toggle('is-open', state);
+      document.body.classList.toggle('pro-ultra-nav-open', state);
+    };
+    navToggle.addEventListener('click', ()=>toggleNav(true));
+    if(navClose){ navClose.addEventListener('click', ()=>toggleNav(false)); }
+    navOverlay.addEventListener('click', (e)=>{
+      if(e.target === navOverlay){ toggleNav(false); }
+    });
+  }
+  if(header){
+    let lastScroll = 0;
+    window.addEventListener('scroll', ()=>{
+      const y = window.pageYOffset || 0;
+      if(y > 30 && y > lastScroll){
+        header.classList.add('is-condensed');
+      }else if(y < 10){
+        header.classList.remove('is-condensed');
+      }
+      lastScroll = y;
+    }, {passive:true});
+  }
+});
   document.addEventListener('submit', function(event){
 const form = event.target;
 if(form.matches('.pro-ultra-auth form')){
