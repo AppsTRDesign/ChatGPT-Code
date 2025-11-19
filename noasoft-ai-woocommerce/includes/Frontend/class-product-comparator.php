@@ -358,6 +358,11 @@ class Product_Comparator {
                     'product_two' => $product_two,
                 )
             );
+
+            if ( is_wp_error( $response ) ) {
+                $response = array();
+            }
+
             $data = $this->parse_ai_payload( $response );
         }
 

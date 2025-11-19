@@ -52,10 +52,10 @@
     box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
     border: 1px solid rgba(148, 163, 184, 0.2);
     overflow: hidden;
-    width: 360px;
-    max-width: 90vw;
-    height: min(var(--noasoft-chat-height, 520px), 90vh);
-    max-height: 90vh;
+    width: 390px;
+    max-width: min(390px, calc(100vw - 1.5rem));
+    height: var(--noasoft-chat-height, 520px);
+    max-height: 80vh;
     transform: translateY(1rem) scale(0.98);
     opacity: 0;
     pointer-events: none;
@@ -128,26 +128,90 @@
     color: var(--noasoft-muted);
 }
 
-.noasoft-chat-quick-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-}
-
-.noasoft-chat-quick-actions button {
-    border: 1px solid rgba(148, 163, 184, 0.35);
+.noasoft-chat-action-menu {
+    margin-top: 0.5rem;
     background: rgba(148, 163, 184, 0.08);
-    border-radius: 0.9rem;
-    padding: 0.45rem 0.6rem;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.2s ease, transform 0.2s ease;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 1.25rem;
+    padding: 0.75rem 0.85rem;
 }
 
-.noasoft-chat-quick-actions button:hover {
-    background: rgba(37, 99, 235, 0.08);
+.noasoft-chat-action-toggle {
+    width: 100%;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.noasoft-chat-action-toggle .icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.15);
+    position: relative;
+}
+
+.noasoft-chat-action-toggle .icon::before,
+.noasoft-chat-action-toggle .icon::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 2px;
+    background: var(--chat-primary);
+    transform-origin: center;
+}
+
+.noasoft-chat-action-toggle .icon::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.noasoft-chat-action-toggle .icon::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.noasoft-chat-action-list {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.noasoft-chat-action-menu.is-open .noasoft-chat-action-list {
+    max-height: 260px;
+    opacity: 1;
+}
+
+.noasoft-chat-action-list button {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: #fff;
+    border-radius: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    transition: border 0.2s ease, transform 0.2s ease;
+}
+
+.noasoft-chat-action-list button:hover {
+    border-color: var(--chat-primary);
     transform: translateY(-1px);
+}
+
+.noasoft-chat-action-hint {
+    margin: 0.6rem 0 0;
+    font-size: 0.75rem;
+    color: var(--noasoft-muted);
 }
 
 .noasoft-chat-messages {
@@ -264,6 +328,37 @@
 
 .noasoft-chat-spinner.visible {
     opacity: 1;
+}
+
+.swal2-popup .noasoft-swal-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.swal2-popup .noasoft-swal-group label {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--noasoft-muted);
+}
+
+.swal2-popup .noasoft-swal-group input {
+    margin-top: 0.35rem;
+}
+
+@media (max-width: 640px) {
+    .noasoft-chat-panel {
+        width: calc(100vw - 2rem);
+        max-width: calc(100vw - 2rem);
+        border-radius: 1.25rem;
+    }
+    .noasoft-chat-embed.is-floating {
+        right: 1rem;
+        left: 1rem;
+        bottom: 1rem;
+    }
 }
 
 @keyframes noasoft-spinner {

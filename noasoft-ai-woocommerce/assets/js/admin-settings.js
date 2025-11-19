@@ -6,8 +6,9 @@
             this.$body = $('body');
             this.bindTabs();
             this.activateTab( this.$tabs.first().data('tab') );
-            this.bindChatForm();
-            this.bindMediaForm();
+            this.bindAjaxForms();
+            this.bindProviderTest();
+            this.bindClipboard();
             this.bindModals();
             this.bindRangeFields();
             this.bindAvatarPicker();
@@ -35,79 +36,112 @@
                 NoaSoftAnimator.spring($activeTab.get(0));
             }
         },
-        bindChatForm: function(){
+        bindAjaxForms: function(){
             var self = this;
-            $(document).on('submit', '.noasoft-chat-settings-form', function(e){
+            $(document).on('submit', '.noasoft-ajax-form', function(e){
                 e.preventDefault();
-                self.saveChatSettings( $(this) );
+                self.submitAjaxForm( $(this) );
             });
         },
-        bindMediaForm: function(){
-            var self = this;
-            $(document).on('submit', '.noasoft-media-settings-form', function(e){
-                e.preventDefault();
-                self.saveMediaSettings( $(this) );
-            });
-        },
-        saveChatSettings: function($form){
+        submitAjaxForm: function($form){
             if ( 'undefined' === typeof NoaSoftAiWooAdmin ) {
                 return;
             }
-            var data = $form.serializeArray();
-            data.push({ name: 'action', value: 'noasoft_ai_save_chat_settings' });
-            data.push({ name: 'nonce', value: NoaSoftAiWooAdmin.nonce });
-            $form.find('.spinner').addClass('is-active');
+            var data = $form.serialize();
+            var $spinner = $form.find('.noasoft-form-spinner');
+            var $button = $form.find('button[type="submit"]').last();
+            $spinner.addClass('is-active');
+            $button.prop('disabled', true);
+
             $.post(NoaSoftAiWooAdmin.ajax_url, data)
                 .done(function(response){
+                    var successMessage = $form.data('success') || NoaSoftSettings.getSuccessMessage();
                     if ( response && response.success ) {
-                        if ( window.NoaSoftToast ) {
-                            NoaSoftToast.show(response.data.message, 'success');
-                        }
+                        NoaSoftSettings.toast(response.data && response.data.message ? response.data.message : successMessage, 'success');
                     } else {
                         var message = (response && response.data && response.data.message) ? response.data.message : NoaSoftSettings.getErrorMessage();
-                        if ( window.NoaSoftToast ) {
-                            NoaSoftToast.show(message, 'error');
-                        }
+                        NoaSoftSettings.toast(message, 'error');
                     }
                 })
                 .fail(function(){
-                    if ( window.NoaSoftToast ) {
-                        NoaSoftToast.show(NoaSoftSettings.getErrorMessage(), 'error');
-                    }
+                    NoaSoftSettings.toast(NoaSoftSettings.getErrorMessage(), 'error');
                 })
                 .always(function(){
-                    $form.find('.spinner').removeClass('is-active');
+                    $spinner.removeClass('is-active');
+                    $button.prop('disabled', false);
                 });
         },
-        saveMediaSettings: function($form){
-            if ( 'undefined' === typeof NoaSoftAiWooAdmin ) {
+        bindProviderTest: function(){
+            var self = this;
+            $(document).on('click', '.noasoft-provider-test', function(e){
+                e.preventDefault();
+                var slug = $(this).data('provider');
+                self.runProviderTest( slug, $(this) );
+            });
+        },
+        runProviderTest: function(slug, $button){
+            if ( ! slug || 'undefined' === typeof NoaSoftAiWooAdmin ) {
                 return;
             }
-            var data = $form.serializeArray();
-            data.push({ name: 'action', value: 'noasoft_ai_save_media_settings' });
-            data.push({ name: 'nonce', value: NoaSoftAiWooAdmin.nonce });
-            $form.find('.spinner').addClass('is-active');
-            $.post(NoaSoftAiWooAdmin.ajax_url, data)
+            var payload = {
+                action: 'noasoft_ai_provider_test',
+                provider: slug,
+                nonce: NoaSoftAiWooAdmin.nonce
+            };
+            if ( window.Swal ) {
+                Swal.fire({
+                    title: NoaSoftAiWooAdmin.providerTest ? NoaSoftAiWooAdmin.providerTest.title : 'Test',
+                    text: NoaSoftAiWooAdmin.providerTest ? NoaSoftAiWooAdmin.providerTest.running : 'Bağlantı test ediliyor...',
+                    allowOutsideClick: false,
+                    didOpen: function(){ Swal.showLoading(); }
+                });
+            }
+            $button.prop('disabled', true);
+            $.post(NoaSoftAiWooAdmin.ajax_url, payload)
                 .done(function(response){
-                    if ( response && response.success ) {
-                        if ( window.NoaSoftToast ) {
-                            NoaSoftToast.show(response.data.message, 'success');
-                        }
+                    var message = (response && response.data && response.data.message) ? response.data.message : NoaSoftSettings.getSuccessMessage();
+                    if ( window.Swal ) {
+                        Swal.fire({
+                            icon: response && response.success ? 'success' : 'error',
+                            title: NoaSoftAiWooAdmin.providerTest ? NoaSoftAiWooAdmin.providerTest.title : 'Test',
+                            text: message
+                        });
                     } else {
-                        var message = (response && response.data && response.data.message) ? response.data.message : NoaSoftSettings.getErrorMessage();
-                        if ( window.NoaSoftToast ) {
-                            NoaSoftToast.show(message, 'error');
-                        }
+                        NoaSoftSettings.toast(message, response && response.success ? 'success' : 'error');
                     }
                 })
                 .fail(function(){
-                    if ( window.NoaSoftToast ) {
-                        NoaSoftToast.show(NoaSoftSettings.getErrorMessage(), 'error');
-                    }
+                    NoaSoftSettings.toast(NoaSoftSettings.getErrorMessage(), 'error');
                 })
                 .always(function(){
-                    $form.find('.spinner').removeClass('is-active');
+                    $button.prop('disabled', false);
                 });
+        },
+        bindClipboard: function(){
+            $(document).on('click', '.noasoft-copy', function(){
+                var value = $(this).data('copy');
+                if ( ! value ) {
+                    return;
+                }
+                if ( navigator.clipboard ) {
+                    navigator.clipboard.writeText( value ).then(function(){
+                        NoaSoftSettings.toast(NoaSoftAiWooAdmin.copy ? NoaSoftAiWooAdmin.copy.success : 'Kopyalandı', 'success');
+                    }).catch(function(){
+                        NoaSoftSettings.toast(NoaSoftAiWooAdmin.copy ? NoaSoftAiWooAdmin.copy.error : 'Kopyalanamadı', 'error');
+                    });
+                    return;
+                }
+                var temp = $('<textarea />').css({ position: 'absolute', left: '-9999px' }).val( value );
+                $('body').append( temp );
+                temp.select();
+                try {
+                    document.execCommand('copy');
+                    NoaSoftSettings.toast(NoaSoftAiWooAdmin.copy ? NoaSoftAiWooAdmin.copy.success : 'Kopyalandı', 'success');
+                } catch (err) {
+                    NoaSoftSettings.toast(NoaSoftAiWooAdmin.copy ? NoaSoftAiWooAdmin.copy.error : 'Kopyalanamadı', 'error');
+                }
+                temp.remove();
+            });
         },
         bindModals: function(){
             var self = this;
@@ -181,11 +215,33 @@
                 $(this).prop('disabled', true);
             });
         },
+        toast: function(message, type){
+            if ( window.NoaSoftToast ) {
+                NoaSoftToast.show(message, type);
+                return;
+            }
+            if ( window.Swal ) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    timer: 2500,
+                    showConfirmButton: false,
+                    icon: type === 'error' ? 'error' : 'success',
+                    title: message
+                });
+            }
+        },
         getErrorMessage: function(){
             if ( 'undefined' !== typeof NoaSoftAiWooAdmin && NoaSoftAiWooAdmin.error ) {
                 return NoaSoftAiWooAdmin.error;
             }
             return 'Beklenmedik bir hata oluştu.';
+        },
+        getSuccessMessage: function(){
+            if ( 'undefined' !== typeof NoaSoftAiWooAdmin && NoaSoftAiWooAdmin.success ) {
+                return NoaSoftAiWooAdmin.success;
+            }
+            return 'İşlem tamamlandı.';
         }
     };
 

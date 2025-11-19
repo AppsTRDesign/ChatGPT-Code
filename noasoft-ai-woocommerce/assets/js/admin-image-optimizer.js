@@ -74,9 +74,20 @@
         notify: function(message, type){
             if ( window.NoaSoftToast ) {
                 NoaSoftToast.show(message, type);
-            } else {
-                window.alert(message);
+                return;
             }
+            if ( window.Swal ) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    timer: 2500,
+                    showConfirmButton: false,
+                    icon: type === 'error' ? 'error' : 'success',
+                    title: message
+                });
+                return;
+            }
+            console.log(message);
         }
     };
 

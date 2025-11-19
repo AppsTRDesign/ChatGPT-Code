@@ -170,11 +170,10 @@ class Image_Optimizer {
         }
 
         $endpoint = isset( $this->settings['api_endpoint'] ) ? trim( $this->settings['api_endpoint'] ) : '';
-        if ( empty( $endpoint ) ) {
-            if ( ! copy( $file_path, $temp_file ) ) {
-                return new WP_Error( 'noasoft_ai_copy', __( 'Dosya kopyalanamadı.', 'noasoft-ai-woocommerce' ) );
-            }
-            return $temp_file;
+        $api_key  = isset( $this->settings['api_key'] ) ? trim( $this->settings['api_key'] ) : '';
+
+        if ( empty( $endpoint ) || empty( $api_key ) ) {
+            return new WP_Error( 'noasoft_ai_removebg_missing', __( 'remove.bg API ayarları eksik.', 'noasoft-ai-woocommerce' ) );
         }
 
         $file_contents = file_get_contents( $file_path );
@@ -182,26 +181,21 @@ class Image_Optimizer {
             return new WP_Error( 'noasoft_ai_read', __( 'Görsel okunamadı.', 'noasoft-ai-woocommerce' ) );
         }
 
-        $mime      = $this->detect_mime_type( $file_path );
-        $payload   = array(
-            'image'   => 'data:' . $mime . ';base64,' . base64_encode( $file_contents ),
-            'options' => array(
-                'remove_background' => true,
-            ),
+        $payload = array(
+            'image_file_b64' => base64_encode( $file_contents ),
+            'size'           => isset( $this->settings['removebg_size'] ) ? $this->settings['removebg_size'] : 'auto',
+            'format'         => 'png',
         );
-        $headers   = array(
-            'Content-Type' => 'application/json',
-        );
-        if ( ! empty( $this->settings['api_key'] ) ) {
-            $headers['Authorization'] = 'Bearer ' . $this->settings['api_key'];
-        }
 
         $response = wp_remote_post(
             $endpoint,
             array(
                 'body'      => wp_json_encode( $payload ),
-                'headers'   => $headers,
-                'timeout'   => 45,
+                'headers'   => array(
+                    'Content-Type' => 'application/json',
+                    'X-Api-Key'    => $api_key,
+                ),
+                'timeout'   => 60,
                 'sslverify' => apply_filters( 'https_local_ssl_verify', true ),
             )
         );
@@ -215,8 +209,13 @@ class Image_Optimizer {
             return new WP_Error( 'noasoft_ai_http', __( 'API yanıtı başarısız oldu.', 'noasoft-ai-woocommerce' ) );
         }
 
-        $body         = wp_remote_retrieve_body( $response );
-        $image_binary = $this->extract_image_binary( $body );
+        $body        = wp_remote_retrieve_body( $response );
+        $content_type = wp_remote_retrieve_header( $response, 'content-type' );
+        if ( is_array( $content_type ) ) {
+            $content_type = reset( $content_type );
+        }
+
+        $image_binary = false !== strpos( (string) $content_type, 'application/json' ) ? $this->extract_image_binary( $body ) : $body;
         if ( empty( $image_binary ) ) {
             return new WP_Error( 'noasoft_ai_body', __( 'API görsel verisi döndürmedi.', 'noasoft-ai-woocommerce' ) );
         }

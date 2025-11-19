@@ -26,6 +26,13 @@ use NoaSoft\AiWoo\Integrations\Image_Optimizer;
  */
 class Class_Plugin {
     /**
+     * Whether plugin-wide AI modules are enabled.
+     *
+     * @var bool
+     */
+    protected $global_enabled = true;
+
+    /**
      * Recommender instance.
      *
      * @var Recommender|null
@@ -59,6 +66,7 @@ class Class_Plugin {
             return;
         }
 
+        $this->global_enabled = Options::is_global_enabled();
         Language_Helper::bootstrap();
         add_action( 'init', array( $this, 'load_textdomain' ) );
         add_action( 'init', array( $this, 'register_shortcodes' ) );
@@ -67,12 +75,18 @@ class Class_Plugin {
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
 
-        new UX_Tracker();
-        $this->recommender      = new Recommender();
-        $this->chat_assistant   = new Chat_Assistant();
-        $this->product_comparator = new Product_Comparator();
-        new Product_AI_Helper();
-        new Image_Optimizer();
+        if ( $this->global_enabled ) {
+            new UX_Tracker();
+            $this->recommender        = new Recommender();
+            $this->chat_assistant     = new Chat_Assistant();
+            $this->product_comparator = new Product_Comparator();
+            new Product_AI_Helper();
+            new Image_Optimizer();
+        } else {
+            add_action( 'admin_notices', array( __CLASS__, 'render_global_disabled_notice' ) );
+            add_action( 'network_admin_notices', array( __CLASS__, 'render_global_disabled_notice' ) );
+        }
+
         new Admin_Menu();
         new Settings_Page();
         new AI_Reports_Page();
@@ -206,8 +220,10 @@ class Class_Plugin {
         if ( function_exists( 'wp_enqueue_media' ) ) {
             wp_enqueue_media();
         }
+        wp_enqueue_style( 'sweetalert2', 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css', array(), '11.10.5' );
         wp_enqueue_style( 'noasoft-ai-tailwind', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/css/tailwind-lite.css', array(), NOASOFT_AI_WOO_VERSION );
         wp_enqueue_style( 'noasoft-ai-admin', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/css/admin.css', array( 'noasoft-ai-tailwind' ), NOASOFT_AI_WOO_VERSION );
+        wp_enqueue_script( 'sweetalert2', 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js', array(), '11.10.5', true );
         wp_enqueue_script( 'noasoft-ai-animations', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/animations.js', array(), NOASOFT_AI_WOO_VERSION, true );
         wp_enqueue_script( 'noasoft-ai-theme-handler', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/theme-handler.js', array(), NOASOFT_AI_WOO_VERSION, true );
         wp_enqueue_script( 'noasoft-ai-toast', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/toast.js', array( 'noasoft-ai-animations' ), NOASOFT_AI_WOO_VERSION, true );
@@ -216,9 +232,18 @@ class Class_Plugin {
             'ajax_url' => admin_url( 'admin-ajax.php' ),
             'nonce'    => wp_create_nonce( 'noasoft_ai_admin' ),
             'error'    => __( 'Beklenmedik bir hata oluştu.', 'noasoft-ai-woocommerce' ),
+            'success'  => __( 'Ayarlar kaydedildi.', 'noasoft-ai-woocommerce' ),
             'media'    => array(
                 'title'  => __( 'Avatar Seç', 'noasoft-ai-woocommerce' ),
                 'button' => __( 'Avatarı Kullan', 'noasoft-ai-woocommerce' ),
+            ),
+            'copy'     => array(
+                'success' => __( 'Shortcode panoya kopyalandı.', 'noasoft-ai-woocommerce' ),
+                'error'   => __( 'Kopyalama işlemi başarısız.', 'noasoft-ai-woocommerce' ),
+            ),
+            'providerTest' => array(
+                'title'   => __( 'API Testi', 'noasoft-ai-woocommerce' ),
+                'running' => __( 'Bağlantı test ediliyor...', 'noasoft-ai-woocommerce' ),
             ),
         ) );
         wp_enqueue_script( 'noasoft-ai-admin-language', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/admin-language.js', array( 'jquery' ), NOASOFT_AI_WOO_VERSION, true );
@@ -246,14 +271,20 @@ class Class_Plugin {
      * Enqueue frontend assets.
      */
     public function enqueue_frontend_assets() {
+        if ( ! Options::is_global_enabled() ) {
+            return;
+        }
+
+        wp_enqueue_style( 'sweetalert2', 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css', array(), '11.10.5' );
         wp_enqueue_style( 'noasoft-ai-tailwind', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/css/tailwind-lite.css', array(), NOASOFT_AI_WOO_VERSION );
         wp_enqueue_style( 'noasoft-ai-frontend', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/css/frontend.css', array( 'noasoft-ai-tailwind' ), NOASOFT_AI_WOO_VERSION );
         wp_enqueue_style( 'noasoft-ai-chat', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/css/chat-widget.css', array( 'noasoft-ai-frontend' ), NOASOFT_AI_WOO_VERSION );
         wp_enqueue_style( 'noasoft-ai-recommender', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/css/recommender.css', array( 'noasoft-ai-frontend' ), NOASOFT_AI_WOO_VERSION );
+        wp_enqueue_script( 'sweetalert2', 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js', array(), '11.10.5', true );
         wp_enqueue_script( 'noasoft-ai-animations', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/animations.js', array(), NOASOFT_AI_WOO_VERSION, true );
         wp_enqueue_script( 'noasoft-ai-theme-handler', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/theme-handler.js', array(), NOASOFT_AI_WOO_VERSION, true );
         wp_enqueue_script( 'noasoft-ai-toast', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/toast.js', array( 'noasoft-ai-animations' ), NOASOFT_AI_WOO_VERSION, true );
-        wp_enqueue_script( 'noasoft-ai-chat-widget', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/frontend-chat-widget.js', array( 'jquery', 'noasoft-ai-animations' ), NOASOFT_AI_WOO_VERSION, true );
+        wp_enqueue_script( 'noasoft-ai-chat-widget', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/frontend-chat-widget.js', array( 'jquery', 'noasoft-ai-animations', 'sweetalert2' ), NOASOFT_AI_WOO_VERSION, true );
 
         if ( Options::is_module_enabled( 'product_compare' ) ) {
             wp_enqueue_style( 'noasoft-ai-comparator', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/css/comparator.css', array( 'noasoft-ai-frontend' ), NOASOFT_AI_WOO_VERSION );
@@ -322,11 +353,24 @@ class Class_Plugin {
                     'cartSuccess'   => __( 'Ürün sepete eklendi.', 'noasoft-ai-woocommerce' ),
                     'cartError'     => __( 'Ürün sepete eklenemedi.', 'noasoft-ai-woocommerce' ),
                     'genericError'  => __( 'Bir hata oluştu. Lütfen tekrar deneyin.', 'noasoft-ai-woocommerce' ),
+                    'orderPlaceholder' => __( 'Sipariş numaranızı girin', 'noasoft-ai-woocommerce' ),
+                    'emailPlaceholder' => __( 'E-posta adresiniz', 'noasoft-ai-woocommerce' ),
+                    'identifierPlaceholder' => __( 'Ürün ID / SKU / isim', 'noasoft-ai-woocommerce' ),
+                    'requiredField' => __( 'Lütfen gerekli alanları doldurun.', 'noasoft-ai-woocommerce' ),
                     'viewProduct'   => __( 'Ürüne git', 'noasoft-ai-woocommerce' ),
                     'addToCart'     => __( 'Sepete ekle', 'noasoft-ai-woocommerce' ),
                     'orderSummary'  => __( 'Sipariş Özeti', 'noasoft-ai-woocommerce' ),
                     'trackingLabel' => __( 'Takip No:', 'noasoft-ai-woocommerce' ),
                     'viewTracking'  => __( 'Takip linki', 'noasoft-ai-woocommerce' ),
+                    'orderTitle'    => __( 'Sipariş Durumu', 'noasoft-ai-woocommerce' ),
+                    'shippingTitle' => __( 'Kargo Takibi', 'noasoft-ai-woocommerce' ),
+                    'stockTitle'    => __( 'Stok Kontrolü', 'noasoft-ai-woocommerce' ),
+                    'productTitle'  => __( 'Ürün Bilgisi', 'noasoft-ai-woocommerce' ),
+                    'menuLabel'     => __( 'Hızlı İşlemler', 'noasoft-ai-woocommerce' ),
+                    'menuHint'      => __( 'Sipariş, kargo, stok ve ürün sorularını tek dokunuşla başlatın.', 'noasoft-ai-woocommerce' ),
+                    'menuOpen'      => __( 'Hızlı işlem menüsünü aç/kapat', 'noasoft-ai-woocommerce' ),
+                    'modalConfirm'  => __( 'Devam', 'noasoft-ai-woocommerce' ),
+                    'modalCancel'   => __( 'Vazgeç', 'noasoft-ai-woocommerce' ),
                 ),
             ),
             'user'    => array(
@@ -335,6 +379,19 @@ class Class_Plugin {
                 'email'     => $current_user ? $current_user->user_email : '',
             ),
         ) );
+    }
+
+    /**
+     * Render notice when plugin globally disabled.
+     *
+     * @return void
+     */
+    public static function render_global_disabled_notice() {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            return;
+        }
+
+        echo '<div class="notice notice-warning"><p>' . esc_html__( 'NoaSoft AI WooCommerce Assistant pasif modda. Genel sekmesinden "AI motoru" anahtarını açarak modülleri tekrar etkinleştirin.', 'noasoft-ai-woocommerce' ) . '</p></div>';
     }
 
     /**

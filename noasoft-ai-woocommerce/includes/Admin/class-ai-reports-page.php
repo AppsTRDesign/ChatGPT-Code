@@ -189,7 +189,11 @@ class AI_Reports_Page {
         $provider = AI_Client_Factory::make();
         $payload  = $prompt . "\n\nMETRICS:\n" . wp_json_encode( $metrics );
         $response = $provider ? $provider->chat( $payload, array( 'metrics' => $metrics ) ) : array();
-        $parsed   = $this->parse_ai_response( $response );
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( array( 'message' => $response->get_error_message() ), 500 );
+        }
+
+        $parsed = $this->parse_ai_response( $response );
 
         $title = sprintf( __( 'AI Ticaret Raporu - %s', 'noasoft-ai-woocommerce' ), wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) );
         $report = $this->helper->save_report(

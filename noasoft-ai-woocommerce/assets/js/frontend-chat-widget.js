@@ -10,7 +10,9 @@
         this.$launcher    = $root.find('.noasoft-chat-launcher');
         this.$messages    = $root.find('.noasoft-chat-messages');
         this.$suggestions = $root.find('.noasoft-chat-suggestions');
-        this.$quick       = $root.find('.noasoft-chat-quick-actions');
+        this.$actionMenu  = $root.find('.noasoft-chat-action-menu');
+        this.$actionToggle = this.$actionMenu.find('.noasoft-chat-action-toggle');
+        this.$actionList  = this.$actionMenu.find('.noasoft-chat-action-list');
         this.$form        = $root.find('.noasoft-chat-form');
         this.$input       = this.$form.find('input[name="message"]');
         this.$file        = this.$form.find('.noasoft-chat-file');
@@ -21,6 +23,7 @@
         this.bindEvents();
         this.renderSuggestions();
         this.bootstrap();
+        this.applyMenuCopy();
     }
 
     ChatInstance.prototype.bindEvents = function(){
@@ -51,7 +54,13 @@
             });
         });
 
-        this.$quick.on('click', 'button', function(){
+        if ( this.$actionToggle.length ) {
+            this.$actionToggle.on('click', function(){
+                self.toggleActionMenu();
+            });
+        }
+
+        this.$actionList.on('click', 'button', function(){
             var intent = $(this).data('intent');
             self.handleIntent( intent );
         });
@@ -147,44 +156,132 @@
     };
 
     ChatInstance.prototype.handleIntent = function(intent){
-        var strings = this.settings.strings || {};
-        switch ( intent ) {
-            case 'order_status':
-            case 'shipping_status':
-                var orderNumber = window.prompt( strings.orderPrompt || 'Sipariş numarası' );
-                if ( ! orderNumber ) {
-                    return;
-                }
-                var email = this.globalConfig.user && this.globalConfig.user.email ? this.globalConfig.user.email : '';
-                if ( ! email ) {
-                    email = window.prompt( strings.emailPrompt || 'E-posta adresi' ) || '';
-                }
-                this.pushUserMessage( orderNumber );
-                this.sendRequest({
-                    intent: intent,
-                    order_number: orderNumber,
-                    email: email,
-                    message: orderNumber
-                });
-                break;
-            case 'stock_status':
-            case 'product_info':
-                var question = intent === 'stock_status' ? strings.stockPrompt : strings.productPrompt;
-                var identifier = window.prompt( question || '' );
-                if ( ! identifier ) {
-                    return;
-                }
-                this.pushUserMessage( identifier );
-                this.sendRequest({
-                    intent: intent,
-                    identifier: identifier,
-                    message: identifier
-                });
-                break;
-            default:
-                this.$input.focus();
-                break;
+        if ( ! intent ) {
+            return;
         }
+        this.toggleActionMenu(false);
+        this.promptIntent(intent);
+    };
+
+    ChatInstance.prototype.toggleActionMenu = function(force){
+        if ( ! this.$actionMenu.length ) {
+            return;
+        }
+        var isOpen = this.$actionMenu.hasClass('is-open');
+        var next = 'undefined' === typeof force ? ! isOpen : !! force;
+        this.$actionMenu.toggleClass('is-open', next);
+        this.$actionMenu.attr('aria-expanded', next ? 'true' : 'false');
+        if ( next && window.NoaSoftAnimator ) {
+            var list = this.$actionMenu.find('.noasoft-chat-action-list').get(0);
+            if ( list ) {
+                NoaSoftAnimator.fadeSlide( list );
+            }
+        }
+    };
+
+    ChatInstance.prototype.applyMenuCopy = function(){
+        var strings = this.settings.strings || {};
+        if ( strings.menuHint ) {
+            this.$root.find('.noasoft-chat-action-hint').text( strings.menuHint );
+        }
+        if ( strings.menuLabel ) {
+            this.$actionToggle.find('.label').text( strings.menuLabel );
+        }
+        if ( strings.menuOpen ) {
+            this.$actionToggle.attr( 'aria-label', strings.menuOpen );
+        }
+    };
+
+    ChatInstance.prototype.promptIntent = function(intent){
+        var self = this;
+        var strings = this.settings.strings || {};
+        if ( ! window.Swal ) {
+            // fallback to simple prompt if SweetAlert2 not available
+            var fallback = window.prompt( strings.productPrompt || '' );
+            if ( ! fallback ) {
+                return;
+            }
+            this.pushUserMessage( fallback );
+            this.sendRequest({ intent: intent, message: fallback });
+            return;
+        }
+
+        var html = '';
+        var escapeAttr = this.escapeAttr.bind(this);
+        if ( 'order_status' === intent || 'shipping_status' === intent ) {
+            var emailDefault = this.globalConfig.user && this.globalConfig.user.email ? this.globalConfig.user.email : '';
+            html = '<div class="noasoft-swal-group">'
+                + '<label>' + escapeAttr( strings.orderPrompt || '' ) + '<input id="noasoft-swal-order" class="swal2-input" placeholder="' + escapeAttr( strings.orderPlaceholder || '' ) + '"></label>'
+                + '<label>' + escapeAttr( strings.emailPrompt || '' ) + '<input id="noasoft-swal-email" class="swal2-input" placeholder="' + escapeAttr( strings.emailPlaceholder || '' ) + '" value="' + escapeAttr( emailDefault ) + '"></label>'
+                + '</div>';
+        } else {
+            var label = intent === 'stock_status' ? strings.stockPrompt : strings.productPrompt;
+            html = '<div class="noasoft-swal-group">'
+                + '<label>' + escapeAttr( label || '' ) + '<input id="noasoft-swal-identifier" class="swal2-input" placeholder="' + escapeAttr( strings.identifierPlaceholder || '' ) + '"></label>'
+                + '</div>';
+        }
+
+        var titleMap = {
+            order_status: strings.orderTitle || 'Sipariş Durumu',
+            shipping_status: strings.shippingTitle || 'Kargo Takibi',
+            stock_status: strings.stockTitle || 'Stok Kontrolü',
+            product_info: strings.productTitle || 'Ürün Bilgisi'
+        };
+
+        Swal.fire({
+            title: titleMap[ intent ] || strings.menuLabel || 'AI',
+            html: html,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: strings.modalConfirm || 'Devam',
+            cancelButtonText: strings.modalCancel || 'Vazgeç',
+            preConfirm: function(){
+                if ( 'order_status' === intent || 'shipping_status' === intent ) {
+                    var order = document.getElementById('noasoft-swal-order').value.trim();
+                    var emailInput = document.getElementById('noasoft-swal-email').value.trim();
+                    var email = emailInput || (self.globalConfig.user && self.globalConfig.user.email ? self.globalConfig.user.email : '');
+                    if ( ! order ) {
+                        Swal.showValidationMessage( strings.requiredField || 'Zorunlu alan' );
+                        return false;
+                    }
+                    if ( ! email ) {
+                        Swal.showValidationMessage( strings.emailPrompt || 'E-posta gerekli' );
+                        return false;
+                    }
+                    return { order: order, email: email };
+                }
+                var identifier = document.getElementById('noasoft-swal-identifier').value.trim();
+                if ( ! identifier ) {
+                    Swal.showValidationMessage( strings.requiredField || 'Zorunlu alan' );
+                    return false;
+                }
+                return { identifier: identifier };
+            }
+        }).then(function(result){
+            if ( ! result.isConfirmed || ! result.value ) {
+                return;
+            }
+            if ( 'order_status' === intent || 'shipping_status' === intent ) {
+                self.pushUserMessage( result.value.order );
+                self.sendRequest({
+                    intent: intent,
+                    order_number: result.value.order,
+                    email: result.value.email,
+                    message: result.value.order
+                });
+            } else {
+                self.pushUserMessage( result.value.identifier );
+                self.sendRequest({
+                    intent: intent,
+                    identifier: result.value.identifier,
+                    message: result.value.identifier
+                });
+            }
+        });
+    };
+
+    ChatInstance.prototype.escapeAttr = function(text){
+        return ( text || '' ).replace(/"/g, '&quot;');
     };
 
     ChatInstance.prototype.sendRequest = function(data){
@@ -371,6 +468,17 @@
     ChatInstance.prototype.toast = function(message, type){
         if ( window.NoaSoftToast ) {
             NoaSoftToast.show( message, type );
+            return;
+        }
+        if ( window.Swal ) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                timer: 2500,
+                showConfirmButton: false,
+                icon: type === 'error' ? 'error' : 'success',
+                title: message
+            });
         }
     };
 

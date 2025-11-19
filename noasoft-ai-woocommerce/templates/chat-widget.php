@@ -38,11 +38,18 @@
                 <span></span><span></span><span></span>
             </div>
             <div class="noasoft-chat-suggestions"></div>
-            <div class="noasoft-chat-quick-actions" role="group" aria-label="<?php esc_attr_e( 'Hızlı işlemler', 'noasoft-ai-woocommerce' ); ?>">
-                <button type="button" data-intent="order_status"><?php esc_html_e( 'Sipariş Durumu', 'noasoft-ai-woocommerce' ); ?></button>
-                <button type="button" data-intent="shipping_status"><?php esc_html_e( 'Kargo Takibi', 'noasoft-ai-woocommerce' ); ?></button>
-                <button type="button" data-intent="stock_status"><?php esc_html_e( 'Stok Kontrolü', 'noasoft-ai-woocommerce' ); ?></button>
-                <button type="button" data-intent="product_info"><?php esc_html_e( 'Ürün Bilgisi', 'noasoft-ai-woocommerce' ); ?></button>
+            <div class="noasoft-chat-action-menu" aria-expanded="false">
+                <button type="button" class="noasoft-chat-action-toggle" aria-label="<?php esc_attr_e( 'Hızlı işlem menüsünü aç/kapat', 'noasoft-ai-woocommerce' ); ?>">
+                    <span class="label"><?php esc_html_e( 'Hızlı İşlemler', 'noasoft-ai-woocommerce' ); ?></span>
+                    <span class="icon" aria-hidden="true"></span>
+                </button>
+                <div class="noasoft-chat-action-list" role="menu">
+                    <button type="button" data-intent="order_status" role="menuitem"><?php esc_html_e( 'Sipariş Durumu', 'noasoft-ai-woocommerce' ); ?></button>
+                    <button type="button" data-intent="shipping_status" role="menuitem"><?php esc_html_e( 'Kargo Takibi', 'noasoft-ai-woocommerce' ); ?></button>
+                    <button type="button" data-intent="stock_status" role="menuitem"><?php esc_html_e( 'Stok Kontrolü', 'noasoft-ai-woocommerce' ); ?></button>
+                    <button type="button" data-intent="product_info" role="menuitem"><?php esc_html_e( 'Ürün Bilgisi', 'noasoft-ai-woocommerce' ); ?></button>
+                </div>
+                <p class="noasoft-chat-action-hint"><?php esc_html_e( 'Sipariş, kargo, stok ve ürün sorularını tek dokunuşla başlatın.', 'noasoft-ai-woocommerce' ); ?></p>
             </div>
         </div>
         <footer class="noasoft-chat-footer">

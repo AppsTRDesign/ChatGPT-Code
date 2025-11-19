@@ -272,6 +272,10 @@ class Recommender {
                     'context' => $context,
                 )
             );
+
+            if ( is_wp_error( $response ) ) {
+                $response = array();
+            }
         }
 
         return $this->normalize_ai_response( $response, $product );

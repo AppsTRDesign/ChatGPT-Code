@@ -219,6 +219,10 @@ class Product_AI_Helper {
 
         if ( $client ) {
             $ai_response = $client->chat( $prompt, $context );
+
+            if ( is_wp_error( $ai_response ) ) {
+                $ai_response = array();
+            }
         }
 
         return $this->normalize_ai_payload( $ai_response, $context );

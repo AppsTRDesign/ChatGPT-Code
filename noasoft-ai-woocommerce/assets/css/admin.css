@@ -151,6 +151,33 @@ body.noasoft-modal-open {
     font-size: 0.8rem;
 }
 
+.noasoft-language-manager .language-inline-editor {
+    margin-top: 15px;
+}
+
+.language-panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.noasoft-language-import-label {
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.noasoft-language-import {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
 .noasoft-range-field .range-control {
     display: flex;
     align-items: center;
@@ -201,6 +228,336 @@ body.noasoft-modal-open {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+}
+
+.noasoft-ajax-form .noasoft-form-spinner {
+    vertical-align: middle;
+    margin-left: 0.75rem;
+}
+
+.noasoft-ajax-form .noasoft-form-spinner.is-active,
+.noasoft-form-spinner.spinner.is-active {
+    visibility: visible;
+}
+
+.noasoft-form-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.noasoft-form-actions .button {
+    min-width: 160px;
+}
+
+.noasoft-general-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.noasoft-version-chip {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--noasoft-primary);
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.noasoft-toggle-card {
+    display: block;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 1.5rem;
+    padding: 1.25rem;
+    background: rgba(148, 163, 184, 0.08);
+    position: relative;
+}
+
+.noasoft-toggle-card input[type="checkbox"] {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+}
+
+.noasoft-stats-grid {
+    margin-top: 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-stat-card {
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 1.1rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-stat-card strong {
+    font-size: 1.6rem;
+}
+
+.noasoft-provider-grid {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.noasoft-provider-card {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-provider-card header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.noasoft-radio-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+}
+
+.noasoft-radio-pill input {
+    margin: 0;
+}
+
+.noasoft-provider-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.85rem;
+}
+
+.noasoft-provider-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.noasoft-provider-fields input,
+.noasoft-provider-fields select,
+.noasoft-provider-fields textarea {
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.55rem 0.75rem;
+}
+
+.noasoft-provider-actions {
+    margin-top: 1rem;
+}
+
+.noasoft-module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-module-toggle {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 1.25rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-module-toggle .toggle-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.noasoft-module-toggle .pill {
+    background: rgba(37, 99, 235, 0.15);
+    border-radius: 999px;
+    padding: 0.1rem 0.6rem;
+    font-size: 0.75rem;
+}
+
+.noasoft-module-toggle .toggle-control {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.noasoft-toggle-visual {
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background: rgba(148, 163, 184, 0.55);
+    border-radius: 999px;
+    position: relative;
+    margin-left: 0.5rem;
+}
+
+.noasoft-toggle-visual::after {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s ease;
+}
+
+.noasoft-module-toggle input:checked + .noasoft-toggle-visual,
+.noasoft-toggle input:checked + .noasoft-toggle-visual {
+    background: var(--noasoft-primary);
+}
+
+.noasoft-module-toggle input:checked + .noasoft-toggle-visual::after,
+.noasoft-toggle input:checked + .noasoft-toggle-visual::after {
+    transform: translateX(16px);
+}
+
+.noasoft-prompt-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-prompt-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 1rem;
+    padding: 1rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-prompt-grid textarea {
+    min-height: 120px;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.noasoft-shortcode-docs {
+    margin-top: 1.5rem;
+}
+
+.noasoft-shortcode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+}
+
+.noasoft-shortcode-card {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-shortcode-card .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.noasoft-shortcode-card code {
+    background: rgba(15, 23, 42, 0.08);
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.5rem;
+}
+
+.param-list {
+    margin: 0.5rem 0;
+    padding-left: 1rem;
+    color: var(--noasoft-muted);
+}
+
+.shortcode-copy {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.shortcode-copy input {
+    flex: 1;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.4rem 0.6rem;
+}
+
+.noasoft-widget-docs {
+    margin-top: 2rem;
+}
+
+.noasoft-widget-docs .widget-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-widget-docs article {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 1rem;
+    padding: 1rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-report-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+}
+
+.noasoft-report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-report-card {
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 1rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-report-card .report-date {
+    color: var(--noasoft-muted);
+    margin-bottom: 0.75rem;
+}
+
+.noasoft-report-card .button {
+    width: 100%;
+}
+
+@media (max-width: 782px) {
+    .noasoft-settings-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .language-panel-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .noasoft-shortcode-card .card-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .shortcode-copy {
+        flex-direction: column;
+    }
 }
 
 .noasoft-avatar-field .avatar-buttons {
