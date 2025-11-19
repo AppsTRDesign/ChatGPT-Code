@@ -32,6 +32,13 @@ class AI_Reports_Page {
     protected $enabled;
 
     /**
+     * Allowed report ranges.
+     *
+     * @var array
+     */
+    protected $range_options = array( 7, 30, 60, 90 );
+
+    /**
      * Constructor.
      */
     public function __construct() {
@@ -124,8 +131,16 @@ class AI_Reports_Page {
                 <div class="notice notice-warning"><p><?php esc_html_e( 'AI Admin Raporları modülü pasif durumda. Ayarlar > Modüller sekmesinden aktifleştirebilirsiniz.', 'noasoft-ai-woocommerce' ); ?></p></div>
             <?php endif; ?>
             <div class="noasoft-ai-reports-toolbar">
+                <div class="range-picker">
+                    <label for="noasoft-report-range"><?php esc_html_e( 'Tarih Aralığı', 'noasoft-ai-woocommerce' ); ?></label>
+                    <select id="noasoft-report-range" class="noasoft-report-range">
+                        <?php foreach ( $this->range_options as $range ) : ?>
+                            <option value="<?php echo esc_attr( $range ); ?>" <?php selected( $range, 30 ); ?>><?php echo esc_html( sprintf( __( 'Son %s gün', 'noasoft-ai-woocommerce' ), $range ) ); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <button class="button button-primary noasoft-generate-report" type="button" <?php disabled( ! $this->enabled ); ?>><?php esc_html_e( 'Yeni Rapor Oluştur', 'noasoft-ai-woocommerce' ); ?></button>
-                <span class="description"><?php esc_html_e( 'Son 30 güne ait WooCommerce ve UX metrikleri analiz edilir.', 'noasoft-ai-woocommerce' ); ?></span>
+                <span class="description"><?php esc_html_e( 'Seçtiğiniz aralık için WooCommerce ve UX metrikleri analiz edilir.', 'noasoft-ai-woocommerce' ); ?></span>
                 <button type="button" class="button" data-modal-target="#noasoft-modal-report-preview"><?php esc_html_e( 'UI Önizleme', 'noasoft-ai-woocommerce' ); ?></button>
             </div>
             <div class="noasoft-ai-reports-grid">
@@ -167,7 +182,9 @@ class AI_Reports_Page {
             <div class="noasoft-modal-dialog">
                 <button type="button" class="noasoft-modal-close" aria-label="<?php esc_attr_e( 'Kapat', 'noasoft-ai-woocommerce' ); ?>">&times;</button>
                 <h3><?php esc_html_e( 'Rapor Önizleme', 'noasoft-ai-woocommerce' ); ?></h3>
-                <p><?php esc_html_e( 'Bu modal, AI rapor kartı açılırken kullanılan ışık/dark uyumlu konsept tasarımını gösterir.', 'noasoft-ai-woocommerce' ); ?></p>
+                <div class="noasoft-modal-body">
+                    <p><?php esc_html_e( 'AI rapor kartı yüklenirken skeleton ve grafik önizlemesi burada gösterilir.', 'noasoft-ai-woocommerce' ); ?></p>
+                </div>
                 <button type="button" class="button" data-modal-close><?php esc_html_e( 'Kapat', 'noasoft-ai-woocommerce' ); ?></button>
             </div>
         </div>
@@ -184,13 +201,19 @@ class AI_Reports_Page {
             wp_send_json_error( array( 'message' => __( 'Modül pasif durumda.', 'noasoft-ai-woocommerce' ) ), 400 );
         }
 
-        $metrics  = $this->helper->collect_metrics();
+        $days     = $this->sanitize_range( isset( $_POST['range'] ) ? $_POST['range'] : 30 );
+        $metrics  = $this->helper->collect_metrics( $days );
         $prompt   = Options::get_prompt( 'admin_report', __( 'Aşağıdaki verileri analiz ederek kısa bir özet ve uygulanabilir aksiyon listesi oluştur.', 'noasoft-ai-woocommerce' ) );
         $provider = AI_Client_Factory::make();
+
+        if ( ! $provider ) {
+            wp_send_json_error( array( 'message' => __( 'Aktif AI sağlayıcısı ayarlanmadı.', 'noasoft-ai-woocommerce' ) ), 200 );
+        }
+
         $payload  = $prompt . "\n\nMETRICS:\n" . wp_json_encode( $metrics );
-        $response = $provider ? $provider->chat( $payload, array( 'metrics' => $metrics ) ) : array();
+        $response = $provider->chat( $payload, array( 'metrics' => $metrics ) );
         if ( is_wp_error( $response ) ) {
-            wp_send_json_error( array( 'message' => $response->get_error_message() ), 500 );
+            wp_send_json_error( array( 'message' => $response->get_error_message() ), 200 );
         }
 
         $parsed = $this->parse_ai_response( $response );
@@ -460,6 +483,21 @@ class AI_Reports_Page {
         }
 
         return wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $timestamp );
+    }
+
+    /**
+     * Sanitize range input.
+     *
+     * @param mixed $value Submitted value.
+     * @return int
+     */
+    protected function sanitize_range( $value ) {
+        $value = absint( $value );
+        if ( in_array( $value, $this->range_options, true ) ) {
+            return $value;
+        }
+
+        return 30;
     }
 
     /**

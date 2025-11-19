@@ -128,7 +128,7 @@
 
     ChatInstance.prototype.bootstrap = function(){
         if ( this.settings.greeting ) {
-            this.pushAssistantMessage( this.settings.greeting );
+            this.pushAssistantMessage( this.settings.greeting, 'system' );
         }
     };
 

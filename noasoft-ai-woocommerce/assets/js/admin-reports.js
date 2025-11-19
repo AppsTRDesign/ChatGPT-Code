@@ -11,6 +11,7 @@
             this.$panel = this.$container.find('.noasoft-ai-report-panel');
             this.$list = this.$container.find('.noasoft-ai-reports-list tbody');
             this.$button = this.$container.find('.noasoft-generate-report');
+            this.$range = this.$container.find('.noasoft-report-range');
             this.bindEvents();
             this.renderCharts();
         },
@@ -27,6 +28,20 @@
                     self.fetchReport( id );
                 }
             });
+            this.$container.on('click', '[data-modal-target="#noasoft-modal-report-preview"]', function(){
+                var $modal = $('#noasoft-modal-report-preview');
+                if ( ! $modal.length ) {
+                    return;
+                }
+                var $body = $modal.find('.noasoft-modal-body');
+                if ( ! $body.length ) {
+                    $body = $('<div class="noasoft-modal-body" />').appendTo( $modal.find('.noasoft-modal-dialog') );
+                }
+                var cloneHtml = self.$panel.html();
+                if ( cloneHtml ) {
+                    $body.html( cloneHtml );
+                }
+            });
         },
         generateReport: function(){
             if ( 'undefined' !== typeof NoaSoftAiReports && false === NoaSoftAiReports.enabled ) {
@@ -34,9 +49,11 @@
             }
             var self = this;
             this.toggleButton( true, ( NoaSoftAiReports && NoaSoftAiReports.strings ? NoaSoftAiReports.strings.creating : '' ) );
+            var range = this.$range.length ? this.$range.val() : 30;
             $.post( NoaSoftAiReports.ajax_url, {
                 action: 'noasoft_ai_generate_report',
-                nonce: NoaSoftAiReports.nonce
+                nonce: NoaSoftAiReports.nonce,
+                range: range
             } ).done( function( response ){
                 if ( response && response.success && response.data ) {
                     self.replacePanel( response.data.html );

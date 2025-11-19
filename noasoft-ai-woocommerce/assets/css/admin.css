@@ -12,6 +12,99 @@ body.noasoft-modal-open {
     border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
+/* Landing page */
+.noasoft-admin-landing .hero {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(16, 185, 129, 0.12));
+    border: 1px solid rgba(37, 99, 235, 0.15);
+    border-radius: 1.5rem;
+    padding: 1.75rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.noasoft-admin-landing .hero .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: #2563eb;
+    margin: 0;
+}
+
+.noasoft-admin-landing .hero h1 {
+    margin: 0.3rem 0;
+}
+
+.noasoft-admin-landing .hero .lead {
+    max-width: 640px;
+    line-height: 1.6;
+}
+
+.noasoft-admin-landing .hero .cta {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.noasoft-admin-landing .hero .meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-direction: column;
+}
+
+.noasoft-admin-landing .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.15);
+    font-weight: 600;
+}
+
+.noasoft-admin-landing .chip.primary {
+    background: rgba(37, 99, 235, 0.15);
+}
+
+.noasoft-admin-landing .feature-grid {
+    margin-top: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-admin-landing .feature-grid article,
+.noasoft-admin-landing .translations {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    box-shadow: var(--noasoft-shadow);
+}
+
+.noasoft-admin-landing .translations {
+    margin-top: 1rem;
+}
+
+/* Global toggle state */
+.noasoft-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-weight: 700;
+    background: rgba(37, 99, 235, 0.12);
+    color: #0f172a;
+}
+
+.noasoft-status-chip[data-state="off"] {
+    background: rgba(239, 68, 68, 0.15);
+    color: #991b1b;
+}
+
 [data-noasoft-theme="dark"] .noasoft-ai-settings {
     background: var(--noasoft-surface-alt);
 }
@@ -169,6 +262,9 @@ body.noasoft-modal-open {
     align-items: center;
     justify-content: center;
     text-align: center;
+    padding: 0.65rem 1.1rem;
+    border-radius: 0.9rem;
+    background: rgba(37, 99, 235, 0.08);
 }
 
 .noasoft-language-import {
@@ -334,10 +430,12 @@ body.noasoft-modal-open {
 .noasoft-radio-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.45rem;
     border: 1px solid rgba(148, 163, 184, 0.3);
     border-radius: 999px;
-    padding: 0.35rem 0.75rem;
+    padding: 0.45rem 0.9rem;
+    font-weight: 600;
+    line-height: 1.1;
 }
 
 .noasoft-radio-pill input {
@@ -393,8 +491,12 @@ body.noasoft-modal-open {
 .noasoft-module-toggle .pill {
     background: rgba(37, 99, 235, 0.15);
     border-radius: 999px;
-    padding: 0.1rem 0.6rem;
-    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 90px;
 }
 
 .noasoft-module-toggle .toggle-control {
@@ -674,6 +776,18 @@ body.noasoft-modal-open {
     margin-bottom: 1.5rem;
 }
 
+.noasoft-ai-reports-toolbar .range-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 160px;
+}
+
+.noasoft-ai-reports-toolbar select {
+    border-radius: 0.9rem;
+    padding: 0.45rem 0.7rem;
+}
+
 .noasoft-ai-reports-grid {
     display: grid;
     grid-template-columns: 320px 1fr;
@@ -683,6 +797,10 @@ body.noasoft-modal-open {
 @media (max-width: 1024px) {
     .noasoft-ai-reports-grid {
         grid-template-columns: 1fr;
+    }
+    .noasoft-ai-reports-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
 
@@ -834,6 +952,10 @@ body.noasoft-modal-open {
     border: 1px solid rgba(148, 163, 184, 0.25);
     box-shadow: var(--noasoft-shadow);
     margin-bottom: 1.5rem;
+}
+
+.language-inline-editor {
+    margin-top: 15px;
 }
 
 .language-inline-results {

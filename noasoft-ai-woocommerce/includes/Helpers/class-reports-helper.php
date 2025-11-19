@@ -65,8 +65,8 @@ class Reports_Helper {
      *
      * @return array
      */
-    public function collect_metrics() {
-        $range = $this->get_range();
+    public function collect_metrics( $days = 30 ) {
+        $range = $this->get_range( $days );
 
         $metrics = array(
             'range'       => $range,
@@ -155,9 +155,14 @@ class Reports_Helper {
      *
      * @return array
      */
-    protected function get_range() {
+    protected function get_range( $days = 30 ) {
+        $days     = absint( $days );
+        if ( ! in_array( $days, array( 7, 30, 60, 90 ), true ) ) {
+            $days = 30;
+        }
+
         $end_ts   = current_time( 'timestamp' );
-        $start_ts = strtotime( '-30 days', $end_ts );
+        $start_ts = strtotime( '-' . $days . ' days', $end_ts );
 
         return array(
             'start' => wp_date( 'Y-m-d H:i:s', $start_ts ),

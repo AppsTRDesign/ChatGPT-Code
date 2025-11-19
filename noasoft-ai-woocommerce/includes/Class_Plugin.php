@@ -90,7 +90,6 @@ class Class_Plugin {
         new Admin_Menu();
         new Settings_Page();
         new AI_Reports_Page();
-        new Shortcode_Docs_Page();
         new Language_Page();
     }
 
@@ -244,6 +243,10 @@ class Class_Plugin {
             'providerTest' => array(
                 'title'   => __( 'API Testi', 'noasoft-ai-woocommerce' ),
                 'running' => __( 'Bağlantı test ediliyor...', 'noasoft-ai-woocommerce' ),
+            ),
+            'state'    => array(
+                'on'  => __( 'Aktif', 'noasoft-ai-woocommerce' ),
+                'off' => __( 'Pasif', 'noasoft-ai-woocommerce' ),
             ),
         ) );
         wp_enqueue_script( 'noasoft-ai-admin-language', NOASOFT_AI_WOO_PLUGIN_URL . 'assets/js/admin-language.js', array( 'jquery' ), NOASOFT_AI_WOO_VERSION, true );

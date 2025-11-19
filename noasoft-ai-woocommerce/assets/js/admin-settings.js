@@ -12,6 +12,7 @@
             this.bindModals();
             this.bindRangeFields();
             this.bindAvatarPicker();
+            this.bindGlobalToggle();
         },
         bindTabs: function(){
             var self = this;
@@ -214,6 +215,25 @@
                 $wrap.find('.avatar-preview img').attr('src', $wrap.data('placeholder'));
                 $(this).prop('disabled', true);
             });
+        },
+        bindGlobalToggle: function(){
+            var $toggle = $('input[name="global_enabled"]');
+            if ( !$toggle.length ) {
+                return;
+            }
+            var $chip = $('.noasoft-status-chip');
+            var apply = function(){
+                var enabled = $toggle.is(':checked');
+                $('body').toggleClass('noasoft-global-disabled', !enabled);
+                if ( $chip.length ) {
+                    var on = (window.NoaSoftAiWooAdmin && NoaSoftAiWooAdmin.state && NoaSoftAiWooAdmin.state.on) ? NoaSoftAiWooAdmin.state.on : 'Aktif';
+                    var off = (window.NoaSoftAiWooAdmin && NoaSoftAiWooAdmin.state && NoaSoftAiWooAdmin.state.off) ? NoaSoftAiWooAdmin.state.off : 'Pasif';
+                    $chip.attr('data-state', enabled ? 'on' : 'off');
+                    $chip.text( enabled ? on : off );
+                }
+            };
+            $toggle.on('change', apply);
+            apply();
         },
         toast: function(message, type){
             if ( window.NoaSoftToast ) {

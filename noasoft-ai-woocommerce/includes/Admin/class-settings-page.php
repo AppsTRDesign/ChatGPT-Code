@@ -193,6 +193,9 @@ class Settings_Page {
                 </div>
                 <div class="noasoft-version-chip">
                     <?php esc_html_e( 'Sürüm', 'noasoft-ai-woocommerce' ); ?> <?php echo esc_html( NOASOFT_AI_WOO_VERSION ); ?>
+                    <span class="noasoft-status-chip" data-state="<?php echo $global_enabled ? 'on' : 'off'; ?>">
+                        <?php echo $global_enabled ? esc_html__( 'Aktif', 'noasoft-ai-woocommerce' ) : esc_html__( 'Pasif', 'noasoft-ai-woocommerce' ); ?>
+                    </span>
                 </div>
             </div>
             <label class="noasoft-toggle-card">
@@ -669,13 +672,17 @@ class Settings_Page {
             wp_send_json_error( array( 'message' => __( 'Sağlayıcı bulunamadı.', 'noasoft-ai-woocommerce' ) ), 400 );
         }
 
+        if ( empty( $config['api_key'] ) ) {
+            wp_send_json_error( array( 'message' => __( 'API anahtarı kaydedilmemiş.', 'noasoft-ai-woocommerce' ) ), 200 );
+        }
+
         $prompt = __( 'Bu bir bağlantı testidir. Kısa bir "OK" yanıtı üret.', 'noasoft-ai-woocommerce' );
         $start  = microtime( true );
         $result = $client->chat( $prompt, array( 'system' => __( 'Sadece kısa bir doğrulama ver.', 'noasoft-ai-woocommerce' ) ) );
         $time   = round( ( microtime( true ) - $start ) * 1000 );
 
         if ( is_wp_error( $result ) ) {
-            wp_send_json_error( array( 'message' => $result->get_error_message() ), 400 );
+            wp_send_json_error( array( 'message' => $result->get_error_message() ), 200 );
         }
 
         $summary = sprintf(
