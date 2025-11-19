@@ -334,3 +334,6 @@ msgstr "Start"
 
 msgid "Sihirbazı tamamladınız"
 msgstr "Wizard completed"
+
+msgid "Gelişmiş Checkout UX paketini etkinleştir"
+msgstr "Enable advanced checkout UX package"

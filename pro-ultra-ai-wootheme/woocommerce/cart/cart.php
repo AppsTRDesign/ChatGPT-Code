@@ -2,7 +2,11 @@
 /**
  * Cart Page
  *
- * @package Pro_Ultra_AI_WooTheme
+ * This template can be overridden by copying it to yourtheme/woocommerce/cart/cart.php.
+ *
+ * @see     https://docs.woocommerce.com/document/template-structure/
+ * @package WooCommerce\Templates
+ * @version 8.9.0
  */
 
 defined( 'ABSPATH' ) || exit;

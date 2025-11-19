@@ -3,8 +3,8 @@
  * The template for displaying product content in the single-product.php template
  *
  * @see     https://docs.woocommerce.com/document/template-structure/
- * @package WooCommerce/Templates
- * @version 3.6.0
+ * @package WooCommerce\Templates
+ * @version 8.9.0
  */
 
 defined( 'ABSPATH' ) || exit;

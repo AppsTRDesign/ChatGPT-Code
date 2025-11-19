@@ -1,8 +1,12 @@
 <?php
 /**
- * WooCommerce Product Archive override with AJAX-first controls.
+ * The Template for displaying product archives, including the main shop page which is a post type archive.
  *
- * @package Pro_Ultra_AI_WooTheme
+ * This template can be overridden by copying it to yourtheme/woocommerce/archive-product.php.
+ *
+ * @see https://docs.woocommerce.com/document/template-structure/
+ * @package WooCommerce\Templates
+ * @version 8.9.0
  */
 
 defined( 'ABSPATH' ) || exit;
