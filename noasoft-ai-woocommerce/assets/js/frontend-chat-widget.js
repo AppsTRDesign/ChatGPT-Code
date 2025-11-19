@@ -24,8 +24,11 @@
         this.assistantLabel  = this.settings.header_title || 'AI';
         this.userAvatar      = ( this.globalConfig.user && this.globalConfig.user.avatar ) ? this.globalConfig.user.avatar : '';
         this.userName        = ( this.globalConfig.user && this.globalConfig.user.name ) ? this.globalConfig.user.name : '';
+        this.storageKey      = 'noasoft-chat-history-' + ( ( this.globalConfig.user && this.globalConfig.user.id ) ? this.globalConfig.user.id : 'guest' );
+        this.history         = [];
         this.bindEvents();
         this.renderSuggestions();
+        this.restoreHistory();
         this.bootstrap();
         this.applyMenuCopy();
     }
@@ -127,12 +130,16 @@
     };
 
     ChatInstance.prototype.bootstrap = function(){
+        if ( this.history.length ) {
+            return;
+        }
         if ( this.settings.greeting ) {
             this.pushAssistantMessage( this.settings.greeting, 'system' );
         }
     };
 
-    ChatInstance.prototype.pushUserMessage = function(text){
+    ChatInstance.prototype.pushUserMessage = function(text, opts){
+        opts = opts || {};
         var $msg = $('<div class="noasoft-chat-msg is-user" />');
         $msg.append( this.buildAvatar('user') );
         $('<div class="bubble" />').text( text ).appendTo( $msg );
@@ -141,9 +148,13 @@
             NoaSoftAnimator.message( $msg.get(0) );
         }
         this.scrollToBottom();
+        if ( false !== opts.persist ) {
+            this.recordMessage('user', text);
+        }
     };
 
-    ChatInstance.prototype.pushAssistantMessage = function(text, role){
+    ChatInstance.prototype.pushAssistantMessage = function(text, role, opts){
+        opts = opts || {};
         var cls = role || 'assistant';
         var $msg = $('<div class="noasoft-chat-msg is-' + cls + '" />');
         $msg.append( this.buildAvatar('assistant') );
@@ -153,6 +164,40 @@
             NoaSoftAnimator.message( $msg.get(0) );
         }
         this.scrollToBottom();
+        if ( false !== opts.persist ) {
+            this.recordMessage(cls, text);
+        }
+    };
+
+    ChatInstance.prototype.recordMessage = function(role, text){
+        this.history.push({ role: role, text: text });
+        try {
+            sessionStorage.setItem(this.storageKey, JSON.stringify(this.history));
+        } catch (err) {
+            // ignore storage errors
+        }
+    };
+
+    ChatInstance.prototype.restoreHistory = function(){
+        try {
+            var raw = sessionStorage.getItem(this.storageKey);
+            if ( raw ) {
+                var items = JSON.parse(raw);
+                if ( Array.isArray(items) ) {
+                    this.history = items;
+                    var self = this;
+                    items.forEach(function(item){
+                        if ( item.role === 'user' ) {
+                            self.pushUserMessage(item.text, { persist: false });
+                        } else {
+                            self.pushAssistantMessage(item.text, item.role || 'assistant', { persist: false });
+                        }
+                    });
+                }
+            }
+        } catch (err) {
+            this.history = [];
+        }
     };
 
     ChatInstance.prototype.scrollToBottom = function(){

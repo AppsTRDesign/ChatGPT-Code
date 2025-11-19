@@ -3,6 +3,7 @@ namespace NoaSoft\AiWoo\Frontend;
 
 use NoaSoft\AiWoo\Helpers\AI_Client_Factory;
 use NoaSoft\AiWoo\Helpers\Options;
+use NoaSoft\AiWoo\Frontend\UX_Tracker;
 use WP_Error;
 
 /**
@@ -204,26 +205,55 @@ class Chat_Assistant {
             return new WP_Error( 'empty_message', __( 'Mesajınızı yazın.', 'noasoft-ai-woocommerce' ) );
         }
 
+        $message = trim( $message );
+
+        // If the text is clearly about orders/shipping, require identifiers instead of hallucinating.
+        if ( $this->looks_like_order_query( $message ) ) {
+            if ( is_user_logged_in() ) {
+                if ( ! $this->user_has_orders( get_current_user_id() ) ) {
+                    return new WP_Error( 'no_orders', __( 'Hesabınıza ait kayıtlı bir sipariş bulunamadı.', 'noasoft-ai-woocommerce' ) );
+                }
+
+                return new WP_Error( 'order_number_required', __( 'Sipariş durumunu kontrol etmek için sipariş numaranızı paylaşın.', 'noasoft-ai-woocommerce' ) );
+            }
+
+            return new WP_Error( 'order_details_required', __( 'Siparişinizi bulabilmem için e‑posta adresi ve sipariş numarası girin.', 'noasoft-ai-woocommerce' ) );
+        }
+
+        // Try to resolve a product from the free-form text before sending to AI.
+        $product_from_text = $this->find_product_from_message( $message );
+        if ( $product_from_text ) {
+            return $this->process_product_info( (string) $product_from_text->get_id() );
+        }
+
         $client = $this->get_provider();
         if ( ! $client ) {
             return new WP_Error( 'provider_missing', __( 'AI sağlayıcısı yapılandırılmamış.', 'noasoft-ai-woocommerce' ) );
         }
 
-        $prompt = Options::get_prompt( 'chat_assistant', __( 'Bir WooCommerce satış asistanı gibi yanıt ver.', 'noasoft-ai-woocommerce' ) );
+        $prompt = Options::get_prompt(
+            'chat_assistant',
+            __( 'Bir WooCommerce satış asistanı gibi yanıt ver.', 'noasoft-ai-woocommerce' )
+        );
+
         $site_context = array(
             'site_name' => get_bloginfo( 'name' ),
             'site_url'  => home_url( '/' ),
         );
 
+        $user_events = $this->get_user_events_context( get_current_user_id(), UX_Tracker::get_session_id() );
+
         $response = $client->chat(
-            $prompt . "\n\nKullanıcı:" . $message,
+            $prompt . "\n- Stok veya sipariş bilgisi için yalnızca doğrulanmış WooCommerce verilerini kullan.\n- Ürün bulunamazsa uydurma, kullanıcıdan SKU/ID ya da ürün adını iste.\n- Sipariş durumu için sipariş numarası ve e‑posta veya giriş yapmış kullanıcı doğrulaması olmadan cevap verme.\n\nKullanıcı:" . $message,
             array(
                 'site' => $site_context,
                 'user' => array(
                     'id'    => get_current_user_id(),
                     'name'  => is_user_logged_in() ? wp_get_current_user()->display_name : __( 'Misafir', 'noasoft-ai-woocommerce' ),
                     'email' => is_user_logged_in() ? wp_get_current_user()->user_email : '',
+                    'has_orders' => $this->user_has_orders( get_current_user_id() ),
                 ),
+                'recent_events' => $user_events,
             )
         );
 
@@ -247,6 +277,14 @@ class Chat_Assistant {
      * @return array|WP_Error
      */
     protected function process_order_status( $order_number, $email ) {
+        if ( ! is_user_logged_in() && empty( $email ) ) {
+            return new WP_Error( 'order_email_required', __( 'Sipariş sorgusu için e‑posta adresinizi ekleyin.', 'noasoft-ai-woocommerce' ) );
+        }
+
+        if ( is_user_logged_in() && ! $this->user_has_orders( get_current_user_id() ) ) {
+            return new WP_Error( 'no_orders', __( 'Hesabınıza bağlı sipariş bulunamadı.', 'noasoft-ai-woocommerce' ) );
+        }
+
         $order = $this->get_order_for_request( $order_number, $email );
         if ( is_wp_error( $order ) ) {
             return $order;
@@ -274,6 +312,14 @@ class Chat_Assistant {
      * @return array|WP_Error
      */
     protected function process_shipping_status( $order_number, $email ) {
+        if ( ! is_user_logged_in() && empty( $email ) ) {
+            return new WP_Error( 'order_email_required', __( 'Kargo bilgisi için e‑posta adresi ekleyin.', 'noasoft-ai-woocommerce' ) );
+        }
+
+        if ( is_user_logged_in() && ! $this->user_has_orders( get_current_user_id() ) ) {
+            return new WP_Error( 'no_orders', __( 'Hesabınıza bağlı sipariş bulunamadı.', 'noasoft-ai-woocommerce' ) );
+        }
+
         $order = $this->get_order_for_request( $order_number, $email );
         if ( is_wp_error( $order ) ) {
             return $order;
@@ -357,6 +403,52 @@ class Chat_Assistant {
             'reply'    => __( 'İstediğiniz ürün hakkında bilgiler hazır.', 'noasoft-ai-woocommerce' ),
             'products' => array( $product_card ),
         );
+    }
+
+    /**
+     * Detect order/shipping intent from free text.
+     *
+     * @param string $message Message text.
+     * @return bool
+     */
+    protected function looks_like_order_query( $message ) {
+        $message   = strtolower( $message );
+        $keywords  = array( 'sipariş', 'kargo', 'teslimat', 'order', 'shipping', 'kargom', 'tracking' );
+        foreach ( $keywords as $keyword ) {
+            if ( false !== strpos( $message, $keyword ) ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Attempt to resolve a product from the free-form message.
+     *
+     * @param string $message Message text.
+     * @return \WC_Product|null
+     */
+    protected function find_product_from_message( $message ) {
+        if ( ! function_exists( 'wc_get_products' ) ) {
+            return null;
+        }
+
+        $clean = sanitize_text_field( wp_strip_all_tags( $message ) );
+        if ( empty( $clean ) ) {
+            return null;
+        }
+
+        $products = wc_get_products(
+            array(
+                'status' => 'publish',
+                'limit'  => 1,
+                'search' => $clean,
+                'orderby'=> 'relevance',
+            )
+        );
+
+        return ! empty( $products ) ? $products[0] : null;
     }
 
     /**
@@ -657,6 +749,81 @@ class Chat_Assistant {
         }
 
         return $results;
+    }
+
+    /**
+     * Fetch recent UX events for personalization context.
+     *
+     * @param int    $user_id    User ID.
+     * @param string $session_id Session ID.
+     * @param int    $limit      Limit.
+     * @return array
+     */
+    protected function get_user_events_context( $user_id, $session_id, $limit = 8 ) {
+        global $wpdb;
+
+        if ( ! $user_id && ! $session_id ) {
+            return array();
+        }
+
+        $table = UX_Tracker::get_table_name();
+        $exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+        if ( ! $exists ) {
+            return array();
+        }
+        $where = array();
+
+        if ( $user_id ) {
+            $where[] = $wpdb->prepare( 'user_id = %d', $user_id );
+        }
+
+        if ( $session_id ) {
+            $where[] = $wpdb->prepare( 'session_id = %s', $session_id );
+        }
+
+        if ( empty( $where ) ) {
+            return array();
+        }
+
+        $sql = 'SELECT event_type, product_id, created_at FROM ' . $table . ' WHERE (' . implode( ' OR ', $where ) . ') ORDER BY created_at DESC LIMIT %d';
+        $rows = $wpdb->get_results( $wpdb->prepare( $sql, absint( $limit ) ) );
+
+        if ( empty( $rows ) ) {
+            return array();
+        }
+
+        $events = array();
+        foreach ( $rows as $row ) {
+            $events[] = array(
+                'type'       => $row->event_type,
+                'product_id' => (int) $row->product_id,
+                'time'       => $row->created_at,
+            );
+        }
+
+        return $events;
+    }
+
+    /**
+     * Check if a user has at least one order.
+     *
+     * @param int $user_id User ID.
+     * @return bool
+     */
+    protected function user_has_orders( $user_id ) {
+        if ( ! $user_id || ! function_exists( 'wc_get_orders' ) ) {
+            return false;
+        }
+
+        $orders = wc_get_orders(
+            array(
+                'customer_id' => $user_id,
+                'limit'       => 1,
+                'return'      => 'ids',
+            )
+        );
+
+        return ! empty( $orders );
     }
 
     /**
