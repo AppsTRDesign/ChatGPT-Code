@@ -94,24 +94,51 @@ class Logger {
             return;
         }
 
+        self::$logging = true;
+
         $path = self::prepare_log_file();
 
         if ( ! $path ) {
+            self::$logging = false;
             return;
+        }
+
+        $sanitized_context = self::sanitize_context( $context );
+        $signature_payload = array(
+            'message' => (string) $message,
+            'context' => $sanitized_context,
+        );
+
+        // De-duplicate identical entries within the same request and across recent requests to avoid log bloat.
+        $signature = md5( wp_json_encode( $signature_payload ) );
+        if ( isset( self::$recent_signatures[ $signature ] ) ) {
+            self::$logging = false;
+            return;
+        }
+        self::$recent_signatures[ $signature ] = true;
+
+        if ( function_exists( 'get_option' ) ) {
+            $persisted = get_option( 'noasoft_ai_woo_log_signatures', array() );
+            $now       = time();
+            $window    = HOUR_IN_SECONDS; // Only log identical entries once per hour.
+
+            if ( isset( $persisted[ $signature ] ) && ( $now - absint( $persisted[ $signature ] ) ) < $window ) {
+                self::$logging = false;
+                return;
+            }
+
+            $persisted[ $signature ] = $now;
+            if ( count( $persisted ) > 50 ) {
+                $persisted = array_slice( $persisted, -50, 50, true );
+            }
+            update_option( 'noasoft_ai_woo_log_signatures', $persisted, false );
         }
 
         $entry = array(
             'time'    => self::now(),
             'message' => (string) $message,
-            'context' => self::sanitize_context( $context ),
+            'context' => $sanitized_context,
         );
-
-        // De-duplicate identical entries within the same request to avoid log bloat.
-        $signature = md5( wp_json_encode( $entry ) );
-        if ( isset( self::$recent_signatures[ $signature ] ) ) {
-            return;
-        }
-        self::$recent_signatures[ $signature ] = true;
 
         $encoded = function_exists( 'wp_json_encode' ) ? wp_json_encode( $entry ) : json_encode( $entry );
         if ( ! $encoded ) {
@@ -121,13 +148,13 @@ class Logger {
         $line = $encoded . PHP_EOL;
 
         try {
-            self::$logging = true;
+            self::rotate_if_needed( $path );
             file_put_contents( $path, $line, FILE_APPEND | LOCK_EX );
         } catch ( \Throwable $e ) {
             error_log( 'NoaSoft AI Woo log write failed: ' . $e->getMessage() );
-        } finally {
-            self::$logging = false;
         }
+
+        self::$logging = false;
     }
 
     /**
@@ -376,6 +403,27 @@ class Logger {
      */
     protected static function trailingslashit( $path ) {
         return rtrim( $path, '/\\' ) . '/';
+    }
+
+    /**
+     * Rotate the log file if it exceeds the size limit.
+     *
+     * @param string $path File path.
+     * @return void
+     */
+    protected static function rotate_if_needed( $path ) {
+        if ( ! file_exists( $path ) ) {
+            return;
+        }
+
+        $limit = 5 * 1024 * 1024; // 5MB cap to avoid runaway growth.
+        if ( filesize( $path ) < $limit ) {
+            return;
+        }
+
+        $archive = $path . '.' . time();
+        @rename( $path, $archive );
+        @touch( $path );
     }
 
     /**
