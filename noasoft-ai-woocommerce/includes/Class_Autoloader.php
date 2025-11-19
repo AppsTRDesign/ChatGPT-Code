@@ -30,17 +30,39 @@ class Class_Autoloader {
 
         $relative_class = substr( $class, strlen( $prefix ) );
         $relative_class = str_replace( '\\', '/', $relative_class );
-        $path           = $base_dir . 'class-' . strtolower( $relative_class ) . '.php';
 
-        if ( file_exists( $path ) ) {
-            require_once $path;
-            return;
+        $segments = explode( '/', $relative_class );
+        $filename = array_pop( $segments );
+        $subpath  = $segments ? implode( '/', $segments ) . '/' : '';
+
+        $slug = self::class_to_slug( $filename );
+
+        $candidates = array(
+            $base_dir . $subpath . 'class-' . $slug . '.php',
+            $base_dir . $subpath . 'class-' . strtolower( $filename ) . '.php',
+            $base_dir . $subpath . $filename . '.php',
+        );
+
+        foreach ( $candidates as $candidate ) {
+            if ( file_exists( $candidate ) ) {
+                require_once $candidate;
+                return;
+            }
         }
+    }
 
-        $path = $base_dir . $relative_class . '.php';
+    /**
+     * Convert class name to slug.
+     *
+     * @param string $class Class segment.
+     * @return string
+     */
+    protected static function class_to_slug( $class ) {
+        $slug = str_replace( '_', '-', $class );
+        $slug = preg_replace( '/([a-z\d])([A-Z])/', '$1-$2', $slug );
+        $slug = strtolower( $slug );
+        $slug = preg_replace( '/-+/', '-', $slug );
 
-        if ( file_exists( $path ) ) {
-            require_once $path;
-        }
+        return trim( $slug, '-' );
     }
 }
