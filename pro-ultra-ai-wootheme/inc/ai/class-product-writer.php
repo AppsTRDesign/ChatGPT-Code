@@ -79,8 +79,8 @@ class Product_Writer {
                 </p>
                 <hr />
                 <p>
-                        <label for="pro-ultra-ai-features"><?php esc_html_e( 'AI Özellik Listesi', 'pro-ultra-ai' ); ?></label>
-                        <textarea id="pro-ultra-ai-features" name="pro_ultra_ai_features" rows="4" class="widefat" placeholder="• ...\n• ..."><?php echo esc_textarea( $features ); ?></textarea>
+                        <label for="pro-ultra-ai-features"><?php esc_html_e( 'Özellikler', 'pro-ultra-ai' ); ?></label>
+                        <textarea id="pro-ultra-ai-features" name="pro_ultra_ai_features" rows="4" class="widefat" placeholder="<?php esc_attr_e( 'Özellikleri satır satır girin', 'pro-ultra-ai' ); ?>"><?php echo esc_textarea( $features ); ?></textarea>
                 </p>
                 <p>
                         <label for="pro-ultra-ai-keywords"><?php esc_html_e( 'AI Anahtar Kelimeler', 'pro-ultra-ai' ); ?></label>
@@ -210,7 +210,7 @@ class Product_Writer {
                 $category_text = $category ? sprintf( 'Category: %s.', $category ) : '';
 
                 return sprintf(
-                        'You are an ecommerce copywriter. Write JSON with keys: seo_baslik, kisa_aciklama, uzun_aciklama, urun_ozellikleri (array), anahtar_kelimeler (array), ne_ise_yarar_metin. Language: %s. Product name: %s. %s Keep tone persuasive and concise. Return only JSON.',
+                        'You are an ecommerce copywriter. Write JSON with keys: seo_baslik, seo_meta_aciklama, kisa_aciklama, uzun_aciklama, urun_ozellikleri (array), anahtar_kelimeler (array), ne_ise_yarar_metin. Language: %s. Product name: %s. %s Keep tone persuasive and concise. Return only JSON.',
                         $language,
                         sanitize_text_field( $title ),
                         $category_text
@@ -315,6 +315,7 @@ class Product_Writer {
 
                 return array(
                         'seo_baslik'         => __( 'AI SEO Başlığı', 'pro-ultra-ai' ),
+                        'seo_meta_aciklama'  => __( 'Ürün için SEO meta açıklaması.', 'pro-ultra-ai' ),
                         'kisa_aciklama'      => __( 'Bu ürün için AI tabanlı kısa açıklama örneği.', 'pro-ultra-ai' ),
                         'uzun_aciklama'      => __( 'AI uzun açıklama örneği: Ürününüzün öne çıkan faydalarını ve özelliklerini vurgulayın.', 'pro-ultra-ai' ),
                         'urun_ozellikleri'   => array( __( 'Yüksek kalite', 'pro-ultra-ai' ), __( 'Hızlı teslimat', 'pro-ultra-ai' ) ),
@@ -329,6 +330,7 @@ class Product_Writer {
         protected static function hydrate_payload( $raw ) {
                 return array(
                         'seo_baslik'         => isset( $raw['seo_baslik'] ) ? sanitize_text_field( $raw['seo_baslik'] ) : '',
+                        'seo_meta_aciklama'  => isset( $raw['seo_meta_aciklama'] ) ? wp_kses_post( $raw['seo_meta_aciklama'] ) : '',
                         'kisa_aciklama'      => isset( $raw['kisa_aciklama'] ) ? wp_kses_post( $raw['kisa_aciklama'] ) : '',
                         'uzun_aciklama'      => isset( $raw['uzun_aciklama'] ) ? wp_kses_post( $raw['uzun_aciklama'] ) : '',
                         'urun_ozellikleri'   => isset( $raw['urun_ozellikleri'] ) && is_array( $raw['urun_ozellikleri'] ) ? array_map( 'sanitize_text_field', $raw['urun_ozellikleri'] ) : array(),

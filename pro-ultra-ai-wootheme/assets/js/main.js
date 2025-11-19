@@ -413,11 +413,14 @@ body: payload
 .then((res)=>{
 if(res.success){
 const data = res.data.payload;
-if(titleField && data.seo_baslik){ titleField.value = data.seo_baslik; }
+const seoTitle = data.seo_baslik || '';
+const seoDesc = data.seo_meta_aciklama || data.kisa_aciklama || '';
+
+if(titleField && seoTitle){ titleField.value = seoTitle; }
 if(shortDesc && data.kisa_aciklama){ shortDesc.value = data.kisa_aciklama; }
 if(data.uzun_aciklama){ setEditorValue(data.uzun_aciklama); }
 if(featuresArea && Array.isArray(data.urun_ozellikleri)){
-featuresArea.value = data.urun_ozellikleri.map((f)=>`• ${f}`).join('\n');
+featuresArea.value = data.urun_ozellikleri.join('\n');
 }
 if(keywordsArea && Array.isArray(data.anahtar_kelimeler)){
 keywordsArea.value = data.anahtar_kelimeler.join(', ');
@@ -427,6 +430,22 @@ if(tagInput){ tagInput.value = data.anahtar_kelimeler.join(','); }
 if(benefitsArea && data.ne_ise_yarar_metin){
 benefitsArea.value = data.ne_ise_yarar_metin;
 }
+
+const setSeoField = (selector, value) => {
+const el = document.querySelector(selector);
+if(!el || !value){ return; }
+el.value = value;
+if(typeof jQuery !== 'undefined' && typeof jQuery(el).trigger === 'function'){
+jQuery(el).trigger('change');
+}
+};
+setSeoField('#yoast_wpseo_title', seoTitle);
+setSeoField('#yoast_wpseo_metadesc', seoDesc);
+setSeoField('input[name="rank_math_title"], #rank_math_title', seoTitle);
+setSeoField('textarea[name="rank_math_description"], #rank_math_description', seoDesc);
+setSeoField('input[name="_aioseo_title"]', seoTitle);
+setSeoField('textarea[name="_aioseo_description"]', seoDesc);
+
 toast(res.data.message || proUltraAIWriter.successTitle);
 }else{
 toast(res.data?.message || proUltraAIWriter.errorTitle);

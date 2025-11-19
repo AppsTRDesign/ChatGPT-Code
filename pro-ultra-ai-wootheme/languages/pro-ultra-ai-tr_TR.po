@@ -382,3 +382,30 @@ msgstr "Kategori Payları"
 
 msgid "İlk 5 Ürün"
 msgstr "İlk 5 Ürün"
+
+msgid "Özellikler"
+msgstr "Özellikler"
+
+msgid "Özellikleri satır satır girin"
+msgstr "Özellikleri satır satır girin"
+
+msgid "Ürün için SEO meta açıklaması."
+msgstr "Ürün için SEO meta açıklaması."
+
+msgid "AI destekli vitrin"
+msgstr "AI destekli vitrin"
+
+msgid "Premium ürünlerinizi ışık hızında canlıya alın."
+msgstr "Premium ürünlerinizi ışık hızında canlıya alın."
+
+msgid "Alışverişe Başla"
+msgstr "Alışverişe Başla"
+
+msgid "Bize ulaşın"
+msgstr "Bize ulaşın"
+
+msgid "Sorularınız için destek ekibimize ulaşın."
+msgstr "Sorularınız için destek ekibimize ulaşın."
+
+msgid "Mağaza"
+msgstr "Mağaza"

@@ -1,32 +1,31 @@
 # Pro Ultra AI WooTheme
 
-A production-ready, AI-powered WordPress + WooCommerce theme featuring five layout kits, AJAX-first UX, AI assistants, SVG icon system, enhanced checkout, and onboarding wizard.
+Production-ready, AI-powered WordPress + WooCommerce theme with Shopify/Amazon/Apple-inspired hybrid UI, five layout kits, SVG icon families, AI assistants, and AJAX-first commerce flows.
 
-## Kurulum
-1. **Temayı yükleyip etkinleştirin.**
-2. **Setup Wizard** bildirimini takip ederek sunucu gereksinimlerini doğrulayın, WooCommerce eklentisini kurun/etkinleştirin ve demo içeriği yükleyin.
-3. **Tema Ayarları → AI Ayarları** bölümüne DeepSeek/ChatGPT API anahtarlarınızı girin, aktif modülleri açın ve dil/çıkış ayarlarını yapılandırın.
-4. **Tasarım & Layout** sekmesinden istediğiniz tasarım kitini seçin; **Renk Ayarları** ile markanıza uygun renkleri belirleyin.
-5. WooCommerce temel ayarlarını (para birimi, kargo, vergiler, ödeme yöntemleri) tamamlayın.
+## Kurulum / Setup
+1. **Temayı yükleyip etkinleştirin.** Etkinleştirme sonrası görünen **Setup Wizard** bildirimi ile sihirbazı açın.
+2. Sihirbaz adımlarında sunucu gereksinimlerini doğrulayın, WooCommerce ve önerilen eklentileri kurup etkinleştirin, demo ürünler/sayfalar/menüleri içe aktarın ve Ana Sayfa’yı statik sayfa olarak atayın.
+3. **Tema Ayarları → AI Ayarları** bölümüne DeepSeek/ChatGPT anahtarlarını girin; AI ürün yazarı, AI görsel işleme, AI satış asistanı, AI sorgu motoru ve AI raporlama modüllerini aç/kapa.
+4. **Tasarım & Layout** sekmesinden (Minimal, Dark, Gradient, Classic, Luxury) seçiminizi yapın; **Renk Ayarları** ile marka renklerini belirleyin. SVG ikon seti ve body class seçime göre otomatik güncellenir.
+5. WooCommerce para birimi, kargo, vergiler ve ödeme yöntemlerini tamamlayın. Gelişmiş checkout UX paketi PayTR, iyzico, Stripe, WooCommerce Payments ve PayPal görselleriyle uyumlu çalışır.
 
 ## Ana Özellikler
-- AI ürün içerik yazarı, AI görsel editörü, AI satış asistanı, AI sorgu motoru ve AI raporlama modülleri
-- AJAX-first deneyim: sepet, filtreleme, mini-cart, favoriler/wishlist/beğeni, checkout kupon işlemleri
-- 5 farklı layout: Minimal White, Dark Future, Gradient Modern, Classic Shop, Luxury Premium Gold
-- Layout’a özel SVG ikon setleri (ödeme, kargo, UI) ve gelişmiş checkout UX paketi
-- Çoklu dil (TR/EN) desteği, inline çeviri editörü ve JSON/PO yükleme
-- Setup wizard, demo import, tema yönetim paneli, gelişmiş profil ve özel login/register şablonları
+- AI ürün içerik yazarı (Yoast / Rank Math / AIOSEO alanlarına otomatik SEO başlık + meta açıklama yazma), AI görsel editörü, AI satış asistanı/chatbot, AI sorgu motoru ve AI raporlama + Chart.js PDF çıktıları.
+- AJAX-first deneyim: Amazon/Trendyol benzeri sol filtre paneli (varyasyonlara göre dinamik), wishlist/favori/beğeni, mini-cart, AJAX sepet, checkout kupon işlemleri, gelişmiş profil sekmeleri.
+- 5 layout kiti ve layout’a özel ödeme/kargo/UI SVG ikon setleri; premium header/footer, sticky özetler, Apple tarzı mobil sheet menüleri.
+- Çoklu dil (TR/EN) desteği, inline çeviri editörü, JSON/PO yükleme ve body class’a göre dil sınıfı ekleme.
+- Setup wizard, demo import (örnek ürünler, sayfalar, menüler), tema paneli, özel login/register şablonları ve AI toasts dahil tam çeviri seti.
+
+## Demo & İçerik
+- Sihirbaz, “Ana Sayfa - Mağaza” statik sayfası, Mağaza, Sepet, Ödeme, Hesap, Favoriler/Wishlist/Beğeniler, Blog ve İletişim sayfalarını otomatik oluşturur ve menülere ekler.
+- Hero alanı ve örnek featured ürün shortcodu, layout seçimine göre premium tasarımla gelir; WooCommerce sayfa atamaları otomatik yapılır.
 
 ## Minimum Gereksinimler
-- WordPress 6.x
-- WooCommerce güncel sürüm
-- PHP 8.0+ (cURL, JSON, mbstring etkin)
-- Modern tarayıcı ve HTTPS önerilir
+- WordPress 6.x, WooCommerce güncel
+- PHP 8.0+ (cURL, JSON, mbstring etkin, dosya yazma izinleri)
+- Modern tarayıcı, HTTPS önerilir
 
-## Demo & Layout Notları
-- Setup wizard, örnek ürünler, sayfalar ve menüleri yükler; Anasayfa’yı statik sayfa olarak ayarlar.
-- Layout seçimi body class ve SVG setini günceller; renk değişkenleri Renk Ayarları sekmesinden güncellenebilir.
-
-## Destek ve Geliştirme
-- Kodlar PSR uyumlu yapıda, nonce ve sanitize kontrolleri ile güvenli hale getirilmiştir.
-- Minify edilmiş varlıklar `assets/dist` altında bulunur; debug için `SCRIPT_DEBUG` etkinleştirilebilir.
+## Geliştirici Notları
+- Kod yapısı OOP, nonce + sanitize kontrolleri ile güçlendirilmiş; SEO anahtarları hiçbir zaman frontende sızdırılmaz.
+- `assets/dist` altında minify edilmiş CSS/JS; geliştirme için `SCRIPT_DEBUG` kullanabilir, kaynak dosyalar `assets/js` ve `assets/css` altındadır.
+- WooCommerce override başlıkları 10.x sürüm bilgisiyle günceldir; body class’lar view ve layout tercihlerini yansıtır.

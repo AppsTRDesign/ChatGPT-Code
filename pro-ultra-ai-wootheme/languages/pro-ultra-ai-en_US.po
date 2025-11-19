@@ -382,3 +382,30 @@ msgstr "Category Share"
 
 msgid "İlk 5 Ürün"
 msgstr "Top 5 Products"
+
+msgid "Özellikler"
+msgstr "Features"
+
+msgid "Özellikleri satır satır girin"
+msgstr "Enter features line by line"
+
+msgid "Ürün için SEO meta açıklaması."
+msgstr "SEO meta description for the product."
+
+msgid "AI destekli vitrin"
+msgstr "AI powered showcase"
+
+msgid "Premium ürünlerinizi ışık hızında canlıya alın."
+msgstr "Launch your premium products at lightspeed."
+
+msgid "Alışverişe Başla"
+msgstr "Start Shopping"
+
+msgid "Bize ulaşın"
+msgstr "Contact us"
+
+msgid "Sorularınız için destek ekibimize ulaşın."
+msgstr "Reach our support team for your questions."
+
+msgid "Mağaza"
+msgstr "Shop"

@@ -36,7 +36,7 @@ array(
 }
 
 public static function render_filters() {
-if ( ! is_shop() && ! is_product_taxonomy() ) {
+if ( ! is_shop() && ! is_product_taxonomy() && ! self::is_product_search() ) {
 return;
 }
 $categories   = get_terms(
@@ -47,7 +47,7 @@ array(
 )
 );
 $current_cat  = is_product_category() ? get_queried_object_id() : 0;
-$filter_attrs = array(
+$filter_attrs    = array(
 'pa_model',
 'pa_renk',
 'pa_ebat',
@@ -55,6 +55,7 @@ $filter_attrs = array(
 'pa_materyal',
 'pa_marka',
 );
+$available_terms = self::get_available_attribute_terms( $filter_attrs );
 ?>
 <div class="pro-ultra-archive__sidebar" data-archive-form-wrapper>
 <form class="pro-ultra-archive__filters" data-archive-form>
@@ -103,7 +104,15 @@ $filter_attrs = array(
 if ( ! taxonomy_exists( $tax ) ) {
 continue;
 }
-$terms = get_terms( array( 'taxonomy' => $tax, 'hide_empty' => true, 'number' => 200 ) );
+$term_args = array(
+'taxonomy'   => $tax,
+'hide_empty' => true,
+'number'     => 200,
+);
+if ( ! empty( $available_terms[ $tax ] ) ) {
+$term_args['include'] = $available_terms[ $tax ];
+}
+$terms = get_terms( $term_args );
 if ( empty( $terms ) || is_wp_error( $terms ) ) {
 continue;
 }
@@ -349,6 +358,49 @@ array(
 'view'       => in_array( $view, array( 'grid', 'list' ), true ) ? $view : 'grid',
 )
 );
+}
+
+private static function is_product_search() {
+return is_search() && ( 'product' === get_query_var( 'post_type' ) || ( isset( $_GET['post_type'] ) && 'product' === sanitize_key( wp_unslash( $_GET['post_type'] ) ) ) );
+}
+
+private static function get_available_attribute_terms( $taxonomies ) {
+if ( empty( $taxonomies ) || ! is_array( $taxonomies ) || ! function_exists( 'wc_get_product' ) ) {
+return array();
+}
+global $wp_query;
+if ( ! isset( $wp_query->posts ) || empty( $wp_query->posts ) ) {
+return array();
+}
+$available = array();
+foreach ( $taxonomies as $tax ) {
+$available[ $tax ] = array();
+}
+foreach ( $wp_query->posts as $post ) {
+$product = wc_get_product( $post->ID );
+if ( ! $product ) {
+continue;
+}
+foreach ( $taxonomies as $tax ) {
+if ( ! taxonomy_exists( $tax ) ) {
+continue;
+}
+$term_ids = wp_get_post_terms( $product->get_id(), $tax, array( 'fields' => 'ids' ) );
+if ( ! empty( $term_ids ) && ! is_wp_error( $term_ids ) ) {
+$available[ $tax ] = array_merge( $available[ $tax ], $term_ids );
+}
+if ( $product->is_type( 'variation' ) && $product->get_parent_id() ) {
+$parent_terms = wp_get_post_terms( $product->get_parent_id(), $tax, array( 'fields' => 'ids' ) );
+if ( ! empty( $parent_terms ) && ! is_wp_error( $parent_terms ) ) {
+$available[ $tax ] = array_merge( $available[ $tax ], $parent_terms );
+}
+}
+}
+}
+foreach ( $available as $tax => $ids ) {
+$available[ $tax ] = array_unique( array_map( 'absint', $ids ) );
+}
+return $available;
 }
 
 private static function render_pagination( $links ) {
