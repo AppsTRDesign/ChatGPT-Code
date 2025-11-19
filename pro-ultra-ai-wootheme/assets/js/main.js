@@ -163,11 +163,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const presetView = proUltraArchive.view || 'grid';
   setView(presetView);
  });
-});
-}
-});
-
-document.addEventListener('submit', function(event){
+  document.addEventListener('submit', function(event){
 const form = event.target;
 if(form.matches('.pro-ultra-auth form')){
 event.preventDefault();
@@ -554,7 +550,7 @@ aiButton.textContent = original;
     });
    }
 
-   if(target.matches('[data-report-view]')){
+  if(target.matches('[data-report-view]')){
     event.preventDefault();
     const id = target.getAttribute('data-report-view');
     fetch(proUltraAI.ajaxUrl, {
@@ -570,9 +566,12 @@ aiButton.textContent = original;
       renderDetail(res.data.report);
      }else{
       toast(res.data?.message || proUltraAIReports.labels.noData);
-  }
+   }
+  });
+ }
+
  });
-}
+ }
 
  // Single product AI önerileri.
  const aiWrapper = document.querySelector('[data-ai-suggestions]');
