@@ -35,10 +35,10 @@ array(
 );
 }
 
-public static function render_filters() {
-if ( ! is_shop() && ! is_product_taxonomy() && ! self::is_product_search() ) {
-return;
-}
+    public static function render_filters() {
+        if ( ! is_shop() && ! is_product_taxonomy() && ! self::is_product_search() && ! self::is_product_results() ) {
+            return;
+        }
 $categories   = get_terms(
 array(
 'taxonomy'   => 'product_cat',
@@ -55,7 +55,7 @@ $filter_attrs    = array(
 'pa_materyal',
 'pa_marka',
 );
-$available_terms = self::get_available_attribute_terms( $filter_attrs );
+        $available_terms = self::get_available_attribute_terms( $filter_attrs );
 ?>
 <div class="pro-ultra-archive__sidebar" data-archive-form-wrapper>
 <form class="pro-ultra-archive__filters" data-archive-form>
@@ -364,24 +364,30 @@ private static function is_product_search() {
 return is_search() && ( 'product' === get_query_var( 'post_type' ) || ( isset( $_GET['post_type'] ) && 'product' === sanitize_key( wp_unslash( $_GET['post_type'] ) ) ) );
 }
 
-private static function get_available_attribute_terms( $taxonomies ) {
-if ( empty( $taxonomies ) || ! is_array( $taxonomies ) || ! function_exists( 'wc_get_product' ) ) {
-return array();
-}
-global $wp_query;
-if ( ! isset( $wp_query->posts ) || empty( $wp_query->posts ) ) {
-return array();
-}
-$available = array();
-foreach ( $taxonomies as $tax ) {
-$available[ $tax ] = array();
-}
-foreach ( $wp_query->posts as $post ) {
-$product = wc_get_product( $post->ID );
-if ( ! $product ) {
-continue;
-}
-foreach ( $taxonomies as $tax ) {
+    private static function get_available_attribute_terms( $taxonomies ) {
+        if ( empty( $taxonomies ) || ! is_array( $taxonomies ) || ! function_exists( 'wc_get_product' ) ) {
+            return array();
+        }
+        global $wp_query;
+        $posts = array();
+        if ( isset( $wp_query->posts ) && ! empty( $wp_query->posts ) ) {
+            $posts = $wp_query->posts;
+        } else {
+            $posts = self::prime_posts_for_filtering();
+        }
+        if ( empty( $posts ) ) {
+            return array();
+        }
+        $available = array();
+        foreach ( $taxonomies as $tax ) {
+            $available[ $tax ] = array();
+        }
+        foreach ( $posts as $post ) {
+            $product = wc_get_product( $post->ID );
+            if ( ! $product ) {
+                continue;
+            }
+            foreach ( $taxonomies as $tax ) {
 if ( ! taxonomy_exists( $tax ) ) {
 continue;
 }
@@ -400,8 +406,60 @@ $available[ $tax ] = array_merge( $available[ $tax ], $parent_terms );
 foreach ( $available as $tax => $ids ) {
 $available[ $tax ] = array_unique( array_map( 'absint', $ids ) );
 }
-return $available;
-}
+        return $available;
+    }
+
+    private static function prime_posts_for_filtering() {
+        $query_args = array(
+            'post_type'      => 'product',
+            'posts_per_page' => 60,
+            'fields'         => 'ids',
+        );
+
+        if ( is_product_category() ) {
+            $query_args['tax_query'] = array(
+                array(
+                    'taxonomy' => 'product_cat',
+                    'field'    => 'term_id',
+                    'terms'    => array( get_queried_object_id() ),
+                ),
+            );
+        }
+
+        if ( is_product_tag() ) {
+            $query_args['tax_query'] = array(
+                array(
+                    'taxonomy' => 'product_tag',
+                    'field'    => 'term_id',
+                    'terms'    => array( get_queried_object_id() ),
+                ),
+            );
+        }
+
+        if ( self::is_product_search() || self::is_product_results() ) {
+            $query_args['s']         = get_search_query();
+            $query_args['post_type'] = 'product';
+        }
+
+        $query = new WP_Query( $query_args );
+        return $query->posts;
+    }
+
+    private static function is_product_results() {
+        if ( is_shop() || is_product_taxonomy() || self::is_product_search() ) {
+            return true;
+        }
+        global $wp_query;
+        if ( ! is_search() || ! isset( $wp_query->posts ) ) {
+            return false;
+        }
+        foreach ( $wp_query->posts as $post ) {
+            if ( isset( $post->post_type ) && 'product' === $post->post_type ) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 private static function render_pagination( $links ) {
 if ( empty( $links ) || ! is_array( $links ) ) {
