@@ -13,6 +13,13 @@ class Logger {
     protected static $booted = false;
 
     /**
+     * Whether log storage was prepared.
+     *
+     * @var bool
+     */
+    protected static $storage_ready = false;
+
+    /**
      * Previous PHP error handler.
      *
      * @var callable|null
@@ -44,6 +51,7 @@ class Logger {
         }
 
         self::$booted = true;
+        self::prepare_log_file();
         if ( function_exists( 'set_error_handler' ) ) {
             self::$previous_error_handler = set_error_handler( array( __CLASS__, 'handle_error' ) );
         }
@@ -67,13 +75,9 @@ class Logger {
             return;
         }
 
-        $path = self::get_log_file();
+        $path = self::prepare_log_file();
 
         if ( ! $path ) {
-            return;
-        }
-
-        if ( ! self::ensure_directory( dirname( $path ) ) ) {
             return;
         }
 
@@ -223,6 +227,40 @@ class Logger {
         $directory = self::trailingslashit( $directory );
 
         return $directory . 'plugin.log';
+    }
+
+    /**
+     * Prepare log file and directory.
+     *
+     * @return string|false
+     */
+    protected static function prepare_log_file() {
+        if ( self::$storage_ready ) {
+            return self::get_log_file();
+        }
+
+        $path = self::get_log_file();
+
+        if ( ! $path ) {
+            return false;
+        }
+
+        if ( ! self::ensure_directory( dirname( $path ) ) ) {
+            return false;
+        }
+
+        if ( ! file_exists( $path ) ) {
+            try {
+                touch( $path );
+            } catch ( \Throwable $e ) {
+                error_log( 'NoaSoft AI Woo log file could not be created: ' . $e->getMessage() );
+                return false;
+            }
+        }
+
+        self::$storage_ready = true;
+
+        return $path;
     }
 
     /**

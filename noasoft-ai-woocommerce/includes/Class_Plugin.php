@@ -14,6 +14,7 @@ use NoaSoft\AiWoo\Helpers\Options;
 use NoaSoft\AiWoo\Helpers\Language_Helper;
 use NoaSoft\AiWoo\Helpers\Reports_Helper;
 use NoaSoft\AiWoo\Helpers\Logger;
+use NoaSoft\AiWoo\Helpers\Requirements;
 use NoaSoft\AiWoo\Widgets\Widget_AI_Recommender;
 use NoaSoft\AiWoo\Widgets\Widget_AI_Chat;
 use NoaSoft\AiWoo\Widgets\Widget_AI_Compare;
@@ -51,6 +52,13 @@ class Class_Plugin {
      * @return void
      */
     public function run() {
+        if ( ! Requirements::all_met() ) {
+            Logger::log( 'Plugin requirements not met', array( 'errors' => Requirements::get_errors() ) );
+            add_action( 'admin_notices', array( __CLASS__, 'render_requirements_notice' ) );
+            add_action( 'network_admin_notices', array( __CLASS__, 'render_requirements_notice' ) );
+            return;
+        }
+
         Language_Helper::bootstrap();
         add_action( 'init', array( $this, 'load_textdomain' ) );
         add_action( 'init', array( $this, 'register_shortcodes' ) );
@@ -333,6 +341,7 @@ class Class_Plugin {
      * Activation hook.
      */
     public static function activate() {
+        Requirements::validate_or_throw();
         UX_Tracker::create_table();
         Reports_Helper::create_table();
     }
@@ -346,5 +355,34 @@ class Class_Plugin {
         Options::delete_settings();
         Language_Helper::delete_overrides();
         Logger::clear();
+    }
+
+    /**
+     * Render unmet requirements notice.
+     *
+     * @return void
+     */
+    public static function render_requirements_notice() {
+        if ( ! current_user_can( 'activate_plugins' ) ) {
+            return;
+        }
+
+        $errors = Requirements::get_errors();
+
+        if ( empty( $errors ) ) {
+            return;
+        }
+
+        $log_path = Logger::get_log_file();
+        echo '<div class="notice notice-error"><p><strong>' . esc_html__( 'NoaSoft AI WooCommerce Assistant çalıştırılamadı.', 'noasoft-ai-woocommerce' ) . '</strong></p>';
+        echo '<ul>';
+        foreach ( $errors as $error ) {
+            echo '<li>' . esc_html( $error ) . '</li>';
+        }
+        echo '</ul>';
+        if ( $log_path ) {
+            printf( '<p>%s <code>%s</code></p>', esc_html__( 'Ayrıntılar log dosyasında bulunabilir:', 'noasoft-ai-woocommerce' ), esc_html( $log_path ) );
+        }
+        echo '</div>';
     }
 }
