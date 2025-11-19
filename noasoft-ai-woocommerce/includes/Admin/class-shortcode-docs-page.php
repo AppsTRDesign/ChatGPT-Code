@@ -8,9 +8,7 @@ class Shortcode_Docs_Page {
     /**
      * Constructor.
      */
-    public function __construct() {
-        add_action( 'admin_menu', array( $this, 'register_page' ) );
-    }
+    public function __construct() {}
 
     /**
      * Register submenu page.

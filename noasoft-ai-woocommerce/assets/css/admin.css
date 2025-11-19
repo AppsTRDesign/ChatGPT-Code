@@ -491,12 +491,15 @@ body.noasoft-modal-open {
 .noasoft-module-toggle .pill {
     background: rgba(37, 99, 235, 0.15);
     border-radius: 999px;
-    padding: 0.25rem 0.75rem;
-    font-size: 0.8rem;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 90px;
+    min-width: 110px;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 .noasoft-module-toggle .toggle-control {
@@ -538,8 +541,14 @@ body.noasoft-modal-open {
 
 .noasoft-prompt-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
+}
+
+@media (max-width: 960px) {
+    .noasoft-prompt-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .noasoft-prompt-grid label {
@@ -556,6 +565,43 @@ body.noasoft-modal-open {
     min-height: 120px;
     border-radius: 0.75rem;
     border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.noasoft-ai-helper-meta {
+    background: #fff;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 1.25rem;
+    padding: 1rem 1.25rem 0.5rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.noasoft-ai-helper-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.noasoft-ai-helper-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-ai-helper-grid label {
+    font-weight: 600;
+}
+
+.noasoft-ai-helper-grid input,
+.noasoft-ai-helper-grid textarea {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.65rem 0.85rem;
+}
+
+.noasoft-ai-helper-idea input {
+    font-weight: 600;
 }
 
 .noasoft-shortcode-docs {

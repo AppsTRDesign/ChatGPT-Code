@@ -682,6 +682,7 @@ class Settings_Page {
         $time   = round( ( microtime( true ) - $start ) * 1000 );
 
         if ( is_wp_error( $result ) ) {
+            \NoaSoft\AiWoo\Helpers\Logger::log( 'Provider test failed', array( 'provider' => $provider_slug, 'error' => $result->get_error_message() ) );
             wp_send_json_error( array( 'message' => $result->get_error_message() ), 200 );
         }
 

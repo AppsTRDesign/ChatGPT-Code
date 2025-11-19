@@ -147,7 +147,8 @@ class Chat_Assistant {
         $response = $this->dispatch_intent( $intent, $payload );
 
         if ( is_wp_error( $response ) ) {
-            wp_send_json_error( array( 'message' => $response->get_error_message() ), 400 );
+            \NoaSoft\AiWoo\Helpers\Logger::log( 'Chat assistant error', array( 'intent' => $intent, 'error' => $response->get_error_message() ) );
+            wp_send_json_error( array( 'message' => $response->get_error_message() ), 200 );
         }
 
         wp_send_json_success( $response );

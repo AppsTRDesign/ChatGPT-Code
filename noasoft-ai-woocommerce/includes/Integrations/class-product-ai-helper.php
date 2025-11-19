@@ -61,6 +61,7 @@ class Product_AI_Helper {
         $use_cases       = get_post_meta( $post->ID, '_noasoft_ai_use_cases', true );
         $benefits        = get_post_meta( $post->ID, '_noasoft_ai_benefits', true );
         $features        = get_post_meta( $post->ID, '_noasoft_ai_features', true );
+        $idea_text       = get_post_meta( $post->ID, '_noasoft_ai_idea', true );
 
         if ( empty( $seo_title ) ) {
             $seo_title = get_post_meta( $post->ID, '_yoast_wpseo_title', true );
@@ -83,6 +84,11 @@ class Product_AI_Helper {
                 <span class="spinner"></span>
             </div>
             <div class="noasoft-ai-helper-grid">
+                <p class="noasoft-ai-helper-idea">
+                    <label for="noasoft_ai_helper_idea"><?php esc_html_e( 'Ürün adı veya kısa içerik', 'noasoft-ai-woocommerce' ); ?></label>
+                    <input type="text" id="noasoft_ai_helper_idea" name="noasoft_ai_helper[idea]" value="<?php echo esc_attr( $idea_text ? $idea_text : $post->post_title ); ?>" placeholder="<?php esc_attr_e( 'Örn: Kablosuz Kulaklık, ANC, 30 saat pil', 'noasoft-ai-woocommerce' ); ?>" />
+                    <span class="description"><?php esc_html_e( 'AI üretimi bu girdiye göre özelleştirilecek.', 'noasoft-ai-woocommerce' ); ?></span>
+                </p>
                 <p>
                     <label for="noasoft_ai_helper_seo_title"><?php esc_html_e( 'SEO Başlık', 'noasoft-ai-woocommerce' ); ?></label>
                     <input type="text" id="noasoft_ai_helper_seo_title" name="noasoft_ai_helper[seo_title]" value="<?php echo esc_attr( $seo_title ); ?>" />
@@ -191,13 +197,18 @@ class Product_AI_Helper {
             'title'             => isset( $_POST['title'] ) ? sanitize_text_field( wp_unslash( $_POST['title'] ) ) : '',
             'short_description' => isset( $_POST['short_description'] ) ? wp_strip_all_tags( wp_unslash( $_POST['short_description'] ) ) : '',
             'description'       => isset( $_POST['description'] ) ? wp_strip_all_tags( wp_unslash( $_POST['description'] ) ) : '',
+            'idea'              => isset( $_POST['idea'] ) ? sanitize_text_field( wp_unslash( $_POST['idea'] ) ) : '',
             'tags'              => isset( $_POST['tags'] ) ? $this->sanitize_tags_list( wp_unslash( $_POST['tags'] ) ) : array(),
         );
 
         $content = $this->generate_content( $product_id, $payload );
 
+        if ( is_wp_error( $content ) ) {
+            wp_send_json_error( array( 'message' => $content->get_error_message() ), 200 );
+        }
+
         if ( empty( $content ) ) {
-            wp_send_json_error( array( 'message' => __( 'AI cevabı alınamadı.', 'noasoft-ai-woocommerce' ) ), 500 );
+            wp_send_json_error( array( 'message' => __( 'AI cevabı alınamadı.', 'noasoft-ai-woocommerce' ) ), 200 );
         }
 
         wp_send_json_success( array( 'content' => $content ) );
@@ -211,7 +222,7 @@ class Product_AI_Helper {
      * @return array
      */
     public function generate_content( $product_id, $data ) {
-        $title       = isset( $data['title'] ) && $data['title'] ? $data['title'] : __( 'Ürün', 'noasoft-ai-woocommerce' );
+        $title       = isset( $data['idea'] ) && $data['idea'] ? $data['idea'] : ( ( isset( $data['title'] ) && $data['title'] ) ? $data['title'] : __( 'Ürün', 'noasoft-ai-woocommerce' ) );
         $prompt      = Options::get_prompt( 'product_helper', __( 'Lütfen ürün için SEO odaklı metinler üret.', 'noasoft-ai-woocommerce' ) );
         $context     = $this->build_context( $product_id, $title, $data );
         $client      = AI_Client_Factory::make();
@@ -221,7 +232,9 @@ class Product_AI_Helper {
             $ai_response = $client->chat( $prompt, $context );
 
             if ( is_wp_error( $ai_response ) ) {
-                $ai_response = array();
+                \NoaSoft\AiWoo\Helpers\Logger::log( 'Product helper AI error', array( 'error' => $ai_response->get_error_message() ) );
+
+                return $ai_response;
             }
         }
 
@@ -262,6 +275,7 @@ class Product_AI_Helper {
         $use_cases       = isset( $fields['use_cases'] ) ? wp_kses_post( $fields['use_cases'] ) : '';
         $benefits        = isset( $fields['benefits'] ) ? sanitize_textarea_field( $fields['benefits'] ) : '';
         $features        = isset( $fields['features'] ) ? sanitize_textarea_field( $fields['features'] ) : '';
+        $idea_text       = isset( $fields['idea'] ) ? sanitize_text_field( $fields['idea'] ) : '';
 
         $this->update_seo_meta( $post_id, $seo_title, $seo_description );
         $this->update_tag_terms( $post_id, $tags_string );
@@ -269,6 +283,7 @@ class Product_AI_Helper {
         update_post_meta( $post_id, '_noasoft_ai_use_cases', $use_cases );
         update_post_meta( $post_id, '_noasoft_ai_benefits', $benefits );
         update_post_meta( $post_id, '_noasoft_ai_features', $features );
+        update_post_meta( $post_id, '_noasoft_ai_idea', $idea_text );
 
         $this->sync_post_fields( $post_id, $short_desc, $use_cases, $benefits, $features );
     }

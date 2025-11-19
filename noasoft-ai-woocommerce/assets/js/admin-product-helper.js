@@ -86,6 +86,7 @@
                 nonce: settings.nonce,
                 product_id: settings.product_id || 0,
                 title: getTitle(),
+                idea: $box.find( '#noasoft_ai_helper_idea' ).val(),
                 short_description: $box.find( '#noasoft_ai_helper_short_description' ).val(),
                 description: getEditorContent( settings.description || '' ),
                 tags: $box.find( '#noasoft_ai_helper_tags' ).val()

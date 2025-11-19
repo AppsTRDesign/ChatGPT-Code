@@ -2,6 +2,7 @@
 namespace NoaSoft\AiWoo\Integrations;
 
 use WP_Error;
+use NoaSoft\AiWoo\Helpers\Logger;
 
 /**
  * DeepSeek provider implementation.
@@ -100,30 +101,38 @@ class DeepSeek_Provider implements AI_Provider_Interface {
      * @return array|WP_Error
      */
     protected function dispatch_request( $payload ) {
-        $response = wp_remote_post(
-            $this->config['base_url'],
-            array(
-                'headers' => array(
-                    'Content-Type'  => 'application/json',
-                    'Authorization' => 'Bearer ' . $this->config['api_key'],
-                ),
-                'timeout' => max( 5, absint( $this->config['timeout'] ) ),
-                'body'    => wp_json_encode( $payload ),
-            )
-        );
+        try {
+            $response = wp_remote_post(
+                $this->config['base_url'],
+                array(
+                    'headers' => array(
+                        'Content-Type'  => 'application/json',
+                        'Authorization' => 'Bearer ' . $this->config['api_key'],
+                    ),
+                    'timeout' => max( 5, absint( $this->config['timeout'] ) ),
+                    'body'    => wp_json_encode( $payload ),
+                )
+            );
+        } catch ( \Throwable $th ) {
+            Logger::log_exception( $th, array( 'provider' => 'deepseek', 'stage' => 'request' ) );
+            return new WP_Error( 'deepseek_request_failed', __( 'DeepSeek isteği gönderilemedi.', 'noasoft-ai-woocommerce' ) );
+        }
 
         if ( is_wp_error( $response ) ) {
+            Logger::log( 'DeepSeek HTTP error', array( 'error' => $response->get_error_message() ) );
             return $response;
         }
 
         $code = wp_remote_retrieve_response_code( $response );
         if ( $code < 200 || $code >= 300 ) {
+            Logger::log( 'DeepSeek non-2xx', array( 'code' => $code, 'body' => wp_remote_retrieve_body( $response ) ) );
             return new WP_Error( 'deepseek_http_error', __( 'DeepSeek API yanıtı alınamadı.', 'noasoft-ai-woocommerce' ), array( 'code' => $code ) );
         }
 
         $body   = wp_remote_retrieve_body( $response );
         $parsed = json_decode( $body, true );
         if ( ! isset( $parsed['choices'][0]['message']['content'] ) ) {
+            Logger::log( 'DeepSeek invalid body', array( 'body' => $body ) );
             return new WP_Error( 'deepseek_invalid_body', __( 'DeepSeek geçerli bir yanıt döndürmedi.', 'noasoft-ai-woocommerce' ) );
         }
 
