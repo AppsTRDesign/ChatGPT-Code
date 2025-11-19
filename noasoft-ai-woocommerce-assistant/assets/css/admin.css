@@ -1,0 +1,71 @@
+.noasoft-ai-admin .noasoft-ai-tabs {
+    margin-top: 20px;
+}
+
+.noasoft-ai-admin .noasoft-ai-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.noasoft-ai-modules label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 10px;
+    margin: 4px;
+    border: 1px solid #e2e8f0;
+}
+
+.noasoft-ai-color-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+    gap: 12px;
+}
+
+.noasoft-ai-color-grid label {
+    background: #f1f5f9;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+.noasoft-ai-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(280px,1fr));
+    gap: 16px;
+}
+
+.noasoft-ai-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fff;
+}
+
+.noasoft-ai-meta textarea,
+.noasoft-ai-meta input[type="text"] {
+    margin-bottom: 10px;
+}
+
+.noasoft-ai-copy {
+    cursor: pointer;
+}
+
+.noasoft-ai-avatar-field {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.noasoft-ai-image-log {
+    margin-top: 10px;
+    background: #f8fafc;
+    padding: 10px;
+    min-height: 40px;
+    border-radius: 8px;
+}

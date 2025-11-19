@@ -1,0 +1,147 @@
+:root {
+    --noasoft-primary: #1C6DD0;
+    --noasoft-secondary: #0D1B2A;
+    --noasoft-accent: #FFC300;
+    --noasoft-text: #ffffff;
+}
+
+.noasoft-ai-chat {
+    position: fixed;
+    z-index: 9999;
+    bottom: 24px;
+}
+
+.noasoft-ai-bottom-right { right: 24px; }
+.noasoft-ai-bottom-left { left: 24px; }
+
+.noasoft-ai-chat button,
+.noasoft-ai-chat input,
+.noasoft-ai-chat textarea {
+    font-family: inherit;
+}
+
+.noasoft-ai-trigger {
+    background: var(--noasoft-primary);
+    color: var(--noasoft-text);
+    padding: 14px 18px;
+    border-radius: var(--noasoft-radius, 16px);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.16);
+}
+
+.noasoft-ai-window {
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 40px 120px rgba(15,23,42,.2);
+    margin-top: 10px;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.noasoft-ai-window header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 16px;
+    background: var(--noasoft-primary);
+    color: var(--noasoft-text);
+}
+
+.noasoft-ai-window header img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.noasoft-ai-messages {
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.noasoft-ai-message {
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: #f8fafc;
+}
+
+.noasoft-ai-message.me {
+    background: var(--noasoft-accent);
+    color: #111827;
+    margin-left: auto;
+}
+
+.noasoft-ai-form {
+    display: flex;
+    border-top: 1px solid #e2e8f0;
+    padding: 10px;
+    gap: 8px;
+}
+
+.noasoft-ai-form input[type="text"] {
+    flex: 1;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    padding: 8px 14px;
+}
+
+.noasoft-ai-form button {
+    background: var(--noasoft-primary);
+    border: none;
+    border-radius: 999px;
+    color: var(--noasoft-text);
+    padding: 0 18px;
+}
+
+.noasoft-ai-upload input {
+    display: none;
+}
+
+.noasoft-ai-upload span {
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.noasoft-ai-recommendations,
+.noasoft-ai-recommendations-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.noasoft-ai-card,
+.noasoft-ai-recommendation-card {
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    padding: 16px;
+    background: #fff;
+    box-shadow: 0 12px 40px rgba(15,23,42,.08);
+}
+
+.noasoft-ai-compare {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.noasoft-ai-report {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 20px;
+    border-radius: 16px;
+    overflow: auto;
+}
+
+@media (max-width: 600px) {
+    .noasoft-ai-window {
+        width: calc(100vw - 32px);
+    }
+}
