@@ -337,3 +337,39 @@ msgstr "Wizard completed"
 
 msgid "Gelişmiş Checkout UX paketini etkinleştir"
 msgstr "Enable advanced checkout UX package"
+
+msgid "AI Satış Asistanı"
+msgstr "AI Sales Assistant"
+
+msgid "Asistan Durumu"
+msgstr "Assistant Status"
+
+msgid "AI satış asistanını etkinleştir"
+msgstr "Enable the AI sales assistant"
+
+msgid "Baloncuk Etiketi"
+msgstr "Bubble Label"
+
+msgid "Karşılama Satırı"
+msgstr "Welcome Line"
+
+msgid "İlk Mesaj"
+msgstr "First Message"
+
+msgid "Öneri Ayarları"
+msgstr "Suggestion Settings"
+
+msgid "Otomatik öneri seviyesi"
+msgstr "Autosuggest level"
+
+msgid "Kullanıcı davranışına göre otomatik öneri yoğunluğunu belirler."
+msgstr "Controls how aggressively suggestions appear based on user behavior."
+
+msgid "AI Yardım"
+msgstr "AI Help"
+
+msgid "Size yardımcı olmamı ister misiniz?"
+msgstr "Would you like me to assist you?"
+
+msgid "Merhaba! Alışverişte size rehberlik edebilirim."
+msgstr "Hello! I can guide you while shopping."

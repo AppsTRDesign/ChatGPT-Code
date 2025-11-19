@@ -337,3 +337,39 @@ msgstr "Sihirbazı tamamladınız"
 
 msgid "Gelişmiş Checkout UX paketini etkinleştir"
 msgstr "Gelişmiş Checkout UX paketini etkinleştir"
+
+msgid "AI Satış Asistanı"
+msgstr "AI Satış Asistanı"
+
+msgid "Asistan Durumu"
+msgstr "Asistan Durumu"
+
+msgid "AI satış asistanını etkinleştir"
+msgstr "AI satış asistanını etkinleştir"
+
+msgid "Baloncuk Etiketi"
+msgstr "Baloncuk Etiketi"
+
+msgid "Karşılama Satırı"
+msgstr "Karşılama Satırı"
+
+msgid "İlk Mesaj"
+msgstr "İlk Mesaj"
+
+msgid "Öneri Ayarları"
+msgstr "Öneri Ayarları"
+
+msgid "Otomatik öneri seviyesi"
+msgstr "Otomatik öneri seviyesi"
+
+msgid "Kullanıcı davranışına göre otomatik öneri yoğunluğunu belirler."
+msgstr "Kullanıcı davranışına göre otomatik öneri yoğunluğunu belirler."
+
+msgid "AI Yardım"
+msgstr "AI Yardım"
+
+msgid "Size yardımcı olmamı ister misiniz?"
+msgstr "Size yardımcı olmamı ister misiniz?"
+
+msgid "Merhaba! Alışverişte size rehberlik edebilirim."
+msgstr "Merhaba! Alışverişte size rehberlik edebilirim."

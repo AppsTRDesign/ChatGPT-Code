@@ -16,6 +16,7 @@ class Theme_Options {
     const OPTION_COLORS    = 'pro_ultra_color_settings';
     const OPTION_BRANDING  = 'pro_ultra_branding_settings';
     const OPTION_AI        = 'pro_ultra_ai_settings';
+    const OPTION_ASSISTANT = 'pro_ultra_ai_assistant_settings';
     const OPTION_HOME      = 'pro_ultra_home_blocks';
     const OPTION_ARCHIVE   = 'pro_ultra_archive_settings';
     const OPTION_PRODUCT   = 'pro_ultra_product_settings';
@@ -58,6 +59,7 @@ class Theme_Options {
         register_setting( 'pro_ultra_ai_options', self::OPTION_COLORS, array( __CLASS__, 'sanitize_color_settings' ) );
         register_setting( 'pro_ultra_ai_options', self::OPTION_BRANDING, array( __CLASS__, 'sanitize_branding_settings' ) );
         register_setting( 'pro_ultra_ai_options', self::OPTION_AI, array( __CLASS__, 'sanitize_ai_settings' ) );
+        register_setting( 'pro_ultra_ai_options', self::OPTION_ASSISTANT, array( __CLASS__, 'sanitize_assistant_settings' ) );
         register_setting( 'pro_ultra_ai_options', self::OPTION_HOME, array( __CLASS__, 'sanitize_home_blocks' ) );
         register_setting( 'pro_ultra_ai_options', self::OPTION_ARCHIVE, array( __CLASS__, 'sanitize_archive_settings' ) );
         register_setting( 'pro_ultra_ai_options', self::OPTION_PRODUCT, array( __CLASS__, 'sanitize_product_settings' ) );
@@ -130,6 +132,9 @@ class Theme_Options {
             case 'ai':
                 $result = update_option( self::OPTION_AI, self::sanitize_ai_settings( $data ) );
                 break;
+            case 'assistant':
+                $result = update_option( self::OPTION_ASSISTANT, self::sanitize_assistant_settings( $data ) );
+                break;
             case 'home_blocks':
                 $blocks = isset( $data['blocks'] ) ? $data['blocks'] : array();
                 $order  = isset( $data['order'] ) ? $data['order'] : array();
@@ -175,6 +180,7 @@ class Theme_Options {
         $general   = self::get_general_settings();
         $branding  = self::get_branding_settings();
         $ai        = self::get_ai_settings();
+        $assistant = self::get_assistant_settings();
         $home      = self::get_home_blocks();
         $archive   = self::get_archive_settings();
         $product   = self::get_product_settings();
@@ -190,6 +196,7 @@ class Theme_Options {
                 <button class="pro-ultra-tab" data-tab="colors"><?php esc_html_e( 'Renk Ayarları', 'pro-ultra-ai' ); ?></button>
                 <button class="pro-ultra-tab" data-tab="branding"><?php esc_html_e( 'Logo & Favicon', 'pro-ultra-ai' ); ?></button>
                 <button class="pro-ultra-tab" data-tab="ai"><?php esc_html_e( 'AI Ayarları', 'pro-ultra-ai' ); ?></button>
+                <button class="pro-ultra-tab" data-tab="assistant"><?php esc_html_e( 'AI Satış Asistanı', 'pro-ultra-ai' ); ?></button>
                 <button class="pro-ultra-tab" data-tab="home_blocks"><?php esc_html_e( 'Ana Sayfa Blok Yönetimi', 'pro-ultra-ai' ); ?></button>
                 <button class="pro-ultra-tab" data-tab="archive"><?php esc_html_e( 'Arşiv Ayarları', 'pro-ultra-ai' ); ?></button>
                 <button class="pro-ultra-tab" data-tab="product"><?php esc_html_e( 'Ürün Sayfası Ayarları', 'pro-ultra-ai' ); ?></button>
@@ -383,6 +390,46 @@ class Theme_Options {
                             </div>
                         </div>
                         <button type="button" class="button button-primary pro-ultra-save" data-section="ai"><?php esc_html_e( 'Kaydet', 'pro-ultra-ai' ); ?></button>
+                    </form>
+                </div>
+
+                <div class="pro-ultra-panel" data-panel="assistant">
+                    <form class="pro-ultra-form" data-section="assistant">
+                        <?php wp_nonce_field( self::NONCE_ACTION, 'security' ); ?>
+                        <div class="pro-ultra-grid">
+                            <div class="pro-ultra-card">
+                                <h3><?php esc_html_e( 'Asistan Durumu', 'pro-ultra-ai' ); ?></h3>
+                                <label class="pro-ultra-switch">
+                                    <input type="checkbox" name="data[enabled]" value="1" <?php checked( $assistant['enabled'], true ); ?> />
+                                    <span><?php esc_html_e( 'AI satış asistanını etkinleştir', 'pro-ultra-ai' ); ?></span>
+                                </label>
+                                <label class="pro-ultra-field">
+                                    <span><?php esc_html_e( 'Baloncuk Etiketi', 'pro-ultra-ai' ); ?></span>
+                                    <input type="text" name="data[bubble_label]" value="<?php echo esc_attr( $assistant['bubble_label'] ); ?>" />
+                                </label>
+                                <label class="pro-ultra-field">
+                                    <span><?php esc_html_e( 'Karşılama Satırı', 'pro-ultra-ai' ); ?></span>
+                                    <input type="text" name="data[welcome]" value="<?php echo esc_attr( $assistant['welcome'] ); ?>" />
+                                </label>
+                                <label class="pro-ultra-field">
+                                    <span><?php esc_html_e( 'İlk Mesaj', 'pro-ultra-ai' ); ?></span>
+                                    <input type="text" name="data[greeting]" value="<?php echo esc_attr( $assistant['greeting'] ); ?>" />
+                                </label>
+                            </div>
+                            <div class="pro-ultra-card">
+                                <h3><?php esc_html_e( 'Öneri Ayarları', 'pro-ultra-ai' ); ?></h3>
+                                <label class="pro-ultra-field">
+                                    <span><?php esc_html_e( 'Otomatik öneri seviyesi', 'pro-ultra-ai' ); ?></span>
+                                    <select name="data[autosuggest]">
+                                        <option value="low" <?php selected( $assistant['autosuggest'], 'low' ); ?>><?php esc_html_e( 'Düşük', 'pro-ultra-ai' ); ?></option>
+                                        <option value="medium" <?php selected( $assistant['autosuggest'], 'medium' ); ?>><?php esc_html_e( 'Orta', 'pro-ultra-ai' ); ?></option>
+                                        <option value="high" <?php selected( $assistant['autosuggest'], 'high' ); ?>><?php esc_html_e( 'Yüksek', 'pro-ultra-ai' ); ?></option>
+                                    </select>
+                                </label>
+                                <p class="description"><?php esc_html_e( 'Kullanıcı davranışına göre otomatik öneri yoğunluğunu belirler.', 'pro-ultra-ai' ); ?></p>
+                            </div>
+                        </div>
+                        <button type="button" class="button button-primary pro-ultra-save" data-section="assistant"><?php esc_html_e( 'Kaydet', 'pro-ultra-ai' ); ?></button>
                     </form>
                 </div>
 
@@ -737,6 +784,18 @@ class Theme_Options {
         return wp_parse_args( $saved, $defaults );
     }
 
+    public static function get_assistant_settings() {
+        $defaults = array(
+            'enabled'      => true,
+            'bubble_label' => __( 'AI Yardım', 'pro-ultra-ai' ),
+            'welcome'      => __( 'Size yardımcı olmamı ister misiniz?', 'pro-ultra-ai' ),
+            'greeting'     => __( 'Merhaba! Alışverişte size rehberlik edebilirim.', 'pro-ultra-ai' ),
+            'autosuggest'  => 'medium',
+        );
+        $saved = get_option( self::OPTION_ASSISTANT, array() );
+        return wp_parse_args( is_array( $saved ) ? $saved : array(), $defaults );
+    }
+
     public static function get_home_blocks() {
         $defaults = self::get_default_home_blocks();
         $saved    = get_option( self::OPTION_HOME, array() );
@@ -869,6 +928,17 @@ class Theme_Options {
             'temperature'  => isset( $value['temperature'] ) ? max( 0, min( 1, (float) $value['temperature'] ) ) : $defaults['temperature'],
             'max_tokens'   => isset( $value['max_tokens'] ) ? max( 100, min( 4000, absint( $value['max_tokens'] ) ) ) : $defaults['max_tokens'],
             'modules'      => $modules,
+        );
+    }
+
+    public static function sanitize_assistant_settings( $value ) {
+        $defaults = self::get_assistant_settings();
+        return array(
+            'enabled'      => ! empty( $value['enabled'] ),
+            'bubble_label' => isset( $value['bubble_label'] ) ? sanitize_text_field( $value['bubble_label'] ) : $defaults['bubble_label'],
+            'welcome'      => isset( $value['welcome'] ) ? sanitize_text_field( $value['welcome'] ) : $defaults['welcome'],
+            'greeting'     => isset( $value['greeting'] ) ? sanitize_text_field( $value['greeting'] ) : $defaults['greeting'],
+            'autosuggest'  => isset( $value['autosuggest'] ) && in_array( $value['autosuggest'], array( 'low', 'medium', 'high' ), true ) ? $value['autosuggest'] : $defaults['autosuggest'],
         );
     }
 
