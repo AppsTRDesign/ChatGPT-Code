@@ -178,6 +178,17 @@ body.noasoft-modal-open {
     cursor: pointer;
 }
 
+@media (max-width: 782px) {
+    .language-panel-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .noasoft-language-import-label {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
 .noasoft-range-field .range-control {
     display: flex;
     align-items: center;

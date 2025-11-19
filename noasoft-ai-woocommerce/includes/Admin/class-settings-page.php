@@ -386,6 +386,7 @@ class Settings_Page {
                     <select name="position">
                         <option value="right" <?php selected( $chat_settings['position'], 'right' ); ?>><?php esc_html_e( 'Sağ Alt', 'noasoft-ai-woocommerce' ); ?></option>
                         <option value="left" <?php selected( $chat_settings['position'], 'left' ); ?>><?php esc_html_e( 'Sol Alt', 'noasoft-ai-woocommerce' ); ?></option>
+                        <option value="center" <?php selected( $chat_settings['position'], 'center' ); ?>><?php esc_html_e( 'Alt Ortada', 'noasoft-ai-woocommerce' ); ?></option>
                     </select>
                 </label>
                 <label>
@@ -604,15 +605,21 @@ class Settings_Page {
             $accent = '#f97316';
         }
 
+        $position = isset( $_POST['position'] ) ? sanitize_key( wp_unslash( $_POST['position'] ) ) : 'right';
+        $allowed_positions = array( 'right', 'left', 'center' );
+        if ( ! in_array( $position, $allowed_positions, true ) ) {
+            $position = 'right';
+        }
+
         $chat_settings = array(
             'header_title'         => isset( $_POST['header_title'] ) ? sanitize_text_field( wp_unslash( $_POST['header_title'] ) ) : '',
             'greeting'             => isset( $_POST['greeting'] ) ? sanitize_textarea_field( wp_unslash( $_POST['greeting'] ) ) : '',
-            'position'             => isset( $_POST['position'] ) ? sanitize_key( wp_unslash( $_POST['position'] ) ) : 'right',
+            'position'             => $position,
             'bubble_style'         => isset( $_POST['bubble_style'] ) ? sanitize_key( wp_unslash( $_POST['bubble_style'] ) ) : 'rounded',
             'primary_color'        => $primary,
             'accent_color'         => $accent,
             'avatar_id'            => isset( $_POST['avatar_id'] ) ? absint( $_POST['avatar_id'] ) : 0,
-            'panel_height'         => Options::sanitize_panel_height( isset( $_POST['panel_height'] ) ? absint( $_POST['panel_height'] ) : 520 ),
+            'panel_height'         => Options::sanitize_panel_height( isset( $_POST['panel_height'] ) ? absint( $_POST['panel_height'] ) : 600 ),
             'enable_global_widget' => isset( $_POST['enable_global_widget'] ) ? 1 : 0,
             'enable_image_uploads' => isset( $_POST['enable_image_uploads'] ) ? 1 : 0,
             'suggestions'          => $this->parse_suggestions_field( isset( $_POST['suggestions'] ) ? wp_unslash( $_POST['suggestions'] ) : '' ),

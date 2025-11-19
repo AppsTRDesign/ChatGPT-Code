@@ -239,7 +239,7 @@ class Options {
             'accent_color'         => '#f97316',
             'bubble_style'         => 'rounded',
             'avatar_id'            => 0,
-            'panel_height'         => 520,
+            'panel_height'         => 600,
             'header_title'         => __( 'NoaSoft AI Satış Asistanı', 'noasoft-ai-woocommerce' ),
             'greeting'             => __( 'Merhaba! Sipariş, stok veya ürün sorularınızı bana yazabilirsiniz.', 'noasoft-ai-woocommerce' ),
             'suggestions'          => array(
@@ -266,9 +266,13 @@ class Options {
                 array_map( 'sanitize_text_field', (array) $chat['suggestions'] )
             )
         );
+        $allowed_positions = array( 'left', 'right', 'center' );
+        if ( ! in_array( $chat['position'], $allowed_positions, true ) ) {
+            $chat['position'] = 'right';
+        }
         $chat['primary_color'] = sanitize_hex_color( $chat['primary_color'] ) ? sanitize_hex_color( $chat['primary_color'] ) : '#1f2937';
         $chat['accent_color']  = sanitize_hex_color( $chat['accent_color'] ) ? sanitize_hex_color( $chat['accent_color'] ) : '#f97316';
-        $chat['panel_height']  = self::sanitize_panel_height( isset( $chat['panel_height'] ) ? $chat['panel_height'] : 520 );
+        $chat['panel_height']  = self::sanitize_panel_height( isset( $chat['panel_height'] ) ? $chat['panel_height'] : 600 );
 
         return $chat;
     }
@@ -288,9 +292,13 @@ class Options {
                 array_map( 'sanitize_text_field', (array) $settings['chat']['suggestions'] )
             )
         );
+        $allowed_positions = array( 'left', 'right', 'center' );
+        if ( ! in_array( $settings['chat']['position'], $allowed_positions, true ) ) {
+            $settings['chat']['position'] = 'right';
+        }
         $settings['chat']['primary_color'] = sanitize_hex_color( $settings['chat']['primary_color'] ) ? sanitize_hex_color( $settings['chat']['primary_color'] ) : '#1f2937';
         $settings['chat']['accent_color']  = sanitize_hex_color( $settings['chat']['accent_color'] ) ? sanitize_hex_color( $settings['chat']['accent_color'] ) : '#f97316';
-        $settings['chat']['panel_height']  = self::sanitize_panel_height( isset( $settings['chat']['panel_height'] ) ? $settings['chat']['panel_height'] : 520 );
+        $settings['chat']['panel_height']  = self::sanitize_panel_height( isset( $settings['chat']['panel_height'] ) ? $settings['chat']['panel_height'] : 600 );
         $settings['chat']['enable_global_widget'] = ! empty( $settings['chat']['enable_global_widget'] ) ? 1 : 0;
         $settings['chat']['enable_image_uploads'] = ! empty( $settings['chat']['enable_image_uploads'] ) ? 1 : 0;
 
@@ -380,7 +388,7 @@ class Options {
             $value = 640;
         }
 
-        return $value ? $value : 520;
+        return $value ? $value : 600;
     }
 
     /**

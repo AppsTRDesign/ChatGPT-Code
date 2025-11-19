@@ -324,6 +324,7 @@ class Class_Plugin {
         }
 
         $current_user = is_user_logged_in() ? wp_get_current_user() : null;
+        $user_avatar  = $current_user ? get_avatar_url( $current_user->ID, array( 'size' => 96 ) ) : get_avatar_url( 0, array( 'size' => 96 ) );
 
         wp_localize_script( 'noasoft-ai-chat-widget', 'NoaSoftAiWooFrontend', array(
             'ajax_url' => admin_url( 'admin-ajax.php' ),
@@ -377,6 +378,7 @@ class Class_Plugin {
                 'logged_in' => is_user_logged_in(),
                 'name'      => $current_user ? $current_user->display_name : '',
                 'email'     => $current_user ? $current_user->user_email : '',
+                'avatar'    => esc_url_raw( $user_avatar ),
             ),
         ) );
     }

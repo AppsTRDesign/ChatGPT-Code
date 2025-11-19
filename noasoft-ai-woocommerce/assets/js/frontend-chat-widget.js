@@ -20,6 +20,10 @@
         this.$spinner     = this.$root.find('.noasoft-chat-spinner');
         this.$typing      = this.$root.find('.noasoft-chat-typing');
         this.isBusy       = false;
+        this.assistantAvatar = this.settings.avatar || '';
+        this.assistantLabel  = this.settings.header_title || 'AI';
+        this.userAvatar      = ( this.globalConfig.user && this.globalConfig.user.avatar ) ? this.globalConfig.user.avatar : '';
+        this.userName        = ( this.globalConfig.user && this.globalConfig.user.name ) ? this.globalConfig.user.name : '';
         this.bindEvents();
         this.renderSuggestions();
         this.bootstrap();
@@ -130,6 +134,7 @@
 
     ChatInstance.prototype.pushUserMessage = function(text){
         var $msg = $('<div class="noasoft-chat-msg is-user" />');
+        $msg.append( this.buildAvatar('user') );
         $('<div class="bubble" />').text( text ).appendTo( $msg );
         this.$messages.append( $msg );
         if ( window.NoaSoftAnimator ) {
@@ -138,8 +143,10 @@
         this.scrollToBottom();
     };
 
-    ChatInstance.prototype.pushAssistantMessage = function(text){
-        var $msg = $('<div class="noasoft-chat-msg is-assistant" />');
+    ChatInstance.prototype.pushAssistantMessage = function(text, role){
+        var cls = role || 'assistant';
+        var $msg = $('<div class="noasoft-chat-msg is-' + cls + '" />');
+        $msg.append( this.buildAvatar('assistant') );
         $('<div class="bubble" />').html( text ).appendTo( $msg );
         this.$messages.append( $msg );
         if ( window.NoaSoftAnimator ) {
@@ -282,6 +289,19 @@
 
     ChatInstance.prototype.escapeAttr = function(text){
         return ( text || '' ).replace(/"/g, '&quot;');
+    };
+
+    ChatInstance.prototype.buildAvatar = function(type){
+        var src = type === 'assistant' ? this.assistantAvatar : this.userAvatar;
+        var label = type === 'assistant' ? this.assistantLabel : ( this.userName || 'Siz' );
+        var initials = ( label || '' ).split(' ').map(function(part){ return part.charAt(0); }).join('').substring(0, 2).toUpperCase();
+        var $avatar = $('<div class="avatar" />');
+        if ( src ) {
+            $('<img />').attr({ src: src, alt: initials || label || '' }).appendTo( $avatar );
+        } else {
+            $avatar.text( initials || 'AI' );
+        }
+        return $avatar;
     };
 
     ChatInstance.prototype.sendRequest = function(data){
@@ -461,7 +481,7 @@
         var fallback = ( this.settings.strings && this.settings.strings.genericError ) ? this.settings.strings.genericError : 'Bir hata oluştu.';
         this.toast( message || fallback, 'error' );
         if ( message ) {
-            this.pushAssistantMessage( message );
+            this.pushAssistantMessage( message, 'system' );
         }
     };
 
