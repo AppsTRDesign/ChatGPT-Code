@@ -98,6 +98,7 @@ array(
 'currentProduct'    => $current,
 'trackEventAction'  => 'pro_ultra_ai_track_event',
 'chatAction'        => 'pro_ultra_ai_chat_message',
+'viewLabel'         => __( 'Ürünü görüntüle', 'pro-ultra-ai' ),
 )
 );
 }
@@ -154,9 +155,18 @@ if ( is_wp_error( $intent_response ) ) {
 wp_send_json_error( array( 'message' => $intent_response->get_error_message() ) );
 }
 
-if ( is_array( $intent_response ) && isset( $intent_response['reply'] ) ) {
-wp_send_json_success( array( 'reply' => $intent_response['reply'], 'meta' => $intent_response ) );
-}
+        if ( is_array( $intent_response ) && isset( $intent_response['reply'] ) ) {
+            $meta      = $intent_response;
+            $products  = self::collect_products( $behavior, $intent_response );
+            $link      = self::maybe_comparison_link( $intent_response );
+            $payload   = array(
+                'reply'            => $intent_response['reply'],
+                'meta'             => $meta,
+                'products'         => $products,
+                'comparison_link'  => $link,
+            );
+            wp_send_json_success( $payload );
+        }
 
 // SKU hızlı yanıtı (AI çağrısı olmadan).
 if ( preg_match( '/sku[:\s]+(\S+)/i', $message, $matches ) ) {
@@ -183,47 +193,113 @@ if ( is_wp_error( $response ) ) {
 wp_send_json_error( array( 'message' => $response->get_error_message() ) );
 }
 
-$reply = self::extract_reply( $response );
+        $reply     = self::extract_reply( $response );
+        $products  = self::collect_products( $behavior, $intent_response );
+        $link      = self::maybe_comparison_link( $intent_response );
 
-if ( ! $reply ) {
-wp_send_json_error( array( 'message' => __( 'AI yanıtı alınamadı.', 'pro-ultra-ai' ) ) );
-}
+        if ( ! $reply ) {
+            wp_send_json_error( array( 'message' => __( 'AI yanıtı alınamadı.', 'pro-ultra-ai' ) ) );
+        }
 
-wp_send_json_success( array( 'reply' => $reply ) );
+        wp_send_json_success( array( 'reply' => $reply, 'products' => $products, 'comparison_link' => $link ) );
 }
 
 /**
  * Build AI prompt with davranış verileri.
  */
-protected static function build_prompt( $user_message, $behavior, $current, $assistant ) {
-$context_lines = array();
+    protected static function build_prompt( $user_message, $behavior, $current, $assistant ) {
+        $context_lines = array();
 
-foreach ( array( 'visited' => __( 'Ziyaret edilen ürünler', 'pro-ultra-ai' ), 'favorites' => __( 'Favoriler', 'pro-ultra-ai' ), 'wishlist' => __( 'Wishlist', 'pro-ultra-ai' ), 'likes' => __( 'Beğeniler', 'pro-ultra-ai' ), 'cart' => __( 'Sepet', 'pro-ultra-ai' ) ) as $key => $label ) {
-if ( empty( $behavior[ $key ] ) ) {
-continue;
-}
-$items = array();
-foreach ( $behavior[ $key ] as $item ) {
-$items[] = sprintf( '%s (₺%s, %s)', $item['title'], $item['price'], $item['stock'] );
-}
-$context_lines[] = $label . ': ' . implode( '; ', $items );
-}
+        foreach ( array( 'visited' => __( 'Ziyaret edilen ürünler', 'pro-ultra-ai' ), 'favorites' => __( 'Favoriler', 'pro-ultra-ai' ), 'wishlist' => __( 'Wishlist', 'pro-ultra-ai' ), 'likes' => __( 'Beğeniler', 'pro-ultra-ai' ), 'cart' => __( 'Sepet', 'pro-ultra-ai' ) ) as $key => $label ) {
+            if ( empty( $behavior[ $key ] ) ) {
+                continue;
+            }
+            $items = array();
+            foreach ( $behavior[ $key ] as $item ) {
+                $items[] = sprintf( '%s (₺%s)', $item['title'], $item['price'] );
+            }
+            $context_lines[] = $label . ': ' . implode( '; ', $items );
+        }
 
-if ( $current ) {
-$context_lines[] = sprintf( __( 'Şu anda incelenen ürün: %s (₺%s)', 'pro-ultra-ai' ), $current['title'], $current['price'] );
-}
+        if ( $current ) {
+            $context_lines[] = sprintf( __( 'Şu anda incelenen ürün: %s (₺%s)', 'pro-ultra-ai' ), $current['title'], $current['price'] );
+        }
 
-$behavior_text = implode( ' | ', $context_lines );
+        $behavior_text = implode( ' | ', $context_lines );
+        $autosuggest   = sprintf( 'Autosuggest level: %s. Welcome message: %s', $assistant['autosuggest'], $assistant['welcome'] );
 
-$autosuggest = sprintf( 'Autosuggest level: %s. Welcome message: %s', $assistant['autosuggest'], $assistant['welcome'] );
+        return sprintf(
+            "You are an ecommerce AI assistant that recommends WooCommerce products using context. Context: %s. User message: '%s'. Provide concise answers, include product suggestions with reasons, and when asked to compare two products use available context to list pros/cons and pick a best choice. If data missing, ask a clarifying question. %s",
+            sanitize_text_field( $behavior_text ),
+            sanitize_text_field( $user_message ),
+            $autosuggest
+        );
+    }
 
-return sprintf(
-"You are an ecommerce AI assistant that recommends WooCommerce products using context. Context: %s. User message: '%s'. Provide concise answers, include product suggestions with reasons, and when asked to compare two products use available context to list pros/cons and pick a best choice. If data missing, ask a clarifying question. %s",
-sanitize_text_field( $behavior_text ),
-sanitize_text_field( $user_message ),
-$autosuggest
-);
-}
+    /**
+     * Build product card payloads for chat UI.
+     */
+    protected static function collect_products( $behavior, $intent ) {
+        $pool = array();
+
+        if ( is_array( $intent ) ) {
+            foreach ( array( 'product_a', 'product_b' ) as $key ) {
+                if ( ! empty( $intent[ $key ]['id'] ) ) {
+                    $pool[] = $intent[ $key ];
+                }
+            }
+        }
+
+        foreach ( $behavior as $items ) {
+            if ( empty( $items ) || ! is_array( $items ) ) {
+                continue;
+            }
+            foreach ( $items as $item ) {
+                if ( ! empty( $item['id'] ) ) {
+                    $pool[] = $item;
+                }
+            }
+        }
+
+        $products = array();
+        foreach ( $pool as $item ) {
+            $id = absint( $item['id'] );
+            if ( isset( $products[ $id ] ) ) {
+                continue;
+            }
+            $thumb = get_the_post_thumbnail_url( $id, 'thumbnail' );
+            $products[ $id ] = array(
+                'id'    => $id,
+                'title' => $item['title'] ?? get_the_title( $id ),
+                'price' => isset( $item['price'] ) ? $item['price'] : wc_get_price_to_display( wc_get_product( $id ) ),
+                'url'   => isset( $item['url'] ) ? $item['url'] : get_permalink( $id ),
+                'stock' => $item['stock'] ?? '',
+                'thumb' => $thumb,
+            );
+        }
+
+        return array_slice( array_values( $products ), 0, 4 );
+    }
+
+    /**
+     * Comparison link builder when assistant resolves a pair.
+     */
+    protected static function maybe_comparison_link( $intent_response ) {
+        if ( empty( $intent_response['product_a']['id'] ) || empty( $intent_response['product_b']['id'] ) ) {
+            return '';
+        }
+        $page = get_page_by_path( 'compare' );
+        if ( ! $page ) {
+            return '';
+        }
+        return add_query_arg(
+            array(
+                'prod_a' => absint( $intent_response['product_a']['id'] ),
+                'prod_b' => absint( $intent_response['product_b']['id'] ),
+            ),
+            get_permalink( $page )
+        );
+    }
 
 /**
  * Call OpenAI/DeepSeek.

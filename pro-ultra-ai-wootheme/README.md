@@ -29,3 +29,9 @@ Production-ready, AI-powered WordPress + WooCommerce theme with Shopify/Amazon/A
 - Kod yapısı OOP, nonce + sanitize kontrolleri ile güçlendirilmiş; SEO anahtarları hiçbir zaman frontende sızdırılmaz.
 - `assets/dist` altında minify edilmiş CSS/JS; geliştirme için `SCRIPT_DEBUG` kullanabilir, kaynak dosyalar `assets/js` ve `assets/css` altındadır.
 - WooCommerce override başlıkları 10.x sürüm bilgisiyle günceldir; body class’lar view ve layout tercihlerini yansıtır.
+
+## Shortcode Rehberi
+- `[pro_ultra_login]` / `[pro_ultra_register]` – Tema uyumlu giriş ve kayıt formları
+- `[pro_ultra_favorites]` / `[pro_ultra_wishlist]` / `[pro_ultra_likes]` – Kullanıcı bazlı kaydedilmiş ürün gridleri
+- `[pro_ultra_featured_products]` – Öne çıkan ürünleri premium kartlarla listeler
+- `[pro_ultra_compare prod_a="ID/SKU" prod_b="ID/SKU"]` – AI destekli iki ürün karşılaştırma bloğu

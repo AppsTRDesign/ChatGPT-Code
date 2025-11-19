@@ -3,6 +3,7 @@ namespace ProUltra\Admin;
 
 use WP_Error;
 use ProUltra\Features\Translation_Module;
+use ProUltra\Features\Shortcodes;
 
 /**
  * Pro Ultra Theme Options panel.
@@ -202,6 +203,7 @@ class Theme_Options {
                 <button class="pro-ultra-tab" data-tab="product"><?php esc_html_e( 'Ürün Sayfası Ayarları', 'pro-ultra-ai' ); ?></button>
                 <button class="pro-ultra-tab" data-tab="checkout"><?php esc_html_e( 'Checkout Ayarları', 'pro-ultra-ai' ); ?></button>
                 <button class="pro-ultra-tab" data-tab="translation"><?php esc_html_e( 'Çeviri Yönetimi (TR/EN)', 'pro-ultra-ai' ); ?></button>
+                <button class="pro-ultra-tab" data-tab="shortcodes"><?php esc_html_e( 'Shortcode Rehberi', 'pro-ultra-ai' ); ?></button>
             </div>
 
             <div class="pro-ultra-panels">
@@ -612,6 +614,30 @@ class Theme_Options {
                         </div>
                         <button type="button" class="button button-primary pro-ultra-save" data-section="translation"><?php esc_html_e( 'Kaydet', 'pro-ultra-ai' ); ?></button>
                     </form>
+                </div>
+
+                <div class="pro-ultra-panel" data-panel="shortcodes">
+                    <div class="pro-ultra-card">
+                        <h3><?php esc_html_e( 'Kullanılabilir Shortcode Listesi', 'pro-ultra-ai' ); ?></h3>
+                        <p class="description"><?php esc_html_e( 'Aşağıdaki shortcodeler tüm sayfalarda çalışır ve tema tasarımına uyumludur.', 'pro-ultra-ai' ); ?></p>
+                        <table class="pro-ultra-translation-table">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e( 'Shortcode', 'pro-ultra-ai' ); ?></th>
+                                    <th><?php esc_html_e( 'Açıklama', 'pro-ultra-ai' ); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( Shortcodes::get_shortcodes() as $shortcode ) : ?>
+                                    <tr>
+                                        <td><code><?php echo esc_html( $shortcode['tag'] ); ?></code></td>
+                                        <td><?php echo esc_html( $shortcode['description'] ); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <p><?php esc_html_e( 'Shortcode çıktıları WooCommerce, hesap ve AI modülleri ile tam entegredir.', 'pro-ultra-ai' ); ?></p>
+                    </div>
                 </div>
             </div>
         </div>

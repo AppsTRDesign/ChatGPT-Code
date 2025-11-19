@@ -28,7 +28,8 @@ $files = array(
     'inc/features/class-translation.php',
     'inc/admin/class-theme-options.php',
     'inc/admin/class-setup-wizard.php',
-'inc/features/class-user-interactions.php',
+    'inc/features/class-user-interactions.php',
+    'inc/features/class-shortcodes.php',
 'inc/features/class-archive.php',
 'inc/features/class-advanced-profile.php',
 'inc/features/class-account-pages.php',
@@ -62,6 +63,7 @@ ProUltra\Features\Translation_Module::init();
 ProUltra\Admin\Theme_Options::init();
 ProUltra\Admin\Setup_Wizard::init();
 ProUltra\Features\User_Interactions::init();
+ProUltra\Features\Shortcodes::init();
 ProUltra\Features\Archive_Module::init();
 ProUltra\Features\Advanced_Profile::init();
 ProUltra\Features\Account_Pages::init();

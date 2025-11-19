@@ -14,12 +14,12 @@ if ( get_option( 'pro_ultra_pages_seeded' ) ) {
 return;
 }
 $pages = array(
-'anasayfa-magaza' => array(
-'title'    => __( 'Ana Sayfa - Mağaza', 'pro-ultra-ai' ),
-'content'  => '<section class="pro-ultra-hero"><div class="pro-ultra-hero__copy"><p>' . esc_html__( 'AI destekli vitrin', 'pro-ultra-ai' ) . '</p><h2>' . esc_html__( 'Premium ürünlerinizi ışık hızında canlıya alın.', 'pro-ultra-ai' ) . '</h2><a class="button button-primary" href="/shop">' . esc_html__( 'Alışverişe Başla', 'pro-ultra-ai' ) . '</a></div><div class="pro-ultra-hero__media">[pro_ultra_featured_products]</div></section>',
-'front'    => true,
-'template' => 'front-page.php',
-),
+        'anasayfa-magaza' => array(
+            'title'    => __( 'Ana Sayfa - Mağaza', 'pro-ultra-ai' ),
+            'content'  => '',
+            'front'    => true,
+            'template' => 'page-home.php',
+        ),
 'shop'              => array( 'title' => __( 'Mağaza', 'pro-ultra-ai' ), 'template' => 'woocommerce.php' ),
 'cart'              => array( 'title' => __( 'Sepet', 'pro-ultra-ai' ), 'template' => 'page-cart.php' ),
 'my-account'        => array( 'title' => __( 'Hesabım', 'pro-ultra-ai' ), 'template' => 'page-account.php' ),
@@ -30,10 +30,11 @@ $pages = array(
 'likes'             => array( 'title' => __( 'Beğenilen Ürünler', 'pro-ultra-ai' ), 'template' => 'page-likes.php', 'shortcode'=> '[pro_ultra_likes]' ),
 'login'             => array( 'title' => __( 'Giriş Yap', 'pro-ultra-ai' ), 'template' => 'page-login.php', 'shortcode' => '[pro_ultra_login]' ),
 'register'          => array( 'title' => __( 'Kayıt Ol', 'pro-ultra-ai' ), 'template' => 'page-register.php', 'shortcode' => '[pro_ultra_register]' ),
-'profilim'          => array( 'title' => __( 'Profilim', 'pro-ultra-ai' ), 'template' => 'page-account.php' ),
-'checkout'          => array( 'title' => __( 'Ödeme', 'pro-ultra-ai' ), 'template' => 'page-checkout.php' ),
-'iletisim'          => array( 'title' => __( 'İletişim', 'pro-ultra-ai' ), 'template' => 'page.php', 'content' => '<div class="pro-ultra-contact"><h2>' . esc_html__( 'Bize ulaşın', 'pro-ultra-ai' ) . '</h2><p>' . esc_html__( 'Sorularınız için destek ekibimize ulaşın.', 'pro-ultra-ai' ) . '</p></div>' ),
-'blog'             => array( 'title' => __( 'Blog', 'pro-ultra-ai' ), 'template' => 'page.php' ),
+        'profilim'          => array( 'title' => __( 'Profilim', 'pro-ultra-ai' ), 'template' => 'page-account.php' ),
+        'checkout'          => array( 'title' => __( 'Ödeme', 'pro-ultra-ai' ), 'template' => 'page-checkout.php' ),
+        'iletisim'          => array( 'title' => __( 'İletişim', 'pro-ultra-ai' ), 'template' => 'page.php', 'content' => '<div class="pro-ultra-contact"><h2>' . esc_html__( 'Bize ulaşın', 'pro-ultra-ai' ) . '</h2><p>' . esc_html__( 'Sorularınız için destek ekibimize ulaşın.', 'pro-ultra-ai' ) . '</p></div>' ),
+        'blog'             => array( 'title' => __( 'Blog', 'pro-ultra-ai' ), 'template' => 'page.php' ),
+        'compare'          => array( 'title' => __( 'Karşılaştırma', 'pro-ultra-ai' ), 'template' => 'page-compare.php', 'shortcode' => '[pro_ultra_compare]' ),
 );
 
 foreach ( $pages as $slug => $data ) {

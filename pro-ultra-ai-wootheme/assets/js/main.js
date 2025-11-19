@@ -273,15 +273,56 @@ try{ sessionStorage.setItem('proUltraAIChatHistory', JSON.stringify(chatHistory)
 }
 
 function renderMessage(entry){
-if(!chatBody){ return; }
-const row = document.createElement('div');
-row.className = 'pro-ultra-ai-chat-message ' + (entry.role === 'ai' ? 'is-ai' : 'is-user');
-const bubble = document.createElement('span');
-bubble.className = 'pro-ultra-ai-chat-message__bubble';
-bubble.textContent = entry.text;
-row.appendChild(bubble);
-chatBody.appendChild(row);
-chatBody.scrollTop = chatBody.scrollHeight;
+  if(!chatBody){ return; }
+  const row = document.createElement('div');
+  row.className = 'pro-ultra-ai-chat-message ' + (entry.role === 'ai' ? 'is-ai' : 'is-user');
+  const bubble = document.createElement('span');
+  bubble.className = 'pro-ultra-ai-chat-message__bubble';
+  bubble.textContent = entry.text;
+  row.appendChild(bubble);
+  if(entry.link){
+    const link = document.createElement('a');
+    link.href = entry.link;
+    link.className = 'pro-ultra-ai-chat-link';
+    link.textContent = link.href;
+    row.appendChild(link);
+  }
+  if(entry.products && entry.products.length){
+    row.appendChild(renderProductCards(entry.products));
+  }
+  chatBody.appendChild(row);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function renderProductCards(items){
+  const wrap = document.createElement('div');
+  wrap.className = 'pro-ultra-ai-chat-products';
+  items.forEach(item=>{
+    const card = document.createElement('article');
+    card.className = 'pro-ultra-ai-chat-product';
+    if(item.thumb){
+      const img = document.createElement('img');
+      img.src = item.thumb;
+      img.alt = item.title;
+      card.appendChild(img);
+    }
+    const title = document.createElement('h5');
+    title.textContent = item.title;
+    card.appendChild(title);
+    if(item.price){
+      const price = document.createElement('p');
+      price.className = 'price';
+      price.textContent = item.price;
+      card.appendChild(price);
+    }
+    const link = document.createElement('a');
+    link.href = item.url;
+    link.textContent = (proUltraAIChat && proUltraAIChat.viewLabel) ? proUltraAIChat.viewLabel : 'Görüntüle';
+    link.className = 'button';
+    card.appendChild(link);
+    wrap.appendChild(card);
+  });
+  return wrap;
 }
 
 function toggleChat(){
@@ -316,13 +357,14 @@ provider: (typeof proUltraAIWriter !== 'undefined') ? proUltraAIWriter.defaultPr
 })
 })
 .then(res=>res.json())
-.then(res=>{
-const text = res.success && res.data ? res.data.reply : (res.data?.message || proUltraAIChat.errorText);
-const aiEntry = { role: 'ai', text: text };
-chatHistory.push(aiEntry);
-renderMessage(aiEntry);
-saveHistory();
-})
+  .then(res=>{
+    const payload = res.data || {};
+    const text = res.success && payload ? payload.reply : (payload.message || proUltraAIChat.errorText);
+    const aiEntry = { role: 'ai', text: text, products: payload.products || [], link: payload.comparison_link };
+    chatHistory.push(aiEntry);
+    renderMessage(aiEntry);
+    saveHistory();
+  })
 .catch(()=>{
 const aiEntry = { role: 'ai', text: proUltraAIChat.errorText };
 chatHistory.push(aiEntry);
