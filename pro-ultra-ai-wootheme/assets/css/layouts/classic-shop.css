@@ -144,3 +144,4 @@ body.pro-ultra-layout-classic-shop .pro-ultra-nav a.is-hover,
 body.layout-classic .pro-ultra-nav a.is-hover {
   border-bottom: 2px solid var(--pro-ultra-primary);
 }
+body.layout-classic .pro-ultra-icon {border:1px solid #d1d5db;border-radius:10px;padding:2px;background:#ffffff;}

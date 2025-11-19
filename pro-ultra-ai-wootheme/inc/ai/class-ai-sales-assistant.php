@@ -2,6 +2,7 @@
 namespace ProUltra\AI;
 
 use ProUltra\Admin\Theme_Options;
+use ProUltra\Core\SVG_Icons;
 
 /**
  * AI satış asistanı chatbox ve davranış izleyici.
@@ -41,15 +42,19 @@ $rendered = true;
 ?>
 <div class="pro-ultra-ai-chat-launcher" data-ai-chat-toggle aria-label="<?php esc_attr_e( 'Open AI sales assistant', 'pro-ultra-ai' ); ?>">
 <span class="pro-ultra-ai-chat-launcher__dot"></span>
+<span class="pro-ultra-ai-chat-launcher__icon"><?php echo SVG_Icons::get_icon( 'ui-star', 'pro-ultra-icon' ); ?></span>
 <span><?php echo esc_html( $settings['bubble_label'] ); ?></span>
 </div>
 <div class="pro-ultra-ai-chatbox" aria-live="polite" data-ai-chat>
 <div class="pro-ultra-ai-chatbox__header">
+<div class="pro-ultra-ai-chatbox__title-wrap">
+<span class="pro-ultra-ai-chatbox__badge"><?php echo SVG_Icons::get_icon( 'ui-support', 'pro-ultra-icon' ); ?></span>
 <div>
 <strong><?php esc_html_e( 'AI Satış Asistanı', 'pro-ultra-ai' ); ?></strong>
 <p class="pro-ultra-ai-chatbox__subtitle"><?php echo esc_html( $settings['welcome'] ); ?></p>
 </div>
-<button type="button" class="pro-ultra-ai-chatbox__close" data-ai-chat-toggle aria-label="<?php esc_attr_e( 'Close chat', 'pro-ultra-ai' ); ?>">×</button>
+</div>
+<button type="button" class="pro-ultra-ai-chatbox__close" data-ai-chat-toggle aria-label="<?php esc_attr_e( 'Close chat', 'pro-ultra-ai' ); ?>"><?php echo SVG_Icons::get_icon( 'ui-return', 'pro-ultra-icon' ); ?></button>
 </div>
 <div class="pro-ultra-ai-chatbox__body" data-ai-chat-body>
 <div class="pro-ultra-ai-chat-message is-ai">

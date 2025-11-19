@@ -17,6 +17,7 @@ autoload_pro_ultra_ai();
 function autoload_pro_ultra_ai() {
 $files = array(
 'inc/core/class-theme.php',
+'inc/core/class-svg-icons.php',
 'inc/core/class-assets.php',
 'inc/core/class-ajax.php',
 'inc/ai/class-product-writer.php',

@@ -188,3 +188,4 @@ body.layout-minimal .woocommerce a.button {
     opacity: 0;
   }
 }
+body.layout-minimal .pro-ultra-icon {filter: drop-shadow(0 6px 14px rgba(148, 163, 184, 0.2));}

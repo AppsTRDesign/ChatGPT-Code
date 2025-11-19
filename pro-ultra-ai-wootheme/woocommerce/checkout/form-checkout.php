@@ -7,6 +7,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
+use ProUltra\Core\SVG_Icons;
+
 wc_print_notices();
 
 do_action( 'woocommerce_before_checkout_form', $checkout );
@@ -24,16 +26,16 @@ return;
     </div>
     <div class="pro-ultra-checkout__grid">
         <div class="pro-ultra-checkout__col">
-            <div class="pro-ultra-checkout__section">
-                <div class="pro-ultra-checkout__section-head">
-                    <h2 class="pro-ultra-checkout__title"><?php esc_html_e( 'Fatura & Teslimat', 'pro-ultra-ai' ); ?></h2>
-                    <div class="pro-ultra-carriers" aria-label="<?php esc_attr_e( 'Kargo firmaları', 'pro-ultra-ai' ); ?>">
-                        <span class="carrier carrier--dhl">DHL</span>
-                        <span class="carrier carrier--aras">Aras</span>
-                        <span class="carrier carrier--mng">MNG</span>
-                        <span class="carrier carrier--yurtici">Yurtiçi</span>
-                    </div>
+        <div class="pro-ultra-checkout__section">
+            <div class="pro-ultra-checkout__section-head">
+                <h2 class="pro-ultra-checkout__title"><?php esc_html_e( 'Fatura & Teslimat', 'pro-ultra-ai' ); ?></h2>
+                <div class="pro-ultra-carriers" aria-label="<?php esc_attr_e( 'Kargo firmaları', 'pro-ultra-ai' ); ?>">
+                    <?php echo SVG_Icons::get_icon( 'shipping-dhl-express', 'pro-ultra-icon' ); ?>
+                    <?php echo SVG_Icons::get_icon( 'shipping-aras-kargo', 'pro-ultra-icon' ); ?>
+                    <?php echo SVG_Icons::get_icon( 'shipping-mng-kargo', 'pro-ultra-icon' ); ?>
+                    <?php echo SVG_Icons::get_icon( 'shipping-yurtici-kargo', 'pro-ultra-icon' ); ?>
                 </div>
+            </div>
                 <?php if ( $checkout->get_checkout_fields() ) : ?>
                     <?php do_action( 'woocommerce_checkout_before_customer_details' ); ?>
                     <div class="pro-ultra-checkout__details" id="customer_details">
@@ -47,17 +49,21 @@ return;
         </div>
         <div class="pro-ultra-checkout__col pro-ultra-checkout__col--summary" data-checkout-summary>
             <div class="pro-ultra-checkout__summary-head">
-                <h2 class="pro-ultra-checkout__title"><?php esc_html_e( 'Sipariş Özeti', 'pro-ultra-ai' ); ?></h2>
+                <h2 class="pro-ultra-checkout__title"><?php echo SVG_Icons::get_icon( 'ui-truck', 'pro-ultra-icon' ); ?> <?php esc_html_e( 'Sipariş Özeti', 'pro-ultra-ai' ); ?></h2>
                 <button type="button" class="button button-secondary pro-ultra-checkout__summary-toggle" data-summary-toggle>
                     <span class="open-text"><?php esc_html_e( 'Özeti Aç', 'pro-ultra-ai' ); ?></span>
                     <span class="close-text"><?php esc_html_e( 'Kapat', 'pro-ultra-ai' ); ?></span>
                 </button>
             </div>
             <div class="pro-ultra-payment-icons" aria-label="<?php esc_attr_e( 'Ödeme logoları', 'pro-ultra-ai' ); ?>">
-                <span class="icon icon--visa" aria-label="Visa">Visa</span>
-                <span class="icon icon--mc" aria-label="Mastercard">MC</span>
-                <span class="icon icon--troy" aria-label="Troy">Troy</span>
-                <span class="icon icon--stripe" aria-label="Stripe">Stripe</span>
+                <?php echo SVG_Icons::get_icon( 'payment-visa', 'pro-ultra-icon' ); ?>
+                <?php echo SVG_Icons::get_icon( 'payment-mastercard', 'pro-ultra-icon' ); ?>
+                <?php echo SVG_Icons::get_icon( 'payment-amex', 'pro-ultra-icon' ); ?>
+                <?php echo SVG_Icons::get_icon( 'payment-troy', 'pro-ultra-icon' ); ?>
+                <?php echo SVG_Icons::get_icon( 'payment-stripe', 'pro-ultra-icon' ); ?>
+                <?php echo SVG_Icons::get_icon( 'payment-paypal', 'pro-ultra-icon' ); ?>
+                <?php echo SVG_Icons::get_icon( 'payment-paytr', 'pro-ultra-icon' ); ?>
+                <?php echo SVG_Icons::get_icon( 'payment-iyzico', 'pro-ultra-icon' ); ?>
             </div>
             <div class="pro-ultra-checkout__coupon">
                 <label for="pro-ultra-coupon" class="screen-reader-text"><?php esc_html_e( 'Kupon kodu', 'pro-ultra-ai' ); ?></label>

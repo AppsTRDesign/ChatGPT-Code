@@ -143,3 +143,4 @@ body.layout-gradient .pro-ultra-header {
   pointer-events: none;
   transition: left 0.12s ease, top 0.12s ease;
 }
+body.layout-gradient .pro-ultra-icon {border-radius: 14px;background: linear-gradient(135deg, rgba(142,197,252,0.15), rgba(224,195,252,0.15));backdrop-filter: blur(6px);}

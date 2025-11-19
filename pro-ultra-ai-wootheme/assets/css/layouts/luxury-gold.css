@@ -145,3 +145,4 @@ body.layout-luxury .pro-ultra-slider .swiper-pagination-bullet-active {
     border-radius: 0;
   }
 }
+body.layout-luxury .pro-ultra-icon {border-radius:12px;background: radial-gradient(circle at 30% 30%, rgba(246,226,122,0.28), rgba(212,166,15,0.18));box-shadow:0 10px 30px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15);}

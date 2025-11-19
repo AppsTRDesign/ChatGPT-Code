@@ -2,6 +2,7 @@
 namespace ProUltra\Features;
 
 use ProUltra\Admin\Theme_Options;
+use ProUltra\Core\SVG_Icons;
 
 /**
  * AJAX-first cart, mini-cart drawer and AI cross-sell suggestions.
@@ -67,7 +68,7 @@ $cart_payload = self::get_cart_payload();
 <span class="pro-ultra-mini-cart__title"><?php esc_html_e( 'Sepet', 'pro-ultra-ai' ); ?></span>
 <span class="pro-ultra-mini-cart__count" data-cart-count><?php echo esc_html( $cart_payload['count'] ); ?></span>
 </div>
-<button class="pro-ultra-mini-cart__close" data-cart-close aria-label="<?php esc_attr_e( 'Kapat', 'pro-ultra-ai' ); ?>">&times;</button>
+<button class="pro-ultra-mini-cart__close" data-cart-close aria-label="<?php esc_attr_e( 'Kapat', 'pro-ultra-ai' ); ?>"><?php echo SVG_Icons::get_icon( 'ui-return', 'pro-ultra-icon' ); ?></button>
 </header>
 <div class="pro-ultra-mini-cart__body" data-mini-cart-items>
 <?php echo $cart_payload['items_html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>

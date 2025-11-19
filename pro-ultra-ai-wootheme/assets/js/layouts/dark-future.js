@@ -22,3 +22,7 @@
     });
   });
 })();
+  document.querySelectorAll('.pro-ultra-payment-icons .pro-ultra-icon, .pro-ultra-carriers .pro-ultra-icon').forEach((icon)=>{
+    icon.addEventListener('mouseenter', ()=> icon.classList.add('is-hover'));
+    icon.addEventListener('mouseleave', ()=> icon.classList.remove('is-hover'));
+  });

@@ -173,23 +173,17 @@ body.layout-luxury.pro-ultra-advanced-checkout .pro-ultra-checkout__review {
     margin: 10px 0;
 }
 
-.pro-ultra-payment-icons .icon,
-.pro-ultra-carriers .carrier {
+.pro-ultra-payment-icons .pro-ultra-icon,
+.pro-ultra-carriers .pro-ultra-icon {
+    width: 52px;
+    padding: 6px;
     border: 1px solid var(--checkout-border);
-    padding: 8px 10px;
     border-radius: 10px;
-    font-weight: 700;
-    font-size: 13px;
     background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6));
     box-shadow: 0 6px 18px rgba(0,0,0,0.06);
 }
 
-.pro-ultra-carriers { display: flex; gap: 8px; flex-wrap: wrap; }
-
-.pro-ultra-payment-icons .icon--visa { color: #1a1f71; }
-.pro-ultra-payment-icons .icon--mc { color: #ea001b; }
-.pro-ultra-payment-icons .icon--troy { color: #007b84; }
-.pro-ultra-payment-icons .icon--stripe { color: #635bff; }
+.pro-ultra-carriers { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* Payment method cards */
 .woocommerce-checkout #payment ul.payment_methods {
