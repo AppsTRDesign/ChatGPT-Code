@@ -1,0 +1,120 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: NoaSoft AI WooCommerce 1.0.0\n"
+"Report-Msgid-Bugs-To: https://noasoft.org\n"
+"POT-Creation-Date: 2024-05-01 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: NoaSoft Language Manager\n"
+
+msgid "Dil & Çeviri Yönetimi"
+msgstr ""
+
+msgid "Eklenti Dili"
+msgstr ""
+
+msgid "Bu ayar yalnızca NoaSoft AI Woo eklentisinin arayüzünü etkiler."
+msgstr ""
+
+msgid "%1$d anahtar · %2$d özel çeviri"
+msgstr ""
+
+msgid "PO Dışa Aktar"
+msgstr ""
+
+msgid "JSON Dışa Aktar"
+msgstr ""
+
+msgid "PO İçe Aktar"
+msgstr ""
+
+msgid "JSON İçe Aktar"
+msgstr ""
+
+msgid "Inline Çeviri Düzenleyici"
+msgstr ""
+
+msgid "Metin veya anahtar arayarak hızlıca düzenleme yapabilirsiniz. Boş bırakmanız varsayılan çeviriyi geri yükler."
+msgstr ""
+
+msgid "Metin ara..."
+msgstr ""
+
+msgid "Arama yaptıktan sonra sonuçlar listelenecek."
+msgstr ""
+
+msgid "Arama kutusuna kelime girin."
+msgstr ""
+
+msgid "Yükleniyor..."
+msgstr ""
+
+msgid "Çeviri kaydedildi."
+msgstr ""
+
+msgid "Kaydediliyor..."
+msgstr ""
+
+msgid "Sonuç bulunamadı."
+msgstr ""
+
+msgid "Arama kutusuna anahtar yazın."
+msgstr ""
+
+msgid "Dosya içe aktarıldı."
+msgstr ""
+
+msgid "Dosya içe aktarılamadı."
+msgstr ""
+
+msgid "Dosya indirilemedi."
+msgstr ""
+
+msgid "Eklenti dili güncellendi."
+msgstr ""
+
+msgid "Kaydet"
+msgstr ""
+
+msgid "Özel Çeviri"
+msgstr ""
+
+msgid "Kaydedildi"
+msgstr ""
+
+msgid "%d satır içe aktarıldı."
+msgstr ""
+
+msgid "%d kayıt içe aktarıldı."
+msgstr ""
+
+msgid "Geçersiz anahtar."
+msgstr ""
+
+msgid "Desteklenmeyen dil."
+msgstr ""
+
+msgid "Dosya alınamadı."
+msgstr ""
+
+msgid "Dosya okunamadı."
+msgstr ""
+
+msgid "Dil & Çeviri"
+msgstr ""
+
+msgid "Eklenti dilini seçin, dil dosyalarını içe/dışa aktarın ve belirli anahtarların çevirisini hızlıca düzenleyin."
+msgstr ""
+
+msgid "Bu işlem için yetkiniz yok."
+msgstr ""
+
+msgid "Varsayılan (Site Dili)"
+msgstr ""
+
+msgid "Türkçe (tr_TR)"
+msgstr ""
+
+msgid "English (en_US)"
+msgstr ""

@@ -1,0 +1,125 @@
+/*
+ * Global frontend styling helpers shared by all NoaSoft AI Woo modules.
+ */
+[data-noasoft-theme="dark"], body[data-noasoft-theme="dark"] {
+    background-color: var(--noasoft-surface-alt);
+    color: #f8fafc;
+}
+
+.noasoft-surface-card {
+    background: var(--noasoft-surface);
+    border-radius: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: var(--noasoft-shadow);
+    padding: 1.5rem;
+}
+
+.noasoft-section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--noasoft-primary);
+    margin-bottom: 0.5rem;
+}
+
+.noasoft-section-lead {
+    color: var(--noasoft-muted);
+    margin-bottom: 1.5rem;
+}
+
+.noasoft-floating-shadow {
+    box-shadow: 0 25px 65px rgba(15, 23, 42, 0.15);
+}
+
+.noasoft-gradient-pill {
+    background: linear-gradient(120deg, var(--noasoft-primary), var(--noasoft-accent));
+    color: #fff;
+    padding: 0.25rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.noasoft-toast {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%) scale(0.85);
+    bottom: 2rem;
+    min-width: 240px;
+    max-width: 340px;
+    color: #0f172a;
+    background: #fff;
+    padding: 1rem 1.25rem;
+    border-radius: 1rem;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 9999;
+}
+
+.noasoft-toast[data-theme="dark"] {
+    background: #0f172a;
+    color: #f8fafc;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6);
+}
+
+.noasoft-toast.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) scale(1);
+}
+
+.noasoft-toast .toast-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--noasoft-primary);
+    font-weight: 700;
+}
+
+.noasoft-toast.noasoft-toast-success .toast-icon { background: rgba(16, 185, 129, 0.15); color: #059669; }
+.noasoft-toast.noasoft-toast-error .toast-icon { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+
+.noasoft-toast .toast-message { flex: 1; font-size: 0.875rem; line-height: 1.4; }
+
+.noasoft-toast .toast-progress {
+    position: absolute;
+    left: 1.25rem;
+    right: 1.25rem;
+    bottom: 0.5rem;
+    height: 3px;
+    background: rgba(148, 163, 184, 0.25);
+    overflow: hidden;
+    border-radius: 999px;
+}
+
+.noasoft-toast .toast-progress span {
+    display: block;
+    height: 100%;
+    background: var(--noasoft-primary);
+    width: 100%;
+    transform-origin: left center;
+}
+
+.noasoft-skeleton {
+    background: linear-gradient(90deg, rgba(148,163,184,0.15) 25%, rgba(148,163,184,0.3) 37%, rgba(148,163,184,0.15) 63%);
+    background-size: 400% 100%;
+    animation: noasoft-shimmer 1.4s ease infinite;
+}
+
+@keyframes noasoft-shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+@keyframes noasoft-spinner {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}

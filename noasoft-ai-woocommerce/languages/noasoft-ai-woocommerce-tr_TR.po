@@ -1,0 +1,118 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: NoaSoft AI WooCommerce 1.0.0\n"
+"Language: tr_TR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Dil & Çeviri Yönetimi"
+msgstr "Dil & Çeviri Yönetimi"
+
+msgid "Eklenti Dili"
+msgstr "Eklenti Dili"
+
+msgid "Bu ayar yalnızca NoaSoft AI Woo eklentisinin arayüzünü etkiler."
+msgstr "Bu ayar yalnızca NoaSoft AI Woo eklentisinin arayüzünü etkiler."
+
+msgid "%1$d anahtar · %2$d özel çeviri"
+msgstr "%1$d anahtar · %2$d özel çeviri"
+
+msgid "PO Dışa Aktar"
+msgstr "PO Dışa Aktar"
+
+msgid "JSON Dışa Aktar"
+msgstr "JSON Dışa Aktar"
+
+msgid "PO İçe Aktar"
+msgstr "PO İçe Aktar"
+
+msgid "JSON İçe Aktar"
+msgstr "JSON İçe Aktar"
+
+msgid "Inline Çeviri Düzenleyici"
+msgstr "Inline Çeviri Düzenleyici"
+
+msgid "Metin veya anahtar arayarak hızlıca düzenleme yapabilirsiniz. Boş bırakmanız varsayılan çeviriyi geri yükler."
+msgstr "Metin veya anahtar arayarak hızlıca düzenleme yapabilirsiniz. Boş bırakmanız varsayılan çeviriyi geri yükler."
+
+msgid "Metin ara..."
+msgstr "Metin ara..."
+
+msgid "Arama yaptıktan sonra sonuçlar listelenecek."
+msgstr "Arama yaptıktan sonra sonuçlar listelenecek."
+
+msgid "Arama kutusuna kelime girin."
+msgstr "Arama kutusuna kelime girin."
+
+msgid "Yükleniyor..."
+msgstr "Yükleniyor..."
+
+msgid "Çeviri kaydedildi."
+msgstr "Çeviri kaydedildi."
+
+msgid "Kaydediliyor..."
+msgstr "Kaydediliyor..."
+
+msgid "Sonuç bulunamadı."
+msgstr "Sonuç bulunamadı."
+
+msgid "Arama kutusuna anahtar yazın."
+msgstr "Arama kutusuna anahtar yazın."
+
+msgid "Dosya içe aktarıldı."
+msgstr "Dosya içe aktarıldı."
+
+msgid "Dosya içe aktarılamadı."
+msgstr "Dosya içe aktarılamadı."
+
+msgid "Dosya indirilemedi."
+msgstr "Dosya indirilemedi."
+
+msgid "Eklenti dili güncellendi."
+msgstr "Eklenti dili güncellendi."
+
+msgid "Kaydet"
+msgstr "Kaydet"
+
+msgid "Özel Çeviri"
+msgstr "Özel Çeviri"
+
+msgid "Kaydedildi"
+msgstr "Kaydedildi"
+
+msgid "%d satır içe aktarıldı."
+msgstr "%d satır içe aktarıldı."
+
+msgid "%d kayıt içe aktarıldı."
+msgstr "%d kayıt içe aktarıldı."
+
+msgid "Geçersiz anahtar."
+msgstr "Geçersiz anahtar."
+
+msgid "Desteklenmeyen dil."
+msgstr "Desteklenmeyen dil."
+
+msgid "Dosya alınamadı."
+msgstr "Dosya alınamadı."
+
+msgid "Dosya okunamadı."
+msgstr "Dosya okunamadı."
+
+msgid "Dil & Çeviri"
+msgstr "Dil & Çeviri"
+
+msgid "Eklenti dilini seçin, dil dosyalarını içe/dışa aktarın ve belirli anahtarların çevirisini hızlıca düzenleyin."
+msgstr "Eklenti dilini seçin, dil dosyalarını içe/dışa aktarın ve belirli anahtarların çevirisini hızlıca düzenleyin."
+
+msgid "Bu işlem için yetkiniz yok."
+msgstr "Bu işlem için yetkiniz yok."
+
+msgid "Varsayılan (Site Dili)"
+msgstr "Varsayılan (Site Dili)"
+
+msgid "Türkçe (tr_TR)"
+msgstr "Türkçe (tr_TR)"
+
+msgid "English (en_US)"
+msgstr "English (en_US)"

@@ -1,0 +1,118 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: NoaSoft AI WooCommerce 1.0.0\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Dil & Çeviri Yönetimi"
+msgstr "Language & Translation Management"
+
+msgid "Eklenti Dili"
+msgstr "Plugin Language"
+
+msgid "Bu ayar yalnızca NoaSoft AI Woo eklentisinin arayüzünü etkiler."
+msgstr "This preference only affects the NoaSoft AI Woo plugin interface."
+
+msgid "%1$d anahtar · %2$d özel çeviri"
+msgstr "%1$d keys · %2$d custom overrides"
+
+msgid "PO Dışa Aktar"
+msgstr "Export PO"
+
+msgid "JSON Dışa Aktar"
+msgstr "Export JSON"
+
+msgid "PO İçe Aktar"
+msgstr "Import PO"
+
+msgid "JSON İçe Aktar"
+msgstr "Import JSON"
+
+msgid "Inline Çeviri Düzenleyici"
+msgstr "Inline Translation Editor"
+
+msgid "Metin veya anahtar arayarak hızlıca düzenleme yapabilirsiniz. Boş bırakmanız varsayılan çeviriyi geri yükler."
+msgstr "Search by text or key to edit strings quickly. Leave empty to fall back to the default translation."
+
+msgid "Metin ara..."
+msgstr "Search text..."
+
+msgid "Arama yaptıktan sonra sonuçlar listelenecek."
+msgstr "Results will appear once you search."
+
+msgid "Arama kutusuna kelime girin."
+msgstr "Type a keyword to begin."
+
+msgid "Yükleniyor..."
+msgstr "Loading..."
+
+msgid "Çeviri kaydedildi."
+msgstr "Translation saved."
+
+msgid "Kaydediliyor..."
+msgstr "Saving..."
+
+msgid "Sonuç bulunamadı."
+msgstr "No results found."
+
+msgid "Arama kutusuna anahtar yazın."
+msgstr "Enter a key to search."
+
+msgid "Dosya içe aktarıldı."
+msgstr "File imported."
+
+msgid "Dosya içe aktarılamadı."
+msgstr "File import failed."
+
+msgid "Dosya indirilemedi."
+msgstr "Unable to download file."
+
+msgid "Eklenti dili güncellendi."
+msgstr "Plugin language updated."
+
+msgid "Kaydet"
+msgstr "Save"
+
+msgid "Özel Çeviri"
+msgstr "Custom Translation"
+
+msgid "Kaydedildi"
+msgstr "Saved"
+
+msgid "%d satır içe aktarıldı."
+msgstr "%d rows imported."
+
+msgid "%d kayıt içe aktarıldı."
+msgstr "%d records imported."
+
+msgid "Geçersiz anahtar."
+msgstr "Invalid key."
+
+msgid "Desteklenmeyen dil."
+msgstr "Unsupported language."
+
+msgid "Dosya alınamadı."
+msgstr "File could not be received."
+
+msgid "Dosya okunamadı."
+msgstr "File could not be read."
+
+msgid "Dil & Çeviri"
+msgstr "Language & Translation"
+
+msgid "Eklenti dilini seçin, dil dosyalarını içe/dışa aktarın ve belirli anahtarların çevirisini hızlıca düzenleyin."
+msgstr "Pick the plugin language, import/export files, and edit specific keys inline."
+
+msgid "Bu işlem için yetkiniz yok."
+msgstr "You do not have permission to perform this action."
+
+msgid "Varsayılan (Site Dili)"
+msgstr "Default (Site Language)"
+
+msgid "Türkçe (tr_TR)"
+msgstr "Türkçe (tr_TR)"
+
+msgid "English (en_US)"
+msgstr "English (en_US)"

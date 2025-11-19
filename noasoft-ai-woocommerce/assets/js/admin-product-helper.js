@@ -1,0 +1,111 @@
+(function( $ ) {
+    'use strict';
+
+    function getEditorContent( fallback ) {
+        if ( window.wp && wp.data && wp.data.select ) {
+            var editorStore = wp.data.select( 'core/editor' );
+            if ( editorStore && editorStore.getEditedPostContent ) {
+                return editorStore.getEditedPostContent() || fallback;
+            }
+        }
+
+        var classic = document.getElementById( 'content' );
+        if ( classic ) {
+            return classic.value || fallback;
+        }
+
+        return fallback;
+    }
+
+    $( function() {
+        var settings = window.NoaSoftProductHelper || {};
+        var $box = $( '#noasoft-ai-product-helper' );
+
+        if ( ! $box.length ) {
+            return;
+        }
+
+        var selectors = settings.fields || {};
+
+        function getTitle() {
+            var fieldId = selectors.title || '';
+            var field = fieldId ? document.getElementById( fieldId ) : null;
+            var value = field && field.value ? field.value : '';
+            return value || settings.product_title || '';
+        }
+
+        function toggleLoading( state ) {
+            $box.toggleClass( 'is-loading', state );
+            $box.find( '.spinner' ).toggleClass( 'is-active', !! state );
+        }
+
+        function applyContent( content ) {
+            if ( typeof content.seo_title !== 'undefined' ) {
+                $box.find( '#noasoft_ai_helper_seo_title' ).val( content.seo_title );
+            }
+            if ( typeof content.seo_description !== 'undefined' ) {
+                $box.find( '#noasoft_ai_helper_seo_description' ).val( content.seo_description );
+            }
+            if ( typeof content.short_description !== 'undefined' ) {
+                $box.find( '#noasoft_ai_helper_short_description' ).val( content.short_description );
+            }
+            if ( typeof content.use_cases !== 'undefined' ) {
+                $box.find( '#noasoft_ai_helper_use_cases' ).val( content.use_cases );
+            }
+            if ( typeof content.tags !== 'undefined' ) {
+                $box.find( '#noasoft_ai_helper_tags' ).val( content.tags );
+            }
+
+            if ( content.benefits ) {
+                var benefitsText = Array.isArray( content.benefits ) ? content.benefits.join( '\n' ) : content.benefits;
+                $box.find( '#noasoft_ai_helper_benefits' ).val( benefitsText );
+            }
+
+            if ( content.features ) {
+                var featuresText = Array.isArray( content.features ) ? content.features.join( '\n' ) : content.features;
+                $box.find( '#noasoft_ai_helper_features' ).val( featuresText );
+            }
+        }
+
+        function notify( message, type ) {
+            if ( window.NoaSoftToast && window.NoaSoftToast.show ) {
+                window.NoaSoftToast.show( message, type );
+            }
+        }
+
+        $box.on( 'click', '.noasoft-ai-generate', function( event ) {
+            event.preventDefault();
+            if ( $box.hasClass( 'is-loading' ) ) {
+                return;
+            }
+
+            toggleLoading( true );
+
+            var payload = {
+                action: 'noasoft_ai_product_helper_generate',
+                nonce: settings.nonce,
+                product_id: settings.product_id || 0,
+                title: getTitle(),
+                short_description: $box.find( '#noasoft_ai_helper_short_description' ).val(),
+                description: getEditorContent( settings.description || '' ),
+                tags: $box.find( '#noasoft_ai_helper_tags' ).val()
+            };
+
+            $.post( settings.ajax_url, payload )
+                .done( function( response ) {
+                    if ( response && response.success && response.data && response.data.content ) {
+                        applyContent( response.data.content );
+                        notify( settings.messages ? settings.messages.success : 'OK', 'success' );
+                    } else {
+                        notify( settings.messages ? settings.messages.error : 'Error', 'error' );
+                    }
+                } )
+                .fail( function() {
+                    notify( settings.messages ? settings.messages.error : 'Error', 'error' );
+                } )
+                .always( function() {
+                    toggleLoading( false );
+                } );
+        } );
+    } );
+})( jQuery );

@@ -1,0 +1,604 @@
+body.noasoft-modal-open {
+    overflow: hidden;
+}
+
+.noasoft-ai-settings {
+    position: relative;
+    margin-top: 2rem;
+    background: var(--noasoft-surface);
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: var(--noasoft-shadow);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+[data-noasoft-theme="dark"] .noasoft-ai-settings {
+    background: var(--noasoft-surface-alt);
+}
+
+.noasoft-ai-settings h1 {
+    margin-top: 0;
+    font-size: 1.8rem;
+}
+
+.noasoft-settings-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.noasoft-theme-toggle {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: transparent;
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.noasoft-theme-toggle .icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+}
+
+.noasoft-theme-toggle[data-mode="dark"] {
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--noasoft-primary);
+}
+
+.noasoft-tab-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+}
+
+.noasoft-tab-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 1.1rem;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: rgba(148, 163, 184, 0.12);
+    font-weight: 500;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.25s ease;
+}
+
+.noasoft-tab-nav a .tab-icon {
+    width: 1.2rem;
+    height: 1.2rem;
+    display: inline-flex;
+    background: currentColor;
+    mask-size: cover;
+    mask-position: center;
+    mask-repeat: no-repeat;
+}
+
+.noasoft-tab-nav a.active {
+    background: linear-gradient(120deg, var(--noasoft-primary), var(--noasoft-accent));
+    color: #fff;
+    box-shadow: 0 15px 35px rgba(37, 99, 235, 0.25);
+}
+
+.noasoft-tab-panels {
+    position: relative;
+    min-height: 200px;
+}
+
+.noasoft-tab-panel {
+    display: none;
+    animation: noasoft-tab-fade 0.5s ease;
+}
+
+.noasoft-tab-panel.is-active {
+    display: block;
+}
+
+@keyframes noasoft-tab-fade {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.noasoft-chat-grid,
+.noasoft-media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.2rem;
+}
+
+.noasoft-chat-grid label,
+.noasoft-media-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-chat-grid input,
+.noasoft-chat-grid textarea,
+.noasoft-chat-grid select,
+.noasoft-media-grid input,
+.noasoft-media-grid textarea,
+.noasoft-media-grid select {
+    width: 100%;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    padding: 0.55rem 0.75rem;
+    background: var(--noasoft-surface);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.noasoft-chat-grid .description,
+.noasoft-media-grid .description {
+    color: var(--noasoft-muted);
+    font-size: 0.8rem;
+}
+
+.noasoft-range-field .range-control {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.noasoft-range-field input[type="range"] {
+    flex: 1;
+    accent-color: var(--noasoft-primary);
+    background: transparent;
+}
+
+.noasoft-range-field .range-value {
+    font-weight: 600;
+    color: var(--noasoft-primary);
+    min-width: 3.5rem;
+    text-align: right;
+}
+
+.noasoft-avatar-field {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto 80px 1fr;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-avatar-field .avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+}
+
+.noasoft-avatar-field .avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.noasoft-avatar-field .avatar-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.noasoft-avatar-field .avatar-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.noasoft-avatar-field .link-button {
+    border: none;
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--noasoft-primary);
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.noasoft-avatar-field .link-button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+    .noasoft-avatar-field {
+        grid-template-columns: 1fr;
+    }
+    .noasoft-avatar-field .avatar-preview {
+        justify-self: flex-start;
+    }
+}
+
+.noasoft-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.12);
+}
+
+.noasoft-toggle input {
+    width: 46px;
+    height: 24px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(148, 163, 184, 0.35);
+    appearance: none;
+    position: relative;
+    outline: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.noasoft-toggle input:checked {
+    background: var(--noasoft-primary);
+    border-color: var(--noasoft-primary);
+}
+
+.noasoft-toggle input::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    top: 1px;
+    left: 1px;
+    transition: transform 0.2s ease;
+}
+
+.noasoft-toggle input:checked::after {
+    transform: translateX(22px);
+}
+
+.noasoft-chat-actions,
+.noasoft-media-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 1.5rem;
+}
+
+.noasoft-chat-actions .spinner,
+.noasoft-media-actions .spinner {
+    visibility: hidden;
+}
+
+.noasoft-chat-actions .spinner.is-active,
+.noasoft-media-actions .spinner.is-active {
+    visibility: visible;
+}
+
+.noasoft-ai-reports {
+    margin-top: 2rem;
+}
+
+.noasoft-ai-reports-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.noasoft-ai-reports-grid {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+    .noasoft-ai-reports-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.noasoft-ai-reports-list {
+    background: var(--noasoft-surface);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: var(--noasoft-shadow);
+}
+
+.noasoft-ai-report-panel {
+    min-height: 480px;
+    background: var(--noasoft-surface);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: var(--noasoft-shadow);
+    position: relative;
+    overflow: hidden;
+}
+
+.noasoft-ai-report-panel.loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(148,163,184,0.1) 0%, rgba(148,163,184,0.25) 50%, rgba(148,163,184,0.1) 100%);
+    animation: noasoft-panel-shimmer 1.4s linear infinite;
+}
+
+@keyframes noasoft-panel-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.noasoft-ai-report-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.noasoft-ai-report-header h2 {
+    margin: 0;
+    font-size: 1.75rem;
+}
+
+.noasoft-ai-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-ai-kpis .kpi-card {
+    border-radius: 1rem;
+    background: rgba(37, 99, 235, 0.08);
+    padding: 1rem;
+    border: 1px solid rgba(37, 99, 235, 0.12);
+}
+
+.noasoft-ai-chart-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-ai-chart-row .chart-card {
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.noasoft-ai-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-ai-product-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.noasoft-ai-product-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.35);
+}
+
+.noasoft-ai-summary {
+    padding: 1.5rem;
+    border-radius: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9990;
+}
+
+.noasoft-modal.is-visible { display: flex; }
+
+.noasoft-modal::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    animation: fadeIn 0.25s ease;
+}
+
+.noasoft-modal-dialog {
+    position: relative;
+    background: var(--noasoft-surface);
+    border-radius: 1.25rem;
+    padding: 2rem;
+    width: min(520px, 90%);
+    box-shadow: var(--noasoft-shadow);
+    animation: scaleIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.92) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.noasoft-modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    border: none;
+    background: rgba(148, 163, 184, 0.2);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.noasoft-language-manager,
+.noasoft-language-panel,
+.language-inline-editor {
+    background: var(--noasoft-surface);
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: var(--noasoft-shadow);
+    margin-bottom: 1.5rem;
+}
+
+.language-inline-results {
+    border-radius: 1rem;
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+    min-height: 160px;
+    padding: 1rem;
+}
+
+.language-inline-result-item {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 1rem 0;
+    display: grid;
+    gap: 0.6rem;
+}
+
+.language-inline-result-item:last-child {
+    border-bottom: 0;
+}
+
+.language-inline-result-item textarea {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+.inline-actions {
+    display: flex;
+    gap: 0.65rem;
+    align-items: center;
+}
+
+.inline-actions input {
+    flex: 1;
+}
+
+.noasoft-provider-preview {
+    border-radius: 1.25rem;
+    border: 1px dashed rgba(148, 163, 184, 0.4);
+    padding: 1.5rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-toast {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%) scale(0.9);
+    bottom: 2rem;
+    min-width: 260px;
+    max-width: 360px;
+    background: var(--noasoft-surface);
+    color: inherit;
+    border-radius: 1rem;
+    padding: 1rem 1.25rem 1.5rem;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    display: flex;
+    gap: 0.9rem;
+    align-items: center;
+    z-index: 9999;
+}
+
+.noasoft-toast.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) scale(1);
+}
+
+.noasoft-toast .toast-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--noasoft-primary);
+    font-weight: 700;
+}
+
+.noasoft-toast .toast-progress {
+    position: absolute;
+    left: 1.25rem;
+    right: 1.25rem;
+    bottom: 0.75rem;
+    height: 3px;
+    border-radius: 99px;
+    background: rgba(148, 163, 184, 0.25);
+    overflow: hidden;
+}
+
+.noasoft-toast .toast-progress span {
+    display: block;
+    height: 100%;
+    background: var(--noasoft-primary);
+}
+
+.noasoft-tab-nav .tab-icon-general { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M5 4h14a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3Zm0 2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1Zm2 3h5v6H7Zm9 0h3v3h-3Zm0 5h3v1h-3Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-providers { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M12 2a5 5 0 0 1 5 5v2h1.5A3.5 3.5 0 0 1 22 12.5v6A3.5 3.5 0 0 1 18.5 22h-13A3.5 3.5 0 0 1 2 18.5v-6A3.5 3.5 0 0 1 5.5 9H7V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-modules { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M8 3h8l5 5v8l-5 5H8l-5-5V8Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-prompts { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M3 4h18v2H3Zm0 7h12v2H3Zm0 7h8v2H3Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-chat { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M6 3h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-4l-4 4v-4H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-media { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M4 5h16v14H4ZM7 8v2h10V8Zm0 4v2h10v-2Zm0 4v2h6v-2Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-shortcode { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M9 4L3 12l6 8h3l-6-8l6-8Zm6 0h3l6 8l-6 8h-3l6-8Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-reports { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M5 3h14a2 2 0 0 1 2 2v16l-5-3l-5 3l-5-3l-5 3V5a2 2 0 0 1 2-2Zm2 4v2h10V7Zm0 4v2h6v-2Z"/%3E%3C/svg%3E'); }
+.noasoft-tab-nav .tab-icon-language { mask-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath fill="%23fff" d="M12 2l5 5l-5 5l-5-5Zm0 7l5 5l-5 5l-5-5Z"/%3E%3C/svg%3E'); }
+
+.noasoft-ai-report-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.noasoft-ai-report-footer .button-primary {
+    padding: 0.85rem 1.5rem;
+    border-radius: 0.85rem;
+    font-size: 1rem;
+}
+
+[data-noasoft-theme="dark"] .noasoft-tab-nav a {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-noasoft-theme="dark"] .noasoft-chat-grid label,
+[data-noasoft-theme="dark"] .noasoft-media-grid label {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-noasoft-theme="dark"] .noasoft-ai-report-panel,
+[data-noasoft-theme="dark"] .noasoft-ai-reports-list,
+[data-noasoft-theme="dark"] .noasoft-language-manager {
+    background: var(--noasoft-surface);
+}

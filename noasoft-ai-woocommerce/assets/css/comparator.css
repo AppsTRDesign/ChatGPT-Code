@@ -1,0 +1,176 @@
+.noasoft-ai-compare {
+    border-radius: 1.75rem;
+    background: var(--noasoft-surface);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: var(--noasoft-shadow);
+    padding: 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.noasoft-ai-compare-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+}
+
+.noasoft-ai-compare-tools button {
+    border-radius: 999px;
+    padding: 0.65rem 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(148, 163, 184, 0.08);
+    cursor: pointer;
+}
+
+.noasoft-ai-compare-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.noasoft-ai-compare-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-ai-compare-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-weight: 600;
+}
+
+.noasoft-ai-compare-fields input {
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.65rem 0.85rem;
+    font-size: 1rem;
+}
+
+.noasoft-ai-compare-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.noasoft-ai-compare-actions button {
+    border-radius: 0.95rem;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.noasoft-ai-compare-actions .button-primary {
+    background: linear-gradient(140deg, var(--noasoft-primary), var(--noasoft-accent));
+    color: #fff;
+}
+
+.noasoft-ai-compare-actions .button-secondary {
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-ai-compare-status {
+    min-height: 24px;
+    font-size: 0.9rem;
+    color: var(--noasoft-muted);
+}
+
+.noasoft-ai-compare-results {
+    border-radius: 1.5rem;
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+    padding: 1.5rem;
+    min-height: 220px;
+}
+
+.noasoft-ai-compare-empty {
+    text-align: center;
+    color: var(--noasoft-muted);
+}
+
+.noasoft-ai-compare-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.compare-card {
+    border-radius: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.1);
+}
+
+.compare-card .card-media {
+    width: 100%;
+    height: 160px;
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.compare-card .card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.compare-card .price {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--noasoft-primary);
+}
+
+.compare-card .attributes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.compare-card .attributes li {
+    padding: 0.3rem 0;
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.2);
+}
+
+.noasoft-ai-compare-ai {
+    margin-top: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.noasoft-ai-compare-section,
+.noasoft-ai-compare-summary,
+.noasoft-ai-compare-matrix,
+.noasoft-ai-compare-recommendation {
+    border-radius: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 1rem;
+    background: rgba(148, 163, 184, 0.08);
+}
+
+.noasoft-ai-compare-matrix .matrix-row {
+    padding: 0.35rem 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.noasoft-ai-compare.is-loading .noasoft-ai-compare-results::after {
+    content: '';
+    display: block;
+    height: 3px;
+    margin-top: 1rem;
+    background: linear-gradient(90deg, transparent, var(--noasoft-primary), transparent);
+    animation: noasoft-spinner 1s linear infinite;
+}
+
+@media (max-width: 640px) {
+    .noasoft-ai-compare {
+        padding: 1.25rem;
+    }
+}
