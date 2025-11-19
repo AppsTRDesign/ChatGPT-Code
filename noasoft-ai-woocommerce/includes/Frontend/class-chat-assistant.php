@@ -144,7 +144,12 @@ class Chat_Assistant {
             'identifier'   => isset( $_POST['identifier'] ) ? sanitize_text_field( wp_unslash( $_POST['identifier'] ) ) : '',
         );
 
-        $response = $this->dispatch_intent( $intent, $payload );
+        try {
+            $response = $this->dispatch_intent( $intent, $payload );
+        } catch ( \Throwable $th ) {
+            \NoaSoft\AiWoo\Helpers\Logger::log_exception( $th, array( 'intent' => $intent, 'hook' => 'chat_handle' ) );
+            wp_send_json_error( array( 'message' => __( 'Mesaj işlenirken hata oluştu.', 'noasoft-ai-woocommerce' ) ), 200 );
+        }
 
         if ( is_wp_error( $response ) ) {
             \NoaSoft\AiWoo\Helpers\Logger::log( 'Chat assistant error', array( 'intent' => $intent, 'error' => $response->get_error_message() ) );

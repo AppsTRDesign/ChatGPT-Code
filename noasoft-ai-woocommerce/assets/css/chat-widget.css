@@ -278,10 +278,10 @@
 }
 
 .noasoft-chat-msg .bubble {
-    padding: 1rem 1.15rem;
+    padding: 5px 10px;
     border-radius: 1.1rem;
     line-height: 1.6;
-    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+    box-shadow: none;
     max-width: 85%;
     font-size: 0.96rem;
 }

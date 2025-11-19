@@ -41,7 +41,7 @@ function noasoft_ai_woo_activate_plugin() {
 
         $message = sprintf(
             '%s<br><code>%s</code>',
-            esc_html__( 'NoaSoft AI WooCommerce Assistant etkinleştirilemedi. Ayrıntılar için wp-content/uploads/noasoft-ai-woo/plugin.log dosyasını kontrol edin.', 'noasoft-ai-woocommerce' ),
+            esc_html__( 'NoaSoft AI WooCommerce Assistant etkinleştirilemedi. Ayrıntılar için wp-content/uploads/noasoft-ai-woo/noa-woo-ai.log dosyasını kontrol edin.', 'noasoft-ai-woocommerce' ),
             esc_html( $e->getMessage() )
         );
 

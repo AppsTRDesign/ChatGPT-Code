@@ -226,7 +226,7 @@ class Logger {
 
         $directory = self::trailingslashit( $directory );
 
-        return $directory . 'plugin.log';
+        return $directory . 'noa-woo-ai.log';
     }
 
     /**

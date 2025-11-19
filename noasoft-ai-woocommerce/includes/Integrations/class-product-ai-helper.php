@@ -229,7 +229,12 @@ class Product_AI_Helper {
         $ai_response = array();
 
         if ( $client ) {
-            $ai_response = $client->chat( $prompt, $context );
+            try {
+                $ai_response = $client->chat( $prompt, $context );
+            } catch ( \Throwable $th ) {
+                \NoaSoft\AiWoo\Helpers\Logger::log_exception( $th, array( 'context' => 'product_ai_helper' ) );
+                return new \WP_Error( 'product_ai_exception', __( 'AI isteği başarısız oldu.', 'noasoft-ai-woocommerce' ) );
+            }
 
             if ( is_wp_error( $ai_response ) ) {
                 \NoaSoft\AiWoo\Helpers\Logger::log( 'Product helper AI error', array( 'error' => $ai_response->get_error_message() ) );

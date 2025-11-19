@@ -385,8 +385,14 @@ body.noasoft-modal-open {
 
 .noasoft-toggle-card input[type="checkbox"] {
     position: absolute;
-    top: 1.5rem;
-    right: 1.5rem;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 48px;
+    height: 26px;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
 }
 
 .noasoft-stats-grid {
@@ -505,6 +511,20 @@ body.noasoft-modal-open {
 .noasoft-module-toggle .toggle-control {
     display: flex;
     justify-content: flex-end;
+    position: relative;
+}
+
+.noasoft-module-toggle input[type="checkbox"],
+.noasoft-toggle input[type="checkbox"] {
+    width: 42px;
+    height: 22px;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 2;
 }
 
 .noasoft-toggle-visual {
@@ -515,6 +535,7 @@ body.noasoft-modal-open {
     border-radius: 999px;
     position: relative;
     margin-left: 0.5rem;
+    pointer-events: none;
 }
 
 .noasoft-toggle-visual::after {

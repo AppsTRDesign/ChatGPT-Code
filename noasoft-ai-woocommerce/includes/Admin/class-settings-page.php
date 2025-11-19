@@ -678,8 +678,14 @@ class Settings_Page {
 
         $prompt = __( 'Bu bir bağlantı testidir. Kısa bir "OK" yanıtı üret.', 'noasoft-ai-woocommerce' );
         $start  = microtime( true );
-        $result = $client->chat( $prompt, array( 'system' => __( 'Sadece kısa bir doğrulama ver.', 'noasoft-ai-woocommerce' ) ) );
-        $time   = round( ( microtime( true ) - $start ) * 1000 );
+        try {
+            $result = $client->chat( $prompt, array( 'system' => __( 'Sadece kısa bir doğrulama ver.', 'noasoft-ai-woocommerce' ) ) );
+        } catch ( \Throwable $th ) {
+            \NoaSoft\AiWoo\Helpers\Logger::log_exception( $th, array( 'provider' => $provider_slug, 'stage' => 'provider_test' ) );
+            wp_send_json_error( array( 'message' => __( 'Sağlayıcı test edilirken hata oluştu.', 'noasoft-ai-woocommerce' ) ), 200 );
+        }
+
+        $time = round( ( microtime( true ) - $start ) * 1000 );
 
         if ( is_wp_error( $result ) ) {
             \NoaSoft\AiWoo\Helpers\Logger::log( 'Provider test failed', array( 'provider' => $provider_slug, 'error' => $result->get_error_message() ) );
