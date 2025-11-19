@@ -43,11 +43,17 @@
             if ( typeof content.seo_title !== 'undefined' ) {
                 $box.find( '#noasoft_ai_helper_seo_title' ).val( content.seo_title );
             }
+            if ( typeof content.focus_keyword !== 'undefined' ) {
+                $box.find( '#noasoft_ai_helper_focus_keyword' ).val( content.focus_keyword );
+            }
             if ( typeof content.seo_description !== 'undefined' ) {
                 $box.find( '#noasoft_ai_helper_seo_description' ).val( content.seo_description );
             }
             if ( typeof content.short_description !== 'undefined' ) {
                 $box.find( '#noasoft_ai_helper_short_description' ).val( content.short_description );
+            }
+            if ( typeof content.long_description !== 'undefined' ) {
+                $box.find( '#noasoft_ai_helper_long_description' ).val( content.long_description );
             }
             if ( typeof content.use_cases !== 'undefined' ) {
                 $box.find( '#noasoft_ai_helper_use_cases' ).val( content.use_cases );
@@ -65,6 +71,20 @@
                 var featuresText = Array.isArray( content.features ) ? content.features.join( '\n' ) : content.features;
                 $box.find( '#noasoft_ai_helper_features' ).val( featuresText );
             }
+        }
+
+        function gatherPayload() {
+            return {
+                seo_title: $box.find( '#noasoft_ai_helper_seo_title' ).val(),
+                focus_keyword: $box.find( '#noasoft_ai_helper_focus_keyword' ).val(),
+                seo_description: $box.find( '#noasoft_ai_helper_seo_description' ).val(),
+                short_description: $box.find( '#noasoft_ai_helper_short_description' ).val(),
+                long_description: $box.find( '#noasoft_ai_helper_long_description' ).val(),
+                use_cases: $box.find( '#noasoft_ai_helper_use_cases' ).val(),
+                benefits: $box.find( '#noasoft_ai_helper_benefits' ).val().split( '\n' ).filter( Boolean ),
+                features: $box.find( '#noasoft_ai_helper_features' ).val().split( '\n' ).filter( Boolean ),
+                tags: $box.find( '#noasoft_ai_helper_tags' ).val()
+            };
         }
 
         function notify( message, type ) {
@@ -103,6 +123,34 @@
                 } )
                 .fail( function() {
                     notify( settings.messages ? settings.messages.error : 'Error', 'error' );
+                } )
+                .always( function() {
+                    toggleLoading( false );
+                } );
+        } );
+
+        $box.on( 'click', '.noasoft-ai-apply', function( event ) {
+            event.preventDefault();
+            if ( $box.hasClass( 'is-loading' ) ) {
+                return;
+            }
+
+            toggleLoading( true );
+            $.post( settings.ajax_url, {
+                action: 'noasoft_ai_product_helper_apply',
+                nonce: settings.nonce,
+                product_id: settings.product_id || 0,
+                payload: gatherPayload()
+            } )
+                .done( function( response ) {
+                    if ( response && response.success ) {
+                        notify( settings.messages ? settings.messages.apply_success : 'Saved', 'success' );
+                    } else {
+                        notify( response && response.data && response.data.message ? response.data.message : ( settings.messages ? settings.messages.apply_error : 'Error' ), 'error' );
+                    }
+                } )
+                .fail( function() {
+                    notify( settings.messages ? settings.messages.apply_error : 'Error', 'error' );
                 } )
                 .always( function() {
                     toggleLoading( false );

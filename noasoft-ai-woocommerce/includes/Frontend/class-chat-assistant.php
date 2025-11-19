@@ -241,7 +241,8 @@ class Chat_Assistant {
             'site_url'  => home_url( '/' ),
         );
 
-        $user_events = $this->get_user_events_context( get_current_user_id(), UX_Tracker::get_session_id() );
+        $user_events  = $this->get_user_events_context( get_current_user_id(), UX_Tracker::get_session_id() );
+        $user_metrics = $this->get_user_metrics_summary();
 
         $response = $client->chat(
             $prompt . "\n- Stok veya sipariş bilgisi için yalnızca doğrulanmış WooCommerce verilerini kullan.\n- Ürün bulunamazsa uydurma, kullanıcıdan SKU/ID ya da ürün adını iste.\n- Sipariş durumu için sipariş numarası ve e‑posta veya giriş yapmış kullanıcı doğrulaması olmadan cevap verme.\n\nKullanıcı:" . $message,
@@ -254,6 +255,7 @@ class Chat_Assistant {
                     'has_orders' => $this->user_has_orders( get_current_user_id() ),
                 ),
                 'recent_events' => $user_events,
+                'metrics'       => $user_metrics,
             )
         );
 
@@ -490,6 +492,8 @@ class Chat_Assistant {
 
         check_ajax_referer( 'noasoft_ai_frontend', 'nonce' );
 
+        $note = isset( $_POST['note'] ) ? sanitize_text_field( wp_unslash( $_POST['note'] ) ) : '';
+
         if ( empty( $_FILES['chat_image'] ) ) {
             wp_send_json_error( array( 'message' => __( 'Lütfen bir görsel yükleyin.', 'noasoft-ai-woocommerce' ) ), 400 );
         }
@@ -503,7 +507,7 @@ class Chat_Assistant {
             wp_send_json_error( array( 'message' => $attachment_id->get_error_message() ), 400 );
         }
 
-        $products = $this->get_products_for_image( $attachment_id );
+        $products = $this->get_products_for_image( $attachment_id, $note );
 
         wp_send_json_success(
             array(
@@ -728,27 +732,110 @@ class Chat_Assistant {
      * @param int $attachment_id Attachment ID.
      * @return array
      */
-    protected function get_products_for_image( $attachment_id ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundInExtendedClass
+    protected function get_products_for_image( $attachment_id, $note = '' ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundInExtendedClass
         if ( ! function_exists( 'wc_get_products' ) ) {
             return array();
         }
 
-        $products = wc_get_products(
-            array(
-                'status' => 'publish',
-                'limit'  => 3,
-                'orderby'=> 'rand',
-            )
-        );
+        $analysis = $this->analyze_image_attachment( $attachment_id, $note );
+        $products = $this->match_products_from_keywords( $analysis['keywords'] );
+
+        if ( empty( $products ) ) {
+            $products = wc_get_products(
+                array(
+                    'status' => 'publish',
+                    'limit'  => 3,
+                    'orderby'=> 'rand',
+                )
+            );
+        }
 
         $results = array();
         foreach ( $products as $product ) {
             $card            = $this->format_product_card( $product );
-            $card['ai_copy'] = __( 'Bu ürün görselinizdeki stile uyumlu olabilir.', 'noasoft-ai-woocommerce' );
+            $card['ai_copy'] = $analysis['summary'] ? wp_kses_post( $analysis['summary'] ) : __( 'Bu ürün görselinizdeki stile uyumlu olabilir.', 'noasoft-ai-woocommerce' );
             $results[]       = $card;
         }
 
         return $results;
+    }
+
+    /**
+     * Analyze an uploaded image via AI provider.
+     *
+     * @param int    $attachment_id Attachment ID.
+     * @param string $note Optional description.
+     * @return array
+     */
+    protected function analyze_image_attachment( $attachment_id, $note = '' ) {
+        $image_url = wp_get_attachment_image_url( $attachment_id, 'full' );
+        $provider  = $this->get_provider();
+        $keywords  = array();
+        $summary   = '';
+
+        if ( $provider && $image_url ) {
+            try {
+                $response = $provider->analyze(
+                    array(
+                        'type'   => 'image_analyze',
+                        'image'  => $image_url,
+                        'locale' => get_locale(),
+                        'note'   => $note,
+                    )
+                );
+
+                if ( isset( $response['keywords'] ) && is_array( $response['keywords'] ) ) {
+                    $keywords = array_map( 'sanitize_text_field', $response['keywords'] );
+                }
+                if ( isset( $response['summary'] ) ) {
+                    $summary = wp_kses_post( $response['summary'] );
+                }
+            } catch ( \Throwable $th ) {
+                \NoaSoft\AiWoo\Helpers\Logger::log_exception( $th, array( 'context' => 'chat_image_analyze' ) );
+            }
+        }
+
+        if ( empty( $keywords ) ) {
+            $meta = wp_get_attachment_metadata( $attachment_id );
+            if ( isset( $meta['image_meta']['title'] ) ) {
+                $keywords[] = sanitize_text_field( $meta['image_meta']['title'] );
+            }
+        }
+
+        return array(
+            'keywords' => array_slice( array_filter( $keywords ), 0, 5 ),
+            'summary'  => $summary,
+        );
+    }
+
+    /**
+     * Match products from AI keywords.
+     *
+     * @param array $keywords Keywords.
+     * @return array
+     */
+    protected function match_products_from_keywords( $keywords ) {
+        if ( ! function_exists( 'wc_get_products' ) || empty( $keywords ) ) {
+            return array();
+        }
+
+        $found = array();
+        foreach ( $keywords as $keyword ) {
+            $products = wc_get_products(
+                array(
+                    'status' => 'publish',
+                    'limit'  => 3,
+                    'orderby'=> 'relevance',
+                    'search' => $keyword,
+                )
+            );
+
+            foreach ( $products as $product ) {
+                $found[ $product->get_id() ] = $product;
+            }
+        }
+
+        return array_values( $found );
     }
 
     /**
@@ -802,6 +889,51 @@ class Chat_Assistant {
         }
 
         return $events;
+    }
+
+    /**
+     * Build a lightweight personalization summary combining UX table data and WC stats.
+     *
+     * @return array
+     */
+    protected function get_user_metrics_summary() {
+        $user_id    = get_current_user_id();
+        $session_id = UX_Tracker::get_session_id();
+        $events     = $this->get_user_events_context( $user_id, $session_id );
+
+        $summary = array(
+            'events' => $events,
+            'top_categories' => array(),
+            'top_products'   => array(),
+        );
+
+        if ( function_exists( 'wc_get_products' ) ) {
+            $top_sellers = wc_get_products( array( 'status' => 'publish', 'limit' => 3, 'orderby' => 'popularity' ) );
+            foreach ( $top_sellers as $product ) {
+                $summary['top_products'][] = array(
+                    'id'    => $product->get_id(),
+                    'title' => $product->get_name(),
+                    'price' => $product->get_price(),
+                );
+            }
+        }
+
+        if ( $events ) {
+            foreach ( $events as $event ) {
+                if ( empty( $event['product_id'] ) ) {
+                    continue;
+                }
+                $cats = wp_get_post_terms( $event['product_id'], 'product_cat', array( 'fields' => 'names' ) );
+                foreach ( $cats as $cat ) {
+                    if ( ! isset( $summary['top_categories'][ $cat ] ) ) {
+                        $summary['top_categories'][ $cat ] = 0;
+                    }
+                    $summary['top_categories'][ $cat ]++;
+                }
+            }
+        }
+
+        return $summary;
     }
 
     /**

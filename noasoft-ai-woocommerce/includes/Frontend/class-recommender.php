@@ -243,6 +243,47 @@ class Recommender {
     }
 
     /**
+     * Summarize user metrics for personalization.
+     *
+     * @return array
+     */
+    protected function get_user_metrics_summary() {
+        $summary = array(
+            'top_categories' => array(),
+            'top_products'   => array(),
+        );
+
+        $user_id    = get_current_user_id();
+        $session_id = UX_Tracker::get_session_id();
+        $events     = $this->get_recent_events( $user_id, $session_id );
+
+        foreach ( $events as $event ) {
+            if ( empty( $event['product_id'] ) ) {
+                continue;
+            }
+            $cats = wp_get_post_terms( $event['product_id'], 'product_cat', array( 'fields' => 'names' ) );
+            foreach ( $cats as $cat ) {
+                if ( ! isset( $summary['top_categories'][ $cat ] ) ) {
+                    $summary['top_categories'][ $cat ] = 0;
+                }
+                $summary['top_categories'][ $cat ]++;
+            }
+        }
+
+        if ( function_exists( 'wc_get_products' ) ) {
+            $popular = wc_get_products( array( 'status' => 'publish', 'limit' => 3, 'orderby' => 'popularity' ) );
+            foreach ( $popular as $product ) {
+                $summary['top_products'][] = array(
+                    'id'    => $product->get_id(),
+                    'title' => $product->get_name(),
+                );
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
      * Generate AI copy from provider.
      *
      * @param object     $product Product.
@@ -261,6 +302,7 @@ class Recommender {
                 'url'         => $product->get_permalink(),
             ),
             'recent_events' => $events,
+            'metrics'       => $this->get_user_metrics_summary(),
             'site'          => get_bloginfo( 'name' ),
         );
 
