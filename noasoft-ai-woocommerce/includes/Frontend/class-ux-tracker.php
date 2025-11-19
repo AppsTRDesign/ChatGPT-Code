@@ -204,4 +204,15 @@ class UX_Tracker {
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta( $sql );
     }
+
+    /**
+     * Drop log table.
+     *
+     * @return void
+     */
+    public static function drop_table() {
+        global $wpdb;
+        $table_name = self::get_table_name();
+        $wpdb->query( "DROP TABLE IF EXISTS {$table_name}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+    }
 }

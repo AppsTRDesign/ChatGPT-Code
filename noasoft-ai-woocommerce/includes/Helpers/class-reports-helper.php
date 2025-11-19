@@ -50,6 +50,17 @@ class Reports_Helper {
     }
 
     /**
+     * Drop reports table.
+     *
+     * @return void
+     */
+    public static function drop_table() {
+        global $wpdb;
+        $table = self::get_table_name();
+        $wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+    }
+
+    /**
      * Collect metrics for AI reports.
      *
      * @return array

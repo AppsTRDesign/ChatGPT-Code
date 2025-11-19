@@ -290,4 +290,13 @@ class Options {
 
         return $value ? $value : 520;
     }
+
+    /**
+     * Remove all plugin settings from options table.
+     *
+     * @return void
+     */
+    public static function delete_settings() {
+        delete_option( self::OPTION_KEY );
+    }
 }

@@ -13,6 +13,7 @@ use NoaSoft\AiWoo\Frontend\Product_Comparator;
 use NoaSoft\AiWoo\Helpers\Options;
 use NoaSoft\AiWoo\Helpers\Language_Helper;
 use NoaSoft\AiWoo\Helpers\Reports_Helper;
+use NoaSoft\AiWoo\Helpers\Logger;
 use NoaSoft\AiWoo\Widgets\Widget_AI_Recommender;
 use NoaSoft\AiWoo\Widgets\Widget_AI_Chat;
 use NoaSoft\AiWoo\Widgets\Widget_AI_Compare;
@@ -340,6 +341,10 @@ class Class_Plugin {
      * Deactivation hook.
      */
     public static function deactivate() {
-        // TODO: Cleanup scheduled events.
+        UX_Tracker::drop_table();
+        Reports_Helper::drop_table();
+        Options::delete_settings();
+        Language_Helper::delete_overrides();
+        Logger::clear();
     }
 }

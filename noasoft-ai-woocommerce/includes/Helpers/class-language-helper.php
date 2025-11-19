@@ -563,5 +563,15 @@ class Language_Helper {
         self::$base_strings     = $strings;
         return self::$base_strings;
     }
+
+    /**
+     * Remove all stored overrides.
+     *
+     * @return void
+     */
+    public static function delete_overrides() {
+        delete_option( self::OVERRIDE_OPTION );
+        self::$override_cache = array();
+    }
 }
 
