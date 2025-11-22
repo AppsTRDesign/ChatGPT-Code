@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-import string
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -29,6 +29,7 @@ class ActionSimulator:
         # Varsayılan persona: rastgele seç
         self.persona: PersonaEngine = persona or PersonaEngine.random()
         self.behavior = HumanBehaviorEngineV2(self.persona)
+        self.random_words = self._load_words()
 
     # ------------------------------------------------------------------ #
     # Persona yönetimi
@@ -339,9 +340,7 @@ class ActionSimulator:
         except Exception:
             return False
 
-        filler = "NoaSoft " + "".join(
-            random.choice(string.ascii_letters) for _ in range(random.randint(5, 10))
-        )
+        filler = self._pick_word() + " " + self._pick_word()
 
         # yazarken arada yanlış basıp backspace ile düzelt
         for ch in filler:
@@ -362,6 +361,25 @@ class ActionSimulator:
             int(persona.reaction_delay_ms() * random.uniform(0.8, 1.6))
         )
         return True
+
+    def _pick_word(self) -> str:
+        if not self.random_words:
+            return "NoaSoft"
+        return random.choice(self.random_words)
+
+    def _load_words(self) -> List[str]:
+        try:
+            path = Path(__file__).resolve().parents[1] / 'assets' / 'random-words.json'
+            if path.exists():
+                import json
+
+                with path.open(encoding='utf-8') as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return [str(x) for x in data if str(x).strip()]
+        except Exception:
+            return []
+        return []
 
     # ------------------------------------------------------------------ #
     # Medya etkileşimi (genel + YouTube)

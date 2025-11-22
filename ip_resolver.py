@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional
 
+import requests
+
 try:  # noqa: WPS433
     import geoip2.database
 except Exception:  # noqa: BLE001
@@ -35,7 +37,29 @@ class IPResolver:
             'isp': None,
             'network': None,
         }
-        if not ip or not geoip2:
+        if not ip:
+            return result
+
+        # Eğer MaxMind kütüphaneleri yoksa en azından IP-API ile doldur
+        if not geoip2:
+            try:
+                data = requests.get(f'https://ip-api.com/json/{ip}', timeout=4).json()
+                if data.get('status') == 'success':
+                    result.update(
+                        {
+                            'country': data.get('country'),
+                            'country_code': data.get('countryCode'),
+                            'continent': data.get('continent'),
+                            'city': data.get('city'),
+                            'lat': data.get('lat'),
+                            'lon': data.get('lon'),
+                            'asn': data.get('asname'),
+                            'isp': data.get('isp'),
+                            'network': data.get('org'),
+                        }
+                    )
+            except Exception:
+                return result
             return result
 
         def safe_reader(path: str):

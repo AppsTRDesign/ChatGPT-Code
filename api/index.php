@@ -19,6 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 function read_json(): array
 {
     $body = file_get_contents('php://input');
+    if (!is_string($body)) {
+        $body = '';
+    }
     $data = json_decode($body, true);
     return is_array($data) ? $data : [];
 }
