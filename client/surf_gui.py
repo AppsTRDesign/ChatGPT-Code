@@ -1,4 +1,5 @@
 import os
+import sys
 import platform
 import random
 import string
@@ -22,6 +23,10 @@ from PyQt6.QtCharts import (
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright, sync_playwright
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
 from surf_worker import (
     ActionSimulator,

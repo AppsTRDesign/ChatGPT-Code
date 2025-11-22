@@ -20,7 +20,8 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - `PATCH/DELETE /sites/{id}` — site güncelle/sil.
   - `GET /sites/{id}/stats` — site bazında ülke/cihaz/IP/UA, puan kazanç-harcama toplamları, günlük/haftalık/aylık bar serileri ve sayfalanmış detay listesi döndürür.
   - `POST /surf/start` — başka kullanıcılara ait bir site seçer, davranış planı döndürür ve sahipten puan düşer (aynı site aynı
-    kullanıcıya gün içinde kullanıcının `max_daily_site_visits` değeri kadar gösterilir; yeni kayıtlar bu değeri config’teki varsayılanla alır).
+    kullanıcıya gün içinde kullanıcının profilindeki `max_daily_site_visits` değeri kadar gösterilir; varsayılan sınırlar kullanıcı tablosundaki
+    sütun varsayılanlarından gelir).
   - `POST /surf/complete` — surf tamamlanınca puan kazandırır; günlük/haftalık/aylık kazanım limitleri kullanıcının profilindeki
     max_daily/weekly/monthly_reward alanlarıyla kısıtlanır. İstemciden gelen IP/ülke/şehir/cihaz/aksiyon telemetrisi `site_stats` tablosuna kaydedilir.
   - `GET /dashboard` — günlük/haftalık kazanç, kalan süre, puan ve limit özetleri.
