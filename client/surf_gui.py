@@ -998,7 +998,6 @@ class SurfApp(QtWidgets.QMainWindow):
         self.points_card.setText('Puan yükleniyor...')
         self.log_box.clear()
         self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
-        self.action_simulator.set_persona(self.personality)
         self._fetch_task_points()
         self.refresh_dashboard()
 

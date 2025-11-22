@@ -174,17 +174,6 @@ function create_site(PDO $pdo, array $config, array $user): void
         Response::error('name ve url zorunlu');
         return;
     }
-    $reserveCost = $dwell;
-    if ($googleEnabled) {
-        $reserveCost = $googleDwell + (int)($config['google_task_points'] ?? 50) + ($googlePages * (int)($config['google_page_points'] ?? 10));
-    } elseif ($youtubeEnabled) {
-        $reserveCost = $youtubeDwell + (int)($config['youtube_task_points'] ?? 50)
-            + ($youtubePages * (int)($config['youtube_page_points'] ?? 10));
-    }
-    if ($user['points'] < $reserveCost) {
-        Response::error('Puan yetersiz', 409, ['available' => $user['points']]);
-        return;
-    }
     $flags = [
         'mobile' => !empty($data['mobile']),
         'realistic' => !empty($data['realistic']),
@@ -205,13 +194,7 @@ function create_site(PDO $pdo, array $config, array $user): void
             $mediaActions,
         ]);
     $siteId = (int)$pdo->lastInsertId();
-    $pdo->prepare('UPDATE users SET points = points - ? WHERE id = ?')->execute([$reserveCost, $user['id']]);
-    $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
-        ->execute([$user['id'], -$reserveCost, 'site_reserve', json_encode(['site_id' => $siteId])]);
-    $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
-    $stmt->execute([$user['id']]);
-    $freshUser = $stmt->fetch();
-    Response::json(['site_id' => $siteId, 'points' => $freshUser['points']], 201);
+    Response::json(['site_id' => $siteId], 201);
 }
 
 function delete_site(PDO $pdo, int $userId, int $siteId): void
