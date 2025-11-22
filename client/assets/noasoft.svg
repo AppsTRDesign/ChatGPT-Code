@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60">
+  <rect width="200" height="60" rx="10" fill="#0a2342"/>
+  <circle cx="35" cy="30" r="16" fill="#00b7ff"/>
+  <circle cx="35" cy="30" r="10" fill="#4de28f"/>
+  <circle cx="35" cy="30" r="5" fill="#0a2342"/>
+  <text x="65" y="36" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff">NoaSoft</text>
+</svg>
