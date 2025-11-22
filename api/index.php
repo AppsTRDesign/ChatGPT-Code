@@ -114,10 +114,14 @@ function list_sites(PDO $pdo, int $userId): void
     $page = max(1, (int)($_GET['page'] ?? 1));
     $pageSize = 25;
     $offset = ($page - 1) * $pageSize;
+    $allowedSort = ['created_at', 'name', 'dwell_seconds'];
+    $sort = $_GET['sort'] ?? 'created_at';
+    $sort = in_array($sort, $allowedSort, true) ? $sort : 'created_at';
+    $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
     try {
         // MariaDB/MySQL native prepares do not allow bound LIMIT/OFFSET; cast to int and inline safely.
-        $sql = 'SELECT SQL_CALC_FOUND_ROWS * FROM sites WHERE user_id = ? ORDER BY created_at DESC '
-            . 'LIMIT ' . (int)$pageSize . ' OFFSET ' . (int)$offset;
+        $sql = 'SELECT SQL_CALC_FOUND_ROWS * FROM sites WHERE user_id = ? ORDER BY ' . $sort . ' ' . $dir
+            . ' LIMIT ' . (int)$pageSize . ' OFFSET ' . (int)$offset;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$userId]);
         $sites = $stmt->fetchAll();
@@ -394,8 +398,15 @@ function persist_site_stats(PDO $pdo, int $siteId, int $surferId, array $telemet
 {
     $payload = [
         'ip' => $telemetry['ip'] ?? null,
+        'country_code' => $telemetry['country_code'] ?? null,
         'country' => $telemetry['country'] ?? null,
+        'continent' => $telemetry['continent'] ?? null,
         'city' => $telemetry['city'] ?? null,
+        'latitude' => $telemetry['lat'] ?? $telemetry['latitude'] ?? null,
+        'longitude' => $telemetry['lon'] ?? $telemetry['longitude'] ?? null,
+        'asn' => $telemetry['asn'] ?? null,
+        'isp' => $telemetry['isp'] ?? null,
+        'network' => $telemetry['network'] ?? null,
         'platform' => $telemetry['platform'] ?? null,
         'device' => $telemetry['device'] ?? null,
         'user_agent' => $telemetry['user_agent'] ?? null,
@@ -405,14 +416,21 @@ function persist_site_stats(PDO $pdo, int $siteId, int $surferId, array $telemet
         'forms' => (int)($telemetry['forms'] ?? 0),
         'media' => (int)($telemetry['media'] ?? 0),
     ];
-    $stmt = $pdo->prepare('INSERT INTO site_stats (site_id, surfer_id, ip, country, city, platform, device, user_agent, clicks, scrolls, highlights, forms, media)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
+    $stmt = $pdo->prepare('INSERT INTO site_stats (site_id, surfer_id, ip, country_code, country, continent, city, latitude, longitude, asn, isp, network, platform, device, user_agent, clicks, scrolls, highlights, forms, media)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
     $stmt->execute([
         $siteId,
         $surferId,
         $payload['ip'],
+        $payload['country_code'],
         $payload['country'],
+        $payload['continent'],
         $payload['city'],
+        $payload['latitude'],
+        $payload['longitude'],
+        $payload['asn'],
+        $payload['isp'],
+        $payload['network'],
         $payload['platform'],
         $payload['device'],
         $payload['user_agent'],
@@ -442,8 +460,13 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
     $totalStmt->execute([$siteId]);
     $totalEvents = (int)($totalStmt->fetchColumn() ?: 0);
 
-    $eventsStmt = $pdo->prepare('SELECT country, city, ip, platform, device, user_agent, clicks, scrolls, highlights, forms, media, created_at
-        FROM site_stats WHERE site_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
+    $allowedSort = ['created_at', 'country', 'city', 'clicks', 'scrolls', 'forms', 'media'];
+    $sort = $_GET['sort'] ?? 'created_at';
+    $sort = in_array($sort, $allowedSort, true) ? $sort : 'created_at';
+    $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+
+    $eventsStmt = $pdo->prepare('SELECT country, country_code, continent, city, latitude, longitude, ip, asn, isp, network, platform, device, user_agent, clicks, scrolls, highlights, forms, media, created_at
+        FROM site_stats WHERE site_id = ? ORDER BY ' . $sort . ' ' . $dir . ' LIMIT ? OFFSET ?');
     $eventsStmt->bindValue(1, $siteId, PDO::PARAM_INT);
     $eventsStmt->bindValue(2, $perPage, PDO::PARAM_INT);
     $eventsStmt->bindValue(3, $offset, PDO::PARAM_INT);

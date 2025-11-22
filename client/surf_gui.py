@@ -24,10 +24,7 @@ from PyQt6.QtCharts import (
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright, sync_playwright
 
-try:  # optional GeoIP support
-    import geoip2.database
-except Exception:  # noqa: BLE001
-    geoip2 = None
+from ip_resolver import IPResolver
 
 try:
     from reportlab.lib import colors
@@ -103,8 +100,12 @@ class ApiClient:
         resp = self._request('PATCH', '/profile', token=token, json=payload)
         return self._json(resp)
 
-    def list_sites(self, token: str, page: int = 1):
-        resp = self._request('GET', '/sites', token=token, params={'page': page})
+    def list_sites(self, token: str, page: int = 1, sort: Optional[str] = None, direction: str = 'desc'):
+        params = {'page': page}
+        if sort:
+            params['sort'] = sort
+            params['dir'] = direction
+        resp = self._request('GET', '/sites', token=token, params=params)
         return self._json(resp)
 
     def create_site(self, token: str, payload: dict):
@@ -146,8 +147,20 @@ class ApiClient:
         resp = self._request('POST', '/mail/send', token=token, json=payload)
         return self._json(resp)
 
-    def site_stats(self, token: str, site_id: int, page: int = 1, per_page: int = 25):
-        resp = self._request('GET', f'/sites/{site_id}/stats?page={page}&per_page={per_page}', token=token)
+    def site_stats(
+        self,
+        token: str,
+        site_id: int,
+        page: int = 1,
+        per_page: int = 25,
+        sort: Optional[str] = None,
+        direction: str = 'desc',
+    ):
+        params = {'page': page, 'per_page': per_page}
+        if sort:
+            params['sort'] = sort
+            params['dir'] = direction
+        resp = self._request('GET', f'/sites/{site_id}/stats', token=token, params=params)
         return self._json(resp)
 
     def task_config(self, token: str):
@@ -182,6 +195,12 @@ class SurfWorker(QtCore.QObject):
         self.mode = mode
         self.task_config = task_config or {}
         self._geo_cache: Optional[dict] = None
+        assets_dir = Path(__file__).resolve().parent / 'assets'
+        self.ip_resolver = IPResolver(
+            db_path_country=str(assets_dir / 'GeoLite2-Country.mmdb'),
+            db_path_asn=str(assets_dir / 'GeoLite2-ASN.mmdb'),
+            db_path_city=str(assets_dir / 'GeoLite2-City.mmdb'),
+        )
 
     def stop(self):
         self._running = False
@@ -346,28 +365,34 @@ class SurfWorker(QtCore.QObject):
     def _detect_geo(self) -> dict:
         if self._geo_cache is not None:
             return self._geo_cache
-        ip = ''
-        country = ''
-        city = ''
+        info = {
+            'ip': '',
+            'country': '',
+            'country_code': '',
+            'continent': '',
+            'city': '',
+            'lat': None,
+            'lon': None,
+            'asn': None,
+            'isp': '',
+            'network': '',
+        }
         try:
             ip_resp = requests.get('https://api.ipify.org', timeout=4)
             ip_resp.raise_for_status()
-            ip = ip_resp.text.strip()
+            info['ip'] = ip_resp.text.strip()
         except Exception as exc:  # noqa: BLE001
             self.log.emit(f'IP tespit hatası: {exc}')
-        if geoip2 and ip:
+        if self.ip_resolver and info['ip']:
             try:
-                mmdb_path = self.task_config.get('geoip_path') or str(Path(__file__).resolve().parent / 'assets' / 'GeoLite2-City.mmdb')
-                if os.path.exists(mmdb_path):
-                    reader = geoip2.database.Reader(mmdb_path)
-                    response = reader.city(ip)
-                    country = response.country.name or ''
-                    city = response.city.name or ''
-                    reader.close()
+                resolved = self.ip_resolver.resolve(info['ip'])
+                for key, val in resolved.items():
+                    if val is not None:
+                        info[key] = val
             except Exception as exc:  # noqa: BLE001
                 self.log.emit(f'GeoIP okunamadı: {exc}')
-        self._geo_cache = {'ip': ip, 'country': country, 'city': city}
-        return self._geo_cache
+        self._geo_cache = info
+        return info
 
     def _build_telemetry(self, site: dict, metrics: dict) -> dict:
         geo = self._detect_geo()
@@ -919,6 +944,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.site_table = QtWidgets.QTableWidget(0, 6)
         self.site_table.setHorizontalHeaderLabels(['ID', 'Site Adı', 'URL', 'Süre', 'Ayarlar', 'İşlemler'])
         self.site_table.horizontalHeader().setStretchLastSection(True)
+        self.site_table.setSortingEnabled(True)
         self.site_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.site_table.itemSelectionChanged.connect(self._on_site_selected)
         outer.addWidget(self.site_table)
@@ -1387,9 +1413,13 @@ class SurfApp(QtWidgets.QMainWindow):
         layout.addLayout(point_chart_row)
 
         table = QtWidgets.QTableWidget()
-        headers = ['Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'User Agent', 'Tıklama', 'Scroll', 'Form', 'Medya']
+        headers = [
+            'Tarih', 'IP', 'Ülke', 'Ülke Kod', 'Kıta', 'Şehir', 'Koordinat', 'Platform', 'Cihaz',
+            'User Agent', 'ASN', 'ISP', 'Ağ', 'Tıklama', 'Scroll', 'Vurgu', 'Form', 'Medya'
+        ]
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
+        table.setSortingEnabled(True)
         layout.addWidget(table)
 
         pagination_row = QtWidgets.QHBoxLayout()
@@ -1434,16 +1464,26 @@ class SurfApp(QtWidgets.QMainWindow):
             events = stats.get('events', [])
             table.setRowCount(len(events))
             for r, ev in enumerate(events):
+                coord = ''
+                if ev.get('latitude') is not None and ev.get('longitude') is not None:
+                    coord = f"{ev.get('latitude')}, {ev.get('longitude')}"
                 row_items = [
                     ev.get('created_at', ''),
                     ev.get('ip', ''),
                     ev.get('country', ''),
+                    ev.get('country_code', ''),
+                    ev.get('continent', ''),
                     ev.get('city', ''),
+                    coord,
                     ev.get('platform', ''),
                     ev.get('device', ''),
                     ev.get('user_agent', ''),
+                    str(ev.get('asn', '') or ''),
+                    ev.get('isp', '') or '',
+                    ev.get('network', '') or '',
                     str(ev.get('clicks', 0)),
                     str(ev.get('scrolls', 0)),
+                    str(ev.get('highlights', 0)),
                     str(ev.get('forms', 0)),
                     str(ev.get('media', 0)),
                 ]
@@ -1582,13 +1622,18 @@ class SurfApp(QtWidgets.QMainWindow):
         story.append(Spacer(1, 6))
 
         table_data = [[
-            'Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'User Agent', 'Tıklama', 'Scroll', 'Form', 'Medya'
+            'Tarih', 'IP', 'Ülke', 'Ülke Kod', 'Kıta', 'Şehir', 'Koordinat', 'ASN', 'ISP', 'Ağ',
+            'Platform', 'Cihaz', 'User Agent', 'Tıklama', 'Scroll', 'Vurgu', 'Form', 'Medya'
         ]]
         for ev in stats.get('events', [])[:40]:
             table_data.append([
-                ev.get('created_at', ''), ev.get('ip', ''), ev.get('country', ''), ev.get('city', ''),
+                ev.get('created_at', ''), ev.get('ip', ''), ev.get('country', ''), ev.get('country_code', ''),
+                ev.get('continent', ''), ev.get('city', ''),
+                f"{ev.get('latitude', '')}, {ev.get('longitude', '')}" if ev.get('latitude') is not None else '',
+                str(ev.get('asn', '') or ''), ev.get('isp', '') or '', ev.get('network', '') or '',
                 ev.get('platform', ''), ev.get('device', ''), ev.get('user_agent', ''),
-                str(ev.get('clicks', 0)), str(ev.get('scrolls', 0)), str(ev.get('forms', 0)), str(ev.get('media', 0)),
+                str(ev.get('clicks', 0)), str(ev.get('scrolls', 0)), str(ev.get('highlights', 0)),
+                str(ev.get('forms', 0)), str(ev.get('media', 0)),
             ])
         table = Table(table_data, repeatRows=1)
         table.setStyle(TableStyle([
