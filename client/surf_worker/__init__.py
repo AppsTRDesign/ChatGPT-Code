@@ -7,6 +7,7 @@ from .google_handler import GoogleHandler
 from .telemetry_builder import TelemetryBuilder
 from .geo_service import GeoService
 from .plan_engine import PlanEngine, SurfPlanStep
+from .human_behavior_engine_v2 import BehaviorStep, HumanBehaviorEngineV2
 from .persona_engine import PersonaEngine, PersonaProfile, load_persona_profiles
 
 __all__ = [
@@ -18,6 +19,8 @@ __all__ = [
     "GeoService",
     "PlanEngine",
     "SurfPlanStep",
+    "BehaviorStep",
+    "HumanBehaviorEngineV2",
     "PersonaEngine",
     "PersonaProfile",
     "load_persona_profiles",
