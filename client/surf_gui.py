@@ -415,6 +415,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.worker: Optional[SurfWorker] = None
         self.current_page = 1
         self.total_pages = 1
+        self.current_email: str = ''
         self._build_ui()
 
     def _build_ui(self):
@@ -747,6 +748,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 self.reg_password_confirm.text(),
             )
             self.token = resp.get('token')
+            self.current_email = self.reg_email.text()
             self._toast('Kayıt başarılı, token alındı')
             self._after_login()
         except Exception as exc:
@@ -757,6 +759,7 @@ class SurfApp(QtWidgets.QMainWindow):
         try:
             resp = self.client.login(self.login_email.text(), self.login_password.text())
             self.token = resp.get('token')
+            self.current_email = self.login_email.text()
             self._toast('Giriş başarılı')
             self._after_login()
         except Exception as exc:
@@ -1049,10 +1052,16 @@ class SurfApp(QtWidgets.QMainWindow):
         if not self.client or not self.token:
             self._toast('Önce giriş yapın')
             return
+        subject = self.mail_subject.text().strip() or 'Autosurf talebi'
+        body = self.mail_message.toPlainText().strip()
+        if not body:
+            self._toast('Mesaj içeriği boş olamaz', error=True)
+            return
         payload = {
             'to': self.mail_to.text(),
-            'subject': self.mail_subject.text(),
-            'body': self.mail_message.toPlainText(),
+            'subject': subject,
+            'body': body,
+            'email': self.current_email or self.login_email.text() or self.reg_email.text(),
         }
         try:
             self.client.send_mail(self.token, payload)

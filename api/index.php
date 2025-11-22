@@ -114,15 +114,22 @@ function list_sites(PDO $pdo, int $userId): void
     $page = max(1, (int)($_GET['page'] ?? 1));
     $pageSize = 25;
     $offset = ($page - 1) * $pageSize;
-    $stmt = $pdo->prepare('SELECT SQL_CALC_FOUND_ROWS * FROM sites WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
-    $stmt->execute([$userId, $pageSize, $offset]);
-    $sites = $stmt->fetchAll();
-    foreach ($sites as &$s) {
-        $s['media_actions'] = $s['media_actions'] ? json_decode($s['media_actions'], true) : [];
+    try {
+        // MariaDB/MySQL native prepares do not allow bound LIMIT/OFFSET; cast to int and inline safely.
+        $sql = 'SELECT SQL_CALC_FOUND_ROWS * FROM sites WHERE user_id = ? ORDER BY created_at DESC '
+            . 'LIMIT ' . (int)$pageSize . ' OFFSET ' . (int)$offset;
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        $sites = $stmt->fetchAll();
+        foreach ($sites as &$s) {
+            $s['media_actions'] = $s['media_actions'] ? json_decode($s['media_actions'], true) : [];
+        }
+        $total = (int)$pdo->query('SELECT FOUND_ROWS()')->fetchColumn();
+        $pages = max(1, (int)ceil($total / $pageSize));
+        Response::json(['items' => $sites, 'page' => $page, 'pages' => $pages, 'total' => $total]);
+    } catch (PDOException $e) {
+        Response::error('Site listeleme hatası', 500, ['detail' => $e->getMessage()]);
     }
-    $total = (int)$pdo->query('SELECT FOUND_ROWS()')->fetchColumn();
-    $pages = max(1, (int)ceil($total / $pageSize));
-    Response::json(['items' => $sites, 'page' => $page, 'pages' => $pages, 'total' => $total]);
 }
 
 function has_exceeded_daily_site(PDO $pdo, int $surferId, int $siteId, int $limit): bool
@@ -394,9 +401,9 @@ function update_profile_endpoint(PDO $pdo, array $user): void
 function contact(PDO $pdo, ?array $user, array $config): void
 {
     $data = read_json();
-    $email = $data['email'] ?? ($user['email'] ?? null);
-    $subject = $data['subject'] ?? 'Autosurf talebi';
-    $body = $data['body'] ?? '';
+    $email = $data['email'] ?? ($user['email'] ?? ($config['contact_email'] ?? null));
+    $subject = trim($data['subject'] ?? '') ?: 'Autosurf talebi';
+    $body = trim($data['body'] ?? '');
     if (!$email || !$body) {
         Response::error('email ve body zorunlu');
         return;
