@@ -195,6 +195,8 @@ class SurfWorker(QtCore.QObject):
         self.mode = mode
         self.task_config = task_config or {}
         self._geo_cache: Optional[dict] = None
+        self._yt_route_handler = None
+        self._yt_route_pattern = '**/*googlevideo*'
         assets_dir = Path(__file__).resolve().parent / 'assets'
         self.ip_resolver = IPResolver(
             db_path_country=str(assets_dir / 'GeoLite2-Country.mmdb'),
@@ -336,7 +338,8 @@ class SurfWorker(QtCore.QObject):
                         performed = True
                 if 'medya' in step.title.lower():
                     actions = site.get('media_actions') or site.get('media_options') or []
-                    if self._simulate_media(page, actions):
+                    dwell_hint = int(site.get('dwell_seconds', step.seconds))
+                    if self._simulate_media(page, actions, dwell_hint):
                         metrics['media'] += 1
                         performed = True
                 if 'sayfada' in step.title.lower():
@@ -361,6 +364,37 @@ class SurfWorker(QtCore.QObject):
             self.progress.emit(int((elapsed / planned_total) * 100), elapsed, planned_total, 'Plan tamamlandı')
         self.progress.emit(100, elapsed or runtime_target, max(planned_total, runtime_target, 1), 'Tamamlandı')
         return elapsed, metrics
+
+    def _attach_youtube_route_noise(self):
+        if not self.context:
+            return None
+
+        def handler(route):  # noqa: ANN001
+            url = route.request.url
+            if 'googlevideo.com' in url:
+                try:
+                    jitter = random.uniform(0.05, 0.18)
+                    if random.random() < 0.35:
+                        jitter += random.uniform(0.12, 0.35)
+                    time.sleep(jitter)
+                except Exception:
+                    pass
+            route.continue_()
+
+        try:
+            self.context.route(self._yt_route_pattern, handler)
+            self._yt_route_handler = handler
+            return handler
+        except Exception:
+            return None
+
+    def _detach_youtube_route_noise(self):
+        if self.context and self._yt_route_handler:
+            try:
+                self.context.unroute(self._yt_route_pattern, self._yt_route_handler)
+            except Exception:
+                pass
+        self._yt_route_handler = None
 
     def _detect_geo(self) -> dict:
         if self._geo_cache is not None:
@@ -483,7 +517,7 @@ class SurfWorker(QtCore.QObject):
         page.keyboard.press('Backspace')
         return True
 
-    def _simulate_media(self, page, actions: List[str]) -> bool:
+    def _simulate_media(self, page, actions: List[str], dwell_hint: int) -> bool:
         media = page.query_selector('video, audio')
         if not media:
             return False
@@ -492,6 +526,9 @@ class SurfWorker(QtCore.QObject):
         try:
             media.hover()
             page.wait_for_timeout(400 if 'delay' in actions else 200)
+            host = urlparse(page.url).netloc
+            if 'youtube.com' in host:
+                return self._simulate_youtube_media(page, media, actions, dwell_hint)
             if 'human_click' in actions:
                 media.click()
             if 'pause_play' in actions:
@@ -507,6 +544,73 @@ class SurfWorker(QtCore.QObject):
             return True
         except Exception as exc:
             self.log.emit(f'Medya etkileşimi atlandı: {exc}')
+            return False
+
+    def _simulate_youtube_media(self, page, media, actions: List[str], dwell_hint: int) -> bool:
+        try:
+            if 'human_click' in actions:
+                media.click()
+            page.keyboard.press('Space')  # play/pause toggle to generate timeline events
+            page.keyboard.press('Space')
+            if 'fullscreen' in actions and random.random() < 0.4:
+                page.keyboard.press('KeyF')
+            if 'quality' in actions:
+                q_btn = page.query_selector('button[aria-label*="quality" i], [class*="quality"]')
+                if q_btn:
+                    q_btn.click()
+            jitter_ms = max(4000, dwell_hint * 1000)
+            page.evaluate(
+                "(durationMs) => {\n"
+                " const video = document.querySelector('video');\n"
+                " if (!video) return;\n"
+                " video.play().catch(() => {});\n"
+                " const start = performance.now();\n"
+                " const timers = [];\n"
+                " const chunk = () => {\n"
+                "   const drift = 60 + Math.random() * 140;\n"
+                "   if (Math.random() < 0.3) {\n"
+                "     video.pause();\n"
+                "     setTimeout(() => video.play().catch(() => {}), 120 + Math.random() * 260);\n"
+                "   }\n"
+                "   if (Math.random() < 0.35) {\n"
+                "     video.dispatchEvent(new Event('mousemove'));\n"
+                "   }\n"
+                "   if (Math.random() < 0.28) {\n"
+                "     const ev = new Event('timeupdate');\n"
+                "     video.dispatchEvent(ev);\n"
+                "   }\n"
+                "   if (Math.random() < 0.2) {\n"
+                "     video.dispatchEvent(new Event('progress'));\n"
+                "   }\n"
+                "   return drift;\n"
+                " };\n"
+                " const chunkTimer = setInterval(chunk, 900 + Math.random() * 700);\n"
+                " timers.push(chunkTimer);\n"
+                " const focusTimer = setInterval(() => {\n"
+                "   if (document.hidden && Math.random() < 0.4) {\n"
+                "     document.dispatchEvent(new Event('visibilitychange'));\n"
+                "   }\n"
+                " }, 1200 + Math.random() * 800);\n"
+                " timers.push(focusTimer);\n"
+                " setTimeout(() => timers.forEach(clearInterval), durationMs + 600);\n"
+                "}",
+                jitter_ms,
+            )
+            end_time = time.time() + min(dwell_hint, 15)
+            while time.time() < end_time and self._running:
+                page.wait_for_timeout(random.randint(350, 900))
+                page.mouse.move(
+                    random.randint(40, (page.viewport_size or {'width': 1280})['width'] - 40),
+                    random.randint(60, (page.viewport_size or {'height': 720})['height'] - 40),
+                    steps=18,
+                )
+                if random.random() < 0.35:
+                    page.keyboard.press(random.choice(['ArrowLeft', 'ArrowRight']))
+                if 'volume' in actions and random.random() < 0.3:
+                    page.keyboard.press(random.choice(['ArrowUp', 'ArrowDown']))
+            return True
+        except Exception as exc:
+            self.log.emit(f'YouTube oynatma simülasyonu atlandı: {exc}')
             return False
 
     def _emit_frame(self, page, last_mouse: Optional[Tuple[int, int]]):
@@ -608,8 +712,12 @@ class SurfWorker(QtCore.QObject):
         plan, site_flags = self._build_custom_plan(dwell, {**flags})
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
-        consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
-        return consumed, pages, metrics, page.url
+        handler = self._attach_youtube_route_noise()
+        try:
+            consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url, 'dwell_seconds': dwell}, plan)
+            return consumed, pages, metrics, page.url
+        finally:
+            self._detach_youtube_route_noise()
 
     def run(self):
         try:
