@@ -378,7 +378,12 @@ function complete_surf(PDO $pdo, array $user, array $config): void
     if ($reward > 0) {
         $pdo->prepare('UPDATE users SET points = points + ? WHERE id = ?')->execute([$reward, $user['id']]);
         $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
-            ->execute([$user['id'], $reward, 'surf_reward', json_encode(['session_id' => $sessionId, 'consumed' => $consumed])]);
+            ->execute([
+                $user['id'],
+                $reward,
+                'surf_reward',
+                json_encode(['session_id' => $sessionId, 'consumed' => $consumed, 'site_id' => $session['site_id']]),
+            ]);
     }
     persist_site_stats($pdo, (int)$session['site_id'], (int)$user['id'], $telemetry);
     $pdo->commit();
@@ -393,14 +398,15 @@ function persist_site_stats(PDO $pdo, int $siteId, int $surferId, array $telemet
         'city' => $telemetry['city'] ?? null,
         'platform' => $telemetry['platform'] ?? null,
         'device' => $telemetry['device'] ?? null,
+        'user_agent' => $telemetry['user_agent'] ?? null,
         'clicks' => (int)($telemetry['clicks'] ?? 0),
         'scrolls' => (int)($telemetry['scrolls'] ?? 0),
         'highlights' => (int)($telemetry['highlights'] ?? 0),
         'forms' => (int)($telemetry['forms'] ?? 0),
         'media' => (int)($telemetry['media'] ?? 0),
     ];
-    $stmt = $pdo->prepare('INSERT INTO site_stats (site_id, surfer_id, ip, country, city, platform, device, clicks, scrolls, highlights, forms, media)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+    $stmt = $pdo->prepare('INSERT INTO site_stats (site_id, surfer_id, ip, country, city, platform, device, user_agent, clicks, scrolls, highlights, forms, media)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
     $stmt->execute([
         $siteId,
         $surferId,
@@ -409,6 +415,7 @@ function persist_site_stats(PDO $pdo, int $siteId, int $surferId, array $telemet
         $payload['city'],
         $payload['platform'],
         $payload['device'],
+        $payload['user_agent'],
         $payload['clicks'],
         $payload['scrolls'],
         $payload['highlights'],
@@ -427,17 +434,29 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
         return;
     }
 
-    $eventsStmt = $pdo->prepare('SELECT country, city, ip, platform, device, clicks, scrolls, highlights, forms, media, created_at
-        FROM site_stats WHERE site_id = ? ORDER BY created_at DESC LIMIT 100');
-    $eventsStmt->execute([$siteId]);
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $perPage = min(100, max(1, (int)($_GET['per_page'] ?? 25)));
+    $offset = ($page - 1) * $perPage;
+
+    $totalStmt = $pdo->prepare('SELECT COUNT(*) FROM site_stats WHERE site_id = ?');
+    $totalStmt->execute([$siteId]);
+    $totalEvents = (int)($totalStmt->fetchColumn() ?: 0);
+
+    $eventsStmt = $pdo->prepare('SELECT country, city, ip, platform, device, user_agent, clicks, scrolls, highlights, forms, media, created_at
+        FROM site_stats WHERE site_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
+    $eventsStmt->bindValue(1, $siteId, PDO::PARAM_INT);
+    $eventsStmt->bindValue(2, $perPage, PDO::PARAM_INT);
+    $eventsStmt->bindValue(3, $offset, PDO::PARAM_INT);
+    $eventsStmt->execute();
     $events = $eventsStmt->fetchAll();
+
     $totalsStmt = $pdo->prepare('SELECT COUNT(*) AS visits, SUM(clicks) AS clicks, SUM(scrolls) AS scrolls, SUM(forms) AS forms, SUM(media) AS media
         FROM site_stats WHERE site_id = ?');
     $totalsStmt->execute([$siteId]);
     $totals = $totalsStmt->fetch();
 
     $daily = $pdo->prepare('SELECT DATE(created_at) AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
-        FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+        FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
         GROUP BY DATE(created_at) ORDER BY DATE(created_at)');
     $daily->execute([$siteId]);
     $weekly = $pdo->prepare('SELECT YEARWEEK(created_at,1) AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
@@ -448,6 +467,26 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
         FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
         GROUP BY DATE_FORMAT(created_at, "%Y-%m") ORDER BY DATE_FORMAT(created_at, "%Y-%m")');
     $monthly->execute([$siteId]);
+
+    $pointSeries = function (string $windowSql, string $labelSql, string $groupBy) use ($pdo, $siteId) {
+        $sql = "SELECT {$labelSql} AS label, SUM(change_amount) AS net,
+                SUM(CASE WHEN change_amount > 0 THEN change_amount ELSE 0 END) AS earned,
+                SUM(CASE WHEN change_amount < 0 THEN -change_amount ELSE 0 END) AS spent
+            FROM point_ledger
+            WHERE JSON_EXTRACT(meta, '$.site_id') = ? AND created_at >= {$windowSql}
+            GROUP BY {$groupBy}
+            ORDER BY {$groupBy}";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$siteId]);
+        return $stmt->fetchAll();
+    };
+
+    $pointTotals = $pdo->prepare('SELECT SUM(change_amount) AS net,
+            SUM(CASE WHEN change_amount > 0 THEN change_amount ELSE 0 END) AS earned,
+            SUM(CASE WHEN change_amount < 0 THEN -change_amount ELSE 0 END) AS spent
+        FROM point_ledger WHERE JSON_EXTRACT(meta, "$.site_id") = ?');
+    $pointTotals->execute([$siteId]);
+    $points = $pointTotals->fetch() ?: ['net' => 0, 'earned' => 0, 'spent' => 0];
 
     $summary = [
         'total_visits' => (int)($totals['visits'] ?? count($events)),
@@ -466,7 +505,23 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
             'weekly' => $weekly->fetchAll(),
             'monthly' => $monthly->fetchAll(),
         ],
+        'point_charts' => [
+            'daily' => $pointSeries('DATE_SUB(CURDATE(), INTERVAL 30 DAY)', 'DATE(created_at)', 'DATE(created_at)'),
+            'weekly' => $pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 WEEK)', 'YEARWEEK(created_at,1)', 'YEARWEEK(created_at,1)'),
+            'monthly' => $pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)', 'DATE_FORMAT(created_at, "%Y-%m")', 'DATE_FORMAT(created_at, "%Y-%m")'),
+        ],
         'summary' => $summary,
+        'points' => [
+            'earned' => (int)($points['earned'] ?? 0),
+            'spent' => (int)($points['spent'] ?? 0),
+            'net' => (int)($points['net'] ?? 0),
+        ],
+        'pagination' => [
+            'page' => $page,
+            'per_page' => $perPage,
+            'total' => $totalEvents,
+            'total_pages' => max(1, (int)ceil($totalEvents / max(1, $perPage))),
+        ],
     ]);
 }
 
@@ -519,6 +574,16 @@ function mail_settings(array $config): void
     Response::json([
         'to' => $config['contact_email'] ?? 'info@noasoft.org',
         'from' => $config['contact_email'] ?? 'info@noasoft.org',
+    ]);
+}
+
+function task_config_endpoint(array $config): void
+{
+    Response::json([
+        'google_base' => (int)($config['google_task_points'] ?? 50),
+        'youtube_base' => (int)($config['youtube_task_points'] ?? 50),
+        'google_page' => (int)($config['google_page_points'] ?? 10),
+        'youtube_page' => (int)($config['youtube_page_points'] ?? 10),
     ]);
 }
 
@@ -637,6 +702,11 @@ switch (true) {
     case $path === '/mail/send' && $method === 'POST':
         $user = current_user($pdo, $config);
         contact($pdo, $user, $config);
+        break;
+    case $path === '/tasks/config' && $method === 'GET':
+        if ($user = ensure_user($pdo, $config)) {
+            task_config_endpoint($config);
+        }
         break;
     default:
         Response::error('Endpoint bulunamadı', 404, ['path' => $path]);

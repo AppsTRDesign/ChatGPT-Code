@@ -34,6 +34,8 @@ try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 except Exception:  # noqa: BLE001
     colors = ParagraphStyle = SimpleDocTemplate = None
@@ -144,8 +146,12 @@ class ApiClient:
         resp = self._request('POST', '/mail/send', token=token, json=payload)
         return self._json(resp)
 
-    def site_stats(self, token: str, site_id: int):
-        resp = self._request('GET', f'/sites/{site_id}/stats', token=token)
+    def site_stats(self, token: str, site_id: int, page: int = 1, per_page: int = 25):
+        resp = self._request('GET', f'/sites/{site_id}/stats?page={page}&per_page={per_page}', token=token)
+        return self._json(resp)
+
+    def task_config(self, token: str):
+        resp = self._request('GET', '/tasks/config', token=token)
         return self._json(resp)
 
 
@@ -366,10 +372,17 @@ class SurfWorker(QtCore.QObject):
     def _build_telemetry(self, site: dict, metrics: dict) -> dict:
         geo = self._detect_geo()
         device = 'Mobile' if site.get('mobile') else 'Desktop'
+        ua = ''
+        try:
+            if self.page and not self.page.is_closed():
+                ua = self.page.evaluate('() => navigator.userAgent') or ''
+        except Exception:
+            ua = ''
         return {
             **geo,
             'platform': platform.platform(),
             'device': device,
+            'user_agent': ua,
             'clicks': metrics.get('clicks', 0),
             'scrolls': metrics.get('scrolls', 0),
             'highlights': metrics.get('highlights', 0),
@@ -502,6 +515,9 @@ class SurfWorker(QtCore.QObject):
         keyword = cfg.get('keyword', '')
         site_url = cfg.get('site_url', '')
         country = cfg.get('country', 'com')
+        point_cfg = cfg.get('task_points') or {}
+        base_points = int(point_cfg.get('google_base', 50))
+        page_points = int(point_cfg.get('google_page', 10))
         host = f'https://www.google.{country}'
         self.log.emit(f'Google araması başlıyor ({country})')
         page = self._ensure_page(playwright, cfg)
@@ -533,7 +549,7 @@ class SurfWorker(QtCore.QObject):
             return
         plan, site_flags = self._build_custom_plan(dwell, cfg)
         consumed, _ = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
-        earned = consumed + 50 + (visited_pages * 10)
+        earned = consumed + base_points + (visited_pages * page_points)
         self.finished.emit(earned)
 
     def _run_youtube_task(self, playwright: Playwright):
@@ -542,6 +558,9 @@ class SurfWorker(QtCore.QObject):
         keyword = cfg.get('keyword', '')
         link = cfg.get('video_link', '')
         pages = max(1, int(cfg.get('pages', 1))) if keyword else 1
+        point_cfg = cfg.get('task_points') or {}
+        base_points = int(point_cfg.get('youtube_base', 50))
+        page_points = int(point_cfg.get('youtube_page', 10))
         page = self._ensure_page(playwright, cfg)
         if keyword:
             page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
@@ -575,7 +594,7 @@ class SurfWorker(QtCore.QObject):
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
         consumed, _ = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
-        earned = 50 + consumed + (pages * 10 if keyword else 0)
+        earned = base_points + consumed + (pages * page_points if keyword else 0)
         self.finished.emit(earned)
 
     def run(self):
@@ -637,6 +656,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.total_pages = 1
         self.current_email: str = ''
         self.sites_cache: Dict[int, dict] = {}
+        self.task_points: Dict[str, int] = {}
         self._build_ui()
 
     def _build_ui(self):
@@ -1142,7 +1162,19 @@ class SurfApp(QtWidgets.QMainWindow):
     def _after_login(self):
         self.logout_btn.setVisible(True)
         self.stack.setCurrentIndex(1)
+        self._fetch_task_points()
         self.refresh_dashboard()
+
+    def _fetch_task_points(self):
+        if not self.client or not self.token:
+            return
+        try:
+            self.task_points = self.client.task_config(self.token) or {}
+            self._append_log(
+                'Görev puan konfigürasyonu alındı: ' + ', '.join(f"{k}={v}" for k, v in self.task_points.items())
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._append_log(f'Görev puan konfigürasyonu alınamadı: {exc}')
         self.load_sites()
         self.load_mail_settings()
 
@@ -1337,61 +1369,108 @@ class SurfApp(QtWidgets.QMainWindow):
         if not site_id or not self.client or not self.token:
             self._toast('Önce giriş yapın', error=True)
             return
-        try:
-            stats = self.client.site_stats(self.token, int(site_id))
-        except Exception as exc:  # noqa: BLE001
-            self._toast(f'Detay yüklenemedi: {exc}', error=True)
-            return
-
         dialog = QtWidgets.QDialog(self)
         dialog.setWindowTitle('Site İstatistikleri')
-        dialog.resize(900, 720)
+        dialog.resize(1040, 780)
         layout = QtWidgets.QVBoxLayout(dialog)
 
-        summary = stats.get('summary', {})
-        summary_label = QtWidgets.QLabel(
-            f"Toplam ziyaret: {summary.get('total_visits', 0)} • Toplam tıklama: {summary.get('clicks', 0)}"
-        )
+        summary_label = QtWidgets.QLabel()
         summary_label.setStyleSheet('font-weight:bold; font-size:15px;')
+        points_label = QtWidgets.QLabel()
+        points_label.setStyleSheet('font-weight:bold; color:#0f172a;')
         layout.addWidget(summary_label)
+        layout.addWidget(points_label)
 
         chart_row = QtWidgets.QHBoxLayout()
-        for title, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
-            view = self._build_stats_chart(title, stats.get('charts', {}).get(key) or [])
-            chart_row.addWidget(view)
+        point_chart_row = QtWidgets.QHBoxLayout()
         layout.addLayout(chart_row)
+        layout.addLayout(point_chart_row)
 
         table = QtWidgets.QTableWidget()
-        headers = ['Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Tıklama', 'Scroll', 'Form', 'Medya']
-        events = stats.get('events', [])
-        table.setRowCount(len(events))
+        headers = ['Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'User Agent', 'Tıklama', 'Scroll', 'Form', 'Medya']
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
-        for r, ev in enumerate(events):
-            row_items = [
-                ev.get('created_at', ''),
-                ev.get('ip', ''),
-                ev.get('country', ''),
-                ev.get('city', ''),
-                ev.get('platform', ''),
-                ev.get('device', ''),
-                str(ev.get('clicks', 0)),
-                str(ev.get('scrolls', 0)),
-                str(ev.get('forms', 0)),
-                str(ev.get('media', 0)),
-            ]
-            for c, text in enumerate(row_items):
-                table.setItem(r, c, QtWidgets.QTableWidgetItem(text))
-        table.resizeColumnsToContents()
         layout.addWidget(table)
+
+        pagination_row = QtWidgets.QHBoxLayout()
+        prev_btn = QtWidgets.QPushButton('Önceki')
+        next_btn = QtWidgets.QPushButton('Sonraki')
+        page_label = QtWidgets.QLabel()
+        pagination_row.addWidget(prev_btn)
+        pagination_row.addWidget(next_btn)
+        pagination_row.addWidget(page_label)
+        pagination_row.addStretch()
+        layout.addLayout(pagination_row)
 
         btn_row = QtWidgets.QHBoxLayout()
         export_btn = QtWidgets.QPushButton('PDF olarak dışa aktar')
-        export_btn.clicked.connect(lambda: self._export_stats_pdf(stats))
         btn_row.addWidget(export_btn)
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
+        state = {'page': 1, 'stats': None}
+
+        def render(stats: dict):
+            state['stats'] = stats
+            summary = stats.get('summary', {})
+            points = stats.get('points', {})
+            summary_label.setText(
+                f"Toplam ziyaret: {summary.get('total_visits', 0)} • Toplam tıklama: {summary.get('clicks', 0)}"
+            )
+            points_label.setText(
+                f"Puanlar — Kazanılan: {points.get('earned', 0)} • Harcanan: {points.get('spent', 0)} • Net: {points.get('net', 0)}"
+            )
+
+            self._clear_layout(chart_row)
+            for title, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
+                view = self._build_stats_chart(title, stats.get('charts', {}).get(key) or [])
+                chart_row.addWidget(view)
+
+            self._clear_layout(point_chart_row)
+            for title, key in [('Puan / Gün', 'daily'), ('Puan / Hafta', 'weekly'), ('Puan / Ay', 'monthly')]:
+                view = self._build_point_chart(title, stats.get('point_charts', {}).get(key) or [])
+                point_chart_row.addWidget(view)
+
+            events = stats.get('events', [])
+            table.setRowCount(len(events))
+            for r, ev in enumerate(events):
+                row_items = [
+                    ev.get('created_at', ''),
+                    ev.get('ip', ''),
+                    ev.get('country', ''),
+                    ev.get('city', ''),
+                    ev.get('platform', ''),
+                    ev.get('device', ''),
+                    ev.get('user_agent', ''),
+                    str(ev.get('clicks', 0)),
+                    str(ev.get('scrolls', 0)),
+                    str(ev.get('forms', 0)),
+                    str(ev.get('media', 0)),
+                ]
+                for c, text in enumerate(row_items):
+                    table.setItem(r, c, QtWidgets.QTableWidgetItem(text))
+            table.resizeColumnsToContents()
+
+            pagination = stats.get('pagination', {})
+            page = int(pagination.get('page', 1))
+            total_pages = int(pagination.get('total_pages', 1))
+            page_label.setText(f'Sayfa {page}/{total_pages}')
+            prev_btn.setEnabled(page > 1)
+            next_btn.setEnabled(page < total_pages)
+            state['page'] = page
+
+        def load(page: int = 1):
+            try:
+                stats = self.client.site_stats(self.token, int(site_id), page)
+                render(stats)
+            except Exception as exc:  # noqa: BLE001
+                self._toast(f'Detay yüklenemedi: {exc}', error=True)
+
+        prev_btn.clicked.connect(lambda: load(max(1, state['page'] - 1)))
+        next_btn.clicked.connect(lambda: load(state['page'] + 1))
+        export_btn.clicked.connect(lambda: self._export_stats_pdf(state['stats'] or {}))
+
+        load(1)
         dialog.exec()
 
     def _build_stats_chart(self, title: str, rows: List[dict]) -> QChartView:
@@ -1427,6 +1506,49 @@ class SurfApp(QtWidgets.QMainWindow):
         view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         return view
 
+    def _build_point_chart(self, title: str, rows: List[dict]) -> QChartView:
+        chart = QChart()
+        earned_set = QBarSet('Kazanılan')
+        earned_set.setColor(QtGui.QColor('#22c55e'))
+        spent_set = QBarSet('Harcanan')
+        spent_set.setColor(QtGui.QColor('#ef4444'))
+        net_series = QLineSeries()
+        net_series.setName('Net')
+        net_series.setColor(QtGui.QColor('#0ea5e9'))
+        categories: List[str] = []
+        for idx, row in enumerate(rows):
+            categories.append(str(row.get('label')))
+            earned_set.append(int(row.get('earned', 0)))
+            spent_set.append(int(row.get('spent', 0)))
+            net_series.append(QtCore.QPointF(float(idx), float(row.get('net', 0))))
+        if not categories:
+            categories = ['Veri yok']
+            earned_set.append(0)
+            spent_set.append(0)
+            net_series.append(QtCore.QPointF(0.0, 0.0))
+
+        bars = QBarSeries()
+        bars.append(earned_set)
+        bars.append(spent_set)
+        chart.addSeries(bars)
+        chart.addSeries(net_series)
+
+        axis_x = QBarCategoryAxis()
+        axis_x.append(categories)
+        axis_y = QValueAxis()
+        axis_y.setLabelFormat('%d')
+        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
+        bars.attachAxis(axis_x)
+        bars.attachAxis(axis_y)
+        net_series.attachAxis(axis_x)
+        net_series.attachAxis(axis_y)
+        chart.setTitle(title)
+        chart.legend().setVisible(True)
+        view = QChartView(chart)
+        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        return view
+
     def _export_stats_pdf(self, stats: dict):
         if not SimpleDocTemplate:
             self._toast('PDF modülü yüklü değil (reportlab)', error=True)
@@ -1435,21 +1557,37 @@ class SurfApp(QtWidgets.QMainWindow):
         if not filename:
             return
         doc = SimpleDocTemplate(filename, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm)
-        style = ParagraphStyle('body', fontName='Helvetica', fontSize=10, leading=14)
-        story = [Paragraph('<b>NoaSoft Autosurf Site Raporu</b>', ParagraphStyle('title', fontName='Helvetica-Bold', fontSize=14))]
+        font_name = 'Helvetica'
+        font_bold = 'Helvetica-Bold'
+        try:
+            candidate = Path(__file__).resolve().parent / 'assets' / 'DejaVuSans.ttf'
+            if candidate.exists():
+                pdfmetrics.registerFont(TTFont('NoaSoftFont', str(candidate)))
+                pdfmetrics.registerFont(TTFont('NoaSoftFont-Bold', str(candidate)))
+                font_name = 'NoaSoftFont'
+                font_bold = 'NoaSoftFont-Bold'
+        except Exception:
+            pass
+        style = ParagraphStyle('body', fontName=font_name, fontSize=10, leading=14)
+        story = [Paragraph('<b>NoaSoft Autosurf Site Raporu</b>', ParagraphStyle('title', fontName=font_bold, fontSize=14))]
         story.append(Spacer(1, 8))
         summary = stats.get('summary', {})
+        points = stats.get('points', {})
         story.append(Paragraph(f"Toplam ziyaret: {summary.get('total_visits', 0)}", style))
         story.append(Paragraph(f"Toplam tıklama: {summary.get('clicks', 0)}", style))
+        story.append(Paragraph(
+            f"Puanlar — Kazanılan: {points.get('earned', 0)} • Harcanan: {points.get('spent', 0)} • Net: {points.get('net', 0)}",
+            style,
+        ))
         story.append(Spacer(1, 6))
 
         table_data = [[
-            'Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Tıklama', 'Scroll', 'Form', 'Medya'
+            'Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'User Agent', 'Tıklama', 'Scroll', 'Form', 'Medya'
         ]]
         for ev in stats.get('events', [])[:40]:
             table_data.append([
                 ev.get('created_at', ''), ev.get('ip', ''), ev.get('country', ''), ev.get('city', ''),
-                ev.get('platform', ''), ev.get('device', ''),
+                ev.get('platform', ''), ev.get('device', ''), ev.get('user_agent', ''),
                 str(ev.get('clicks', 0)), str(ev.get('scrolls', 0)), str(ev.get('forms', 0)), str(ev.get('media', 0)),
             ])
         table = Table(table_data, repeatRows=1)
@@ -1460,6 +1598,18 @@ class SurfApp(QtWidgets.QMainWindow):
             ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
         ]))
         story.append(table)
+        story.append(Spacer(1, 8))
+
+        point_table = Table([
+            ['Kazanılan', 'Harcanan', 'Net'],
+            [str(points.get('earned', 0)), str(points.get('spent', 0)), str(points.get('net', 0))],
+        ])
+        point_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0ea5e9')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+        ]))
+        story.append(point_table)
         story.append(Spacer(1, 12))
         story.append(Paragraph(f'Oluşturulma: {datetime.now().strftime("%d.%m.%Y %H:%M")}', style))
         doc.build(story)
@@ -1487,6 +1637,7 @@ class SurfApp(QtWidgets.QMainWindow):
             'pages': self.google_pages.value(),
             'dwell': self.google_dwell.value(),
             **flags,
+            'task_points': self.task_points,
         }
         self._launch_worker('google', config)
 
@@ -1502,6 +1653,7 @@ class SurfApp(QtWidgets.QMainWindow):
             'pages': self.youtube_pages.value(),
             'dwell': self.youtube_dwell.value(),
             **flags,
+            'task_points': self.task_points,
         }
         self._launch_worker('youtube', config)
 
@@ -1511,6 +1663,15 @@ class SurfApp(QtWidgets.QMainWindow):
         flags['media'] = bool(media_actions)
         flags['media_actions'] = media_actions
         return flags
+
+    def _clear_layout(self, layout: QtWidgets.QLayout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
 
     def _launch_worker(self, mode: str, config: dict):
         self._init_client()

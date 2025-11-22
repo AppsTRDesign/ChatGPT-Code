@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS site_stats (
     city VARCHAR(128) NULL,
     platform VARCHAR(128) NULL,
     device VARCHAR(64) NULL,
+    user_agent VARCHAR(255) NULL,
     clicks INT DEFAULT 0,
     scrolls INT DEFAULT 0,
     highlights INT DEFAULT 0,
