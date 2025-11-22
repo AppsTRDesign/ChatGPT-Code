@@ -296,7 +296,7 @@ function update_profile_endpoint(PDO $pdo, array $user): void
     Response::json(['user' => $stmt->fetch()]);
 }
 
-function contact(PDO $pdo, ?array $user): void
+function contact(PDO $pdo, ?array $user, array $config): void
 {
     $data = read_json();
     $email = $data['email'] ?? ($user['email'] ?? null);
@@ -308,7 +308,21 @@ function contact(PDO $pdo, ?array $user): void
     }
     $pdo->prepare('INSERT INTO contact_messages (user_id, email, subject, body) VALUES (?,?,?,?)')
         ->execute([$user['id'] ?? null, $email, $subject, $body]);
-    Response::json(['queued' => true]);
+    $to = $config['contact_email'] ?? 'info@noasoft.org';
+    $from = $config['contact_email'] ?? 'info@noasoft.org';
+    $headers = [
+        'From' => $from,
+        'Reply-To' => $email,
+        'Content-Type' => 'text/plain; charset=UTF-8',
+    ];
+    $headerLines = [];
+    foreach ($headers as $key => $value) {
+        $headerLines[] = $key . ': ' . $value;
+    }
+    $fullSubject = '[Autosurf] ' . $subject;
+    $fullBody = "Gönderen: {$email}\nKullanıcı: " . ($user['display_name'] ?? 'Anonim') . "\n---\n" . $body;
+    $sent = @mail($to, $fullSubject, $fullBody, implode("\r\n", $headerLines));
+    Response::json(['queued' => true, 'sent' => (bool)$sent]);
 }
 
 function mail_settings(array $config): void
@@ -409,7 +423,7 @@ switch (true) {
         break;
     case $path === '/contact' && $method === 'POST':
         $user = current_user($pdo, $config);
-        contact($pdo, $user);
+        contact($pdo, $user, $config);
         break;
     case $path === '/dashboard' && $method === 'GET':
         if ($user = ensure_user($pdo, $config)) {
@@ -426,7 +440,7 @@ switch (true) {
         break;
     case $path === '/mail/send' && $method === 'POST':
         $user = current_user($pdo, $config);
-        contact($pdo, $user);
+        contact($pdo, $user, $config);
         break;
     default:
         Response::error('Endpoint bulunamadı', 404, ['path' => $path]);

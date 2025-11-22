@@ -21,7 +21,7 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - `POST /surf/complete` — surf tamamlanınca puan kazandırır.
   - `GET /dashboard` — günlük/haftalık kazanç, kalan süre ve puan özeti.
   - `GET /dashboard/history` — günlük/haftalık puan geçmişi.
-  - `GET /mail/settings` ve `POST /mail/send` — info@noasoft.org’a iletilecek mesajları API ayarlarından alır ve gönderir.
+  - `GET /mail/settings` ve `POST /mail/send` — info@noasoft.org’a iletilecek mesajları API ayarlarından alır; `contact_email` değeri PHP `mail()` ile alıcı ve From olarak kullanılır.
 
 ## Python GUI (PyQt6 + Playwright)
 - **Konum:** `client/surf_gui.py`
