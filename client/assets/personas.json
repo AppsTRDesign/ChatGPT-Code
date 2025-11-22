@@ -73,5 +73,26 @@
     "reaction_time_max_ms": 1000,
     "media_behavior": "random",
     "read_behavior": "inconsistent"
+  },
+  {
+    "name": "night_reader",
+    "extends": "reader",
+    "mouse_speed": 0.35,
+    "scroll_style": "stop_and_go",
+    "attention_span": 1.0,
+    "hesitation": 0.7,
+    "media_behavior": "focused",
+    "read_behavior": "deep"
+  },
+  {
+    "name": "balanced_human",
+    "mix": [
+      { "name": "fast", "weight": 0.6 },
+      { "name": "reader", "weight": 0.4 }
+    ],
+    "mouse_smoothness": 0.65,
+    "scroll_style": "constant",
+    "media_behavior": "curious",
+    "read_behavior": "scan"
   }
 ]

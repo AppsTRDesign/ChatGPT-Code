@@ -204,7 +204,7 @@ class SurfWorker(QtCore.QObject):
         self.telemetry_builder = TelemetryBuilder(self.geo_service, log_fn)
         self.plan_engine = PlanEngine()
         self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
-        self.personality = PersonaEngine.random(self.persona_profiles)
+        self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
         self.action_simulator = ActionSimulator(self.youtube_handler, log_fn, self.personality)
         self.google_handler = GoogleHandler(self.browser_mgr, self.plan_engine, log_fn)
 
@@ -352,7 +352,7 @@ class SurfWorker(QtCore.QObject):
 
     def run(self):
         try:
-            self.personality = PersonaEngine.random(self.persona_profiles)
+            self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
             self.action_simulator.set_persona(self.personality)
             with sync_playwright() as playwright:
                 if self.mode == 'google':
@@ -958,6 +958,8 @@ class SurfApp(QtWidgets.QMainWindow):
     def _after_login(self):
         self.logout_btn.setVisible(True)
         self.stack.setCurrentIndex(1)
+        self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
+        self.action_simulator.set_persona(self.personality)
         self._fetch_task_points()
         self.refresh_dashboard()
 

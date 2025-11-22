@@ -16,17 +16,19 @@ class ActionSimulator:
         self.youtube_handler = youtube_handler
         self.log = log or (lambda msg: None)
         self.persona = persona or PersonaEngine.random()
+        self.rng = getattr(self.persona, "rng", random.Random())
 
     def set_persona(self, persona: PersonaEngine):
         self.persona = persona
+        self.rng = getattr(self.persona, "rng", random.Random())
 
     def _move_mouse_path(self, page, start: Tuple[int, int], end: Tuple[int, int], persona: Optional[PersonaEngine] = None):
         persona = persona or self.persona
         path = persona.generate_mouse_path(start, end)
         for x, y in path:
             page.mouse.move(int(x), int(y), steps=1)
-            if random.random() < 0.2:
-                page.wait_for_timeout(random.randint(8, 22))
+            if self.rng.random() < 0.2:
+                page.wait_for_timeout(self.rng.randint(8, 22))
 
     def simulate_mouse_moves(self, page, viewport: Dict[str, int], persona: Optional[PersonaEngine] = None) -> Tuple[bool, Optional[Tuple[int, int]]]:
         persona = persona or self.persona
@@ -36,15 +38,15 @@ class ActionSimulator:
             (0.45, 0.55),
             (0.65, 0.75),
         ]
-        anchor = (random.randint(40, viewport["width"] - 40), random.randint(60, viewport["height"] - 60))
-        page.mouse.move(anchor[0], anchor[1], steps=random.randint(2, 5))
+        anchor = (self.rng.randint(40, viewport["width"] - 40), self.rng.randint(60, viewport["height"] - 60))
+        page.mouse.move(anchor[0], anchor[1], steps=self.rng.randint(2, 5))
         last_mouse = anchor
         for zone in zones:
-            if random.random() < 0.2:
+            if self.rng.random() < 0.2:
                 continue
             target = (
-                int(viewport["width"] * random.uniform(*zone)),
-                int(viewport["height"] * random.uniform(0.25, 0.85)),
+                int(viewport["width"] * self.rng.uniform(*zone)),
+                int(viewport["height"] * self.rng.uniform(0.25, 0.85)),
             )
             self._move_mouse_path(page, last_mouse, target, persona)
             last_mouse = target
@@ -53,16 +55,16 @@ class ActionSimulator:
 
     def simulate_scroll(self, page, viewport: Dict[str, int], persona: Optional[PersonaEngine] = None) -> bool:
         persona = persona or self.persona
-        total = int(viewport.get("height", 720) * random.uniform(1.2, 2.6))
+        total = int(viewport.get("height", 720) * self.rng.uniform(1.2, 2.6))
         direction = 1
         for delta in persona.generate_scroll_pattern(total, direction):
             if delta == 0:
                 page.wait_for_timeout(persona.reaction_delay_ms())
                 continue
             page.mouse.wheel(0, delta)
-            if random.random() < 0.25:
+            if self.rng.random() < 0.25:
                 direction *= -1
-            page.wait_for_timeout(int(persona.reaction_delay_ms() * random.uniform(0.3, 0.7)))
+            page.wait_for_timeout(int(persona.reaction_delay_ms() * self.rng.uniform(0.3, 0.7)))
         return True
 
     def simulate_clicks(self, page, host: str, persona: Optional[PersonaEngine] = None) -> bool:
@@ -82,21 +84,21 @@ class ActionSimulator:
             links.append(lnk)
         if not links:
             return False
-        choice = random.choice(links)
+        choice = self.rng.choice(links)
         box = choice.bounding_box() or {'x': 0, 'y': 0, 'width': 0, 'height': 0}
-        cx = int(box['x'] + box['width'] * random.uniform(0.2, 0.8))
-        cy = int(box['y'] + box['height'] * random.uniform(0.2, 0.8))
+        cx = int(box['x'] + box['width'] * self.rng.uniform(0.2, 0.8))
+        cy = int(box['y'] + box['height'] * self.rng.uniform(0.2, 0.8))
         target_x, target_y = persona.maybe_offset_target(cx, cy)
-        start = (cx + random.randint(-25, 25), cy + random.randint(-25, 25))
+        start = (cx + self.rng.randint(-25, 25), cy + self.rng.randint(-25, 25))
         self._move_mouse_path(page, start, (int(target_x), int(target_y)), persona)
-        page.wait_for_timeout(random.randint(40, 120))
+        page.wait_for_timeout(self.rng.randint(40, 120))
         if not persona.should_click():
             return False
         page.mouse.down()
-        page.wait_for_timeout(random.randint(30, 90))
+        page.wait_for_timeout(self.rng.randint(30, 90))
         page.mouse.up()
-        if random.random() < 0.2:
-            page.wait_for_timeout(random.randint(50, 120))
+        if self.rng.random() < 0.2:
+            page.wait_for_timeout(self.rng.randint(50, 120))
         return True
 
     def simulate_text_highlight(self, page, persona: Optional[PersonaEngine] = None) -> bool:
@@ -105,12 +107,12 @@ class ActionSimulator:
         visible = [el for el in candidates if el.is_visible() and (el.text_content() or '').strip()]
         if not visible:
             return False
-        target = random.choice(visible)
+        target = self.rng.choice(visible)
         box = target.bounding_box()
         if not box:
             return False
         start = (int(box['x'] + 6), int(box['y'] + box['height'] * 0.4))
-        end = (int(box['x'] + box['width'] - 6), start[1] + random.randint(-3, 3))
+        end = (int(box['x'] + box['width'] - 6), start[1] + self.rng.randint(-3, 3))
         self._move_mouse_path(page, start, end, persona)
         page.mouse.down()
         self._move_mouse_path(page, start, end, persona)
@@ -127,17 +129,17 @@ class ActionSimulator:
         fields = [inp for inp in page.query_selector_all('input,textarea') if inp.is_visible()]
         if not fields:
             return False
-        target = random.choice(fields)
+        target = self.rng.choice(fields)
         target.click()
-        filler = 'NoaSoft ' + ''.join(random.choice(string.ascii_letters) for _ in range(6))
+        filler = 'NoaSoft ' + ''.join(self.rng.choice(string.ascii_letters) for _ in range(6))
         for ch in filler:
-            page.keyboard.type(ch, delay=random.randint(18, 42))
-            if random.random() < 0.08:
+            page.keyboard.type(ch, delay=self.rng.randint(18, 42))
+            if self.rng.random() < 0.08:
                 page.keyboard.press('Backspace')
         page.keyboard.press('Control+A')
-        if random.random() < 0.6:
+        if self.rng.random() < 0.6:
             page.keyboard.press('Control+C')
-        if random.random() < 0.4:
+        if self.rng.random() < 0.4:
             page.keyboard.press('Backspace')
         return True
 
@@ -150,20 +152,20 @@ class ActionSimulator:
             actions = ['hover', 'delay', 'human_click', 'pause_play', 'volume', 'fullscreen', 'quality']
         try:
             media.hover()
-            page.wait_for_timeout(random.randint(80, 180))
+            page.wait_for_timeout(self.rng.randint(80, 180))
             host = urlparse(page.url).netloc
             if 'youtube.com' in host:
                 return self.youtube_handler.simulate_youtube_media(page, media, actions, dwell_hint, persona.profile)
             weights = persona.media_action_weights()
             if 'human_click' in actions:
                 media.click()
-            if 'pause_play' in actions and random.random() < weights.get('play_pause', 0.5):
+            if 'pause_play' in actions and self.rng.random() < weights.get('play_pause', 0.5):
                 page.keyboard.press('Space')
-            if 'fullscreen' in actions and random.random() < weights.get('fullscreen', 0.3):
+            if 'fullscreen' in actions and self.rng.random() < weights.get('fullscreen', 0.3):
                 page.keyboard.press('KeyF')
-            if 'volume' in actions and random.random() < weights.get('volume', 0.4):
-                page.keyboard.press(random.choice(['ArrowUp', 'ArrowDown']))
-            if 'quality' in actions and random.random() < weights.get('quality_menu', 0.2):
+            if 'volume' in actions and self.rng.random() < weights.get('volume', 0.4):
+                page.keyboard.press(self.rng.choice(['ArrowUp', 'ArrowDown']))
+            if 'quality' in actions and self.rng.random() < weights.get('quality_menu', 0.2):
                 quality_menu = page.query_selector('button[aria-label*="quality" i], [class*="quality"]')
                 if quality_menu:
                     quality_menu.click()
