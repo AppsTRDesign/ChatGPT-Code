@@ -117,6 +117,7 @@ class SurfWorker(QtCore.QObject):
     finished = QtCore.pyqtSignal(int)
     failed = QtCore.pyqtSignal(str)
     log = QtCore.pyqtSignal(str)
+    frame = QtCore.pyqtSignal(bytes, int, int)
 
     def __init__(self, token: str, client: ApiClient, parent: Optional[QtCore.QObject] = None):
         super().__init__(parent)
@@ -178,57 +179,113 @@ class SurfWorker(QtCore.QObject):
         self.log.emit(f'Sayfa açılıyor: {url}')
         page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
-        total_seconds = max(1, sum(s.seconds for s in plan))
+        planned_total = max(1, sum(s.seconds for s in plan))
+        skipped = 0
         elapsed = 0
         viewport = page.viewport_size or {'width': 1280, 'height': 720}
+        last_mouse: Optional[Tuple[int, int]] = None
         for step in plan:
             if not self._running:
                 break
             detail = f"{step.title} — {step.detail}"
             self.step_changed.emit(detail)
             self.log.emit(detail)
+            performed = False
             try:
                 if 'mouse' in step.title.lower():
-                    for _ in range(3):
-                        x = random.randint(50, viewport['width'] - 50)
-                        y = random.randint(50, viewport['height'] - 50)
-                        page.mouse.move(x, y, steps=20)
+                    performed, last_mouse = self._simulate_mouse_moves(page, viewport)
                 if 'scroll' in step.title.lower():
-                    page.mouse.wheel(0, viewport['height'])
-                    page.wait_for_timeout(600)
-                    page.mouse.wheel(0, -viewport['height'] // 2)
+                    performed = self._simulate_scroll(page, viewport) or performed
                 if 'tıklamalar' in step.title.lower():
-                    links = page.query_selector_all('a')
-                    if links:
-                        random.choice(links).click(timeout=5000)
+                    performed = self._simulate_clicks(page) or performed
                 if 'form' in step.title.lower():
-                    inputs = page.query_selector_all('input,textarea')
-                    if inputs:
-                        target = random.choice(inputs)
-                        target.click()
-                        target.type('NoaSoft deneme girdisi', delay=50)
+                    performed = self._simulate_form(page) or performed
                 if 'medya' in step.title.lower():
-                    video = page.query_selector('video, audio')
-                    if video:
-                        try:
-                            video.hover()
-                            page.wait_for_timeout(1200)
-                            video.click()
-                            page.keyboard.press('Space')
-                            page.keyboard.press('KeyF')
-                        except Exception:
-                            self.log.emit('Medya etkileşimi atlandı (seçilemedi)')
+                    performed = self._simulate_media(page) or performed
+                if 'sayfada' in step.title.lower():
+                    performed = True  # sadece bekleme adımı
             except Exception as action_err:
                 self.log.emit(f'Eylem hatası: {action_err}')
-            for _ in range(step.seconds):
+
+            self._emit_frame(page, last_mouse)
+
+            duration = step.seconds if performed else 0
+            if duration == 0 and step.seconds > 0 and 'sayfa' in step.title.lower():
+                duration = min(2, step.seconds)
+            if duration == 0:
+                skipped += step.seconds
+            for _ in range(duration):
                 if not self._running:
                     break
                 elapsed += 1
+                total_seconds = max(1, planned_total - skipped)
                 percent = int((elapsed / total_seconds) * 100)
                 self.progress.emit(percent, elapsed, total_seconds, detail)
                 page.wait_for_timeout(1000)
+            self._emit_frame(page, last_mouse)
         context.close()
         return elapsed
+
+    def _simulate_mouse_moves(self, page, viewport: Dict[str, int]) -> Tuple[bool, Optional[Tuple[int, int]]]:
+        last_mouse = None
+        for _ in range(4):
+            x = random.randint(40, viewport['width'] - 40)
+            y = random.randint(40, viewport['height'] - 40)
+            page.mouse.move(x, y, steps=25)
+            last_mouse = (x, y)
+        return bool(last_mouse), last_mouse
+
+    def _simulate_scroll(self, page, viewport: Dict[str, int]) -> bool:
+        page.mouse.wheel(0, viewport['height'])
+        page.wait_for_timeout(400)
+        page.mouse.wheel(0, -viewport['height'] // 2)
+        return True
+
+    def _simulate_clicks(self, page) -> bool:
+        links = [lnk for lnk in page.query_selector_all('a') if lnk.is_visible()]
+        if not links:
+            return False
+        random.choice(links).click(timeout=5000)
+        return True
+
+    def _simulate_form(self, page) -> bool:
+        fields = [inp for inp in page.query_selector_all('input,textarea') if inp.is_visible()]
+        if not fields:
+            return False
+        target = random.choice(fields)
+        target.click()
+        target.type('NoaSoft deneme girdisi', delay=35)
+        page.keyboard.press('Control+A')
+        page.keyboard.press('Control+C')
+        return True
+
+    def _simulate_media(self, page) -> bool:
+        media = page.query_selector('video, audio')
+        if not media:
+            return False
+        try:
+            media.hover()
+            page.wait_for_timeout(800)
+            media.click()
+            page.wait_for_timeout(600)
+            page.keyboard.press('Space')
+            page.keyboard.press('KeyF')
+            page.keyboard.press('ArrowUp')
+            quality_menu = page.query_selector('button[aria-label*="quality" i], [class*="quality"]')
+            if quality_menu:
+                quality_menu.click()
+            return True
+        except Exception as exc:
+            self.log.emit(f'Medya etkileşimi atlandı: {exc}')
+            return False
+
+    def _emit_frame(self, page, last_mouse: Optional[Tuple[int, int]]):
+        try:
+            data = page.screenshot(full_page=False)
+            x, y = last_mouse or (-1, -1)
+            self.frame.emit(data, x, y)
+        except Exception as exc:
+            self.log.emit(f'Görüntü yakalama hatası: {exc}')
 
     def run(self):
         try:
@@ -465,6 +522,17 @@ class SurfApp(QtWidgets.QMainWindow):
         self.scroll_cb = QtWidgets.QCheckBox('Scroll')
         self.form_cb = QtWidgets.QCheckBox('Form doldurma')
         self.media_cb = QtWidgets.QCheckBox('Medya otomasyonu')
+        self.media_cb.toggled.connect(self._toggle_media_options)
+
+        self.media_option_boxes: Dict[str, QtWidgets.QCheckBox] = {
+            'hover': QtWidgets.QCheckBox('Mouse ile videonun üstüne gelme'),
+            'delay': QtWidgets.QCheckBox('Birkaç saniye bekleme'),
+            'human_click': QtWidgets.QCheckBox('İnsan davranışı tıklaması'),
+            'pause_play': QtWidgets.QCheckBox('Videoyu durdur / devam ettir'),
+            'volume': QtWidgets.QCheckBox('Ses açma'),
+            'fullscreen': QtWidgets.QCheckBox('Tam ekran (YouTube f)'),
+            'quality': QtWidgets.QCheckBox('Kalite menüsü'),
+        }
 
         form.addWidget(QtWidgets.QLabel('Site Adı'), 0, 0)
         form.addWidget(self.site_name, 0, 1)
@@ -480,10 +548,17 @@ class SurfApp(QtWidgets.QMainWindow):
             flag_layout.addWidget(cb, i // 2, i % 2)
         form.addLayout(flag_layout, 3, 0, 1, 2)
 
+        media_layout = QtWidgets.QVBoxLayout()
+        media_layout.addWidget(QtWidgets.QLabel('Medya aksiyonları (medya aktifse):'))
+        for cb in self.media_option_boxes.values():
+            cb.setEnabled(False)
+            media_layout.addWidget(cb)
+        form.addLayout(media_layout, 4, 0, 1, 2)
+
         add_btn = QtWidgets.QPushButton('Siteyi Kaydet')
         add_btn.clicked.connect(self.add_or_update_site)
         add_btn.setStyleSheet('padding:10px 16px; font-weight:bold; background:#2563eb; color:white; border-radius:8px;')
-        form.addWidget(add_btn, 4, 0, 1, 2)
+        form.addWidget(add_btn, 5, 0, 1, 2)
 
         outer.addLayout(form)
 
@@ -515,6 +590,12 @@ class SurfApp(QtWidgets.QMainWindow):
     def _build_surf_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
+
+        self.live_view = QtWidgets.QLabel('Canlı surf önizlemesi bekleniyor')
+        self.live_view.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.live_view.setMinimumHeight(260)
+        self.live_view.setStyleSheet('background:#0b1224; color:#cbd5e1; border:1px solid #1f2937; border-radius:10px;')
+        layout.addWidget(self.live_view)
 
         self.plan_list = QtWidgets.QListWidget()
         self.plan_list.setStyleSheet('background:#f8fafc;')
@@ -677,8 +758,10 @@ class SurfApp(QtWidgets.QMainWindow):
         axis_x.setRange(0, max(1, len(items) - 1))
         axis_y = QValueAxis()
         axis_y.setRange(0, max(10, max(v for _, v in items)))
-        chart.setAxisX(axis_x, series)
-        chart.setAxisY(axis_y, series)
+        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
+        series.attachAxis(axis_x)
+        series.attachAxis(axis_y)
         chart.legend().hide()
 
     def add_or_update_site(self):
@@ -696,6 +779,7 @@ class SurfApp(QtWidgets.QMainWindow):
             'scroll': self.scroll_cb.isChecked(),
             'form_fill': self.form_cb.isChecked(),
             'media': self.media_cb.isChecked(),
+            'media_actions': [key for key, cb in self.media_option_boxes.items() if cb.isChecked()],
         }
         try:
             self.client.create_site(self.token, payload)
@@ -704,6 +788,12 @@ class SurfApp(QtWidgets.QMainWindow):
             self.refresh_dashboard()
         except Exception as exc:
             self._toast(f'Kayıt hatası: {exc}', error=True)
+
+    def _toggle_media_options(self, checked: bool):
+        for cb in self.media_option_boxes.values():
+            cb.setEnabled(checked)
+            if not checked:
+                cb.setChecked(False)
 
     def load_sites(self):
         if not self.client or not self.token:
@@ -714,10 +804,19 @@ class SurfApp(QtWidgets.QMainWindow):
         except Exception as exc:
             self._toast(f'Site liste hatası: {exc}', error=True)
             return
-        sites = data.get('items', data if isinstance(data, list) else [])
+        sites: List[dict] = []
+        if isinstance(data, dict):
+            for key in ('items', 'data', 'sites'):
+                if data.get(key):
+                    sites = data.get(key, [])
+                    break
+        elif isinstance(data, list):
+            sites = data
         self.total_pages = max(1, int(data.get('pages', 1))) if isinstance(data, dict) else 1
         self.page_label.setText(f'Sayfa {self.current_page}/{self.total_pages}')
         self.site_table.setRowCount(len(sites))
+        if not sites:
+            self._append_log('Kayıtlı site bulunamadı veya yetkisiz istek yanıtı geldi')
         for row, site in enumerate(sites):
             self.site_table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(site.get('id'))))
             self.site_table.setItem(row, 1, QtWidgets.QTableWidgetItem(site.get('name', '')))
@@ -730,6 +829,9 @@ class SurfApp(QtWidgets.QMainWindow):
             ]:
                 if site.get(flag):
                     settings.append(label)
+            media_actions = site.get('media_actions') or site.get('media_options') or []
+            if media_actions:
+                settings.append('Medya: ' + ', '.join(media_actions))
             self.site_table.setItem(row, 4, QtWidgets.QTableWidgetItem(', '.join(settings)))
             delete_btn = QtWidgets.QPushButton('Sil')
             delete_btn.clicked.connect(lambda _, s_id=site.get('id'): self.delete_site(s_id))
@@ -778,6 +880,8 @@ class SurfApp(QtWidgets.QMainWindow):
         self.plan_list.clear()
         self.progress.setValue(0)
         self.countdown_label.setText('Kalan süre: 0 sn / 0 sn')
+        self.live_view.setPixmap(QtGui.QPixmap())
+        self.live_view.setText('Chromium açılıyor...')
         self.start_btn.setEnabled(False)
         self.worker_thread = QtCore.QThread()
         self.worker = SurfWorker(self.token, self.client)
@@ -788,6 +892,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.worker.finished.connect(self._on_finished)
         self.worker.failed.connect(self._on_failed)
         self.worker.log.connect(self._append_log)
+        self.worker.frame.connect(self._on_frame)
         self.worker.finished.connect(self.worker_thread.quit)
         self.worker.failed.connect(self.worker_thread.quit)
         self.worker_thread.finished.connect(lambda: self.start_btn.setEnabled(True))
@@ -806,6 +911,26 @@ class SurfApp(QtWidgets.QMainWindow):
 
     def _on_step(self, detail: str):
         self.plan_list.addItem(detail)
+
+    def _on_frame(self, data: bytes, x: int, y: int):
+        if not hasattr(self, 'live_view'):
+            return
+        pixmap = QtGui.QPixmap()
+        pixmap.loadFromData(data)
+        if x >= 0 and y >= 0:
+            painter = QtGui.QPainter(pixmap)
+            pen = QtGui.QPen(QtGui.QColor('#10b981'))
+            pen.setWidth(6)
+            painter.setPen(pen)
+            painter.drawEllipse(QtCore.QPoint(x, y), 10, 10)
+            painter.end()
+        scaled = pixmap.scaled(
+            self.live_view.size(),
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation,
+        )
+        self.live_view.setPixmap(scaled)
+        self.live_view.setText('')
 
     def _on_finished(self, earned: int):
         self._toast(f'Oturum tamamlandı +{earned} puan')
