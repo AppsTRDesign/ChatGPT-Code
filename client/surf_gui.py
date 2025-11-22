@@ -8,7 +8,15 @@ from urllib.parse import urlparse
 
 import requests
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCharts import QChart, QChartView, QLineSeries, QValueAxis
+from PyQt6.QtCharts import (
+    QBarCategoryAxis,
+    QBarSeries,
+    QBarSet,
+    QChart,
+    QChartView,
+    QLineSeries,
+    QValueAxis,
+)
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright, sync_playwright
 
@@ -129,7 +137,14 @@ class SurfWorker(QtCore.QObject):
     log = QtCore.pyqtSignal(str)
     frame = QtCore.pyqtSignal(bytes, int, int)
 
-    def __init__(self, token: str, client: ApiClient, parent: Optional[QtCore.QObject] = None):
+    def __init__(
+        self,
+        token: str,
+        client: ApiClient,
+        parent: Optional[QtCore.QObject] = None,
+        mode: str = 'surf',
+        task_config: Optional[dict] = None,
+    ):
         super().__init__(parent)
         self.token = token
         self.client = client
@@ -138,6 +153,8 @@ class SurfWorker(QtCore.QObject):
         self.context = None
         self.page = None
         self._current_mobile = False
+        self.mode = mode
+        self.task_config = task_config or {}
 
     def stop(self):
         self._running = False
@@ -161,8 +178,34 @@ class SurfWorker(QtCore.QObject):
                 context_kwargs['viewport'] = {'width': 390, 'height': 844}
             self.context = self.browser.new_context(**context_kwargs)
             self.page = self.context.new_page()
+            self._inject_pointer_overlay(self.page)
             self._current_mobile = mobile
         return self.page
+
+    def _inject_pointer_overlay(self, page):
+        try:
+            page.add_init_script(
+                """
+                (() => {
+                  const dot = document.createElement('div');
+                  dot.id = 'noasoft-pointer';
+                  Object.assign(dot.style, {
+                    position: 'fixed', width: '16px', height: '16px',
+                    borderRadius: '50%', background: 'rgba(16,185,129,0.85)',
+                    boxShadow: '0 0 12px rgba(16,185,129,0.8)',
+                    zIndex: 2147483647, pointerEvents: 'none',
+                    transform: 'translate(-50%,-50%)',
+                  });
+                  document.addEventListener('mousemove', ev => {
+                    dot.style.left = ev.clientX + 'px';
+                    dot.style.top = ev.clientY + 'px';
+                  });
+                  document.body.appendChild(dot);
+                })();
+                """
+            )
+        except Exception:
+            pass
 
     def _build_plan(self, session_payload: dict) -> Tuple[List[SurfPlanStep], Dict]:
         plan_data = session_payload.get('plan') or []
@@ -364,32 +407,134 @@ class SurfWorker(QtCore.QObject):
         except Exception as exc:
             self.log.emit(f'Görüntü yakalama hatası: {exc}')
 
+    def _build_custom_plan(self, dwell: int, flags: dict) -> List[SurfPlanStep]:
+        site = {
+            'dwell_seconds': dwell,
+            'mobile': flags.get('mobile'),
+            'realistic': flags.get('realistic'),
+            'mouse_moves': flags.get('mouse_moves'),
+            'link_clicks': flags.get('link_clicks'),
+            'scroll': flags.get('scroll'),
+            'form_fill': flags.get('form_fill'),
+            'media': flags.get('media'),
+            'media_actions': flags.get('media_actions', []),
+        }
+        return self._build_plan({'plan': [], 'site': site})[0], site
+
+    def _run_google_task(self, playwright: Playwright):
+        cfg = self.task_config
+        dwell = int(cfg.get('dwell', 30))
+        pages = max(1, int(cfg.get('pages', 1)))
+        keyword = cfg.get('keyword', '')
+        site_url = cfg.get('site_url', '')
+        country = cfg.get('country', 'com')
+        host = f'https://www.google.{country}'
+        self.log.emit(f'Google araması başlıyor ({country})')
+        page = self._ensure_page(playwright, cfg)
+        page.goto(f'{host}/search?q={requests.utils.quote(keyword)}&hl=en&gl={country}', wait_until='domcontentloaded')
+        found = False
+        visited_pages = 1
+        target = site_url.replace('https://', '').replace('http://', '')
+        for idx in range(pages):
+            if not self._running:
+                break
+            links = page.query_selector_all('a[href]')
+            for lnk in links:
+                href = lnk.get_attribute('href') or ''
+                if target and target in href and 'google' not in href:
+                    lnk.click()
+                    found = True
+                    break
+            if found:
+                break
+            next_btn = page.query_selector('a#pnnext, a[aria-label="Sonraki"], a[aria-label="Next"]')
+            if next_btn:
+                visited_pages += 1
+                next_btn.click()
+                page.wait_for_timeout(800)
+            else:
+                break
+        if not found:
+            self.failed.emit('Site bulunamadı, sonuçlarda yok')
+            return
+        plan, site_flags = self._build_custom_plan(dwell, cfg)
+        consumed = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
+        earned = consumed + 50 + (visited_pages * 10)
+        self.finished.emit(earned)
+
+    def _run_youtube_task(self, playwright: Playwright):
+        cfg = self.task_config
+        dwell = int(cfg.get('dwell', 30))
+        keyword = cfg.get('keyword', '')
+        link = cfg.get('video_link', '')
+        pages = max(1, int(cfg.get('pages', 1))) if keyword else 1
+        page = self._ensure_page(playwright, cfg)
+        if keyword:
+            page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
+            search_box = page.query_selector('input#search')
+            if search_box:
+                search_box.fill(keyword)
+                search_box.press('Enter')
+                page.wait_for_timeout(1200)
+            found = False
+            visited = 1
+            for idx in range(pages):
+                for anchor in page.query_selector_all('a#video-title'):
+                    href = anchor.get_attribute('href') or ''
+                    if link and link.replace('https://www.youtube.com', '') in href:
+                        anchor.click()
+                        found = True
+                        break
+                if found:
+                    break
+                next_btn = page.query_selector('a[aria-label*="Sonraki"], a[aria-label*="Next"]')
+                if next_btn:
+                    visited += 1
+                    next_btn.click()
+                    page.wait_for_timeout(800)
+                else:
+                    break
+            pages = visited
+        if not keyword and link:
+            page.goto(link, wait_until='domcontentloaded')
+        plan, site_flags = self._build_custom_plan(dwell, cfg)
+        site_flags['media'] = True
+        plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
+        consumed = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
+        earned = 50 + consumed + (pages * 10 if keyword else 0)
+        self.finished.emit(earned)
+
     def run(self):
         try:
             with sync_playwright() as playwright:
-                while self._running:
-                    try:
-                        session = self.client.start_surf(self.token)
-                    except Exception as exc:
-                        message = str(exc)
-                        if '404' in message:
-                            self.failed.emit('Gezilecek uygun site bulunamadı')
-                        else:
-                            self.failed.emit(message)
-                        break
-                    plan, site = self._build_plan(session)
-                    session_id = session.get('session_id') or session.get('id')
-                    consumed_seconds = self._apply_actions(playwright, site, plan)
-                    if not self._running:
-                        break
-                    try:
-                        result = self.client.complete_surf(self.token, int(session_id), consumed_seconds)
-                        earned = int(result.get('earned', 0))
-                        self.log.emit(f'Oturum tamamlandı: +{earned} puan')
-                        self.finished.emit(earned)
-                    except Exception as exc:  # noqa: BLE001
-                        self.failed.emit(str(exc))
-                        break
+                if self.mode == 'google':
+                    self._run_google_task(playwright)
+                elif self.mode == 'youtube':
+                    self._run_youtube_task(playwright)
+                else:
+                    while self._running:
+                        try:
+                            session = self.client.start_surf(self.token)
+                        except Exception as exc:
+                            message = str(exc)
+                            if '404' in message:
+                                self.failed.emit('Gezilecek uygun site bulunamadı')
+                            else:
+                                self.failed.emit(message)
+                            break
+                        plan, site = self._build_plan(session)
+                        session_id = session.get('session_id') or session.get('id')
+                        consumed_seconds = self._apply_actions(playwright, site, plan)
+                        if not self._running:
+                            break
+                        try:
+                            result = self.client.complete_surf(self.token, int(session_id), consumed_seconds)
+                            earned = int(result.get('earned', 0))
+                            self.log.emit(f'Oturum tamamlandı: +{earned} puan')
+                            self.finished.emit(earned)
+                        except Exception as exc:  # noqa: BLE001
+                            self.failed.emit(str(exc))
+                            break
                 if self.context:
                     try:
                         self.context.close()
@@ -539,6 +684,9 @@ class SurfApp(QtWidgets.QMainWindow):
         self.tabs.addTab(self._build_dashboard_tab(), 'Puan & Özet')
         self.tabs.addTab(self._build_sites_tab(), 'Siteler')
         self.tabs.addTab(self._build_surf_tab(), 'Surf + Puan')
+        self.tabs.addTab(self._build_google_tab(), 'Google Görevi')
+        self.tabs.addTab(self._build_youtube_tab(), 'YouTube Görevi')
+        self.tabs.addTab(self._build_points_info_tab(), 'Puan Sistemi / Özellikler')
         self.tabs.addTab(self._build_mail_tab(), 'İletişim')
         self.tabs.addTab(self._build_log_tab(), 'Log')
         layout.addWidget(self.tabs)
@@ -554,7 +702,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.warning_bar.setStyleSheet('background:#f43f5e; color:white; padding:8px 12px; border-radius:8px; font-weight:bold;')
         layout.addWidget(self.warning_bar)
 
-        self.summary_label = QtWidgets.QLabel('Günlük: 0 • Haftalık: 0 • Kalan Süre: 0 sn')
+        self.summary_label = QtWidgets.QLabel('Günlük: 0 • Haftalık: 0')
         self.summary_label.setStyleSheet('font-weight:bold; color:#0f172a;')
         layout.addWidget(self.summary_label)
 
@@ -580,14 +728,34 @@ class SurfApp(QtWidgets.QMainWindow):
         return widget
 
     def _build_chart(self, title: str) -> QChartView:
-        series = QLineSeries()
+        line = QLineSeries()
+        line.setColor(QtGui.QColor('#ec4899'))
+        bar_set = QBarSet('Toplam')
+        bar_set.setColor(QtGui.QColor('#60a5fa'))
+        bars = QBarSeries()
+        bars.append(bar_set)
         chart = QChart()
-        chart.addSeries(series)
-        chart.createDefaultAxes()
+        chart.addSeries(bars)
+        chart.addSeries(line)
+        axis_x = QBarCategoryAxis()
+        axis_y = QValueAxis()
+        axis_y.setLabelFormat('%d')
+        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
+        bars.attachAxis(axis_x)
+        bars.attachAxis(axis_y)
+        line.attachAxis(axis_x)
+        line.attachAxis(axis_y)
         chart.setTitle(title)
-        chart.legend().hide()
+        chart.legend().setVisible(True)
+        chart.legend().setLabelColor(QtGui.QColor('#0f172a'))
         view = QChartView(chart)
         view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        view.setProperty('line_series', line)
+        view.setProperty('bar_series', bars)
+        view.setProperty('bar_set', bar_set)
+        view.setProperty('axis_x', axis_x)
+        view.setProperty('axis_y', axis_y)
         return view
 
     def _build_sites_tab(self) -> QtWidgets.QWidget:
@@ -708,6 +876,114 @@ class SurfApp(QtWidgets.QMainWindow):
 
         return widget
 
+    def _build_google_tab(self) -> QtWidgets.QWidget:
+        widget = QtWidgets.QWidget()
+        form = QtWidgets.QFormLayout(widget)
+        self.google_site = QtWidgets.QLineEdit()
+        self.google_keyword = QtWidgets.QLineEdit()
+        self.google_country = QtWidgets.QComboBox()
+        countries = [('Global', 'com'), ('Brezilya', 'com.br'), ('Türkiye', 'com.tr'), ('ABD', 'com'), ('Almanya', 'de')]
+        for name, code in countries:
+            self.google_country.addItem(name, code)
+        self.google_pages = QtWidgets.QSpinBox()
+        self.google_pages.setRange(1, 10)
+        self.google_pages.setValue(3)
+        self.google_dwell = QtWidgets.QSpinBox()
+        self.google_dwell.setRange(5, 900)
+        self.google_dwell.setValue(30)
+
+        self.google_action_boxes = self._build_action_checkboxes()
+        form.addRow('Site Adresi', self.google_site)
+        form.addRow('Arama Kelimesi', self.google_keyword)
+        form.addRow('Ülke', self.google_country)
+        form.addRow('Kaç Sayfa Tara', self.google_pages)
+        form.addRow('Sitede Kalma (sn)', self.google_dwell)
+        form.addRow(self.google_action_boxes['container'])
+
+        btn = QtWidgets.QPushButton('Google Görevini Başlat')
+        btn.clicked.connect(self.start_google_task)
+        form.addRow(btn)
+        return widget
+
+    def _build_youtube_tab(self) -> QtWidgets.QWidget:
+        widget = QtWidgets.QWidget()
+        form = QtWidgets.QFormLayout(widget)
+        self.youtube_keyword = QtWidgets.QLineEdit()
+        self.youtube_video = QtWidgets.QLineEdit()
+        self.youtube_pages = QtWidgets.QSpinBox()
+        self.youtube_pages.setRange(1, 10)
+        self.youtube_pages.setValue(2)
+        self.youtube_dwell = QtWidgets.QSpinBox()
+        self.youtube_dwell.setRange(5, 1200)
+        self.youtube_dwell.setValue(60)
+        self.youtube_action_boxes = self._build_action_checkboxes(include_media=True)
+
+        form.addRow('Arama Kelimesi (opsiyonel)', self.youtube_keyword)
+        form.addRow('Video Linki', self.youtube_video)
+        form.addRow('Arama Sayfa Sayısı', self.youtube_pages)
+        form.addRow('Video İzleme (sn)', self.youtube_dwell)
+        form.addRow(self.youtube_action_boxes['container'])
+
+        btn = QtWidgets.QPushButton('YouTube Görevini Başlat')
+        btn.clicked.connect(self.start_youtube_task)
+        form.addRow(btn)
+        return widget
+
+    def _build_points_info_tab(self) -> QtWidgets.QWidget:
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(widget)
+        desc = QtWidgets.QLabel('Kazanılabilecek / harcanacak puanların özeti:')
+        desc.setStyleSheet('font-weight:bold; font-size:14px;')
+        layout.addWidget(desc)
+        table = QtWidgets.QTableWidget(0, 3)
+        table.setHorizontalHeaderLabels(['İşlem', 'Puan', 'Açıklama'])
+        rows = [
+            ('Site ekleme', '-Süre', 'Siteyi eklerken süre kadar puan rezerv edilir'),
+            ('Surf ödülü', '+Süre', 'Gezinme tamamlanınca süre kadar puan kazanılır'),
+            ('Google görevi', '+50 + süre + (10*sayfa)', 'Arama + sitede kalma toplam kazanç'),
+            ('YouTube görevi', '+50 + süre + (10*sayfa)', 'Arama aktifse sayfa başı eklenir'),
+            ('Günlük limit', 'config', 'max_daily_reward, max_daily_site_visits ile sınırlanır'),
+            ('Haftalık/Aylık limit', 'config', 'max_weekly_reward ve max_monthly_reward kontrol edilir'),
+        ]
+        table.setRowCount(len(rows))
+        for idx, row in enumerate(rows):
+            for col, val in enumerate(row):
+                item = QtWidgets.QTableWidgetItem(val)
+                table.setItem(idx, col, item)
+        table.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(table)
+        return widget
+
+    def _build_action_checkboxes(self, include_media: bool = True) -> dict:
+        container = QtWidgets.QGroupBox('Görev Aksiyonları')
+        grid = QtWidgets.QGridLayout(container)
+        flags = {
+            'mobile': QtWidgets.QCheckBox('Mobil UA'),
+            'realistic': QtWidgets.QCheckBox('Gerçekçi gezinme'),
+            'mouse_moves': QtWidgets.QCheckBox('Mouse hareketleri'),
+            'scroll': QtWidgets.QCheckBox('Scroll'),
+            'link_clicks': QtWidgets.QCheckBox('Link tıklama'),
+            'form_fill': QtWidgets.QCheckBox('Form doldurma'),
+        }
+        for idx, cb in enumerate(flags.values()):
+            grid.addWidget(cb, idx // 2, idx % 2)
+        media_boxes = {
+            'hover': QtWidgets.QCheckBox('Mouse ile videonun üstüne gelme'),
+            'delay': QtWidgets.QCheckBox('Birkaç saniye bekleme'),
+            'human_click': QtWidgets.QCheckBox('İnsan davranışı tıklama'),
+            'pause_play': QtWidgets.QCheckBox('Videoyu durdur / devam ettir'),
+            'volume': QtWidgets.QCheckBox('Ses açma'),
+            'fullscreen': QtWidgets.QCheckBox('Tam ekran (YouTube f)'),
+            'quality': QtWidgets.QCheckBox('Kalite menüsü'),
+        }
+        if include_media:
+            media_group = QtWidgets.QGroupBox('Medya seçenekleri')
+            vbox = QtWidgets.QVBoxLayout(media_group)
+            for cb in media_boxes.values():
+                vbox.addWidget(cb)
+            grid.addWidget(media_group, 3, 0, 1, 2)
+        return {'container': container, 'flags': flags, 'media': media_boxes}
+
     def _build_mail_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         form = QtWidgets.QFormLayout(widget)
@@ -819,7 +1095,8 @@ class SurfApp(QtWidgets.QMainWindow):
         if limits.get('monthly_left') is not None:
             caps_txt.append(f"Aylık limit: {limits.get('monthly_left')} kaldı")
         caps_line = ' • '.join(caps_txt)
-        self.summary_label.setText(f"Günlük: {daily} • Haftalık: {weekly} • Kalan Süre: {remaining} sn{' • ' + caps_line if caps_line else ''}")
+        suffix = f" • {caps_line}" if caps_line else ''
+        self.summary_label.setText(f"Günlük: {daily} • Haftalık: {weekly}{suffix}")
         self.remaining_bar.setValue(percent)
         self.timer_label.setText(f'Animasyonlu Sayaç: {remaining} sn')
         self.warning_bar.setVisible(points <= 0)
@@ -836,32 +1113,33 @@ class SurfApp(QtWidgets.QMainWindow):
             history = []
         if not history:
             history = [{'label': 'Gün 1', 'daily': 0, 'weekly': 0}]
-        self._fill_chart(self.daily_chart.chart(), [(item['label'], item.get('daily', 0)) for item in history])
-        self._fill_chart(self.weekly_chart.chart(), [(item['label'], item.get('weekly', 0)) for item in history])
+        self._fill_chart(self.daily_chart, [(item['label'], item.get('daily', 0)) for item in history])
+        self._fill_chart(self.weekly_chart, [(item['label'], item.get('weekly', 0)) for item in history])
 
-    def _fill_chart(self, chart: QChart, items: List[Tuple[str, int]]):
-        for axis in chart.axes():
-            chart.removeAxis(axis)
-        chart.removeAllSeries()
-        series = QLineSeries()
-        series.setColor(QtGui.QColor('#38bdf8'))
-        series.setPointsVisible(True)
+    def _fill_chart(self, view: QChartView, items: List[Tuple[str, int]]):
         if not items:
             items = [('0', 0)]
-        for idx, (_, value) in enumerate(items):
-            series.append(idx, value)
-        chart.addSeries(series)
-        axis_x = QValueAxis()
-        axis_x.setRange(0, max(1, len(items) - 1))
-        axis_x.setTickCount(min(6, len(items) + 1))
-        axis_y = QValueAxis()
-        axis_y.setRange(0, max(10, max(v for _, v in items) + 10))
-        axis_y.setTickCount(6)
-        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-        series.attachAxis(axis_x)
-        series.attachAxis(axis_y)
-        chart.legend().hide()
+        line: QLineSeries = view.property('line_series')
+        bars: QBarSeries = view.property('bar_series')
+        bar_set: QBarSet = view.property('bar_set')
+        axis_x: QBarCategoryAxis = view.property('axis_x')
+        axis_y: QValueAxis = view.property('axis_y')
+        line.clear()
+        bar_set.remove(0, bar_set.count()) if bar_set.count() else None
+        categories = []
+        values = []
+        for idx, (label, value) in enumerate(items):
+            categories.append(label)
+            values.append(value)
+            line.append(idx, value)
+            bar_set.append(value)
+        axis_x.clear()
+        axis_x.append(categories)
+        min_val = min(values + [0])
+        max_val = max(values + [0])
+        pad = max(10, int((max_val - min_val) * 0.2) + 5)
+        axis_y.setRange(min_val - pad, max_val + pad)
+        view.chart().update()
 
     def add_or_update_site(self):
         if not self.client or not self.token:
@@ -976,13 +1254,55 @@ class SurfApp(QtWidgets.QMainWindow):
         if self.worker_thread and self.worker_thread.isRunning():
             self._toast('Zaten çalışıyor')
             return
+        self._launch_worker('surf', {})
+
+    def start_google_task(self):
+        if not self.token:
+            self._toast('Önce giriş yapın', error=True)
+            return
+        flags = self._collect_flags(self.google_action_boxes)
+        config = {
+            'url': self.google_site.text(),
+            'site_url': self.google_site.text(),
+            'keyword': self.google_keyword.text(),
+            'country': self.google_country.currentData(),
+            'pages': self.google_pages.value(),
+            'dwell': self.google_dwell.value(),
+            **flags,
+        }
+        self._launch_worker('google', config)
+
+    def start_youtube_task(self):
+        if not self.token:
+            self._toast('Önce giriş yapın', error=True)
+            return
+        flags = self._collect_flags(self.youtube_action_boxes)
+        config = {
+            'url': self.youtube_video.text(),
+            'video_link': self.youtube_video.text(),
+            'keyword': self.youtube_keyword.text(),
+            'pages': self.youtube_pages.value(),
+            'dwell': self.youtube_dwell.value(),
+            **flags,
+        }
+        self._launch_worker('youtube', config)
+
+    def _collect_flags(self, box: dict) -> dict:
+        flags = {key: cb.isChecked() for key, cb in box['flags'].items()}
+        media_actions = [key for key, cb in box.get('media', {}).items() if cb.isChecked()]
+        flags['media'] = bool(media_actions)
+        flags['media_actions'] = media_actions
+        return flags
+
+    def _launch_worker(self, mode: str, config: dict):
+        self._init_client()
         self.progress.setValue(0)
         self.countdown_label.setText('Kalan süre: 0 sn / 0 sn')
         self.live_view.setPixmap(QtGui.QPixmap())
         self.live_view.setText('Chromium açılıyor...')
         self.start_btn.setEnabled(False)
         self.worker_thread = QtCore.QThread()
-        self.worker = SurfWorker(self.token, self.client)
+        self.worker = SurfWorker(self.token, self.client, mode=mode, task_config=config)
         self.worker.moveToThread(self.worker_thread)
         self.worker_thread.started.connect(self.worker.run)
         self.worker.progress.connect(self._on_progress)

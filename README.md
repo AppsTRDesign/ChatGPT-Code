@@ -28,10 +28,13 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
 ## Python GUI (PyQt6 + Playwright)
 - **Konum:** `client/surf_gui.py`
 - **Özellikler:**
-  - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan & Özet, Siteler, Surf + Puan, İletişim).
-  - Dashboard sekmesinde animasyonlu sayaç, kalan/ toplam süre barı, puan yetersizliğinde kırmızı uyarı bandı, günlük/haftalık kazanç grafikleri (PyQt6-Charts).
-  - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
-  - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, metin seçip çizme/kopyalama, form doldurup temizleme, medya kontrolleri), ilerleme çubuğu, kalan/toplam süre gösterimi, canlı önizleme (mouse overlay) ve kazanç bildirimi; loglar ayrı sekmede kopyalanabilir.
+  - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan & Özet, Siteler, Surf + Puan, Google Görevi, YouTube Görevi, Puan Sistemi/Özellikler, İletişim, Log).
+  - Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; Chart.js hissi veren line + bar PyQt6-Charts grafikleriyle günlük/haftalık kazançlar.
+  - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, medya aksiyon checkbox’ları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
+  - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, metin seçip çizme/kopyalama, form doldurup temizleme, medya kontrolleri), ilerleme çubuğu ve canlı önizleme (tarayıcı üzerinde yapay mouse overlay) ile puan kazanımı; loglar ayrı sekmede kopyalanabilir.
+  - Google araması sekmesi: ülke seçimiyle Google üzerinden arama yapıp hedef siteyi bulduğunda görev planını aynı aksiyonlarla çalıştırır, puanı `50 + süre + 10*sayfa` formülüyle hesaplar.
+  - YouTube sekmesi: arama + hedef video linki veya direkt linkle video açıp işaretli medya/görev aksiyonlarını çalıştırır, puanı `50 + süre (+10*sayfa aramadaysa)` formülüyle hesaplar.
+  - Puan sistemi sekmesi: harcama/kazanç kalemleri ve günlük/haftalık/aylık limitleri tablo halinde gösterir.
   - İletişim sekmesi: API’den çekilen mail ayarlarıyla info@noasoft.org’a mesaj iletimi.
 - **Çalıştırma:**
   ```bash
