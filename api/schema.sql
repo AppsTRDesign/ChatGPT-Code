@@ -36,6 +36,26 @@ CREATE TABLE IF NOT EXISTS surf_sessions (
     FOREIGN KEY (surfer_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS site_stats (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    site_id INT NOT NULL,
+    surfer_id INT NOT NULL,
+    ip VARCHAR(64) NULL,
+    country VARCHAR(128) NULL,
+    city VARCHAR(128) NULL,
+    platform VARCHAR(128) NULL,
+    device VARCHAR(64) NULL,
+    clicks INT DEFAULT 0,
+    scrolls INT DEFAULT 0,
+    highlights INT DEFAULT 0,
+    forms INT DEFAULT 0,
+    media INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE,
+    FOREIGN KEY (surfer_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_site_stats_site_created_at (site_id, created_at)
+);
+
 CREATE TABLE IF NOT EXISTS point_ledger (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,

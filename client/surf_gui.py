@@ -1,7 +1,11 @@
+import os
+import platform
 import random
 import string
 import time
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from urllib.parse import urlparse
@@ -19,6 +23,20 @@ from PyQt6.QtCharts import (
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright, sync_playwright
+
+try:  # optional GeoIP support
+    import geoip2.database
+except Exception:  # noqa: BLE001
+    geoip2 = None
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+except Exception:  # noqa: BLE001
+    colors = ParagraphStyle = SimpleDocTemplate = None
 
 
 @dataclass
@@ -103,13 +121,11 @@ class ApiClient:
         resp = self._request('POST', '/surf/start', token=token)
         return self._json(resp)
 
-    def complete_surf(self, token: str, session_id: int, consumed_seconds: int):
-        resp = self._request(
-            'POST',
-            '/surf/complete',
-            token=token,
-            json={'session_id': session_id, 'consumed_seconds': consumed_seconds},
-        )
+    def complete_surf(self, token: str, session_id: int, consumed_seconds: int, telemetry: Optional[dict] = None):
+        payload = {'session_id': session_id, 'consumed_seconds': consumed_seconds}
+        if telemetry:
+            payload['telemetry'] = telemetry
+        resp = self._request('POST', '/surf/complete', token=token, json=payload)
         return self._json(resp)
 
     def dashboard(self, token: str):
@@ -126,6 +142,10 @@ class ApiClient:
 
     def send_mail(self, token: str, payload: dict):
         resp = self._request('POST', '/mail/send', token=token, json=payload)
+        return self._json(resp)
+
+    def site_stats(self, token: str, site_id: int):
+        resp = self._request('GET', f'/sites/{site_id}/stats', token=token)
         return self._json(resp)
 
 
@@ -155,6 +175,7 @@ class SurfWorker(QtCore.QObject):
         self._current_mobile = False
         self.mode = mode
         self.task_config = task_config or {}
+        self._geo_cache: Optional[dict] = None
 
     def stop(self):
         self._running = False
@@ -247,7 +268,7 @@ class SurfWorker(QtCore.QObject):
             steps.append(SurfPlanStep('Sayfada kalma', 'Okuma ve bekleme', remaining))
         return steps, site
 
-    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep]) -> int:
+    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep]) -> Tuple[int, dict]:
         page = self._ensure_page(playwright, site)
         url = site.get('url')
         self.log.emit(f'Sayfa açılıyor: {url}')
@@ -259,6 +280,7 @@ class SurfWorker(QtCore.QObject):
         last_mouse: Optional[Tuple[int, int]] = None
         host = urlparse(url).netloc
         runtime_target = 0
+        metrics = {'clicks': 0, 'scrolls': 0, 'highlights': 0, 'forms': 0, 'media': 0, 'mouse_moves': 0}
         for step in plan:
             if not self._running:
                 break
@@ -269,17 +291,29 @@ class SurfWorker(QtCore.QObject):
             try:
                 if 'mouse' in step.title.lower():
                     performed, last_mouse = self._simulate_mouse_moves(page, viewport)
+                    if performed:
+                        metrics['mouse_moves'] += 1
                 if 'metin' in step.title.lower():
-                    performed = self._simulate_text_highlight(page) or performed
+                    if self._simulate_text_highlight(page):
+                        metrics['highlights'] += 1
+                        performed = True
                 if 'scroll' in step.title.lower():
-                    performed = self._simulate_scroll(page, viewport) or performed
+                    if self._simulate_scroll(page, viewport):
+                        metrics['scrolls'] += 1
+                        performed = True
                 if 'tıklamalar' in step.title.lower():
-                    performed = self._simulate_clicks(page, host) or performed
+                    if self._simulate_clicks(page, host):
+                        metrics['clicks'] += 1
+                        performed = True
                 if 'form' in step.title.lower():
-                    performed = self._simulate_form(page) or performed
+                    if self._simulate_form(page):
+                        metrics['forms'] += 1
+                        performed = True
                 if 'medya' in step.title.lower():
                     actions = site.get('media_actions') or site.get('media_options') or []
-                    performed = self._simulate_media(page, actions) or performed
+                    if self._simulate_media(page, actions):
+                        metrics['media'] += 1
+                        performed = True
                 if 'sayfada' in step.title.lower():
                     performed = True  # sadece bekleme adımı
             except Exception as action_err:
@@ -301,7 +335,47 @@ class SurfWorker(QtCore.QObject):
         if elapsed and elapsed < planned_total:
             self.progress.emit(int((elapsed / planned_total) * 100), elapsed, planned_total, 'Plan tamamlandı')
         self.progress.emit(100, elapsed or runtime_target, max(planned_total, runtime_target, 1), 'Tamamlandı')
-        return elapsed
+        return elapsed, metrics
+
+    def _detect_geo(self) -> dict:
+        if self._geo_cache is not None:
+            return self._geo_cache
+        ip = ''
+        country = ''
+        city = ''
+        try:
+            ip_resp = requests.get('https://api.ipify.org', timeout=4)
+            ip_resp.raise_for_status()
+            ip = ip_resp.text.strip()
+        except Exception as exc:  # noqa: BLE001
+            self.log.emit(f'IP tespit hatası: {exc}')
+        if geoip2 and ip:
+            try:
+                mmdb_path = self.task_config.get('geoip_path') or str(Path(__file__).resolve().parent / 'assets' / 'GeoLite2-City.mmdb')
+                if os.path.exists(mmdb_path):
+                    reader = geoip2.database.Reader(mmdb_path)
+                    response = reader.city(ip)
+                    country = response.country.name or ''
+                    city = response.city.name or ''
+                    reader.close()
+            except Exception as exc:  # noqa: BLE001
+                self.log.emit(f'GeoIP okunamadı: {exc}')
+        self._geo_cache = {'ip': ip, 'country': country, 'city': city}
+        return self._geo_cache
+
+    def _build_telemetry(self, site: dict, metrics: dict) -> dict:
+        geo = self._detect_geo()
+        device = 'Mobile' if site.get('mobile') else 'Desktop'
+        return {
+            **geo,
+            'platform': platform.platform(),
+            'device': device,
+            'clicks': metrics.get('clicks', 0),
+            'scrolls': metrics.get('scrolls', 0),
+            'highlights': metrics.get('highlights', 0),
+            'forms': metrics.get('forms', 0),
+            'media': metrics.get('media', 0),
+        }
 
     def _simulate_mouse_moves(self, page, viewport: Dict[str, int]) -> Tuple[bool, Optional[Tuple[int, int]]]:
         last_mouse = None
@@ -458,7 +532,7 @@ class SurfWorker(QtCore.QObject):
             self.failed.emit('Site bulunamadı, sonuçlarda yok')
             return
         plan, site_flags = self._build_custom_plan(dwell, cfg)
-        consumed = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
+        consumed, _ = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
         earned = consumed + 50 + (visited_pages * 10)
         self.finished.emit(earned)
 
@@ -500,7 +574,7 @@ class SurfWorker(QtCore.QObject):
         plan, site_flags = self._build_custom_plan(dwell, cfg)
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
-        consumed = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
+        consumed, _ = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
         earned = 50 + consumed + (pages * 10 if keyword else 0)
         self.finished.emit(earned)
 
@@ -524,11 +598,12 @@ class SurfWorker(QtCore.QObject):
                             break
                         plan, site = self._build_plan(session)
                         session_id = session.get('session_id') or session.get('id')
-                        consumed_seconds = self._apply_actions(playwright, site, plan)
+                        consumed_seconds, metrics = self._apply_actions(playwright, site, plan)
                         if not self._running:
                             break
                         try:
-                            result = self.client.complete_surf(self.token, int(session_id), consumed_seconds)
+                            telemetry = self._build_telemetry(site, metrics)
+                            result = self.client.complete_surf(self.token, int(session_id), consumed_seconds, telemetry)
                             earned = int(result.get('earned', 0))
                             self.log.emit(f'Oturum tamamlandı: +{earned} puan')
                             self.finished.emit(earned)
@@ -561,6 +636,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.current_page = 1
         self.total_pages = 1
         self.current_email: str = ''
+        self.sites_cache: Dict[int, dict] = {}
         self._build_ui()
 
     def _build_ui(self):
@@ -821,7 +897,7 @@ class SurfApp(QtWidgets.QMainWindow):
         outer.addWidget(self.preview_label)
 
         self.site_table = QtWidgets.QTableWidget(0, 6)
-        self.site_table.setHorizontalHeaderLabels(['ID', 'Site Adı', 'URL', 'Süre', 'Ayarlar', 'İşlem'])
+        self.site_table.setHorizontalHeaderLabels(['ID', 'Site Adı', 'URL', 'Süre', 'Ayarlar', 'İşlemler'])
         self.site_table.horizontalHeader().setStretchLastSection(True)
         self.site_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.site_table.itemSelectionChanged.connect(self._on_site_selected)
@@ -1189,6 +1265,7 @@ class SurfApp(QtWidgets.QMainWindow):
                     break
         elif isinstance(data, list):
             sites = data
+        self.sites_cache = {int(s.get('id')): s for s in sites if s.get('id')}
         self.total_pages = max(1, int(data.get('pages', 1))) if isinstance(data, dict) else 1
         self.page_label.setText(f'Sayfa {self.current_page}/{self.total_pages}')
         self.site_table.setRowCount(len(sites))
@@ -1210,9 +1287,18 @@ class SurfApp(QtWidgets.QMainWindow):
             if media_actions:
                 settings.append('Medya: ' + ', '.join(media_actions))
             self.site_table.setItem(row, 4, QtWidgets.QTableWidgetItem(', '.join(settings)))
+            action_widget = QtWidgets.QWidget()
+            action_layout = QtWidgets.QHBoxLayout(action_widget)
+            action_layout.setContentsMargins(0, 0, 0, 0)
+            details_btn = QtWidgets.QPushButton('Detaylar')
+            details_btn.clicked.connect(lambda _, s_id=site.get('id'): self.show_site_details(s_id))
             delete_btn = QtWidgets.QPushButton('Sil')
             delete_btn.clicked.connect(lambda _, s_id=site.get('id'): self.delete_site(s_id))
-            self.site_table.setCellWidget(row, 5, delete_btn)
+            for btn in (details_btn, delete_btn):
+                btn.setStyleSheet('padding:4px 8px;')
+                action_layout.addWidget(btn)
+            action_layout.addStretch()
+            self.site_table.setCellWidget(row, 5, action_widget)
 
     def prev_page(self):
         if self.current_page > 1:
@@ -1246,6 +1332,138 @@ class SurfApp(QtWidgets.QMainWindow):
         dwell = self.site_table.item(row, 3).text()
         settings = self.site_table.item(row, 4).text()
         self.preview_label.setText(f'Davranış Önizleme: {dwell} sn • {settings}')
+
+    def show_site_details(self, site_id: int):
+        if not site_id or not self.client or not self.token:
+            self._toast('Önce giriş yapın', error=True)
+            return
+        try:
+            stats = self.client.site_stats(self.token, int(site_id))
+        except Exception as exc:  # noqa: BLE001
+            self._toast(f'Detay yüklenemedi: {exc}', error=True)
+            return
+
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle('Site İstatistikleri')
+        dialog.resize(900, 720)
+        layout = QtWidgets.QVBoxLayout(dialog)
+
+        summary = stats.get('summary', {})
+        summary_label = QtWidgets.QLabel(
+            f"Toplam ziyaret: {summary.get('total_visits', 0)} • Toplam tıklama: {summary.get('clicks', 0)}"
+        )
+        summary_label.setStyleSheet('font-weight:bold; font-size:15px;')
+        layout.addWidget(summary_label)
+
+        chart_row = QtWidgets.QHBoxLayout()
+        for title, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
+            view = self._build_stats_chart(title, stats.get('charts', {}).get(key) or [])
+            chart_row.addWidget(view)
+        layout.addLayout(chart_row)
+
+        table = QtWidgets.QTableWidget()
+        headers = ['Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Tıklama', 'Scroll', 'Form', 'Medya']
+        events = stats.get('events', [])
+        table.setRowCount(len(events))
+        table.setColumnCount(len(headers))
+        table.setHorizontalHeaderLabels(headers)
+        for r, ev in enumerate(events):
+            row_items = [
+                ev.get('created_at', ''),
+                ev.get('ip', ''),
+                ev.get('country', ''),
+                ev.get('city', ''),
+                ev.get('platform', ''),
+                ev.get('device', ''),
+                str(ev.get('clicks', 0)),
+                str(ev.get('scrolls', 0)),
+                str(ev.get('forms', 0)),
+                str(ev.get('media', 0)),
+            ]
+            for c, text in enumerate(row_items):
+                table.setItem(r, c, QtWidgets.QTableWidgetItem(text))
+        table.resizeColumnsToContents()
+        layout.addWidget(table)
+
+        btn_row = QtWidgets.QHBoxLayout()
+        export_btn = QtWidgets.QPushButton('PDF olarak dışa aktar')
+        export_btn.clicked.connect(lambda: self._export_stats_pdf(stats))
+        btn_row.addWidget(export_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        dialog.exec()
+
+    def _build_stats_chart(self, title: str, rows: List[dict]) -> QChartView:
+        chart = QChart()
+        visits_set = QBarSet('Ziyaret')
+        visits_set.setColor(QtGui.QColor('#2563eb'))
+        clicks_set = QBarSet('Tıklama')
+        clicks_set.setColor(QtGui.QColor('#f59e0b'))
+        categories: List[str] = []
+        for row in rows:
+            categories.append(str(row.get('label')))
+            visits_set.append(int(row.get('visits', 0)))
+            clicks_set.append(int(row.get('clicks', 0) or 0))
+        if not categories:
+            categories = ['Veri yok']
+            visits_set.append(0)
+            clicks_set.append(0)
+        bars = QBarSeries()
+        bars.append(visits_set)
+        bars.append(clicks_set)
+        chart.addSeries(bars)
+        axis_x = QBarCategoryAxis()
+        axis_x.append(categories)
+        axis_y = QValueAxis()
+        axis_y.setLabelFormat('%d')
+        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
+        bars.attachAxis(axis_x)
+        bars.attachAxis(axis_y)
+        chart.setTitle(title)
+        chart.legend().setVisible(True)
+        view = QChartView(chart)
+        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        return view
+
+    def _export_stats_pdf(self, stats: dict):
+        if not SimpleDocTemplate:
+            self._toast('PDF modülü yüklü değil (reportlab)', error=True)
+            return
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'PDF kaydet', 'site-raporu.pdf', 'PDF Files (*.pdf)')
+        if not filename:
+            return
+        doc = SimpleDocTemplate(filename, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm)
+        style = ParagraphStyle('body', fontName='Helvetica', fontSize=10, leading=14)
+        story = [Paragraph('<b>NoaSoft Autosurf Site Raporu</b>', ParagraphStyle('title', fontName='Helvetica-Bold', fontSize=14))]
+        story.append(Spacer(1, 8))
+        summary = stats.get('summary', {})
+        story.append(Paragraph(f"Toplam ziyaret: {summary.get('total_visits', 0)}", style))
+        story.append(Paragraph(f"Toplam tıklama: {summary.get('clicks', 0)}", style))
+        story.append(Spacer(1, 6))
+
+        table_data = [[
+            'Tarih', 'IP', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Tıklama', 'Scroll', 'Form', 'Medya'
+        ]]
+        for ev in stats.get('events', [])[:40]:
+            table_data.append([
+                ev.get('created_at', ''), ev.get('ip', ''), ev.get('country', ''), ev.get('city', ''),
+                ev.get('platform', ''), ev.get('device', ''),
+                str(ev.get('clicks', 0)), str(ev.get('scrolls', 0)), str(ev.get('forms', 0)), str(ev.get('media', 0)),
+            ])
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+        ]))
+        story.append(table)
+        story.append(Spacer(1, 12))
+        story.append(Paragraph(f'Oluşturulma: {datetime.now().strftime("%d.%m.%Y %H:%M")}', style))
+        doc.build(story)
+        self._toast('PDF oluşturuldu')
 
     def start_surf(self):
         if not self.client or not self.token:

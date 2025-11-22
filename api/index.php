@@ -357,6 +357,7 @@ function complete_surf(PDO $pdo, array $user, array $config): void
     $data = read_json();
     $sessionId = (int)($data['session_id'] ?? 0);
     $consumed = (int)($data['consumed_seconds'] ?? 0);
+    $telemetry = $data['telemetry'] ?? [];
     if (!$sessionId) {
         Response::error('session_id zorunlu');
         return;
@@ -379,8 +380,94 @@ function complete_surf(PDO $pdo, array $user, array $config): void
         $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
             ->execute([$user['id'], $reward, 'surf_reward', json_encode(['session_id' => $sessionId, 'consumed' => $consumed])]);
     }
+    persist_site_stats($pdo, (int)$session['site_id'], (int)$user['id'], $telemetry);
     $pdo->commit();
     Response::json(['earned' => $reward]);
+}
+
+function persist_site_stats(PDO $pdo, int $siteId, int $surferId, array $telemetry): void
+{
+    $payload = [
+        'ip' => $telemetry['ip'] ?? null,
+        'country' => $telemetry['country'] ?? null,
+        'city' => $telemetry['city'] ?? null,
+        'platform' => $telemetry['platform'] ?? null,
+        'device' => $telemetry['device'] ?? null,
+        'clicks' => (int)($telemetry['clicks'] ?? 0),
+        'scrolls' => (int)($telemetry['scrolls'] ?? 0),
+        'highlights' => (int)($telemetry['highlights'] ?? 0),
+        'forms' => (int)($telemetry['forms'] ?? 0),
+        'media' => (int)($telemetry['media'] ?? 0),
+    ];
+    $stmt = $pdo->prepare('INSERT INTO site_stats (site_id, surfer_id, ip, country, city, platform, device, clicks, scrolls, highlights, forms, media)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+    $stmt->execute([
+        $siteId,
+        $surferId,
+        $payload['ip'],
+        $payload['country'],
+        $payload['city'],
+        $payload['platform'],
+        $payload['device'],
+        $payload['clicks'],
+        $payload['scrolls'],
+        $payload['highlights'],
+        $payload['forms'],
+        $payload['media'],
+    ]);
+}
+
+function site_stats(PDO $pdo, array $user, int $siteId): void
+{
+    $stmt = $pdo->prepare('SELECT * FROM sites WHERE id = ? AND user_id = ?');
+    $stmt->execute([$siteId, $user['id']]);
+    $site = $stmt->fetch();
+    if (!$site) {
+        Response::error('Site bulunamadı', 404);
+        return;
+    }
+
+    $eventsStmt = $pdo->prepare('SELECT country, city, ip, platform, device, clicks, scrolls, highlights, forms, media, created_at
+        FROM site_stats WHERE site_id = ? ORDER BY created_at DESC LIMIT 100');
+    $eventsStmt->execute([$siteId]);
+    $events = $eventsStmt->fetchAll();
+    $totalsStmt = $pdo->prepare('SELECT COUNT(*) AS visits, SUM(clicks) AS clicks, SUM(scrolls) AS scrolls, SUM(forms) AS forms, SUM(media) AS media
+        FROM site_stats WHERE site_id = ?');
+    $totalsStmt->execute([$siteId]);
+    $totals = $totalsStmt->fetch();
+
+    $daily = $pdo->prepare('SELECT DATE(created_at) AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
+        FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+        GROUP BY DATE(created_at) ORDER BY DATE(created_at)');
+    $daily->execute([$siteId]);
+    $weekly = $pdo->prepare('SELECT YEARWEEK(created_at,1) AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
+        FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 12 WEEK)
+        GROUP BY YEARWEEK(created_at,1) ORDER BY YEARWEEK(created_at,1)');
+    $weekly->execute([$siteId]);
+    $monthly = $pdo->prepare('SELECT DATE_FORMAT(created_at, "%Y-%m") AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
+        FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+        GROUP BY DATE_FORMAT(created_at, "%Y-%m") ORDER BY DATE_FORMAT(created_at, "%Y-%m")');
+    $monthly->execute([$siteId]);
+
+    $summary = [
+        'total_visits' => (int)($totals['visits'] ?? count($events)),
+        'last_visit' => $events[0]['created_at'] ?? null,
+        'clicks' => (int)($totals['clicks'] ?? array_sum(array_column($events, 'clicks'))),
+        'scrolls' => (int)($totals['scrolls'] ?? array_sum(array_column($events, 'scrolls'))),
+        'forms' => (int)($totals['forms'] ?? array_sum(array_column($events, 'forms'))),
+        'media' => (int)($totals['media'] ?? array_sum(array_column($events, 'media'))),
+    ];
+
+    Response::json([
+        'site' => $site,
+        'events' => $events,
+        'charts' => [
+            'daily' => $daily->fetchAll(),
+            'weekly' => $weekly->fetchAll(),
+            'monthly' => $monthly->fetchAll(),
+        ],
+        'summary' => $summary,
+    ]);
 }
 
 function update_profile_endpoint(PDO $pdo, array $user): void
@@ -513,6 +600,11 @@ switch (true) {
     case preg_match('#^/sites/(\d+)$#', $path, $m) && $method === 'PATCH':
         if ($user = ensure_user($pdo, $config)) {
             update_site($pdo, $user['id'], (int)$m[1]);
+        }
+        break;
+    case preg_match('#^/sites/(\d+)/stats$#', $path, $m) && $method === 'GET':
+        if ($user = ensure_user($pdo, $config)) {
+            site_stats($pdo, $user, (int)$m[1]);
         }
         break;
     case $path === '/surf/start' && $method === 'POST':
