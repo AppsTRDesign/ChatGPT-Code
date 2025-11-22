@@ -228,6 +228,12 @@ class SurfWorker(QtCore.QObject):
     def _build_plan(self, session_payload: dict) -> Tuple[List[SurfPlanStep], Dict]:
         return self.plan_engine.build_plan(session_payload)
 
+    def _emit_progress_tick(self, started_at: float, planned_total: int, detail: str, elapsed_override: Optional[int] = None) -> None:
+        now_elapsed = elapsed_override if elapsed_override is not None else int(time.monotonic() - started_at)
+        total_seconds = max(1, planned_total)
+        percent = min(100, int((now_elapsed / total_seconds) * 100))
+        self.progress.emit(percent, now_elapsed, total_seconds, detail)
+
     def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep], personality: Optional[PersonaEngine] = None) -> Tuple[int, dict]:
         personality = personality or self.personality
         page = self.browser_mgr.ensure_page(playwright, site)
@@ -236,15 +242,15 @@ class SurfWorker(QtCore.QObject):
         page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
         planned_total = max(1, sum(s.seconds for s in plan))
-        elapsed = 0
+        started_at = time.monotonic()
         viewport = page.viewport_size or {'width': 1280, 'height': 720}
         last_mouse: Optional[Tuple[int, int]] = (
             int(viewport.get('width', 1280) / 2),
             int(viewport.get('height', 720) / 2),
         )
         host = urlparse(url).netloc
-        runtime_target = 0
         metrics = {'clicks': 0, 'scrolls': 0, 'highlights': 0, 'forms': 0, 'media': 0, 'mouse_moves': 0}
+        self._emit_progress_tick(started_at, planned_total, 'Başlatılıyor', elapsed_override=0)
         for step in plan:
             if not self._running:
                 break
@@ -252,7 +258,6 @@ class SurfWorker(QtCore.QObject):
             self.step_changed.emit(detail)
             self.log.emit(detail)
             performed = False
-            action_started = time.time()
             try:
                 if 'mouse' in step.title.lower():
                     performed, last_mouse = self.action_simulator.simulate_mouse_moves(page, viewport, personality)
@@ -286,38 +291,15 @@ class SurfWorker(QtCore.QObject):
                 self.log.emit(f'Eylem hatası: {action_err}')
 
             self._emit_frame(page, last_mouse)
-
-            duration = max(1, int(step.seconds))
-            runtime_target += duration
-
-            # Aksiyon süresi kadar zamanı tüket ve kalan için per-saniye ilerle
-            consumed = min(duration, max(0, int(time.time() - action_started)))
-            for _ in range(consumed):
-                if not self._running:
-                    break
-                elapsed += 1
-                total_seconds = max(1, planned_total)
-                percent = min(100, int((elapsed / total_seconds) * 100))
-                self.progress.emit(percent, elapsed, total_seconds, detail)
-
-            remaining = max(0, duration - consumed)
-            remaining_start = time.time()
-            for idx in range(remaining):
-                if not self._running:
-                    break
-                target = remaining_start + idx + 1
-                elapsed += 1
-                total_seconds = max(1, planned_total)
-                percent = min(100, int((elapsed / total_seconds) * 100))
-                self.progress.emit(percent, elapsed, total_seconds, detail)
-                sleep_ms = int(max(0.0, (target - time.time()) * 1000))
-                if sleep_ms > 0:
-                    page.wait_for_timeout(sleep_ms)
+            elapsed_now = int(time.monotonic() - started_at)
+            self._emit_progress_tick(started_at, planned_total, detail, elapsed_override=elapsed_now)
             self._emit_frame(page, last_mouse)
-        if elapsed and elapsed < planned_total:
-            self.progress.emit(int((elapsed / planned_total) * 100), elapsed, planned_total, 'Plan tamamlandı')
-        self.progress.emit(100, elapsed or runtime_target, max(planned_total, runtime_target, 1), 'Tamamlandı')
-        return elapsed, metrics
+        elapsed_total = int(time.monotonic() - started_at)
+        if elapsed_total and elapsed_total < planned_total:
+            self.progress.emit(int((elapsed_total / planned_total) * 100), elapsed_total, planned_total, 'Plan tamamlandı')
+        final_total = max(planned_total, elapsed_total, 1)
+        self.progress.emit(100, max(elapsed_total, planned_total), final_total, 'Tamamlandı')
+        return elapsed_total, metrics
 
     def _emit_frame(self, page, last_mouse: Optional[Tuple[int, int]]):
         try:

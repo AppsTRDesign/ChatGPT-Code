@@ -307,6 +307,10 @@ class ActionSimulator:
         page.wait_for_timeout(
             int(persona.reaction_delay_ms() * dwell_factor * 4.0)
         )
+        try:
+            target.evaluate("el => el.style.textDecoration = 'none'")
+        except Exception:
+            pass
         return True
 
     # ------------------------------------------------------------------ #

@@ -43,25 +43,6 @@ class GeoService:
                         info[key] = val
             except Exception as exc:  # noqa: BLE001
                 self.log(f'GeoIP okunamadı: {exc}')
-
-        # Fallback: harici bir servisle geo bilgisini doldurmayı dene
-        if info['ip'] and (not info['country'] or not info['city'] or info['lat'] is None):
-            try:
-                resp = requests.get('https://ip-api.com/json/' + info['ip'], timeout=4)
-                resp.raise_for_status()
-                data = resp.json()
-                if data.get('status') == 'success':
-                    info['country'] = info['country'] or data.get('country', '')
-                    info['country_code'] = info['country_code'] or data.get('countryCode', '')
-                    info['continent'] = info['continent'] or data.get('continent', '')
-                    info['city'] = info['city'] or data.get('city', '')
-                    info['lat'] = info['lat'] if info['lat'] is not None else data.get('lat')
-                    info['lon'] = info['lon'] if info['lon'] is not None else data.get('lon')
-                    info['asn'] = info['asn'] if info['asn'] is not None else data.get('asname')
-                    info['isp'] = info['isp'] or data.get('isp', '')
-                    info['network'] = info['network'] or data.get('org', '')
-            except Exception as exc:  # noqa: BLE001
-                self.log(f'GeoIP yedek servisi okunamadı: {exc}')
         self._geo_cache = info
         return info
 
