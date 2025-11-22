@@ -19,6 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 function read_json(): array
 {
     $body = file_get_contents('php://input');
+    if (is_array($body)) {
+        $body = json_encode($body);
+    }
     if (!is_string($body)) {
         $body = '';
     }
@@ -636,25 +639,23 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
         GROUP BY DATE_FORMAT(created_at, "%Y-%m") ORDER BY DATE_FORMAT(created_at, "%Y-%m")');
     $monthly->execute([$siteId]);
 
-    $pointSeries = function (string $windowSql, string $labelSql, string $groupBy) use ($pdo, $siteId) {
-        $sql = "SELECT {$labelSql} AS label, SUM(change_amount) AS net,
-                SUM(CASE WHEN change_amount > 0 THEN change_amount ELSE 0 END) AS earned,
+    $pointSeries = function (string $windowSql, string $labelSql, string $groupBy) use ($pdo, $siteId, $user) {
+        $sql = "SELECT {$labelSql} AS label,
                 SUM(CASE WHEN change_amount < 0 THEN -change_amount ELSE 0 END) AS spent
             FROM point_ledger
-            WHERE JSON_EXTRACT(meta, '$.site_id') = ? AND created_at >= {$windowSql}
+            WHERE JSON_EXTRACT(meta, '$.site_id') = ? AND user_id = ? AND created_at >= {$windowSql}
             GROUP BY {$groupBy}
             ORDER BY {$groupBy}";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$siteId]);
+        $stmt->execute([$siteId, $user['id']]);
         return $stmt->fetchAll();
     };
 
-    $pointTotals = $pdo->prepare('SELECT SUM(change_amount) AS net,
-            SUM(CASE WHEN change_amount > 0 THEN change_amount ELSE 0 END) AS earned,
+    $pointTotals = $pdo->prepare('SELECT
             SUM(CASE WHEN change_amount < 0 THEN -change_amount ELSE 0 END) AS spent
-        FROM point_ledger WHERE JSON_EXTRACT(meta, "$.site_id") = ?');
-    $pointTotals->execute([$siteId]);
-    $points = $pointTotals->fetch() ?: ['net' => 0, 'earned' => 0, 'spent' => 0];
+        FROM point_ledger WHERE JSON_EXTRACT(meta, "$.site_id") = ? AND user_id = ?');
+    $pointTotals->execute([$siteId, $user['id']]);
+    $points = $pointTotals->fetch() ?: ['spent' => 0];
 
     $summary = [
         'total_visits' => (int)($totals['visits'] ?? count($events)),
@@ -680,9 +681,7 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
         ],
         'summary' => $summary,
         'points' => [
-            'earned' => (int)($points['earned'] ?? 0),
             'spent' => (int)($points['spent'] ?? 0),
-            'net' => (int)($points['net'] ?? 0),
         ],
         'pagination' => [
             'page' => $page,

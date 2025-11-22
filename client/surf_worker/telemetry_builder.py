@@ -17,21 +17,23 @@ class TelemetryBuilder:
             ua = ''
         payload = {
             'ip': geo.get('ip'),
-            'cc': geo.get('country_code'),
+            'country_code': geo.get('country_code'),
+            'country': geo.get('country'),
+            'continent': geo.get('continent'),
             'city': geo.get('city'),
             'lat': geo.get('lat'),
             'lon': geo.get('lon'),
             'asn': geo.get('asn'),
             'isp': geo.get('isp'),
-            'net': geo.get('network'),
-            'dev': 'M' if site.get('mobile') else 'D',
-            'ua': ua[:220],
-            'plt': platform.system(),
-            'clk': metrics.get('clicks', 0),
-            'scr': metrics.get('scrolls', 0),
-            'sel': metrics.get('highlights', 0),
-            'frm': metrics.get('forms', 0),
-            'med': metrics.get('media', 0),
+            'network': geo.get('network'),
+            'device': 'Mobile' if site.get('mobile') else 'Desktop',
+            'platform': platform.system(),
+            'user_agent': ua[:220],
+            'clicks': metrics.get('clicks', 0),
+            'scrolls': metrics.get('scrolls', 0),
+            'highlights': metrics.get('highlights', 0),
+            'forms': metrics.get('forms', 0),
+            'media': metrics.get('media', 0),
         }
         return {k: v for k, v in payload.items() if v not in (None, '')}
 

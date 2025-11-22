@@ -200,14 +200,9 @@ class ActionSimulator:
                 if not lnk.is_visible():
                     continue
                 href = lnk.get_attribute("href") or ""
-                if not href or href.startswith("#"):
+                if not href or href.startswith("#") or href.lower().startswith("javascript"):
                     continue
-                target = (lnk.get_attribute("target") or "").lower()
-                if target == "_blank":
-                    continue
-                # dış hostlara gitme (gereksiz outbound)
-                if host and href.startswith("http") and host not in href:
-                    continue
+                # Cross-site bağlantılara da izin ver ama boş/anchor olmayanları önceliklendir
                 links.append(lnk)
             except Exception:
                 continue

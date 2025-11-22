@@ -252,6 +252,7 @@ class SurfWorker(QtCore.QObject):
             self.step_changed.emit(detail)
             self.log.emit(detail)
             performed = False
+            action_started = time.time()
             try:
                 if 'mouse' in step.title.lower():
                     performed, last_mouse = self.action_simulator.simulate_mouse_moves(page, viewport, personality)
@@ -288,14 +289,30 @@ class SurfWorker(QtCore.QObject):
 
             duration = max(1, int(step.seconds))
             runtime_target += duration
-            for _ in range(duration):
+
+            # Aksiyon süresi kadar zamanı tüket ve kalan için per-saniye ilerle
+            consumed = min(duration, max(0, int(time.time() - action_started)))
+            for _ in range(consumed):
                 if not self._running:
                     break
                 elapsed += 1
                 total_seconds = max(1, planned_total)
                 percent = min(100, int((elapsed / total_seconds) * 100))
                 self.progress.emit(percent, elapsed, total_seconds, detail)
-                page.wait_for_timeout(1000)
+
+            remaining = max(0, duration - consumed)
+            remaining_start = time.time()
+            for idx in range(remaining):
+                if not self._running:
+                    break
+                target = remaining_start + idx + 1
+                elapsed += 1
+                total_seconds = max(1, planned_total)
+                percent = min(100, int((elapsed / total_seconds) * 100))
+                self.progress.emit(percent, elapsed, total_seconds, detail)
+                sleep_ms = int(max(0.0, (target - time.time()) * 1000))
+                if sleep_ms > 0:
+                    page.wait_for_timeout(sleep_ms)
             self._emit_frame(page, last_mouse)
         if elapsed and elapsed < planned_total:
             self.progress.emit(int((elapsed / planned_total) * 100), elapsed, planned_total, 'Plan tamamlandı')
@@ -1596,7 +1613,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 f"Toplam ziyaret: {summary.get('total_visits', 0)} • Toplam tıklama: {summary.get('clicks', 0)}"
             )
             points_label.setText(
-                f"Puanlar — Kazanılan: {points.get('earned', 0)} • Harcanan: {points.get('spent', 0)} • Net: {points.get('net', 0)}"
+                f"Puanlar — Harcanan: {points.get('spent', 0)}"
             )
 
             self._clear_layout(chart_row)
@@ -1691,30 +1708,19 @@ class SurfApp(QtWidgets.QMainWindow):
 
     def _build_point_chart(self, title: str, rows: List[dict]) -> QChartView:
         chart = QChart()
-        earned_set = QBarSet('Kazanılan')
-        earned_set.setColor(QtGui.QColor('#22c55e'))
         spent_set = QBarSet('Harcanan')
         spent_set.setColor(QtGui.QColor('#ef4444'))
-        net_series = QLineSeries()
-        net_series.setName('Net')
-        net_series.setColor(QtGui.QColor('#0ea5e9'))
         categories: List[str] = []
-        for idx, row in enumerate(rows):
+        for row in rows:
             categories.append(str(row.get('label')))
-            earned_set.append(int(row.get('earned', 0)))
             spent_set.append(int(row.get('spent', 0)))
-            net_series.append(QtCore.QPointF(float(idx), float(row.get('net', 0))))
         if not categories:
             categories = ['Veri yok']
-            earned_set.append(0)
             spent_set.append(0)
-            net_series.append(QtCore.QPointF(0.0, 0.0))
 
         bars = QBarSeries()
-        bars.append(earned_set)
         bars.append(spent_set)
         chart.addSeries(bars)
-        chart.addSeries(net_series)
 
         axis_x = QBarCategoryAxis()
         axis_x.append(categories)
@@ -1724,8 +1730,6 @@ class SurfApp(QtWidgets.QMainWindow):
         chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
         bars.attachAxis(axis_x)
         bars.attachAxis(axis_y)
-        net_series.attachAxis(axis_x)
-        net_series.attachAxis(axis_y)
         chart.setTitle(title)
         chart.legend().setVisible(True)
         view = QChartView(chart)
@@ -1767,7 +1771,7 @@ class SurfApp(QtWidgets.QMainWindow):
         story.append(Paragraph(f"Toplam ziyaret: {summary.get('total_visits', 0)}", style))
         story.append(Paragraph(f"Toplam tıklama: {summary.get('clicks', 0)}", style))
         story.append(Paragraph(
-            f"Puanlar — Kazanılan: {points.get('earned', 0)} • Harcanan: {points.get('spent', 0)} • Net: {points.get('net', 0)}",
+            f"Puanlar — Harcanan: {points.get('spent', 0)}",
             style,
         ))
         story.append(Spacer(1, 6))
@@ -1858,8 +1862,8 @@ class SurfApp(QtWidgets.QMainWindow):
         story.append(Spacer(1, 8))
 
         point_table = Table([
-            ['Kazanılan', 'Harcanan', 'Net'],
-            [str(points.get('earned', 0)), str(points.get('spent', 0)), str(points.get('net', 0))],
+            ['Harcanan'],
+            [str(points.get('spent', 0))],
         ])
         point_table.setStyle(TableStyle([
             ('FONT', (0, 0), (-1, -1), font_name),
