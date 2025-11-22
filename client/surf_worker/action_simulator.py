@@ -22,13 +22,38 @@ class ActionSimulator:
         self.persona = persona
         self.rng = getattr(self.persona, "rng", random.Random())
 
+    def _human_sleep(self, base_ms: int, spread: float = 0.35) -> None:
+        jitter = base_ms * spread
+        delay = max(5, int(self.rng.uniform(base_ms - jitter, base_ms + jitter)))
+        if self.rng.random() < 0.15:
+            delay += self.persona.reaction_delay_ms()
+        page_delay = min(900, delay)
+        if page_delay > 0:
+            self.log(f"[Sim] Bekleme: {page_delay}ms")
+            # page is provided at call sites via lambdas; avoid passing page here to keep API minimal
+
+    def _wait_page(self, page, base_ms: int, spread: float = 0.35):
+        jitter = base_ms * spread
+        delay = max(5, int(self.rng.uniform(base_ms - jitter, base_ms + jitter)))
+        if self.rng.random() < 0.15:
+            delay += self.persona.reaction_delay_ms()
+        delay = min(900, delay)
+        if delay > 0:
+            page.wait_for_timeout(delay)
+
     def _move_mouse_path(self, page, start: Tuple[int, int], end: Tuple[int, int], persona: Optional[PersonaEngine] = None):
         persona = persona or self.persona
         path = persona.generate_mouse_path(start, end)
-        for x, y in path:
-            page.mouse.move(int(x), int(y), steps=1)
-            if self.rng.random() < 0.2:
-                page.wait_for_timeout(self.rng.randint(8, 22))
+        micro_pause = self.persona.reaction_delay_ms()
+        for idx, (x, y) in enumerate(path):
+            steps = self.rng.randint(1, 3)
+            page.mouse.move(int(x), int(y), steps=steps)
+            if idx and idx % self.rng.randint(6, 12) == 0:
+                self._wait_page(page, self.rng.randint(12, 42), spread=0.5)
+            elif self.rng.random() < 0.28:
+                self._wait_page(page, self.rng.randint(8, 26), spread=0.35)
+        if self.rng.random() < 0.25:
+            self._wait_page(page, micro_pause, spread=0.4)
 
     def simulate_mouse_moves(self, page, viewport: Dict[str, int], persona: Optional[PersonaEngine] = None) -> Tuple[bool, Optional[Tuple[int, int]]]:
         persona = persona or self.persona
@@ -50,21 +75,38 @@ class ActionSimulator:
             )
             self._move_mouse_path(page, last_mouse, target, persona)
             last_mouse = target
-            page.wait_for_timeout(persona.reaction_delay_ms())
+            hover_jitter = max(20, int(persona.reaction_delay_ms() * self.rng.uniform(0.6, 1.6)))
+            self._wait_page(page, hover_jitter, spread=0.4)
+            if self.rng.random() < 0.25:
+                micro_target = (
+                    max(5, min(viewport["width"] - 5, target[0] + self.rng.randint(-30, 30))),
+                    max(5, min(viewport["height"] - 5, target[1] + self.rng.randint(-30, 30))),
+                )
+                self._move_mouse_path(page, last_mouse, micro_target, persona)
+                last_mouse = micro_target
+                self._wait_page(page, self.rng.randint(25, 90), spread=0.5)
         return bool(last_mouse), last_mouse
 
     def simulate_scroll(self, page, viewport: Dict[str, int], persona: Optional[PersonaEngine] = None) -> bool:
         persona = persona or self.persona
-        total = int(viewport.get("height", 720) * self.rng.uniform(1.2, 2.6))
+        total = int(viewport.get("height", 720) * self.rng.uniform(1.2, 2.8))
         direction = 1
-        for delta in persona.generate_scroll_pattern(total, direction):
+        ticks = persona.generate_scroll_pattern(total, direction)
+        last_direction = direction
+        for delta in ticks:
             if delta == 0:
-                page.wait_for_timeout(persona.reaction_delay_ms())
+                self._wait_page(page, self.rng.randint(80, 220), spread=0.6)
                 continue
+            if self.rng.random() < 0.18:
+                delta = int(delta * self.rng.uniform(0.5, 1.4))
+            if self.rng.random() < 0.12:
+                page.keyboard.press(self.rng.choice(["ArrowDown", "ArrowUp"]))
             page.mouse.wheel(0, delta)
-            if self.rng.random() < 0.25:
-                direction *= -1
-            page.wait_for_timeout(int(persona.reaction_delay_ms() * self.rng.uniform(0.3, 0.7)))
+            if self.rng.random() < 0.22:
+                last_direction *= -1
+            if self.rng.random() < 0.18:
+                page.mouse.wheel(0, last_direction * self.rng.randint(40, 180))
+            self._wait_page(page, int(persona.reaction_delay_ms() * self.rng.uniform(0.25, 0.85)), spread=0.45)
         return True
 
     def simulate_clicks(self, page, host: str, persona: Optional[PersonaEngine] = None) -> bool:
@@ -89,16 +131,24 @@ class ActionSimulator:
         cx = int(box['x'] + box['width'] * self.rng.uniform(0.2, 0.8))
         cy = int(box['y'] + box['height'] * self.rng.uniform(0.2, 0.8))
         target_x, target_y = persona.maybe_offset_target(cx, cy)
-        start = (cx + self.rng.randint(-25, 25), cy + self.rng.randint(-25, 25))
+        start = (cx + self.rng.randint(-35, 35), cy + self.rng.randint(-35, 35))
         self._move_mouse_path(page, start, (int(target_x), int(target_y)), persona)
-        page.wait_for_timeout(self.rng.randint(40, 120))
+        hover_time = max(25, int(self.persona.reaction_delay_ms() * self.rng.uniform(0.5, 1.4)))
+        self._wait_page(page, hover_time, spread=0.5)
         if not persona.should_click():
             return False
+        if self.rng.random() < 0.28:
+            near_hover = (
+                int(target_x + self.rng.randint(-12, 12)),
+                int(target_y + self.rng.randint(-12, 12)),
+            )
+            self._move_mouse_path(page, (int(target_x), int(target_y)), near_hover, persona)
+            self._wait_page(page, self.rng.randint(20, 80), spread=0.4)
         page.mouse.down()
-        page.wait_for_timeout(self.rng.randint(30, 90))
+        self._wait_page(page, self.rng.randint(30, 120), spread=0.6)
         page.mouse.up()
         if self.rng.random() < 0.2:
-            page.wait_for_timeout(self.rng.randint(50, 120))
+            self._wait_page(page, self.rng.randint(50, 160), spread=0.4)
         return True
 
     def simulate_text_highlight(self, page, persona: Optional[PersonaEngine] = None) -> bool:
@@ -121,7 +171,7 @@ class ActionSimulator:
         page.keyboard.press('Control+C')
         dwell_scale = persona.dwell_factor_for_text()
         if dwell_scale > 1.0:
-            page.wait_for_timeout(int(240 * dwell_scale))
+            self._wait_page(page, int(240 * dwell_scale), spread=0.4)
         return True
 
     def simulate_form(self, page, persona: Optional[PersonaEngine] = None) -> bool:
@@ -133,9 +183,11 @@ class ActionSimulator:
         target.click()
         filler = 'NoaSoft ' + ''.join(self.rng.choice(string.ascii_letters) for _ in range(6))
         for ch in filler:
-            page.keyboard.type(ch, delay=self.rng.randint(18, 42))
-            if self.rng.random() < 0.08:
+            page.keyboard.type(ch, delay=self.rng.randint(18, 46))
+            if self.rng.random() < 0.12:
                 page.keyboard.press('Backspace')
+            if self.rng.random() < 0.08:
+                self._wait_page(page, self.rng.randint(30, 90), spread=0.4)
         page.keyboard.press('Control+A')
         if self.rng.random() < 0.6:
             page.keyboard.press('Control+C')
