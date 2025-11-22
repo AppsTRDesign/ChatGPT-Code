@@ -6,4 +6,5 @@ return [
     'db_pass' => getenv('DB_PASS') ?: 'change_me',
     'jwt_secret' => getenv('JWT_SECRET') ?: 'change_this_secret',
     'initial_points' => 300,
+    'contact_email' => getenv('CONTACT_EMAIL') ?: 'info@noasoft.org',
 ];

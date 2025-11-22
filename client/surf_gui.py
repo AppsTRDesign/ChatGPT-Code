@@ -28,87 +28,86 @@ class ApiClient:
             headers['Authorization'] = f'Bearer {token}'
         return headers
 
-    def register(self, email: str, password: str, name: str):
-        resp = self.session.post(f'{self.base_url}/auth/register', json={
+    def _request(self, method: str, path: str, token: Optional[str] = None, **kwargs):
+        url = f'{self.base_url}{path}'
+        resp = self.session.request(method, url, headers=self._headers(token), **kwargs)
+        if resp.status_code >= 400:
+            try:
+                payload = resp.json()
+                msg = payload.get('error') or payload
+            except Exception:
+                msg = resp.text
+            raise requests.HTTPError(f'{resp.status_code} {msg}')
+        return resp
+
+    def register(self, email: str, password: str, name: str, password_confirm: str):
+        resp = self._request('POST', '/auth/register', json={
             'email': email,
             'password': password,
+            'password_confirm': password_confirm,
             'name': name,
         })
-        resp.raise_for_status()
         return resp.json()
 
     def login(self, email: str, password: str):
-        resp = self.session.post(f'{self.base_url}/auth/login', json={'email': email, 'password': password})
-        resp.raise_for_status()
+        resp = self._request('POST', '/auth/login', json={'email': email, 'password': password})
         return resp.json()
 
     def forgot_password(self, email: str):
-        resp = self.session.post(f'{self.base_url}/auth/forgot', json={'email': email})
-        resp.raise_for_status()
+        resp = self._request('POST', '/auth/forgot', json={'email': email})
         return resp.json()
 
     def profile(self, token: str):
-        resp = self.session.get(f'{self.base_url}/profile', headers=self._headers(token))
-        resp.raise_for_status()
+        resp = self._request('GET', '/profile', token=token)
         return resp.json().get('user')
 
     def update_profile(self, token: str, payload: dict):
-        resp = self.session.patch(f'{self.base_url}/profile', headers=self._headers(token), json=payload)
-        resp.raise_for_status()
+        resp = self._request('PATCH', '/profile', token=token, json=payload)
         return resp.json()
 
     def list_sites(self, token: str, page: int = 1):
-        resp = self.session.get(f'{self.base_url}/sites', params={'page': page}, headers=self._headers(token))
-        resp.raise_for_status()
+        resp = self._request('GET', '/sites', token=token, params={'page': page})
         return resp.json()
 
     def create_site(self, token: str, payload: dict):
-        resp = self.session.post(f'{self.base_url}/sites', headers=self._headers(token), json=payload)
-        resp.raise_for_status()
+        resp = self._request('POST', '/sites', token=token, json=payload)
         return resp.json()
 
     def update_site(self, token: str, site_id: int, payload: dict):
-        resp = self.session.patch(f'{self.base_url}/sites/{site_id}', headers=self._headers(token), json=payload)
-        resp.raise_for_status()
+        resp = self._request('PATCH', f'/sites/{site_id}', token=token, json=payload)
         return resp.json()
 
     def delete_site(self, token: str, site_id: int):
-        resp = self.session.delete(f'{self.base_url}/sites/{site_id}', headers=self._headers(token))
-        resp.raise_for_status()
+        resp = self._request('DELETE', f'/sites/{site_id}', token=token)
         return resp.json()
 
     def start_surf(self, token: str):
-        resp = self.session.post(f'{self.base_url}/surf/start', headers=self._headers(token))
-        resp.raise_for_status()
+        resp = self._request('POST', '/surf/start', token=token)
         return resp.json()
 
     def complete_surf(self, token: str, session_id: int, consumed_seconds: int):
-        resp = self.session.post(
-            f'{self.base_url}/surf/complete',
-            headers=self._headers(token),
+        resp = self._request(
+            'POST',
+            '/surf/complete',
+            token=token,
             json={'session_id': session_id, 'consumed_seconds': consumed_seconds},
         )
-        resp.raise_for_status()
         return resp.json()
 
     def dashboard(self, token: str):
-        resp = self.session.get(f'{self.base_url}/dashboard', headers=self._headers(token))
-        resp.raise_for_status()
+        resp = self._request('GET', '/dashboard', token=token)
         return resp.json()
 
     def points_history(self, token: str):
-        resp = self.session.get(f'{self.base_url}/dashboard/history', headers=self._headers(token))
-        resp.raise_for_status()
+        resp = self._request('GET', '/dashboard/history', token=token)
         return resp.json().get('history', [])
 
-    def mail_settings(self, token: str):
-        resp = self.session.get(f'{self.base_url}/mail/settings', headers=self._headers(token))
-        resp.raise_for_status()
+    def mail_settings(self):
+        resp = self._request('GET', '/mail/settings')
         return resp.json()
 
     def send_mail(self, token: str, payload: dict):
-        resp = self.session.post(f'{self.base_url}/mail/send', headers=self._headers(token), json=payload)
-        resp.raise_for_status()
+        resp = self._request('POST', '/mail/send', token=token, json=payload)
         return resp.json()
 
 
@@ -117,6 +116,7 @@ class SurfWorker(QtCore.QObject):
     step_changed = QtCore.pyqtSignal(str)
     finished = QtCore.pyqtSignal(int)
     failed = QtCore.pyqtSignal(str)
+    log = QtCore.pyqtSignal(str)
 
     def __init__(self, token: str, client: ApiClient, parent: Optional[QtCore.QObject] = None):
         super().__init__(parent)
@@ -164,9 +164,7 @@ class SurfWorker(QtCore.QObject):
             steps.append(SurfPlanStep('Sayfada kalma', 'Okuma ve bekleme', remaining))
         return steps, site
 
-    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep]) -> int:
-        consumed = 0
-        browser = playwright.chromium.launch(headless=True)
+    def _apply_actions(self, browser, site: dict, plan: List[SurfPlanStep]) -> int:
         context_kwargs: Dict[str, object] = {}
         if site.get('mobile'):
             context_kwargs['user_agent'] = (
@@ -176,85 +174,92 @@ class SurfWorker(QtCore.QObject):
             context_kwargs['viewport'] = {'width': 390, 'height': 844}
         context = browser.new_context(**context_kwargs)
         page = context.new_page()
-        page.goto(site.get('url'), wait_until='domcontentloaded', timeout=20000)
+        url = site.get('url')
+        self.log.emit(f'Sayfa açılıyor: {url}')
+        page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
+        total_seconds = max(1, sum(s.seconds for s in plan))
+        elapsed = 0
+        viewport = page.viewport_size or {'width': 1280, 'height': 720}
         for step in plan:
             if not self._running:
                 break
-            if 'mouse' in step.title.lower():
-                page.mouse.move(100, 100)
-                page.mouse.move(400, 400)
-            if 'scroll' in step.title.lower():
-                page.mouse.wheel(0, 1500)
-                page.wait_for_timeout(800)
-                page.mouse.wheel(0, -800)
-            if 'tıklamalar' in step.title.lower():
-                links = page.query_selector_all('a')
-                if links:
-                    random.choice(links).click(timeout=5000)
-            if 'form' in step.title.lower():
-                inputs = page.query_selector_all('input,textarea')
-                if inputs:
-                    target = random.choice(inputs)
-                    target.click()
-                    target.type('NoaSoft deneme girdisi', delay=50)
-            if 'medya' in step.title.lower():
-                video = page.query_selector('video, audio')
-                if video:
-                    video.hover()
-                    page.wait_for_timeout(1500)
-                    video.click()
-                    page.keyboard.press('Space')
-                    page.keyboard.press('KeyF')
+            detail = f"{step.title} — {step.detail}"
+            self.step_changed.emit(detail)
+            self.log.emit(detail)
+            try:
+                if 'mouse' in step.title.lower():
+                    for _ in range(3):
+                        x = random.randint(50, viewport['width'] - 50)
+                        y = random.randint(50, viewport['height'] - 50)
+                        page.mouse.move(x, y, steps=20)
+                if 'scroll' in step.title.lower():
+                    page.mouse.wheel(0, viewport['height'])
+                    page.wait_for_timeout(600)
+                    page.mouse.wheel(0, -viewport['height'] // 2)
+                if 'tıklamalar' in step.title.lower():
+                    links = page.query_selector_all('a')
+                    if links:
+                        random.choice(links).click(timeout=5000)
+                if 'form' in step.title.lower():
+                    inputs = page.query_selector_all('input,textarea')
+                    if inputs:
+                        target = random.choice(inputs)
+                        target.click()
+                        target.type('NoaSoft deneme girdisi', delay=50)
+                if 'medya' in step.title.lower():
+                    video = page.query_selector('video, audio')
+                    if video:
+                        try:
+                            video.hover()
+                            page.wait_for_timeout(1200)
+                            video.click()
+                            page.keyboard.press('Space')
+                            page.keyboard.press('KeyF')
+                        except Exception:
+                            self.log.emit('Medya etkileşimi atlandı (seçilemedi)')
+            except Exception as action_err:
+                self.log.emit(f'Eylem hatası: {action_err}')
             for _ in range(step.seconds):
                 if not self._running:
                     break
-                consumed += 1
-                time.sleep(1)
+                elapsed += 1
+                percent = int((elapsed / total_seconds) * 100)
+                self.progress.emit(percent, elapsed, total_seconds, detail)
+                page.wait_for_timeout(1000)
         context.close()
-        browser.close()
-        return consumed
+        return elapsed
 
     def run(self):
         try:
-            session = self.client.start_surf(self.token)
-        except Exception as exc:
-            self.failed.emit(str(exc))
-            return
-
-        plan, site = self._build_plan(session)
-        session_id = session.get('session_id') or session.get('id')
-        consumed_seconds = 0
-
-        try:
             with sync_playwright() as playwright:
-                consumed_seconds = self._apply_actions(playwright, site, plan)
+                browser = playwright.chromium.launch(headless=False)
+                while self._running:
+                    try:
+                        session = self.client.start_surf(self.token)
+                    except Exception as exc:
+                        message = str(exc)
+                        if '404' in message:
+                            self.failed.emit('Gezilecek uygun site bulunamadı')
+                        else:
+                            self.failed.emit(message)
+                        break
+                    plan, site = self._build_plan(session)
+                    session_id = session.get('session_id') or session.get('id')
+                    consumed_seconds = self._apply_actions(browser, site, plan)
+                    if not self._running:
+                        break
+                    try:
+                        result = self.client.complete_surf(self.token, int(session_id), consumed_seconds)
+                        earned = int(result.get('earned', 0))
+                        self.log.emit(f'Oturum tamamlandı: +{earned} puan')
+                        self.finished.emit(earned)
+                    except Exception as exc:  # noqa: BLE001
+                        self.failed.emit(str(exc))
+                        break
+                browser.close()
         except Exception as exc:  # noqa: BLE001
             self.failed.emit(f'Surf sırasında hata: {exc}')
-            return
-
-        elapsed = 0
-        total_seconds = max(1, sum(s.seconds for s in plan))
-        for step in plan:
-            if not self._running:
-                self.failed.emit('Surf iptal edildi')
-                return
-            self.step_changed.emit(f"{step.title} — {step.detail}")
-            for _ in range(step.seconds):
-                if not self._running:
-                    self.failed.emit('Surf iptal edildi')
-                    return
-                elapsed += 1
-                percent = int((elapsed / total_seconds) * 100)
-                self.progress.emit(percent, elapsed, total_seconds, f"{step.title} — {step.detail}")
-                time.sleep(1)
-
-        try:
-            result = self.client.complete_surf(self.token, int(session_id), consumed_seconds)
-            earned = int(result.get('earned', 0))
-            self.finished.emit(earned)
-        except Exception as exc:
-            self.failed.emit(str(exc))
 
 
 class SurfApp(QtWidgets.QMainWindow):
@@ -347,11 +352,14 @@ class SurfApp(QtWidgets.QMainWindow):
         self.reg_email = QtWidgets.QLineEdit()
         self.reg_password = QtWidgets.QLineEdit()
         self.reg_password.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
+        self.reg_password_confirm = QtWidgets.QLineEdit()
+        self.reg_password_confirm.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
         self.reg_name = QtWidgets.QLineEdit()
         register_btn = QtWidgets.QPushButton('Kayıt Ol')
         register_btn.clicked.connect(self.register)
         form.addRow('Email', self.reg_email)
         form.addRow('Şifre', self.reg_password)
+        form.addRow('Şifre (Tekrar)', self.reg_password_confirm)
         form.addRow('İsim', self.reg_name)
         form.addRow(register_btn)
         return widget
@@ -389,6 +397,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.tabs.addTab(self._build_sites_tab(), 'Siteler')
         self.tabs.addTab(self._build_surf_tab(), 'Surf + Puan')
         self.tabs.addTab(self._build_mail_tab(), 'İletişim')
+        self.tabs.addTab(self._build_log_tab(), 'Log')
         layout.addWidget(self.tabs)
         return widget
 
@@ -551,10 +560,30 @@ class SurfApp(QtWidgets.QMainWindow):
         form.addRow(send_btn)
         return widget
 
+    def _build_log_tab(self) -> QtWidgets.QWidget:
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(widget)
+        self.log_box = QtWidgets.QPlainTextEdit()
+        self.log_box.setReadOnly(True)
+        self.log_box.setPlaceholderText('İstek ve hata çıktıları burada listelenir')
+        layout.addWidget(self.log_box)
+        copy_btn = QtWidgets.QPushButton('Logu Kopyala')
+        copy_btn.clicked.connect(self._copy_log)
+        layout.addWidget(copy_btn)
+        return widget
+
     def register(self):
         self._init_client()
+        if self.reg_password.text() != self.reg_password_confirm.text():
+            self._toast('Şifreler eşleşmiyor', error=True)
+            return
         try:
-            resp = self.client.register(self.reg_email.text(), self.reg_password.text(), self.reg_name.text())
+            resp = self.client.register(
+                self.reg_email.text(),
+                self.reg_password.text(),
+                self.reg_name.text(),
+                self.reg_password_confirm.text(),
+            )
             self.token = resp.get('token')
             self._toast('Kayıt başarılı, token alındı')
             self._after_login()
@@ -591,6 +620,7 @@ class SurfApp(QtWidgets.QMainWindow):
         if not base_url:
             raise ValueError('API URL boş olamaz')
         self.client = ApiClient(base_url)
+        self._append_log(f'API URL: {base_url}')
 
     def _after_login(self):
         self.logout_btn.setVisible(True)
@@ -638,6 +668,8 @@ class SurfApp(QtWidgets.QMainWindow):
     def _fill_chart(self, chart: QChart, items: List[Tuple[str, int]]):
         chart.removeAllSeries()
         series = QLineSeries()
+        if not items:
+            items = [('0', 0)]
         for idx, (_, value) in enumerate(items):
             series.append(idx, value)
         chart.addSeries(series)
@@ -746,6 +778,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.plan_list.clear()
         self.progress.setValue(0)
         self.countdown_label.setText('Kalan süre: 0 sn / 0 sn')
+        self.start_btn.setEnabled(False)
         self.worker_thread = QtCore.QThread()
         self.worker = SurfWorker(self.token, self.client)
         self.worker.moveToThread(self.worker_thread)
@@ -754,13 +787,16 @@ class SurfApp(QtWidgets.QMainWindow):
         self.worker.step_changed.connect(self._on_step)
         self.worker.finished.connect(self._on_finished)
         self.worker.failed.connect(self._on_failed)
+        self.worker.log.connect(self._append_log)
         self.worker.finished.connect(self.worker_thread.quit)
         self.worker.failed.connect(self.worker_thread.quit)
+        self.worker_thread.finished.connect(lambda: self.start_btn.setEnabled(True))
         self.worker_thread.start()
 
     def cancel_surf(self):
         if self.worker:
             self.worker.stop()
+        self.start_btn.setEnabled(True)
         self._toast('Surf iptal komutu gönderildi')
 
     def _on_progress(self, percent: int, elapsed: int, total: int, detail: str):
@@ -778,12 +814,13 @@ class SurfApp(QtWidgets.QMainWindow):
 
     def _on_failed(self, message: str):
         self._toast(f'Hata: {message}', error=True)
+        self.start_btn.setEnabled(True)
 
     def load_mail_settings(self):
         if not self.client or not self.token:
             return
         try:
-            config = self.client.mail_settings(self.token)
+            config = self.client.mail_settings()
             to_addr = config.get('to') or config.get('email') or 'info@noasoft.org'
             self.mail_to.setText(to_addr)
         except Exception:
@@ -804,10 +841,20 @@ class SurfApp(QtWidgets.QMainWindow):
         except Exception as exc:
             self._toast(f'Gönderim hatası: {exc}', error=True)
 
+    def _copy_log(self):
+        clipboard = QtWidgets.QApplication.clipboard()
+        clipboard.setText(self.log_box.toPlainText())
+
+    def _append_log(self, message: str):
+        timestamp = QtCore.QDateTime.currentDateTime().toString('hh:mm:ss')
+        if hasattr(self, 'log_box'):
+            self.log_box.appendPlainText(f'[{timestamp}] {message}')
+
     def _toast(self, message: str, error: bool = False):
         color = '#ef4444' if error else '#10b981'
         self.status_label.setStyleSheet(f'font-weight:bold; color:{color};')
         self.status_label.setText(message)
+        self._append_log(message)
 
 
 def main():

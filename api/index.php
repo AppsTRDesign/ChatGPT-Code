@@ -7,6 +7,15 @@ $config = require __DIR__ . '/config.php';
 $db = new Database($config);
 $pdo = $db->pdo();
 
+// CORS + auth header forwarding (Apache mod_headers/mod_rewrite yanında .htaccess ile desteklenir)
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Headers: Authorization, Content-Type');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
 function read_json(): array
 {
     $body = file_get_contents('php://input');
@@ -46,9 +55,14 @@ function register(PDO $pdo, array $config): void
     $data = read_json();
     $email = $data['email'] ?? '';
     $password = $data['password'] ?? '';
+    $password2 = $data['password_confirm'] ?? '';
     $name = $data['name'] ?? '';
     if (!$email || !$password || !$name) {
         Response::error('email, password ve name zorunlu');
+        return;
+    }
+    if ($password !== $password2 && $password2 !== '') {
+        Response::error('Şifreler eşleşmiyor');
         return;
     }
     $check = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
@@ -82,12 +96,30 @@ function login(PDO $pdo, array $config): void
     Response::json(['token' => $token, 'user' => $user]);
 }
 
+function forgot_password(PDO $pdo): void
+{
+    $data = read_json();
+    $email = $data['email'] ?? '';
+    if (!$email) {
+        Response::error('email zorunlu');
+        return;
+    }
+    $pdo->prepare('INSERT INTO contact_messages (email, subject, body) VALUES (?,?,?)')
+        ->execute([$email, 'Şifre sıfırlama isteği', 'Kullanıcı sıfırlama talebi gönderdi']);
+    Response::json(['queued' => true]);
+}
+
 function list_sites(PDO $pdo, int $userId): void
 {
-    $stmt = $pdo->prepare('SELECT * FROM sites WHERE user_id = ? ORDER BY created_at DESC');
-    $stmt->execute([$userId]);
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $pageSize = 25;
+    $offset = ($page - 1) * $pageSize;
+    $stmt = $pdo->prepare('SELECT SQL_CALC_FOUND_ROWS * FROM sites WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
+    $stmt->execute([$userId, $pageSize, $offset]);
     $sites = $stmt->fetchAll();
-    Response::json(['items' => $sites]);
+    $total = (int)$pdo->query('SELECT FOUND_ROWS()')->fetchColumn();
+    $pages = max(1, (int)ceil($total / $pageSize));
+    Response::json(['items' => $sites, 'page' => $page, 'pages' => $pages, 'total' => $total]);
 }
 
 function create_site(PDO $pdo, array $config, array $user): void
@@ -225,6 +257,7 @@ function complete_surf(PDO $pdo, array $user): void
 {
     $data = read_json();
     $sessionId = (int)($data['session_id'] ?? 0);
+    $consumed = (int)($data['consumed_seconds'] ?? 0);
     if (!$sessionId) {
         Response::error('session_id zorunlu');
         return;
@@ -243,9 +276,24 @@ function complete_surf(PDO $pdo, array $user): void
     $reward = (int)$session['dwell_seconds'];
     $pdo->prepare('UPDATE users SET points = points + ? WHERE id = ?')->execute([$reward, $user['id']]);
     $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
-        ->execute([$user['id'], $reward, 'surf_reward', json_encode(['session_id' => $sessionId])]);
+        ->execute([$user['id'], $reward, 'surf_reward', json_encode(['session_id' => $sessionId, 'consumed' => $consumed])]);
     $pdo->commit();
     Response::json(['earned' => $reward]);
+}
+
+function update_profile_endpoint(PDO $pdo, array $user): void
+{
+    $data = read_json();
+    $name = trim($data['name'] ?? $user['display_name']);
+    $password = $data['password'] ?? null;
+    $pdo->prepare('UPDATE users SET display_name = ? WHERE id = ?')->execute([$name, $user['id']]);
+    if ($password) {
+        $hash = password_hash($password, PASSWORD_BCRYPT);
+        $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $user['id']]);
+    }
+    $stmt = $pdo->prepare('SELECT id, email, display_name, points FROM users WHERE id = ?');
+    $stmt->execute([$user['id']]);
+    Response::json(['user' => $stmt->fetch()]);
 }
 
 function contact(PDO $pdo, ?array $user): void
@@ -261,6 +309,30 @@ function contact(PDO $pdo, ?array $user): void
     $pdo->prepare('INSERT INTO contact_messages (user_id, email, subject, body) VALUES (?,?,?,?)')
         ->execute([$user['id'] ?? null, $email, $subject, $body]);
     Response::json(['queued' => true]);
+}
+
+function mail_settings(array $config): void
+{
+    Response::json([
+        'to' => $config['contact_email'] ?? 'info@noasoft.org',
+        'from' => $config['contact_email'] ?? 'info@noasoft.org',
+    ]);
+}
+
+function dashboard_history(PDO $pdo, array $user): void
+{
+    $stmt = $pdo->prepare('SELECT DATE(created_at) as label, SUM(change_amount) as net FROM point_ledger WHERE user_id = ? GROUP BY DATE(created_at) ORDER BY DATE(created_at) DESC LIMIT 14');
+    $stmt->execute([$user['id']]);
+    $rows = $stmt->fetchAll();
+    $history = [];
+    foreach (array_reverse($rows) as $row) {
+        $history[] = [
+            'label' => $row['label'],
+            'daily' => (int)$row['net'],
+            'weekly' => (int)$row['net'],
+        ];
+    }
+    Response::json(['history' => $history]);
 }
 
 function dashboard(PDO $pdo, array $user): void
@@ -292,9 +364,17 @@ switch (true) {
     case $path === '/auth/login' && $method === 'POST':
         login($pdo, $config);
         break;
+    case $path === '/auth/forgot' && $method === 'POST':
+        forgot_password($pdo);
+        break;
     case $path === '/profile' && $method === 'GET':
         if ($user = ensure_user($pdo, $config)) {
             Response::json(['user' => $user]);
+        }
+        break;
+    case $path === '/profile' && $method === 'PATCH':
+        if ($user = ensure_user($pdo, $config)) {
+            update_profile_endpoint($pdo, $user);
         }
         break;
     case $path === '/sites' && $method === 'GET':
@@ -335,6 +415,18 @@ switch (true) {
         if ($user = ensure_user($pdo, $config)) {
             dashboard($pdo, $user);
         }
+        break;
+    case $path === '/dashboard/history' && $method === 'GET':
+        if ($user = ensure_user($pdo, $config)) {
+            dashboard_history($pdo, $user);
+        }
+        break;
+    case $path === '/mail/settings' && $method === 'GET':
+        mail_settings($config);
+        break;
+    case $path === '/mail/send' && $method === 'POST':
+        $user = current_user($pdo, $config);
+        contact($pdo, $user);
         break;
     default:
         Response::error('Endpoint bulunamadı', 404, ['path' => $path]);

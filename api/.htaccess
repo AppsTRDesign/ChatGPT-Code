@@ -1,0 +1,19 @@
+RewriteEngine On
+
+# --- AUTHORIZATION HEADER FIX (çok kritik) ---
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+# --- CORS FIX (JSON isteklerini PHP'ye ulaştırır) ---
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Headers "Authorization, Content-Type"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+
+# OPTIONS isteklerini hemen yanıtla
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ index.php [R=200,L]
+
+# --- TÜM İSTEKLERİ index.php'ye yönlendir ---
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]

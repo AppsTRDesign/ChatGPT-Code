@@ -1,4 +1,12 @@
 @echo off
-setlocal
+title NoaSoft Autosurf Calistir
+
+if not exist .venv (
+    echo .venv klasoru bulunamadi. Once install.bat calistir.
+    pause
+    exit /b 1
+)
+
 call .venv\Scripts\activate
-python client\surf_gui.py
+python surf_gui.py
+pause

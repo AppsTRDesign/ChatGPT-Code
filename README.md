@@ -8,6 +8,8 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   1. `api/schema.sql` dosyasını MySQL’e uygulayın.
   2. `api/config.php` içindeki bağlantı ve `JWT_SECRET` ayarlarını güncelleyin.
   3. PHP 8 üstünde çalıştırın (plesk/ana dizin, public değil). Tüm istekler `index.php` üzerinden karşılanır.
+  4. `api/.htaccess` dosyasını yayın klasörüne ekleyin; Authorization header’ını ve CORS’u korur, 404 yerine istekleri `index.php`
+     üzerinden yönlendirir.
 - **Endpoint’ler:**
   - `POST /auth/register` — email/şifre/isim ile kayıt, başlangıç puanı verir.
   - `POST /auth/login` — token üretir.
@@ -27,7 +29,7 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan & Özet, Siteler, Surf + Puan, İletişim).
   - Dashboard sekmesinde animasyonlu sayaç, kalan/ toplam süre barı, puan yetersizliğinde kırmızı uyarı bandı, günlük/haftalık kazanç grafikleri (PyQt6-Charts).
   - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
-  - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, form doldurma, medya kontrolleri), ilerleme çubuğu, kalan/ toplam süre gösterimi ve kazanç bildirimi.
+  - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, form doldurma, medya kontrolleri), ilerleme çubuğu, kalan/ toplam süre gösterimi ve kazanç bildirimi; canlı log sekmesiyle kopyalanabilir hata/eylem çıktısı.
   - İletişim sekmesi: API’den çekilen mail ayarlarıyla info@noasoft.org’a mesaj iletimi.
 - **Çalıştırma:**
   ```bash
