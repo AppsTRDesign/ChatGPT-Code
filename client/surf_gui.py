@@ -3,7 +3,6 @@ import platform
 import random
 import string
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -24,7 +23,17 @@ from PyQt6.QtCharts import (
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright, sync_playwright
 
-from ip_resolver import IPResolver
+from surf_worker import (
+    ActionSimulator,
+    BrowserManager,
+    GeoService,
+    GoogleHandler,
+    PlanEngine,
+    Personality,
+    SurfPlanStep,
+    TelemetryBuilder,
+    YouTubeHandler,
+)
 
 try:
     from reportlab.lib import colors
@@ -36,15 +45,6 @@ try:
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 except Exception:  # noqa: BLE001
     colors = ParagraphStyle = SimpleDocTemplate = None
-
-
-@dataclass
-class SurfPlanStep:
-    title: str
-    detail: str
-    seconds: int
-
-
 class ApiClient:
     def __init__(self, base_url: str):
         self.base_url = base_url.rstrip('/')
@@ -188,115 +188,28 @@ class SurfWorker(QtCore.QObject):
         self.token = token
         self.client = client
         self._running = True
-        self.browser = None
-        self.context = None
-        self.page = None
-        self._current_mobile = False
         self.mode = mode
         self.task_config = task_config or {}
-        self._geo_cache: Optional[dict] = None
-        self._yt_route_handler = None
-        self._yt_route_pattern = '**/*googlevideo*'
         assets_dir = Path(__file__).resolve().parent / 'assets'
-        self.ip_resolver = IPResolver(
-            db_path_country=str(assets_dir / 'GeoLite2-Country.mmdb'),
-            db_path_asn=str(assets_dir / 'GeoLite2-ASN.mmdb'),
-            db_path_city=str(assets_dir / 'GeoLite2-City.mmdb'),
-        )
+        log_fn = self.log.emit
+        self.browser_mgr = BrowserManager(assets_dir, log_fn)
+        self.youtube_handler = YouTubeHandler(self.browser_mgr, log_fn)
+        self.geo_service = GeoService(assets_dir, log_fn)
+        self.telemetry_builder = TelemetryBuilder(self.geo_service, log_fn)
+        self.plan_engine = PlanEngine()
+        self.personality = Personality.random_profile()
+        self.action_simulator = ActionSimulator(self.youtube_handler, log_fn)
+        self.google_handler = GoogleHandler(self.browser_mgr, self.plan_engine, log_fn)
 
     def stop(self):
         self._running = False
 
-    def _ensure_page(self, playwright: Playwright, site: dict):
-        mobile = bool(site.get('mobile'))
-        if self.browser is None:
-            self.browser = playwright.chromium.launch(headless=False)
-        if self.context is None or self.page is None or self.page.is_closed() or self._current_mobile != mobile:
-            if self.context:
-                try:
-                    self.context.close()
-                except Exception:
-                    pass
-            context_kwargs: Dict[str, object] = {}
-            if mobile:
-                context_kwargs['user_agent'] = (
-                    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 '
-                    '(KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
-                )
-                context_kwargs['viewport'] = {'width': 390, 'height': 844}
-            self.context = self.browser.new_context(**context_kwargs)
-            self.page = self.context.new_page()
-            self._inject_pointer_overlay(self.page)
-            self._current_mobile = mobile
-        return self.page
-
-    def _inject_pointer_overlay(self, page):
-        try:
-            page.add_init_script(
-                """
-                (() => {
-                  const dot = document.createElement('div');
-                  dot.id = 'noasoft-pointer';
-                  Object.assign(dot.style, {
-                    position: 'fixed', width: '16px', height: '16px',
-                    borderRadius: '50%', background: 'rgba(16,185,129,0.85)',
-                    boxShadow: '0 0 12px rgba(16,185,129,0.8)',
-                    zIndex: 2147483647, pointerEvents: 'none',
-                    transform: 'translate(-50%,-50%)',
-                  });
-                  document.addEventListener('mousemove', ev => {
-                    dot.style.left = ev.clientX + 'px';
-                    dot.style.top = ev.clientY + 'px';
-                  });
-                  document.body.appendChild(dot);
-                })();
-                """
-            )
-        except Exception:
-            pass
-
     def _build_plan(self, session_payload: dict) -> Tuple[List[SurfPlanStep], Dict]:
-        plan_data = session_payload.get('plan') or []
-        site = session_payload.get('site', {})
-        if plan_data:
-            return [SurfPlanStep(**step) for step in plan_data], site
+        return self.plan_engine.build_plan(session_payload)
 
-        dwell = int(site.get('dwell_seconds', 30))
-        flags = {
-            'mobile': site.get('mobile'),
-            'realistic': site.get('realistic'),
-            'mouse_moves': site.get('mouse_moves'),
-            'link_clicks': site.get('link_clicks'),
-            'scroll': site.get('scroll'),
-            'form_fill': site.get('form_fill'),
-            'media': site.get('media'),
-        }
-        steps: List[SurfPlanStep] = [SurfPlanStep('Sayfa açılıyor', 'URL yükleniyor', min(5, dwell))]
-        remaining = max(5, dwell - 5)
-        if flags['mouse_moves']:
-            steps.append(SurfPlanStep('Mouse hareketleri', 'Rastgele bölgeler üzerinde dolaşma', min(remaining, 8)))
-            remaining -= min(remaining, 8)
-        if flags['realistic'] and remaining > 0:
-            steps.append(SurfPlanStep('Metin seçimi', 'Paragrafları işaretle ve kopyala', min(remaining, 5)))
-            remaining -= min(remaining, 5)
-        if flags['scroll']:
-            steps.append(SurfPlanStep('Scroll', 'Aşağı-yukarı kaydırma', min(remaining, 6)))
-            remaining -= min(remaining, 6)
-        if flags['link_clicks']:
-            steps.append(SurfPlanStep('Tıklamalar', 'İç linklere doğal tıklamalar', min(remaining, 8)))
-            remaining -= min(remaining, 8)
-        if flags['form_fill']:
-            steps.append(SurfPlanStep('Form doldurma', 'Input odak ve sahte yazım', min(remaining, 6)))
-            remaining -= min(remaining, 6)
-        if flags['media']:
-            steps.append(SurfPlanStep('Medya kontrolü', 'Video/Audio oynatma, ses ve kalite', min(remaining, 12)))
-            remaining -= min(remaining, 12)
-        if remaining > 0:
-            steps.append(SurfPlanStep('Sayfada kalma', 'Okuma ve bekleme', remaining))
-        return steps, site
-
-    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep]) -> Tuple[int, dict]:
-        page = self._ensure_page(playwright, site)
+    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep], personality: Optional[Personality] = None) -> Tuple[int, dict]:
+        personality = personality or self.personality
+        page = self.browser_mgr.ensure_page(playwright, site)
         url = site.get('url')
         self.log.emit(f'Sayfa açılıyor: {url}')
         page.goto(url, wait_until='domcontentloaded', timeout=30000)
@@ -317,29 +230,29 @@ class SurfWorker(QtCore.QObject):
             performed = False
             try:
                 if 'mouse' in step.title.lower():
-                    performed, last_mouse = self._simulate_mouse_moves(page, viewport)
+                    performed, last_mouse = self.action_simulator.simulate_mouse_moves(page, viewport, personality)
                     if performed:
                         metrics['mouse_moves'] += 1
                 if 'metin' in step.title.lower():
-                    if self._simulate_text_highlight(page):
+                    if self.action_simulator.simulate_text_highlight(page, personality):
                         metrics['highlights'] += 1
                         performed = True
                 if 'scroll' in step.title.lower():
-                    if self._simulate_scroll(page, viewport):
+                    if self.action_simulator.simulate_scroll(page, viewport, personality):
                         metrics['scrolls'] += 1
                         performed = True
                 if 'tıklamalar' in step.title.lower():
-                    if self._simulate_clicks(page, host):
+                    if self.action_simulator.simulate_clicks(page, host, personality):
                         metrics['clicks'] += 1
                         performed = True
                 if 'form' in step.title.lower():
-                    if self._simulate_form(page):
+                    if self.action_simulator.simulate_form(page, personality):
                         metrics['forms'] += 1
                         performed = True
                 if 'medya' in step.title.lower():
                     actions = site.get('media_actions') or site.get('media_options') or []
                     dwell_hint = int(site.get('dwell_seconds', step.seconds))
-                    if self._simulate_media(page, actions, dwell_hint):
+                    if self.action_simulator.simulate_media(page, actions, dwell_hint, personality):
                         metrics['media'] += 1
                         performed = True
                 if 'sayfada' in step.title.lower():
@@ -365,254 +278,6 @@ class SurfWorker(QtCore.QObject):
         self.progress.emit(100, elapsed or runtime_target, max(planned_total, runtime_target, 1), 'Tamamlandı')
         return elapsed, metrics
 
-    def _attach_youtube_route_noise(self):
-        if not self.context:
-            return None
-
-        def handler(route):  # noqa: ANN001
-            url = route.request.url
-            if 'googlevideo.com' in url:
-                try:
-                    jitter = random.uniform(0.05, 0.18)
-                    if random.random() < 0.35:
-                        jitter += random.uniform(0.12, 0.35)
-                    time.sleep(jitter)
-                except Exception:
-                    pass
-            route.continue_()
-
-        try:
-            self.context.route(self._yt_route_pattern, handler)
-            self._yt_route_handler = handler
-            return handler
-        except Exception:
-            return None
-
-    def _detach_youtube_route_noise(self):
-        if self.context and self._yt_route_handler:
-            try:
-                self.context.unroute(self._yt_route_pattern, self._yt_route_handler)
-            except Exception:
-                pass
-        self._yt_route_handler = None
-
-    def _detect_geo(self) -> dict:
-        if self._geo_cache is not None:
-            return self._geo_cache
-        info = {
-            'ip': '',
-            'country': '',
-            'country_code': '',
-            'continent': '',
-            'city': '',
-            'lat': None,
-            'lon': None,
-            'asn': None,
-            'isp': '',
-            'network': '',
-        }
-        try:
-            ip_resp = requests.get('https://api.ipify.org', timeout=4)
-            ip_resp.raise_for_status()
-            info['ip'] = ip_resp.text.strip()
-        except Exception as exc:  # noqa: BLE001
-            self.log.emit(f'IP tespit hatası: {exc}')
-        if self.ip_resolver and info['ip']:
-            try:
-                resolved = self.ip_resolver.resolve(info['ip'])
-                for key, val in resolved.items():
-                    if val is not None:
-                        info[key] = val
-            except Exception as exc:  # noqa: BLE001
-                self.log.emit(f'GeoIP okunamadı: {exc}')
-        self._geo_cache = info
-        return info
-
-    def _build_telemetry(self, site: dict, metrics: dict) -> dict:
-        geo = self._detect_geo()
-        device = 'Mobile' if site.get('mobile') else 'Desktop'
-        ua = ''
-        try:
-            if self.page and not self.page.is_closed():
-                ua = self.page.evaluate('() => navigator.userAgent') or ''
-        except Exception:
-            ua = ''
-        return {
-            **geo,
-            'platform': platform.platform(),
-            'device': device,
-            'user_agent': ua,
-            'clicks': metrics.get('clicks', 0),
-            'scrolls': metrics.get('scrolls', 0),
-            'highlights': metrics.get('highlights', 0),
-            'forms': metrics.get('forms', 0),
-            'media': metrics.get('media', 0),
-        }
-
-    def _simulate_mouse_moves(self, page, viewport: Dict[str, int]) -> Tuple[bool, Optional[Tuple[int, int]]]:
-        last_mouse = None
-        for _ in range(4):
-            x = random.randint(40, viewport['width'] - 40)
-            y = random.randint(40, viewport['height'] - 40)
-            page.mouse.move(x, y, steps=25)
-            last_mouse = (x, y)
-        return bool(last_mouse), last_mouse
-
-    def _simulate_scroll(self, page, viewport: Dict[str, int]) -> bool:
-        page.mouse.wheel(0, viewport['height'])
-        page.wait_for_timeout(400)
-        page.mouse.wheel(0, -viewport['height'] // 2)
-        return True
-
-    def _simulate_clicks(self, page, host: str) -> bool:
-        links = []
-        for lnk in page.query_selector_all('a[href]'):
-            if not lnk.is_visible():
-                continue
-            href = lnk.get_attribute('href') or ''
-            if href.startswith('#'):
-                continue
-            target = (lnk.get_attribute('target') or '').lower()
-            if target == '_blank':
-                continue
-            if host and host not in href and href.startswith('http'):
-                continue
-            links.append(lnk)
-        if not links:
-            return False
-        random.choice(links).click(timeout=5000)
-        return True
-
-    def _simulate_text_highlight(self, page) -> bool:
-        candidates = page.query_selector_all('p, h1, h2, h3, h4')
-        visible = [el for el in candidates if el.is_visible() and (el.text_content() or '').strip()]
-        if not visible:
-            return False
-        target = random.choice(visible)
-        box = target.bounding_box()
-        if not box:
-            return False
-        start_x = int(box['x'] + 5)
-        start_y = int(box['y'] + box['height'] / 2)
-        end_x = int(box['x'] + box['width'] - 5)
-        end_y = start_y
-        page.mouse.move(start_x, start_y)
-        page.mouse.down()
-        page.mouse.move(end_x, end_y, steps=20)
-        page.mouse.up()
-        target.evaluate("el => el.style.textDecoration = 'line-through'")
-        page.keyboard.press('Control+C')
-        return True
-
-    def _simulate_form(self, page) -> bool:
-        fields = [inp for inp in page.query_selector_all('input,textarea') if inp.is_visible()]
-        if not fields:
-            return False
-        target = random.choice(fields)
-        target.click()
-        filler = 'NoaSoft ' + ''.join(random.choice(string.ascii_letters) for _ in range(6))
-        target.fill(filler)
-        page.keyboard.press('Control+A')
-        page.keyboard.press('Control+C')
-        page.keyboard.press('Backspace')
-        return True
-
-    def _simulate_media(self, page, actions: List[str], dwell_hint: int) -> bool:
-        media = page.query_selector('video, audio')
-        if not media:
-            return False
-        if not actions:
-            actions = ['hover', 'delay', 'human_click', 'pause_play', 'volume', 'fullscreen', 'quality']
-        try:
-            media.hover()
-            page.wait_for_timeout(400 if 'delay' in actions else 200)
-            host = urlparse(page.url).netloc
-            if 'youtube.com' in host:
-                return self._simulate_youtube_media(page, media, actions, dwell_hint)
-            if 'human_click' in actions:
-                media.click()
-            if 'pause_play' in actions:
-                page.keyboard.press('Space')
-            if 'fullscreen' in actions:
-                page.keyboard.press('KeyF')
-            if 'volume' in actions:
-                page.keyboard.press('ArrowUp')
-            if 'quality' in actions:
-                quality_menu = page.query_selector('button[aria-label*="quality" i], [class*="quality"]')
-                if quality_menu:
-                    quality_menu.click()
-            return True
-        except Exception as exc:
-            self.log.emit(f'Medya etkileşimi atlandı: {exc}')
-            return False
-
-    def _simulate_youtube_media(self, page, media, actions: List[str], dwell_hint: int) -> bool:
-        try:
-            if 'human_click' in actions:
-                media.click()
-            page.keyboard.press('Space')  # play/pause toggle to generate timeline events
-            page.keyboard.press('Space')
-            if 'fullscreen' in actions and random.random() < 0.4:
-                page.keyboard.press('KeyF')
-            if 'quality' in actions:
-                q_btn = page.query_selector('button[aria-label*="quality" i], [class*="quality"]')
-                if q_btn:
-                    q_btn.click()
-            jitter_ms = max(4000, dwell_hint * 1000)
-            page.evaluate(
-                "(durationMs) => {\n"
-                " const video = document.querySelector('video');\n"
-                " if (!video) return;\n"
-                " video.play().catch(() => {});\n"
-                " const start = performance.now();\n"
-                " const timers = [];\n"
-                " const chunk = () => {\n"
-                "   const drift = 60 + Math.random() * 140;\n"
-                "   if (Math.random() < 0.3) {\n"
-                "     video.pause();\n"
-                "     setTimeout(() => video.play().catch(() => {}), 120 + Math.random() * 260);\n"
-                "   }\n"
-                "   if (Math.random() < 0.35) {\n"
-                "     video.dispatchEvent(new Event('mousemove'));\n"
-                "   }\n"
-                "   if (Math.random() < 0.28) {\n"
-                "     const ev = new Event('timeupdate');\n"
-                "     video.dispatchEvent(ev);\n"
-                "   }\n"
-                "   if (Math.random() < 0.2) {\n"
-                "     video.dispatchEvent(new Event('progress'));\n"
-                "   }\n"
-                "   return drift;\n"
-                " };\n"
-                " const chunkTimer = setInterval(chunk, 900 + Math.random() * 700);\n"
-                " timers.push(chunkTimer);\n"
-                " const focusTimer = setInterval(() => {\n"
-                "   if (document.hidden && Math.random() < 0.4) {\n"
-                "     document.dispatchEvent(new Event('visibilitychange'));\n"
-                "   }\n"
-                " }, 1200 + Math.random() * 800);\n"
-                " timers.push(focusTimer);\n"
-                " setTimeout(() => timers.forEach(clearInterval), durationMs + 600);\n"
-                "}",
-                jitter_ms,
-            )
-            end_time = time.time() + min(dwell_hint, 15)
-            while time.time() < end_time and self._running:
-                page.wait_for_timeout(random.randint(350, 900))
-                page.mouse.move(
-                    random.randint(40, (page.viewport_size or {'width': 1280})['width'] - 40),
-                    random.randint(60, (page.viewport_size or {'height': 720})['height'] - 40),
-                    steps=18,
-                )
-                if random.random() < 0.35:
-                    page.keyboard.press(random.choice(['ArrowLeft', 'ArrowRight']))
-                if 'volume' in actions and random.random() < 0.3:
-                    page.keyboard.press(random.choice(['ArrowUp', 'ArrowDown']))
-            return True
-        except Exception as exc:
-            self.log.emit(f'YouTube oynatma simülasyonu atlandı: {exc}')
-            return False
-
     def _emit_frame(self, page, last_mouse: Optional[Tuple[int, int]]):
         try:
             if not page or page.is_closed():
@@ -623,64 +288,27 @@ class SurfWorker(QtCore.QObject):
         except Exception as exc:
             self.log.emit(f'Görüntü yakalama hatası: {exc}')
 
+    def _build_telemetry(self, site: dict, metrics: dict) -> dict:
+        return self.telemetry_builder.build(self.browser_mgr.page, site, metrics)
+
     def _build_custom_plan(self, dwell: int, flags: dict) -> List[SurfPlanStep]:
-        site = {
-            'dwell_seconds': dwell,
-            'mobile': flags.get('mobile'),
-            'realistic': flags.get('realistic'),
-            'mouse_moves': flags.get('mouse_moves'),
-            'link_clicks': flags.get('link_clicks'),
-            'scroll': flags.get('scroll'),
-            'form_fill': flags.get('form_fill'),
-            'media': flags.get('media'),
-            'media_actions': flags.get('media_actions', []),
-        }
-        return self._build_plan({'plan': [], 'site': site})[0], site
+        return self.plan_engine.build_custom_plan(dwell, flags)
 
     def _perform_google(self, playwright: Playwright, cfg: dict, flags: dict) -> Tuple[int, int, dict, str]:
-        dwell = int(cfg.get('dwell', 30))
-        pages = max(1, int(cfg.get('pages', 1)))
-        keyword = cfg.get('keyword', '')
-        site_url = cfg.get('site_url', '')
-        country = cfg.get('country', 'com')
-        host = f'https://www.google.{country}'
-        self.log.emit(f'Google araması başlıyor ({country})')
-        page = self._ensure_page(playwright, flags)
-        page.goto(f'{host}/search?q={requests.utils.quote(keyword)}&hl=en&gl={country}', wait_until='domcontentloaded')
-        found = False
-        visited_pages = 1
-        target = site_url.replace('https://', '').replace('http://', '')
-        for _ in range(pages):
-            if not self._running:
-                break
-            links = page.query_selector_all('a[href]')
-            for lnk in links:
-                href = lnk.get_attribute('href') or ''
-                if target and target in href and 'google' not in href:
-                    lnk.click()
-                    found = True
-                    break
-            if found:
-                break
-            next_btn = page.query_selector('a#pnnext, a[aria-label="Sonraki"], a[aria-label="Next"]')
-            if next_btn:
-                visited_pages += 1
-                next_btn.click()
-                page.wait_for_timeout(800)
-            else:
-                break
-        if not found:
-            raise RuntimeError('Site bulunamadı, sonuçlarda yok')
-        plan, site_flags = self._build_custom_plan(dwell, {**flags})
-        consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
-        return consumed, visited_pages, metrics, page.url
+        return self.google_handler.perform_google(
+            playwright,
+            cfg,
+            flags,
+            self.personality,
+            lambda pw, site, plan, persona: self._apply_actions(pw, site, plan, persona),
+        )
 
     def _perform_youtube(self, playwright: Playwright, cfg: dict, flags: dict) -> Tuple[int, int, dict, str]:
         dwell = int(cfg.get('dwell', 30))
         keyword = cfg.get('keyword', '')
         link = cfg.get('video_link', '')
         pages = max(1, int(cfg.get('pages', 1))) if keyword else 1
-        page = self._ensure_page(playwright, flags)
+        page = self.browser_mgr.ensure_page(playwright, flags)
         visited = 1
         if keyword:
             page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
@@ -712,15 +340,12 @@ class SurfWorker(QtCore.QObject):
         plan, site_flags = self._build_custom_plan(dwell, {**flags})
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
-        handler = self._attach_youtube_route_noise()
-        try:
-            consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url, 'dwell_seconds': dwell}, plan)
-            return consumed, pages, metrics, page.url
-        finally:
-            self._detach_youtube_route_noise()
+        consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url, 'dwell_seconds': dwell}, plan, self.personality)
+        return consumed, pages, metrics, page.url
 
     def run(self):
         try:
+            self.personality = Personality.random_profile()
             with sync_playwright() as playwright:
                 if self.mode == 'google':
                     consumed, visited, metrics, surf_url = self._perform_google(playwright, self.task_config, self.task_config)
@@ -781,16 +406,7 @@ class SurfWorker(QtCore.QObject):
                         except Exception as exc:  # noqa: BLE001
                             self.failed.emit(str(exc))
                             break
-                if self.context:
-                    try:
-                        self.context.close()
-                    except Exception:
-                        pass
-                if self.browser:
-                    try:
-                        self.browser.close()
-                    except Exception:
-                        pass
+                self.browser_mgr.close()
         except Exception as exc:  # noqa: BLE001
             self.failed.emit(f'Surf sırasında hata: {exc}')
 
