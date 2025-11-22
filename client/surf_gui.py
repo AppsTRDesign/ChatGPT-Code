@@ -238,7 +238,10 @@ class SurfWorker(QtCore.QObject):
         planned_total = max(1, sum(s.seconds for s in plan))
         elapsed = 0
         viewport = page.viewport_size or {'width': 1280, 'height': 720}
-        last_mouse: Optional[Tuple[int, int]] = None
+        last_mouse: Optional[Tuple[int, int]] = (
+            int(viewport.get('width', 1280) / 2),
+            int(viewport.get('height', 720) / 2),
+        )
         host = urlparse(url).netloc
         runtime_target = 0
         metrics = {'clicks': 0, 'scrolls': 0, 'highlights': 0, 'forms': 0, 'media': 0, 'mouse_moves': 0}
@@ -283,7 +286,7 @@ class SurfWorker(QtCore.QObject):
 
             self._emit_frame(page, last_mouse)
 
-            duration = step.seconds if performed or 'sayfa' in step.title.lower() or 'bekleme' in step.title.lower() else 0
+            duration = max(1, int(step.seconds))
             runtime_target += duration
             for _ in range(duration):
                 if not self._running:
@@ -330,34 +333,7 @@ class SurfWorker(QtCore.QObject):
         link = cfg.get('video_link', '')
         pages = max(1, int(cfg.get('pages', 1))) if keyword else 1
         page = self.browser_mgr.ensure_page(playwright, flags)
-        visited = 1
-        if keyword:
-            page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
-            search_box = page.query_selector('input#search')
-            if search_box:
-                search_box.fill(keyword)
-                search_box.press('Enter')
-                page.wait_for_timeout(1200)
-            found = False
-            for _ in range(pages):
-                for anchor in page.query_selector_all('a#video-title'):
-                    href = anchor.get_attribute('href') or ''
-                    if link and link.replace('https://www.youtube.com', '') in href:
-                        anchor.click()
-                        found = True
-                        break
-                if found:
-                    break
-                next_btn = page.query_selector('a[aria-label*="Sonraki"], a[aria-label*="Next"]')
-                if next_btn:
-                    visited += 1
-                    next_btn.click()
-                    page.wait_for_timeout(800)
-                else:
-                    break
-            pages = visited
-        if not keyword and link:
-            page.goto(link, wait_until='domcontentloaded')
+        visited = self.youtube_handler.search_and_open(page, keyword, link, pages) if keyword or link else 1
         plan, site_flags = self._build_custom_plan(dwell, {**flags})
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
@@ -1421,6 +1397,10 @@ class SurfApp(QtWidgets.QMainWindow):
         youtube_enable = QtWidgets.QCheckBox('YouTube görevi')
         youtube_enable.setChecked(bool(site.get('youtube_enabled')))
         youtube_keyword = QtWidgets.QLineEdit(site.get('youtube_keyword') or '')
+        youtube_search_cb = QtWidgets.QCheckBox('Önce arama yap, sonra videoya gir')
+        youtube_search_cb.setChecked(bool(site.get('youtube_keyword')))
+        youtube_keyword.setEnabled(youtube_search_cb.isChecked())
+        youtube_search_cb.toggled.connect(youtube_keyword.setEnabled)
         youtube_link = QtWidgets.QLineEdit(site.get('youtube_link') or site.get('url') or '')
         youtube_pages = QtWidgets.QSpinBox()
         youtube_pages.setRange(1, 10)
@@ -1439,6 +1419,7 @@ class SurfApp(QtWidgets.QMainWindow):
         form.addRow('Google sayfa', google_pages)
         form.addRow('Google süre', google_dwell)
         form.addRow(youtube_enable)
+        form.addRow(youtube_search_cb)
         form.addRow('YouTube kelime', youtube_keyword)
         form.addRow('YouTube link', youtube_link)
         form.addRow('YouTube sayfa', youtube_pages)
@@ -1469,13 +1450,16 @@ class SurfApp(QtWidgets.QMainWindow):
                 'google_pages': google_pages.value(),
                 'google_dwell': google_dwell.value(),
                 'youtube_enabled': youtube_enable.isChecked(),
-                'youtube_keyword': youtube_keyword.text() if youtube_enable.isChecked() else '',
+                'youtube_keyword': youtube_keyword.text() if youtube_enable.isChecked() and youtube_search_cb.isChecked() else '',
                 'youtube_link': youtube_link.text(),
                 'youtube_pages': youtube_pages.value(),
                 'youtube_dwell': youtube_dwell.value(),
             }
             if payload['google_enabled'] and (not payload['google_keyword'] or not payload['url']):
                 self._toast('Google görevi için kelime ve URL gerekli', error=True)
+                return
+            if payload['youtube_enabled'] and youtube_search_cb.isChecked() and not youtube_keyword.text().strip():
+                self._toast('YouTube araması için kelime girilmelidir', error=True)
                 return
             if payload['youtube_enabled'] and not payload['youtube_link']:
                 self._toast('YouTube linki boş olamaz', error=True)

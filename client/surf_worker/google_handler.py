@@ -1,4 +1,5 @@
 import random
+import time
 import requests
 from typing import Dict, Tuple
 
@@ -41,10 +42,22 @@ class GoogleHandler:
         self.log(f'Google araması başlıyor ({country})')
         page = self.browser_manager.ensure_page(playwright, flags)
         rng = getattr(personality, 'rng', random.Random())
-        page.goto(f'{host}/search?q={requests.utils.quote(keyword)}&hl=en&gl={country}', wait_until='domcontentloaded')
+        page.goto(host, wait_until='domcontentloaded')
+        try:
+            box = page.wait_for_selector('input[name="q"]', timeout=5000)
+            box.click()
+            for ch in keyword:
+                box.type(ch, delay=rng.randint(40, 110))
+            box.press('Enter')
+        except Exception:
+            page.goto(f'{host}/search?q={requests.utils.quote(keyword)}&hl=en&gl={country}', wait_until='domcontentloaded')
+
         found = False
         visited_pages = 1
         target = site_url.replace('https://', '').replace('http://', '')
+        limit_ms = 90000
+
+        start = page._impl_obj._loop.time() if hasattr(page, '_impl_obj') else time.time()
         for _ in range(pages):
             if rng.random() < 0.65:
                 self._serp_hover(page, rng)
@@ -62,6 +75,8 @@ class GoogleHandler:
                     break
             if found:
                 break
+            if (page._impl_obj._loop.time() - start if hasattr(page, '_impl_obj') else time.time() - start) * 1000 > limit_ms:
+                break
             next_btn = page.query_selector('a#pnnext, a[aria-label="Sonraki"], a[aria-label="Next"]')
             if next_btn:
                 visited_pages += 1
@@ -70,7 +85,7 @@ class GoogleHandler:
             else:
                 break
         if not found:
-            raise RuntimeError('Site bulunamadı, sonuçlarda yok')
+            self.log('Aranan site bulunamadı, kalan süreyi sitede gezinerek tamamlıyoruz')
         plan, site_flags = self.plan_engine.build_custom_plan(dwell, {**flags})
         consumed, metrics = apply_actions(playwright, {**site_flags, 'url': page.url}, plan, personality)
         return consumed, visited_pages, metrics, page.url

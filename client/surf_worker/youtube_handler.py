@@ -97,5 +97,41 @@ class YouTubeHandler:
         finally:
             self.detach_route_noise()
 
+    def search_and_open(self, page, keyword: str, video_link: str, pages: int) -> int:
+        visited = 1
+        start = time.time()
+        if keyword:
+            page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
+            search_box = page.query_selector('input#search')
+            if search_box:
+                for ch in keyword:
+                    search_box.type(ch, delay=random.randint(40, 110))
+                search_box.press('Enter')
+                page.wait_for_timeout(random.randint(800, 1400))
+        if video_link:
+            trimmed = video_link.replace('https://www.youtube.com', '').replace('http://www.youtube.com', '')
+        else:
+            trimmed = ''
+        for _ in range(max(1, pages)):
+            for anchor in page.query_selector_all('a#video-title'):
+                href = anchor.get_attribute('href') or ''
+                if trimmed and trimmed in href:
+                    anchor.hover()
+                    page.wait_for_timeout(random.randint(140, 320))
+                    anchor.click()
+                    return visited
+            if time.time() - start > 90:
+                break
+            next_btn = page.query_selector('a[aria-label*="Sonraki"], a[aria-label*="Next"]')
+            if next_btn:
+                visited += 1
+                next_btn.click()
+                page.wait_for_timeout(random.randint(700, 1200))
+            else:
+                break
+        if trimmed:
+            page.goto(video_link, wait_until='domcontentloaded')
+        return visited
+
 
 __all__ = ["YouTubeHandler"]
