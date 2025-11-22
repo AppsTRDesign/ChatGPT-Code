@@ -20,9 +20,9 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - `PATCH/DELETE /sites/{id}` — site güncelle/sil.
   - `GET /sites/{id}/stats` — site bazında ülke/cihaz/IP/UA, puan kazanç-harcama toplamları, günlük/haftalık/aylık bar serileri ve sayfalanmış detay listesi döndürür.
   - `POST /surf/start` — başka kullanıcılara ait bir site seçer, davranış planı döndürür ve sahipten puan düşer (aynı site aynı
-    kullanıcıya gün içinde `config.php`'deki `max_daily_site_visits` değerinden fazla gösterilmez).
-  - `POST /surf/complete` — surf tamamlanınca puan kazandırır; günlük/haftalık/aylık kazanım limitleri `config.php` (max_daily/
-    weekly/monthly_reward) ile kısıtlanır. İstemciden gelen IP/ülke/şehir/cihaz/aksiyon telemetrisi `site_stats` tablosuna kaydedilir.
+    kullanıcıya gün içinde kullanıcının `max_daily_site_visits` değeri kadar gösterilir; yeni kayıtlar bu değeri config’teki varsayılanla alır).
+  - `POST /surf/complete` — surf tamamlanınca puan kazandırır; günlük/haftalık/aylık kazanım limitleri kullanıcının profilindeki
+    max_daily/weekly/monthly_reward alanlarıyla kısıtlanır. İstemciden gelen IP/ülke/şehir/cihaz/aksiyon telemetrisi `site_stats` tablosuna kaydedilir.
   - `GET /dashboard` — günlük/haftalık kazanç, kalan süre, puan ve limit özetleri.
   - `GET /dashboard/history` — günlük/haftalık puan geçmişi.
   - `GET /mail/settings` ve `POST /mail/send` — info@noasoft.org’a iletilecek mesajları API ayarlarından alır; `contact_email` değeri PHP `mail()` ile alıcı ve From olarak kullanılır.
@@ -59,3 +59,4 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
 - Repo içerisindeki FastAPI tabanlı eski kod kaldırıldı; tek kaynak PHP API + PyQt6 panelidir.
 - Endpoint’ler JWT Bearer token ile korunur; GUI otomatik olarak Authorization header’ını ayarlar.
 - GeoIP raporları için `client/assets/GeoLite2-City.mmdb`, `GeoLite2-Country.mmdb` ve `GeoLite2-ASN.mmdb` dosya yollarını kullanır; lisans gereği repo içinde dosya yoktur, aynı konuma ekleyin. Çözümlenen IP, ülke kodu, kıta, koordinat, ASN/ISP/ağ bilgileri ve user-agent, site istatistiklerinde saklanır ve PDF çıktısına eklenir.
+- `client/assets/personas.json` içine yeni persona profili eklendiğinde GUI yeniden başlatıldığında otomatik algılanır; mouse/scroll/tıklama/tartışma hızları persona profiline göre çeşitlenir.

@@ -29,7 +29,8 @@ from surf_worker import (
     GeoService,
     GoogleHandler,
     PlanEngine,
-    Personality,
+    PersonaEngine,
+    load_persona_profiles,
     SurfPlanStep,
     TelemetryBuilder,
     YouTubeHandler,
@@ -190,15 +191,16 @@ class SurfWorker(QtCore.QObject):
         self._running = True
         self.mode = mode
         self.task_config = task_config or {}
-        assets_dir = Path(__file__).resolve().parent / 'assets'
+        assets_dir = Path(__file__).resolve().parents[1] / 'assets'
         log_fn = self.log.emit
         self.browser_mgr = BrowserManager(assets_dir, log_fn)
         self.youtube_handler = YouTubeHandler(self.browser_mgr, log_fn)
         self.geo_service = GeoService(assets_dir, log_fn)
         self.telemetry_builder = TelemetryBuilder(self.geo_service, log_fn)
         self.plan_engine = PlanEngine()
-        self.personality = Personality.random_profile()
-        self.action_simulator = ActionSimulator(self.youtube_handler, log_fn)
+        self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
+        self.personality = PersonaEngine.random(self.persona_profiles)
+        self.action_simulator = ActionSimulator(self.youtube_handler, log_fn, self.personality)
         self.google_handler = GoogleHandler(self.browser_mgr, self.plan_engine, log_fn)
 
     def stop(self):
@@ -207,7 +209,7 @@ class SurfWorker(QtCore.QObject):
     def _build_plan(self, session_payload: dict) -> Tuple[List[SurfPlanStep], Dict]:
         return self.plan_engine.build_plan(session_payload)
 
-    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep], personality: Optional[Personality] = None) -> Tuple[int, dict]:
+    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep], personality: Optional[PersonaEngine] = None) -> Tuple[int, dict]:
         personality = personality or self.personality
         page = self.browser_mgr.ensure_page(playwright, site)
         url = site.get('url')
@@ -345,7 +347,8 @@ class SurfWorker(QtCore.QObject):
 
     def run(self):
         try:
-            self.personality = Personality.random_profile()
+            self.personality = PersonaEngine.random(self.persona_profiles)
+            self.action_simulator.set_persona(self.personality)
             with sync_playwright() as playwright:
                 if self.mode == 'google':
                     consumed, visited, metrics, surf_url = self._perform_google(playwright, self.task_config, self.task_config)

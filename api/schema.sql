@@ -4,6 +4,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     display_name VARCHAR(255) NOT NULL,
     points INT NOT NULL DEFAULT 0,
+    max_daily_site_visits INT NOT NULL DEFAULT 2,
+    max_daily_reward INT NOT NULL DEFAULT 1200,
+    max_weekly_reward INT NOT NULL DEFAULT 5000,
+    max_monthly_reward INT NOT NULL DEFAULT 12000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

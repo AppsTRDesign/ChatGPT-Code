@@ -35,7 +35,7 @@ function current_user(PDO $pdo, array $config): ?array
     if (!$payload || empty($payload['uid'])) {
         return null;
     }
-    $stmt = $pdo->prepare('SELECT id, email, display_name, points FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, display_name, points, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward FROM users WHERE id = ?');
     $stmt->execute([$payload['uid']]);
     return $stmt->fetch();
 }
@@ -72,11 +72,20 @@ function register(PDO $pdo, array $config): void
         return;
     }
     $hash = password_hash($password, PASSWORD_BCRYPT);
-    $pdo->prepare('INSERT INTO users (email, password_hash, display_name, points) VALUES (?, ?, ?, ?)')
-        ->execute([$email, $hash, $name, $config['initial_points']]);
+    $pdo->prepare('INSERT INTO users (email, password_hash, display_name, points, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        ->execute([
+            $email,
+            $hash,
+            $name,
+            $config['initial_points'],
+            (int)($config['max_daily_site_visits'] ?? 0),
+            (int)($config['max_daily_reward'] ?? 0),
+            (int)($config['max_weekly_reward'] ?? 0),
+            (int)($config['max_monthly_reward'] ?? 0),
+        ]);
     $id = (int)$pdo->lastInsertId();
     $token = Jwt::encode(['uid' => $id, 'iat' => time()], $config['jwt_secret']);
-    Response::json(['token' => $token, 'user' => ['id' => $id, 'email' => $email, 'display_name' => $name, 'points' => $config['initial_points']]], 201);
+    Response::json(['token' => $token, 'user' => ['id' => $id, 'email' => $email, 'display_name' => $name, 'points' => $config['initial_points'], 'max_daily_site_visits' => (int)($config['max_daily_site_visits'] ?? 0), 'max_daily_reward' => (int)($config['max_daily_reward'] ?? 0), 'max_weekly_reward' => (int)($config['max_weekly_reward'] ?? 0), 'max_monthly_reward' => (int)($config['max_monthly_reward'] ?? 0)]], 201);
 }
 
 function login(PDO $pdo, array $config): void
@@ -84,7 +93,7 @@ function login(PDO $pdo, array $config): void
     $data = read_json();
     $email = $data['email'] ?? '';
     $password = $data['password'] ?? '';
-    $stmt = $pdo->prepare('SELECT id, email, password_hash, display_name, points FROM users WHERE email = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, email, password_hash, display_name, points, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward FROM users WHERE email = ? LIMIT 1');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
     if (!$user || !password_verify($password, $user['password_hash'])) {
@@ -273,7 +282,8 @@ function start_surf(PDO $pdo, array $user, array $config): void
         if ((int)$site['dwell_seconds'] <= 0) {
             continue;
         }
-        if (has_exceeded_daily_site($pdo, (int)$user['id'], (int)$site['id'], (int)($config['max_daily_site_visits'] ?? 0))) {
+        $visitLimit = (int)($user['max_daily_site_visits'] ?? $config['max_daily_site_visits'] ?? 0);
+        if (has_exceeded_daily_site($pdo, (int)$user['id'], (int)$site['id'], $visitLimit)) {
             continue;
         }
         $mode = 'standard';
@@ -365,7 +375,7 @@ function build_plan(array $site): array
     return $steps;
 }
 
-function clamp_reward(PDO $pdo, int $userId, int $base, array $config): int
+function clamp_reward(PDO $pdo, array $user, int $base, array $config): int
 {
     $check = function (string $sql, array $params, int $cap) use ($pdo) {
         if ($cap <= 0) {
@@ -379,18 +389,18 @@ function clamp_reward(PDO $pdo, int $userId, int $base, array $config): int
 
     $dailyLeft = $check(
         'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE(created_at) = CURDATE()',
-        [$userId],
-        (int)($config['max_daily_reward'] ?? 0)
+        [$user['id']],
+        (int)($user['max_daily_reward'] ?? $config['max_daily_reward'] ?? 0)
     );
     $weeklyLeft = $check(
         'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND YEARWEEK(created_at,1) = YEARWEEK(NOW(),1)',
-        [$userId],
-        (int)($config['max_weekly_reward'] ?? 0)
+        [$user['id']],
+        (int)($user['max_weekly_reward'] ?? $config['max_weekly_reward'] ?? 0)
     );
     $monthlyLeft = $check(
         'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE_FORMAT(created_at, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")',
-        [$userId],
-        (int)($config['max_monthly_reward'] ?? 0)
+        [$user['id']],
+        (int)($user['max_monthly_reward'] ?? $config['max_monthly_reward'] ?? 0)
     );
 
     $limits = array_filter([$dailyLeft, $weeklyLeft, $monthlyLeft], fn($v) => $v !== null);
@@ -401,22 +411,22 @@ function clamp_reward(PDO $pdo, int $userId, int $base, array $config): int
     return max(0, min($base, ...$limits));
 }
 
-function reward_leftovers(PDO $pdo, int $userId, array $config): array
+function reward_leftovers(PDO $pdo, array $user, array $config): array
 {
-    $calc = function (string $sql, int $cap) use ($pdo, $userId) {
+    $calc = function (string $sql, int $cap) use ($pdo, $user) {
         if ($cap <= 0) {
             return null;
         }
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$userId]);
+        $stmt->execute([$user['id']]);
         $spent = (int)($stmt->fetchColumn() ?: 0);
         return max(0, $cap - $spent);
     };
 
     return [
-        'daily_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE(created_at) = CURDATE()', (int)($config['max_daily_reward'] ?? 0)),
-        'weekly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND YEARWEEK(created_at,1) = YEARWEEK(NOW(),1)', (int)($config['max_weekly_reward'] ?? 0)),
-        'monthly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE_FORMAT(created_at, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")', (int)($config['max_monthly_reward'] ?? 0)),
+        'daily_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE(created_at) = CURDATE()', (int)($user['max_daily_reward'] ?? $config['max_daily_reward'] ?? 0)),
+        'weekly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND YEARWEEK(created_at,1) = YEARWEEK(NOW(),1)', (int)($user['max_weekly_reward'] ?? $config['max_weekly_reward'] ?? 0)),
+        'monthly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE_FORMAT(created_at, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")', (int)($user['max_monthly_reward'] ?? $config['max_monthly_reward'] ?? 0)),
     ];
 }
 
@@ -452,7 +462,7 @@ function complete_surf(PDO $pdo, array $user, array $config): void
         $reward += (int)($config['youtube_task_points'] ?? 50);
         $reward += ($pagesVisited ?: (int)($session['youtube_pages'] ?? 1)) * (int)($config['youtube_page_points'] ?? 10);
     }
-    $reward = clamp_reward($pdo, (int)$user['id'], $reward, $config);
+    $reward = clamp_reward($pdo, $user, $reward, $config);
     if ($reward > 0) {
         $pdo->prepare('UPDATE users SET points = points + ? WHERE id = ?')->execute([$reward, $user['id']]);
         $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
@@ -638,7 +648,7 @@ function update_profile_endpoint(PDO $pdo, array $user): void
         $hash = password_hash($password, PASSWORD_BCRYPT);
         $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $user['id']]);
     }
-    $stmt = $pdo->prepare('SELECT id, email, display_name, points FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, display_name, points, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward FROM users WHERE id = ?');
     $stmt->execute([$user['id']]);
     Response::json(['user' => $stmt->fetch()]);
 }
@@ -714,7 +724,7 @@ function dashboard(PDO $pdo, array $user): void
     $weekly->execute([$user['id']]);
     $stmt = $pdo->prepare('SELECT SUM(dwell_seconds) AS remaining FROM sites WHERE user_id = ?');
     $stmt->execute([$user['id']]);
-    $limits = reward_leftovers($pdo, (int)$user['id'], $GLOBALS['config']);
+    $limits = reward_leftovers($pdo, $user, $GLOBALS['config']);
     Response::json([
         'daily' => (int)($daily->fetch()['total'] ?? 0),
         'weekly' => (int)($weekly->fetch()['total'] ?? 0),

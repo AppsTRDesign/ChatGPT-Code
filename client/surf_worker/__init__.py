@@ -1,21 +1,24 @@
 """Surf worker helpers for modular Playwright automation."""
 
 from .browser_manager import BrowserManager
-from .action_simulator import ActionSimulator, Personality
+from .action_simulator import ActionSimulator
 from .youtube_handler import YouTubeHandler
 from .google_handler import GoogleHandler
 from .telemetry_builder import TelemetryBuilder
 from .geo_service import GeoService
 from .plan_engine import PlanEngine, SurfPlanStep
+from .persona_engine import PersonaEngine, PersonaProfile, load_persona_profiles
 
 __all__ = [
     "BrowserManager",
     "ActionSimulator",
-    "Personality",
     "YouTubeHandler",
     "GoogleHandler",
     "TelemetryBuilder",
     "GeoService",
     "PlanEngine",
     "SurfPlanStep",
+    "PersonaEngine",
+    "PersonaProfile",
+    "load_persona_profiles",
 ]
