@@ -533,24 +533,20 @@ class SurfWorker(QtCore.QObject):
         }
         return self._build_plan({'plan': [], 'site': site})[0], site
 
-    def _run_google_task(self, playwright: Playwright):
-        cfg = self.task_config
+    def _perform_google(self, playwright: Playwright, cfg: dict, flags: dict) -> Tuple[int, int, dict, str]:
         dwell = int(cfg.get('dwell', 30))
         pages = max(1, int(cfg.get('pages', 1)))
         keyword = cfg.get('keyword', '')
         site_url = cfg.get('site_url', '')
         country = cfg.get('country', 'com')
-        point_cfg = cfg.get('task_points') or {}
-        base_points = int(point_cfg.get('google_base', 50))
-        page_points = int(point_cfg.get('google_page', 10))
         host = f'https://www.google.{country}'
         self.log.emit(f'Google araması başlıyor ({country})')
-        page = self._ensure_page(playwright, cfg)
+        page = self._ensure_page(playwright, flags)
         page.goto(f'{host}/search?q={requests.utils.quote(keyword)}&hl=en&gl={country}', wait_until='domcontentloaded')
         found = False
         visited_pages = 1
         target = site_url.replace('https://', '').replace('http://', '')
-        for idx in range(pages):
+        for _ in range(pages):
             if not self._running:
                 break
             links = page.query_selector_all('a[href]')
@@ -570,23 +566,18 @@ class SurfWorker(QtCore.QObject):
             else:
                 break
         if not found:
-            self.failed.emit('Site bulunamadı, sonuçlarda yok')
-            return
-        plan, site_flags = self._build_custom_plan(dwell, cfg)
-        consumed, _ = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
-        earned = consumed + base_points + (visited_pages * page_points)
-        self.finished.emit(earned)
+            raise RuntimeError('Site bulunamadı, sonuçlarda yok')
+        plan, site_flags = self._build_custom_plan(dwell, {**flags})
+        consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
+        return consumed, visited_pages, metrics, page.url
 
-    def _run_youtube_task(self, playwright: Playwright):
-        cfg = self.task_config
+    def _perform_youtube(self, playwright: Playwright, cfg: dict, flags: dict) -> Tuple[int, int, dict, str]:
         dwell = int(cfg.get('dwell', 30))
         keyword = cfg.get('keyword', '')
         link = cfg.get('video_link', '')
         pages = max(1, int(cfg.get('pages', 1))) if keyword else 1
-        point_cfg = cfg.get('task_points') or {}
-        base_points = int(point_cfg.get('youtube_base', 50))
-        page_points = int(point_cfg.get('youtube_page', 10))
-        page = self._ensure_page(playwright, cfg)
+        page = self._ensure_page(playwright, flags)
+        visited = 1
         if keyword:
             page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
             search_box = page.query_selector('input#search')
@@ -595,8 +586,7 @@ class SurfWorker(QtCore.QObject):
                 search_box.press('Enter')
                 page.wait_for_timeout(1200)
             found = False
-            visited = 1
-            for idx in range(pages):
+            for _ in range(pages):
                 for anchor in page.query_selector_all('a#video-title'):
                     href = anchor.get_attribute('href') or ''
                     if link and link.replace('https://www.youtube.com', '') in href:
@@ -615,20 +605,25 @@ class SurfWorker(QtCore.QObject):
             pages = visited
         if not keyword and link:
             page.goto(link, wait_until='domcontentloaded')
-        plan, site_flags = self._build_custom_plan(dwell, cfg)
+        plan, site_flags = self._build_custom_plan(dwell, {**flags})
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
-        consumed, _ = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
-        earned = base_points + consumed + (pages * page_points if keyword else 0)
-        self.finished.emit(earned)
+        consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url}, plan)
+        return consumed, pages, metrics, page.url
 
     def run(self):
         try:
             with sync_playwright() as playwright:
                 if self.mode == 'google':
-                    self._run_google_task(playwright)
+                    consumed, visited, metrics, surf_url = self._perform_google(playwright, self.task_config, self.task_config)
+                    telemetry = self._build_telemetry({'mobile': self.task_config.get('mobile')}, metrics)
+                    telemetry['pages_visited'] = visited
+                    self.finished.emit(consumed + visited)
                 elif self.mode == 'youtube':
-                    self._run_youtube_task(playwright)
+                    consumed, visited, metrics, surf_url = self._perform_youtube(playwright, self.task_config, self.task_config)
+                    telemetry = self._build_telemetry({'mobile': self.task_config.get('mobile')}, metrics)
+                    telemetry['pages_visited'] = visited
+                    self.finished.emit(consumed + visited)
                 else:
                     while self._running:
                         try:
@@ -640,13 +635,37 @@ class SurfWorker(QtCore.QObject):
                             else:
                                 self.failed.emit(message)
                             break
-                        plan, site = self._build_plan(session)
+                        mode = session.get('task_mode') or 'standard'
                         session_id = session.get('session_id') or session.get('id')
-                        consumed_seconds, metrics = self._apply_actions(playwright, site, plan)
+                        planned_pages = int(session.get('planned_pages') or 0)
+                        if mode == 'google':
+                            task_cfg = session.get('task') or {}
+                            site = session.get('site') or {}
+                            flags = {k: site.get(k) for k in ['mobile', 'realistic', 'mouse_moves', 'link_clicks', 'scroll', 'form_fill', 'media']}
+                            flags['media_actions'] = site.get('media_actions') or []
+                            task_cfg.setdefault('site_url', site.get('url', ''))
+                            consumed_seconds, visited, metrics, surf_url = self._perform_google(playwright, task_cfg, flags)
+                            site = {**site, 'url': surf_url}
+                            planned_pages = visited
+                        elif mode == 'youtube':
+                            task_cfg = session.get('task') or {}
+                            site = session.get('site') or {}
+                            flags = {k: site.get(k) for k in ['mobile', 'realistic', 'mouse_moves', 'link_clicks', 'scroll', 'form_fill', 'media']}
+                            flags['media_actions'] = site.get('media_actions') or []
+                            task_cfg.setdefault('site_url', site.get('url', ''))
+                            consumed_seconds, visited, metrics, surf_url = self._perform_youtube(playwright, task_cfg, flags)
+                            site = {**site, 'url': surf_url}
+                            planned_pages = visited
+                        else:
+                            plan, site = self._build_plan(session)
+                            consumed_seconds, metrics = self._apply_actions(playwright, site, plan)
+                            visited = planned_pages
                         if not self._running:
                             break
                         try:
                             telemetry = self._build_telemetry(site, metrics)
+                            if planned_pages:
+                                telemetry['pages_visited'] = planned_pages
                             result = self.client.complete_surf(self.token, int(session_id), consumed_seconds, telemetry)
                             earned = int(result.get('earned', 0))
                             self.log.emit(f'Oturum tamamlandı: +{earned} puan')
@@ -930,10 +949,53 @@ class SurfApp(QtWidgets.QMainWindow):
             media_layout.addWidget(cb)
         form.addLayout(media_layout, 4, 0, 1, 2)
 
+        self.google_enable = QtWidgets.QCheckBox('Google görevi (otomatik surf havuzu)')
+        self.google_enable.toggled.connect(self._toggle_google_options)
+        self.google_keyword = QtWidgets.QLineEdit()
+        self.google_country = QtWidgets.QComboBox()
+        for name, code in [('Global', 'com'), ('Brezilya', 'com.br'), ('Türkiye', 'com.tr'), ('ABD', 'com'), ('Almanya', 'de')]:
+            self.google_country.addItem(name, code)
+        self.google_pages = QtWidgets.QSpinBox()
+        self.google_pages.setRange(1, 10)
+        self.google_pages.setValue(3)
+        self.google_dwell = QtWidgets.QSpinBox()
+        self.google_dwell.setRange(5, 900)
+        self.google_dwell.setValue(30)
+        google_group = QtWidgets.QGroupBox('Google arama ayarları')
+        google_form = QtWidgets.QFormLayout(google_group)
+        google_form.addRow(self.google_enable)
+        google_form.addRow('Arama kelimesi', self.google_keyword)
+        google_form.addRow('Ülke', self.google_country)
+        google_form.addRow('Kaç sayfa tara', self.google_pages)
+        google_form.addRow('Sitede kalma (sn)', self.google_dwell)
+        form.addWidget(google_group, 5, 0, 1, 2)
+
+        self.youtube_enable = QtWidgets.QCheckBox('YouTube görevi (otomatik surf havuzu)')
+        self.youtube_enable.toggled.connect(self._toggle_youtube_options)
+        self.youtube_keyword = QtWidgets.QLineEdit()
+        self.youtube_video = QtWidgets.QLineEdit()
+        self.youtube_pages = QtWidgets.QSpinBox()
+        self.youtube_pages.setRange(1, 10)
+        self.youtube_pages.setValue(2)
+        self.youtube_dwell = QtWidgets.QSpinBox()
+        self.youtube_dwell.setRange(5, 1200)
+        self.youtube_dwell.setValue(60)
+        youtube_group = QtWidgets.QGroupBox('YouTube video ayarları')
+        youtube_form = QtWidgets.QFormLayout(youtube_group)
+        youtube_form.addRow(self.youtube_enable)
+        youtube_form.addRow('Arama kelimesi', self.youtube_keyword)
+        youtube_form.addRow('Video linki', self.youtube_video)
+        youtube_form.addRow('Arama sayfa sayısı', self.youtube_pages)
+        youtube_form.addRow('İzleme süresi (sn)', self.youtube_dwell)
+        form.addWidget(youtube_group, 6, 0, 1, 2)
+
+        self._toggle_google_options(False)
+        self._toggle_youtube_options(False)
+
         add_btn = QtWidgets.QPushButton('Siteyi Kaydet')
         add_btn.clicked.connect(self.add_or_update_site)
         add_btn.setStyleSheet('padding:10px 16px; font-weight:bold; background:#2563eb; color:white; border-radius:8px;')
-        form.addWidget(add_btn, 5, 0, 1, 2)
+        form.addWidget(add_btn, 7, 0, 1, 2)
 
         outer.addLayout(form)
 
@@ -1001,53 +1063,28 @@ class SurfApp(QtWidgets.QMainWindow):
     def _build_google_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         form = QtWidgets.QFormLayout(widget)
-        self.google_site = QtWidgets.QLineEdit()
-        self.google_keyword = QtWidgets.QLineEdit()
-        self.google_country = QtWidgets.QComboBox()
-        countries = [('Global', 'com'), ('Brezilya', 'com.br'), ('Türkiye', 'com.tr'), ('ABD', 'com'), ('Almanya', 'de')]
-        for name, code in countries:
-            self.google_country.addItem(name, code)
-        self.google_pages = QtWidgets.QSpinBox()
-        self.google_pages.setRange(1, 10)
-        self.google_pages.setValue(3)
-        self.google_dwell = QtWidgets.QSpinBox()
-        self.google_dwell.setRange(5, 900)
-        self.google_dwell.setValue(30)
-
-        self.google_action_boxes = self._build_action_checkboxes()
-        form.addRow('Site Adresi', self.google_site)
-        form.addRow('Arama Kelimesi', self.google_keyword)
-        form.addRow('Ülke', self.google_country)
-        form.addRow('Kaç Sayfa Tara', self.google_pages)
-        form.addRow('Sitede Kalma (sn)', self.google_dwell)
-        form.addRow(self.google_action_boxes['container'])
-
-        btn = QtWidgets.QPushButton('Google Görevini Başlat')
-        btn.clicked.connect(self.start_google_task)
+        info = QtWidgets.QLabel('Google görevleri siteler sekmesinde kayıtlı siteler için otomatik çalışır. Burada yalnızca yapılandırma özetini görürsünüz.')
+        info.setWordWrap(True)
+        form.addRow(info)
+        placeholder = QtWidgets.QLabel('Site eklerken Google arama kelimesi, ülke, sayfa sayısı ve süreyi belirtin; görev havuza düşer ve otomatik tetiklenir.')
+        placeholder.setWordWrap(True)
+        form.addRow(placeholder)
+        btn = QtWidgets.QPushButton('Google görevleri havuzdan otomatik başlatılır')
+        btn.setEnabled(False)
         form.addRow(btn)
         return widget
 
     def _build_youtube_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         form = QtWidgets.QFormLayout(widget)
-        self.youtube_keyword = QtWidgets.QLineEdit()
-        self.youtube_video = QtWidgets.QLineEdit()
-        self.youtube_pages = QtWidgets.QSpinBox()
-        self.youtube_pages.setRange(1, 10)
-        self.youtube_pages.setValue(2)
-        self.youtube_dwell = QtWidgets.QSpinBox()
-        self.youtube_dwell.setRange(5, 1200)
-        self.youtube_dwell.setValue(60)
-        self.youtube_action_boxes = self._build_action_checkboxes(include_media=True)
-
-        form.addRow('Arama Kelimesi (opsiyonel)', self.youtube_keyword)
-        form.addRow('Video Linki', self.youtube_video)
-        form.addRow('Arama Sayfa Sayısı', self.youtube_pages)
-        form.addRow('Video İzleme (sn)', self.youtube_dwell)
-        form.addRow(self.youtube_action_boxes['container'])
-
-        btn = QtWidgets.QPushButton('YouTube Görevini Başlat')
-        btn.clicked.connect(self.start_youtube_task)
+        info = QtWidgets.QLabel('YouTube görevleri siteler sekmesinde eklediğiniz videolar için otomatik başlar; arama/izleme ayarları site kayıt formunda tanımlanır.')
+        info.setWordWrap(True)
+        form.addRow(info)
+        placeholder = QtWidgets.QLabel('Video linki veya arama kelimesini site kartına ekleyin, görev puanlaması havuza düşer ve diğer kullanıcılar tarafından tamamlanır.')
+        placeholder.setWordWrap(True)
+        form.addRow(placeholder)
+        btn = QtWidgets.QPushButton('YouTube görevleri havuzdan otomatik başlatılır')
+        btn.setEnabled(False)
         form.addRow(btn)
         return widget
 
@@ -1060,12 +1097,13 @@ class SurfApp(QtWidgets.QMainWindow):
         table = QtWidgets.QTableWidget(0, 3)
         table.setHorizontalHeaderLabels(['İşlem', 'Puan', 'Açıklama'])
         rows = [
-            ('Site ekleme', '-Süre', 'Siteyi eklerken süre kadar puan rezerv edilir'),
-            ('Surf ödülü', '+Süre', 'Gezinme tamamlanınca süre kadar puan kazanılır'),
-            ('Google görevi', '+50 + süre + (10*sayfa)', 'Arama + sitede kalma toplam kazanç'),
-            ('YouTube görevi', '+50 + süre + (10*sayfa)', 'Arama aktifse sayfa başı eklenir'),
-            ('Günlük limit', 'config', 'max_daily_reward, max_daily_site_visits ile sınırlanır'),
-            ('Haftalık/Aylık limit', 'config', 'max_weekly_reward ve max_monthly_reward kontrol edilir'),
+            ('Site ekleme', '-Süre', 'Siteyi havuza açarken süre kadar puan önceden ayrılır'),
+            ('Surf ödülü', '+Süre', 'Gerçek ziyaretçilerin tamamladığı süre kadar puan geri alınır'),
+            ('Google görevi', '+Taban + süre + sayfa katsayısı', 'Arama sonuçlarında görünürlük + sitede kalma birleşik getirisi'),
+            ('YouTube görevi', '+Taban + izleme + sayfa katsayısı', 'Video izlenmesi ve medya aksiyonlarıyla güçlenen etkileşim'),
+            ('SEO katkısı', '+Etkileşim', 'Kaydırma, tıklama, form ve medya aksiyonları oturum kalitesini artırır'),
+            ('Puan akışı', '-Rezerv / +Ödül', 'Görev başlamadan puan kitlenir, başarıyla tamamlanınca otomatik iade edilir'),
+            ('Topluluk havuzu', '+Pasif kazanç', 'Diğer kullanıcılar sitenizi gezerken siz de puan toplarsınız'),
         ]
         table.setRowCount(len(rows))
         for idx, row in enumerate(rows):
@@ -1196,9 +1234,7 @@ class SurfApp(QtWidgets.QMainWindow):
             return
         try:
             self.task_points = self.client.task_config(self.token) or {}
-            self._append_log(
-                'Görev puan konfigürasyonu alındı: ' + ', '.join(f"{k}={v}" for k, v in self.task_points.items())
-            )
+            self._append_log('Görev puan bilgisi alındı')
         except Exception as exc:  # noqa: BLE001
             self._append_log(f'Görev puan konfigürasyonu alınamadı: {exc}')
         self.load_sites()
@@ -1291,6 +1327,16 @@ class SurfApp(QtWidgets.QMainWindow):
             'form_fill': self.form_cb.isChecked(),
             'media': self.media_cb.isChecked(),
             'media_actions': [key for key, cb in self.media_option_boxes.items() if cb.isChecked()],
+            'google_enabled': self.google_enable.isChecked(),
+            'google_keyword': self.google_keyword.text(),
+            'google_country': self.google_country.currentData(),
+            'google_pages': self.google_pages.value(),
+            'google_dwell': self.google_dwell.value(),
+            'youtube_enabled': self.youtube_enable.isChecked(),
+            'youtube_keyword': self.youtube_keyword.text(),
+            'youtube_link': self.youtube_video.text(),
+            'youtube_pages': self.youtube_pages.value(),
+            'youtube_dwell': self.youtube_dwell.value(),
         }
         try:
             self.client.create_site(self.token, payload)
@@ -1305,6 +1351,19 @@ class SurfApp(QtWidgets.QMainWindow):
             cb.setEnabled(checked)
             if not checked:
                 cb.setChecked(False)
+
+    def _toggle_google_options(self, checked: bool):
+        for widget in [self.google_keyword, self.google_country, self.google_pages, self.google_dwell]:
+            widget.setEnabled(bool(checked))
+        if not checked:
+            self.google_keyword.clear()
+
+    def _toggle_youtube_options(self, checked: bool):
+        for widget in [self.youtube_keyword, self.youtube_video, self.youtube_pages, self.youtube_dwell]:
+            widget.setEnabled(bool(checked))
+        if not checked:
+            self.youtube_keyword.clear()
+            self.youtube_video.clear()
 
     def load_sites(self):
         if not self.client or not self.token:
@@ -1341,6 +1400,10 @@ class SurfApp(QtWidgets.QMainWindow):
             ]:
                 if site.get(flag):
                     settings.append(label)
+            if site.get('google_enabled'):
+                settings.append('Google görevi')
+            if site.get('youtube_enabled'):
+                settings.append('YouTube görevi')
             media_actions = site.get('media_actions') or site.get('media_options') or []
             if media_actions:
                 settings.append('Medya: ' + ', '.join(media_actions))
@@ -1667,7 +1730,7 @@ class SurfApp(QtWidgets.QMainWindow):
         if self.worker_thread and self.worker_thread.isRunning():
             self._toast('Zaten çalışıyor')
             return
-        self._launch_worker('surf', {})
+        self._launch_worker('surf', {'task_points': self.task_points})
 
     def start_google_task(self):
         if not self.token:

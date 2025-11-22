@@ -152,11 +152,28 @@ function create_site(PDO $pdo, array $config, array $user): void
     $name = trim($data['name'] ?? '');
     $url = trim($data['url'] ?? '');
     $dwell = max(5, (int)($data['dwell_seconds'] ?? 0));
+    $googleEnabled = !empty($data['google_enabled']);
+    $googleKeyword = trim($data['google_keyword'] ?? '');
+    $googleCountry = trim($data['google_country'] ?? 'com');
+    $googlePages = max(1, (int)($data['google_pages'] ?? 1));
+    $googleDwell = max(5, (int)($data['google_dwell'] ?? $dwell));
+    $youtubeEnabled = !empty($data['youtube_enabled']);
+    $youtubeKeyword = trim($data['youtube_keyword'] ?? '');
+    $youtubeLink = trim($data['youtube_link'] ?? '');
+    $youtubePages = max(1, (int)($data['youtube_pages'] ?? 1));
+    $youtubeDwell = max(5, (int)($data['youtube_dwell'] ?? $dwell));
     if (!$name || !$url) {
         Response::error('name ve url zorunlu');
         return;
     }
-    if ($user['points'] < $dwell) {
+    $reserveCost = $dwell;
+    if ($googleEnabled) {
+        $reserveCost = $googleDwell + (int)($config['google_task_points'] ?? 50) + ($googlePages * (int)($config['google_page_points'] ?? 10));
+    } elseif ($youtubeEnabled) {
+        $reserveCost = $youtubeDwell + (int)($config['youtube_task_points'] ?? 50)
+            + ($youtubePages * (int)($config['youtube_page_points'] ?? 10));
+    }
+    if ($user['points'] < $reserveCost) {
         Response::error('Puan yetersiz', 409, ['available' => $user['points']]);
         return;
     }
@@ -170,17 +187,19 @@ function create_site(PDO $pdo, array $config, array $user): void
         'media' => !empty($data['media']),
     ];
     $mediaActions = json_encode($data['media_actions'] ?? []);
-    $pdo->prepare('INSERT INTO sites (user_id, name, url, dwell_seconds, mobile, realistic, mouse_moves, link_clicks, scroll, form_fill, media, media_actions) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+    $pdo->prepare('INSERT INTO sites (user_id, name, url, dwell_seconds, google_enabled, google_keyword, google_country, google_pages, google_dwell, youtube_enabled, youtube_keyword, youtube_link, youtube_pages, youtube_dwell, mobile, realistic, mouse_moves, link_clicks, scroll, form_fill, media, media_actions) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
         ->execute([
             $user['id'], $name, $url, $dwell,
+            (int)$googleEnabled, $googleKeyword ?: null, $googleCountry ?: 'com', $googlePages, $googleDwell,
+            (int)$youtubeEnabled, $youtubeKeyword ?: null, $youtubeLink ?: null, $youtubePages, $youtubeDwell,
             (int)$flags['mobile'], (int)$flags['realistic'], (int)$flags['mouse_moves'],
             (int)$flags['link_clicks'], (int)$flags['scroll'], (int)$flags['form_fill'], (int)$flags['media'],
             $mediaActions,
         ]);
     $siteId = (int)$pdo->lastInsertId();
-    $pdo->prepare('UPDATE users SET points = points - ? WHERE id = ?')->execute([$dwell, $user['id']]);
+    $pdo->prepare('UPDATE users SET points = points - ? WHERE id = ?')->execute([$reserveCost, $user['id']]);
     $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
-        ->execute([$user['id'], -$dwell, 'site_reserve', json_encode(['site_id' => $siteId])]);
+        ->execute([$user['id'], -$reserveCost, 'site_reserve', json_encode(['site_id' => $siteId])]);
     $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
     $stmt->execute([$user['id']]);
     $freshUser = $stmt->fetch();
@@ -217,11 +236,21 @@ function update_site(PDO $pdo, int $userId, int $siteId): void
         'media' => isset($data['media']) ? (int)!empty($data['media']) : (int)$site['media'],
     ];
     $mediaActions = array_key_exists('media_actions', $data) ? json_encode($data['media_actions']) : $site['media_actions'];
-    $pdo->prepare('UPDATE sites SET name = ?, url = ?, dwell_seconds = IFNULL(?, dwell_seconds), mobile = ?, realistic = ?, mouse_moves = ?, link_clicks = ?, scroll = ?, form_fill = ?, media = ?, media_actions = ? WHERE id = ?')
+    $pdo->prepare('UPDATE sites SET name = ?, url = ?, dwell_seconds = IFNULL(?, dwell_seconds), google_enabled = ?, google_keyword = ?, google_country = ?, google_pages = ?, google_dwell = ?, youtube_enabled = ?, youtube_keyword = ?, youtube_link = ?, youtube_pages = ?, youtube_dwell = ?, mobile = ?, realistic = ?, mouse_moves = ?, link_clicks = ?, scroll = ?, form_fill = ?, media = ?, media_actions = ? WHERE id = ?')
         ->execute([
             $name ?: $site['name'],
             $url ?: $site['url'],
             $dwell,
+            !empty($data['google_enabled']) ? 1 : 0,
+            trim($data['google_keyword'] ?? $site['google_keyword']),
+            trim($data['google_country'] ?? $site['google_country']),
+            max(1, (int)($data['google_pages'] ?? $site['google_pages'] ?? 1)),
+            max(5, (int)($data['google_dwell'] ?? $site['google_dwell'] ?? $site['dwell_seconds'])),
+            !empty($data['youtube_enabled']) ? 1 : 0,
+            trim($data['youtube_keyword'] ?? $site['youtube_keyword']),
+            trim($data['youtube_link'] ?? $site['youtube_link']),
+            max(1, (int)($data['youtube_pages'] ?? $site['youtube_pages'] ?? 1)),
+            max(5, (int)($data['youtube_dwell'] ?? $site['youtube_dwell'] ?? $site['dwell_seconds'])),
             $flags['mobile'],
             $flags['realistic'],
             $flags['mouse_moves'],
@@ -247,29 +276,64 @@ function start_surf(PDO $pdo, array $user, array $config): void
         if (has_exceeded_daily_site($pdo, (int)$user['id'], (int)$site['id'], (int)($config['max_daily_site_visits'] ?? 0))) {
             continue;
         }
+        $mode = 'standard';
+        $plannedDwell = (int)$site['dwell_seconds'];
+        $plannedPages = 0;
+        $spend = $plannedDwell;
+        $task = null;
+        if (!empty($site['google_enabled'])) {
+            $mode = 'google';
+            $plannedDwell = max(5, (int)($site['google_dwell'] ?: $site['dwell_seconds']));
+            $plannedPages = max(1, (int)($site['google_pages'] ?: 1));
+            $spend = $plannedDwell + (int)($config['google_task_points'] ?? 50) + ($plannedPages * (int)($config['google_page_points'] ?? 10));
+            $task = [
+                'keyword' => $site['google_keyword'] ?? '',
+                'country' => $site['google_country'] ?: 'com',
+                'pages' => $plannedPages,
+                'dwell' => $plannedDwell,
+                'site_url' => $site['url'],
+            ];
+        } elseif (!empty($site['youtube_enabled'])) {
+            $mode = 'youtube';
+            $plannedDwell = max(5, (int)($site['youtube_dwell'] ?: $site['dwell_seconds']));
+            $plannedPages = max(1, (int)($site['youtube_pages'] ?: 1));
+            $spend = $plannedDwell + (int)($config['youtube_task_points'] ?? 50) + ($plannedPages * (int)($config['youtube_page_points'] ?? 10));
+            $task = [
+                'keyword' => $site['youtube_keyword'] ?? '',
+                'video_link' => $site['youtube_link'] ?? '',
+                'pages' => $plannedPages,
+                'dwell' => $plannedDwell,
+                'site_url' => $site['url'],
+            ];
+        }
         $pdo->beginTransaction();
         try {
             $lock = $pdo->prepare('SELECT points FROM users WHERE id = ? FOR UPDATE');
             $lock->execute([$site['user_id']]);
             $owner = $lock->fetch();
-            if (!$owner || $owner['points'] < $site['dwell_seconds']) {
+            if (!$owner || $owner['points'] < $spend) {
                 $pdo->rollBack();
                 continue;
             }
             $pdo->prepare('UPDATE users SET points = points - ? WHERE id = ?')
-                ->execute([(int)$site['dwell_seconds'], $site['user_id']]);
+                ->execute([$spend, $site['user_id']]);
             $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
-                ->execute([$site['user_id'], -$site['dwell_seconds'], 'surf_spend', json_encode(['site_id' => $site['id']])]);
-            $pdo->prepare('INSERT INTO surf_sessions (site_id, surfer_id, status, started_at) VALUES (?,?,"in_progress",NOW())')
-                ->execute([(int)$site['id'], $user['id']]);
+                ->execute([$site['user_id'], -$spend, 'surf_spend', json_encode(['site_id' => $site['id'], 'task' => $mode])]);
+            $pdo->prepare('INSERT INTO surf_sessions (site_id, surfer_id, task_mode, planned_dwell, planned_pages, status, started_at) VALUES (?,?,?,?,?,"in_progress",NOW())')
+                ->execute([(int)$site['id'], $user['id'], $mode, $plannedDwell, $plannedPages]);
             $sessionId = (int)$pdo->lastInsertId();
             $pdo->commit();
-            $plan = build_plan($site);
+            $site['media_actions'] = $site['media_actions'] ? json_decode($site['media_actions'], true) : [];
+            $site['dwell_seconds'] = $plannedDwell;
+            $plan = $mode === 'standard' ? build_plan($site) : [];
             $site['media_actions'] = $site['media_actions'] ? json_decode($site['media_actions'], true) : [];
             Response::json([
                 'session_id' => $sessionId,
                 'site' => $site,
                 'plan' => $plan,
+                'task_mode' => $mode,
+                'task' => $task,
+                'planned_pages' => $plannedPages,
             ]);
             return;
         } catch (Exception $e) {
@@ -367,7 +431,7 @@ function complete_surf(PDO $pdo, array $user, array $config): void
         return;
     }
     $pdo->beginTransaction();
-    $stmt = $pdo->prepare('SELECT ss.*, s.dwell_seconds FROM surf_sessions ss JOIN sites s ON s.id = ss.site_id WHERE ss.id = ? AND ss.surfer_id = ? FOR UPDATE');
+    $stmt = $pdo->prepare('SELECT ss.*, s.dwell_seconds, s.google_pages, s.youtube_pages FROM surf_sessions ss JOIN sites s ON s.id = ss.site_id WHERE ss.id = ? AND ss.surfer_id = ? FOR UPDATE');
     $stmt->execute([$sessionId, $user['id']]);
     $session = $stmt->fetch();
     if (!$session || $session['status'] !== 'in_progress') {
@@ -377,7 +441,17 @@ function complete_surf(PDO $pdo, array $user, array $config): void
     }
     $pdo->prepare('UPDATE surf_sessions SET status = "completed", completed_at = NOW() WHERE id = ?')
         ->execute([$sessionId]);
-    $reward = (int)$session['dwell_seconds'];
+    $plannedDwell = (int)($session['planned_dwell'] ?: $session['dwell_seconds']);
+    $mode = $session['task_mode'] ?: 'standard';
+    $pagesVisited = (int)($telemetry['pages_visited'] ?? $session['planned_pages'] ?? 0);
+    $reward = $plannedDwell;
+    if ($mode === 'google') {
+        $reward += (int)($config['google_task_points'] ?? 50);
+        $reward += ($pagesVisited ?: (int)($session['google_pages'] ?? 1)) * (int)($config['google_page_points'] ?? 10);
+    } elseif ($mode === 'youtube') {
+        $reward += (int)($config['youtube_task_points'] ?? 50);
+        $reward += ($pagesVisited ?: (int)($session['youtube_pages'] ?? 1)) * (int)($config['youtube_page_points'] ?? 10);
+    }
     $reward = clamp_reward($pdo, (int)$user['id'], $reward, $config);
     if ($reward > 0) {
         $pdo->prepare('UPDATE users SET points = points + ? WHERE id = ?')->execute([$reward, $user['id']]);
@@ -386,7 +460,13 @@ function complete_surf(PDO $pdo, array $user, array $config): void
                 $user['id'],
                 $reward,
                 'surf_reward',
-                json_encode(['session_id' => $sessionId, 'consumed' => $consumed, 'site_id' => $session['site_id']]),
+                json_encode([
+                    'session_id' => $sessionId,
+                    'consumed' => $consumed,
+                    'site_id' => $session['site_id'],
+                    'task' => $mode,
+                    'pages' => $pagesVisited,
+                ]),
             ]);
     }
     persist_site_stats($pdo, (int)$session['site_id'], (int)$user['id'], $telemetry);
