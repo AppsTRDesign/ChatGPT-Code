@@ -27,6 +27,7 @@ class BrowserManager:
             self.context = self.browser.new_context(**context_kwargs)
             self.page = self.context.new_page()
             self._inject_pointer_overlay(self.page)
+            self._patch_fingerprints(self.page)
             self._current_mobile = mobile
         return self.page
 
@@ -88,6 +89,35 @@ class BrowserManager:
             except Exception:
                 pass
             self.browser = None
+
+    def _patch_fingerprints(self, page):
+        try:
+            page.add_init_script(
+                """
+                (() => {
+                  Object.defineProperty(navigator, 'webdriver', { get: () => false });
+                  Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3] });
+                  Object.defineProperty(navigator, 'languages', { get: () => ['tr-TR','en-US','en'] });
+                  window.chrome = window.chrome || { runtime: {} };
+                  const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
+                  if (originalQuery) {
+                    window.navigator.permissions.query = (parameters) => (
+                      parameters && parameters.name === 'notifications'
+                        ? Promise.resolve({ state: 'granted' })
+                        : originalQuery(parameters)
+                    );
+                  }
+                  const getParameter = WebGLRenderingContext.prototype.getParameter;
+                  WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                    if (parameter === 37445) return 'Google Inc.';
+                    if (parameter === 37446) return 'ANGLE (Intel, Intel(R) UHD Graphics, D3D11)';
+                    return getParameter.call(this, parameter);
+                  };
+                })();
+                """
+            )
+        except Exception:
+            self.log('Fingerprint yamasi uygulanamadi')
 
 
 __all__ = ["BrowserManager"]

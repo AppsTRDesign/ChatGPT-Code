@@ -354,6 +354,7 @@ class SurfWorker(QtCore.QObject):
         try:
             self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
             self.action_simulator.set_persona(self.personality)
+            self.plan_engine.rng = getattr(self.personality, 'rng', None) or self.plan_engine.rng
             with sync_playwright() as playwright:
                 if self.mode == 'google':
                     consumed, visited, metrics, surf_url = self._perform_google(playwright, self.task_config, self.task_config)
