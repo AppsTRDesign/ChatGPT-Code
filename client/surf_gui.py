@@ -419,15 +419,18 @@ class SurfWorker(QtCore.QObject):
                             break
                 self.browser_mgr.close()
         except Exception as exc:  # noqa: BLE001
-            self.failed.emit(f'Surf sırasında hata: {exc}')
+            message = str(exc)
+            if 'Target page, context or browser has been closed' in message:
+                message = 'Sayfa veya tarayıcı kapandığı için görev tamamlanamadı'
+            self.failed.emit(f'Surf sırasında hata: {message}')
 
 
 class SurfApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('NoaSoft AutoSurf Kontrol Paneli')
-        self.setMinimumSize(960, 720)
-        self.resize(1280, 820)
+        self.setMinimumSize(820, 640)
+        self.resize(1220, 780)
         self.client: Optional[ApiClient] = None
         self.token: Optional[str] = None
         self.worker_thread: Optional[QtCore.QThread] = None
@@ -437,6 +440,9 @@ class SurfApp(QtWidgets.QMainWindow):
         self.current_email: str = ''
         self.sites_cache: Dict[int, dict] = {}
         self.task_points: Dict[str, int] = {}
+        assets_dir = Path(__file__).resolve().parent / 'assets'
+        self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
+        self.personality = PersonaEngine.random(self.persona_profiles, seed=None)
         self._build_ui()
 
     def _build_ui(self):
@@ -782,11 +788,8 @@ class SurfApp(QtWidgets.QMainWindow):
         btn_row = QtWidgets.QHBoxLayout()
         save_btn = QtWidgets.QPushButton('Google görevli site ekle')
         save_btn.clicked.connect(self.add_google_site)
-        run_btn = QtWidgets.QPushButton('Manuel Google görevi başlat')
-        run_btn.clicked.connect(self.start_google_task)
-        for btn in (save_btn, run_btn):
-            btn.setStyleSheet('padding:10px 14px; font-weight:bold;')
-            btn_row.addWidget(btn)
+        save_btn.setStyleSheet('padding:10px 14px; font-weight:bold;')
+        btn_row.addWidget(save_btn)
         form.addRow(btn_row)
         return widget
 
@@ -797,7 +800,6 @@ class SurfApp(QtWidgets.QMainWindow):
         self.youtube_name = QtWidgets.QLineEdit()
         self.youtube_url = QtWidgets.QLineEdit()
         self.youtube_keyword = QtWidgets.QLineEdit()
-        self.youtube_video = QtWidgets.QLineEdit()
         self.youtube_pages = QtWidgets.QSpinBox()
         self.youtube_pages.setRange(1, 10)
         self.youtube_pages.setValue(2)
@@ -810,7 +812,6 @@ class SurfApp(QtWidgets.QMainWindow):
         form.addRow('Site adı', self.youtube_name)
         form.addRow('URL', self.youtube_url)
         form.addRow('Arama kelimesi', self.youtube_keyword)
-        form.addRow('Video linki', self.youtube_video)
         form.addRow('Arama sayfa sayısı', self.youtube_pages)
         form.addRow('İzleme süresi (sn)', self.youtube_dwell)
         form.addRow(self.youtube_actions['container'])
@@ -818,11 +819,8 @@ class SurfApp(QtWidgets.QMainWindow):
         btn_row = QtWidgets.QHBoxLayout()
         save_btn = QtWidgets.QPushButton('YouTube görevli site ekle')
         save_btn.clicked.connect(self.add_youtube_site)
-        run_btn = QtWidgets.QPushButton('Manuel YouTube görevi başlat')
-        run_btn.clicked.connect(self.start_youtube_task)
-        for btn in (save_btn, run_btn):
-            btn.setStyleSheet('padding:10px 14px; font-weight:bold;')
-            btn_row.addWidget(btn)
+        save_btn.setStyleSheet('padding:10px 14px; font-weight:bold;')
+        btn_row.addWidget(save_btn)
         form.addRow(btn_row)
         return widget
 
@@ -967,7 +965,24 @@ class SurfApp(QtWidgets.QMainWindow):
         self.token = None
         self.logout_btn.setVisible(False)
         self.stack.setCurrentIndex(0)
+        self.current_email = ''
+        self.sites_cache = {}
+        self.task_points = {}
+        self.current_page = 1
+        self.total_pages = 1
         self.points_card.setText('Puan: 0')
+        self.status_label.setText('Hazır')
+        self.site_table.setRowCount(0)
+        self.log_box.clear()
+        self.earnings_label.setText('Kazanılan puanlar burada görüntülenecek')
+        self.preview_label.setText('Davranış Önizleme')
+        for edit in [self.reg_email, self.reg_password, self.reg_password_confirm, self.reg_name,
+                     self.login_email, self.login_password, self.reset_email,
+                     self.site_name, self.site_url, self.google_name, self.google_url, self.google_keyword,
+                     self.youtube_name, self.youtube_url, self.youtube_keyword]:
+            edit.clear()
+        for spin in [self.dwell_spin, self.google_pages, self.google_dwell, self.youtube_pages, self.youtube_dwell]:
+            spin.setValue(spin.minimum())
         self._toast('Çıkış yapıldı')
 
     def _init_client(self):
@@ -981,6 +996,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.logout_btn.setVisible(True)
         self.stack.setCurrentIndex(1)
         self.points_card.setText('Puan yükleniyor...')
+        self.log_box.clear()
         self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
         self.action_simulator.set_persona(self.personality)
         self._fetch_task_points()
@@ -1005,6 +1021,7 @@ class SurfApp(QtWidgets.QMainWindow):
             dash = self.client.dashboard(self.token)
         except Exception as exc:
             self._toast(f'Dashboard hatası: {exc}', error=True)
+            self.points_card.setText('Puan: 0')
             return
         points = int(dash.get('points', 0))
         self.points_card.setText(f"Puan: {points}")
@@ -1146,7 +1163,7 @@ class SurfApp(QtWidgets.QMainWindow):
         flags = self._collect_flags(self.youtube_actions)
         payload = {
             'name': self.youtube_name.text(),
-            'url': self.youtube_url.text() or self.youtube_video.text(),
+            'url': self.youtube_url.text(),
             'dwell_seconds': self.youtube_dwell.value(),
             'mobile': flags.get('mobile'),
             'realistic': flags.get('realistic'),
@@ -1163,7 +1180,7 @@ class SurfApp(QtWidgets.QMainWindow):
             'google_dwell': 0,
             'youtube_enabled': True,
             'youtube_keyword': self.youtube_keyword.text(),
-            'youtube_link': self.youtube_video.text(),
+            'youtube_link': self.youtube_url.text(),
             'youtube_pages': self.youtube_pages.value(),
             'youtube_dwell': self.youtube_dwell.value(),
         }
@@ -1547,39 +1564,6 @@ class SurfApp(QtWidgets.QMainWindow):
             self._toast('Zaten çalışıyor')
             return
         self._launch_worker('surf', {'task_points': self.task_points})
-
-    def start_google_task(self):
-        if not self.token:
-            self._toast('Önce giriş yapın', error=True)
-            return
-        flags = self._collect_flags(self.google_actions)
-        config = {
-            'url': self.google_url.text(),
-            'site_url': self.google_url.text(),
-            'keyword': self.google_keyword.text(),
-            'country': self.google_country.currentData(),
-            'pages': self.google_pages.value(),
-            'dwell': self.google_dwell.value(),
-            **flags,
-            'task_points': self.task_points,
-        }
-        self._launch_worker('google', config)
-
-    def start_youtube_task(self):
-        if not self.token:
-            self._toast('Önce giriş yapın', error=True)
-            return
-        flags = self._collect_flags(self.youtube_actions)
-        config = {
-            'url': self.youtube_video.text() or self.youtube_url.text(),
-            'video_link': self.youtube_video.text(),
-            'keyword': self.youtube_keyword.text(),
-            'pages': self.youtube_pages.value(),
-            'dwell': self.youtube_dwell.value(),
-            **flags,
-            'task_points': self.task_points,
-        }
-        self._launch_worker('youtube', config)
 
     def _collect_flags(self, box: dict) -> dict:
         flags = {key: cb.isChecked() for key, cb in box['flags'].items()}
