@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS sites (
     scroll TINYINT(1) DEFAULT 0,
     form_fill TINYINT(1) DEFAULT 0,
     media TINYINT(1) DEFAULT 0,
+    media_actions TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

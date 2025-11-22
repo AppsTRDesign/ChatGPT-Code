@@ -117,9 +117,22 @@ function list_sites(PDO $pdo, int $userId): void
     $stmt = $pdo->prepare('SELECT SQL_CALC_FOUND_ROWS * FROM sites WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
     $stmt->execute([$userId, $pageSize, $offset]);
     $sites = $stmt->fetchAll();
+    foreach ($sites as &$s) {
+        $s['media_actions'] = $s['media_actions'] ? json_decode($s['media_actions'], true) : [];
+    }
     $total = (int)$pdo->query('SELECT FOUND_ROWS()')->fetchColumn();
     $pages = max(1, (int)ceil($total / $pageSize));
     Response::json(['items' => $sites, 'page' => $page, 'pages' => $pages, 'total' => $total]);
+}
+
+function has_exceeded_daily_site(PDO $pdo, int $surferId, int $siteId, int $limit): bool
+{
+    if ($limit <= 0) {
+        return false;
+    }
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM surf_sessions WHERE surfer_id = ? AND site_id = ? AND DATE(started_at) = CURDATE()');
+    $stmt->execute([$surferId, $siteId]);
+    return ((int)$stmt->fetchColumn()) >= $limit;
 }
 
 function create_site(PDO $pdo, array $config, array $user): void
@@ -145,11 +158,13 @@ function create_site(PDO $pdo, array $config, array $user): void
         'form_fill' => !empty($data['form_fill']),
         'media' => !empty($data['media']),
     ];
-    $pdo->prepare('INSERT INTO sites (user_id, name, url, dwell_seconds, mobile, realistic, mouse_moves, link_clicks, scroll, form_fill, media) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+    $mediaActions = json_encode($data['media_actions'] ?? []);
+    $pdo->prepare('INSERT INTO sites (user_id, name, url, dwell_seconds, mobile, realistic, mouse_moves, link_clicks, scroll, form_fill, media, media_actions) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
         ->execute([
             $user['id'], $name, $url, $dwell,
             (int)$flags['mobile'], (int)$flags['realistic'], (int)$flags['mouse_moves'],
             (int)$flags['link_clicks'], (int)$flags['scroll'], (int)$flags['form_fill'], (int)$flags['media'],
+            $mediaActions,
         ]);
     $siteId = (int)$pdo->lastInsertId();
     $pdo->prepare('UPDATE users SET points = points - ? WHERE id = ?')->execute([$dwell, $user['id']]);
@@ -181,23 +196,44 @@ function update_site(PDO $pdo, int $userId, int $siteId): void
         Response::error('Site bulunamadı', 404);
         return;
     }
-    $pdo->prepare('UPDATE sites SET name = ?, url = ?, dwell_seconds = IFNULL(?, dwell_seconds) WHERE id = ?')
+    $flags = [
+        'mobile' => isset($data['mobile']) ? (int)!empty($data['mobile']) : (int)$site['mobile'],
+        'realistic' => isset($data['realistic']) ? (int)!empty($data['realistic']) : (int)$site['realistic'],
+        'mouse_moves' => isset($data['mouse_moves']) ? (int)!empty($data['mouse_moves']) : (int)$site['mouse_moves'],
+        'link_clicks' => isset($data['link_clicks']) ? (int)!empty($data['link_clicks']) : (int)$site['link_clicks'],
+        'scroll' => isset($data['scroll']) ? (int)!empty($data['scroll']) : (int)$site['scroll'],
+        'form_fill' => isset($data['form_fill']) ? (int)!empty($data['form_fill']) : (int)$site['form_fill'],
+        'media' => isset($data['media']) ? (int)!empty($data['media']) : (int)$site['media'],
+    ];
+    $mediaActions = array_key_exists('media_actions', $data) ? json_encode($data['media_actions']) : $site['media_actions'];
+    $pdo->prepare('UPDATE sites SET name = ?, url = ?, dwell_seconds = IFNULL(?, dwell_seconds), mobile = ?, realistic = ?, mouse_moves = ?, link_clicks = ?, scroll = ?, form_fill = ?, media = ?, media_actions = ? WHERE id = ?')
         ->execute([
             $name ?: $site['name'],
             $url ?: $site['url'],
             $dwell,
+            $flags['mobile'],
+            $flags['realistic'],
+            $flags['mouse_moves'],
+            $flags['link_clicks'],
+            $flags['scroll'],
+            $flags['form_fill'],
+            $flags['media'],
+            $mediaActions,
             $siteId,
         ]);
     Response::json(['updated' => true]);
 }
 
-function start_surf(PDO $pdo, array $user): void
+function start_surf(PDO $pdo, array $user, array $config): void
 {
     $stmt = $pdo->prepare('SELECT s.*, u.display_name AS owner_name FROM sites s JOIN users u ON u.id = s.user_id WHERE s.user_id != ? ORDER BY s.created_at DESC');
     $stmt->execute([$user['id']]);
     $sites = $stmt->fetchAll();
     foreach ($sites as $site) {
         if ((int)$site['dwell_seconds'] <= 0) {
+            continue;
+        }
+        if (has_exceeded_daily_site($pdo, (int)$user['id'], (int)$site['id'], (int)($config['max_daily_site_visits'] ?? 0))) {
             continue;
         }
         $pdo->beginTransaction();
@@ -218,6 +254,7 @@ function start_surf(PDO $pdo, array $user): void
             $sessionId = (int)$pdo->lastInsertId();
             $pdo->commit();
             $plan = build_plan($site);
+            $site['media_actions'] = $site['media_actions'] ? json_decode($site['media_actions'], true) : [];
             Response::json([
                 'session_id' => $sessionId,
                 'site' => $site,
@@ -253,7 +290,62 @@ function build_plan(array $site): array
     return $steps;
 }
 
-function complete_surf(PDO $pdo, array $user): void
+function clamp_reward(PDO $pdo, int $userId, int $base, array $config): int
+{
+    $check = function (string $sql, array $params, int $cap) use ($pdo) {
+        if ($cap <= 0) {
+            return null;
+        }
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $earned = (int)($stmt->fetchColumn() ?: 0);
+        return max(0, $cap - $earned);
+    };
+
+    $dailyLeft = $check(
+        'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE(created_at) = CURDATE()',
+        [$userId],
+        (int)($config['max_daily_reward'] ?? 0)
+    );
+    $weeklyLeft = $check(
+        'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND YEARWEEK(created_at,1) = YEARWEEK(NOW(),1)',
+        [$userId],
+        (int)($config['max_weekly_reward'] ?? 0)
+    );
+    $monthlyLeft = $check(
+        'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE_FORMAT(created_at, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")',
+        [$userId],
+        (int)($config['max_monthly_reward'] ?? 0)
+    );
+
+    $limits = array_filter([$dailyLeft, $weeklyLeft, $monthlyLeft], fn($v) => $v !== null);
+    if (empty($limits)) {
+        return $base;
+    }
+
+    return max(0, min($base, ...$limits));
+}
+
+function reward_leftovers(PDO $pdo, int $userId, array $config): array
+{
+    $calc = function (string $sql, int $cap) use ($pdo, $userId) {
+        if ($cap <= 0) {
+            return null;
+        }
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        $spent = (int)($stmt->fetchColumn() ?: 0);
+        return max(0, $cap - $spent);
+    };
+
+    return [
+        'daily_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE(created_at) = CURDATE()', (int)($config['max_daily_reward'] ?? 0)),
+        'weekly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND YEARWEEK(created_at,1) = YEARWEEK(NOW(),1)', (int)($config['max_weekly_reward'] ?? 0)),
+        'monthly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE_FORMAT(created_at, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")', (int)($config['max_monthly_reward'] ?? 0)),
+    ];
+}
+
+function complete_surf(PDO $pdo, array $user, array $config): void
 {
     $data = read_json();
     $sessionId = (int)($data['session_id'] ?? 0);
@@ -274,9 +366,12 @@ function complete_surf(PDO $pdo, array $user): void
     $pdo->prepare('UPDATE surf_sessions SET status = "completed", completed_at = NOW() WHERE id = ?')
         ->execute([$sessionId]);
     $reward = (int)$session['dwell_seconds'];
-    $pdo->prepare('UPDATE users SET points = points + ? WHERE id = ?')->execute([$reward, $user['id']]);
-    $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
-        ->execute([$user['id'], $reward, 'surf_reward', json_encode(['session_id' => $sessionId, 'consumed' => $consumed])]);
+    $reward = clamp_reward($pdo, (int)$user['id'], $reward, $config);
+    if ($reward > 0) {
+        $pdo->prepare('UPDATE users SET points = points + ? WHERE id = ?')->execute([$reward, $user['id']]);
+        $pdo->prepare('INSERT INTO point_ledger (user_id, change_amount, reason, meta) VALUES (?,?,?,?)')
+            ->execute([$user['id'], $reward, 'surf_reward', json_encode(['session_id' => $sessionId, 'consumed' => $consumed])]);
+    }
     $pdo->commit();
     Response::json(['earned' => $reward]);
 }
@@ -357,11 +452,13 @@ function dashboard(PDO $pdo, array $user): void
     $weekly->execute([$user['id']]);
     $stmt = $pdo->prepare('SELECT SUM(dwell_seconds) AS remaining FROM sites WHERE user_id = ?');
     $stmt->execute([$user['id']]);
+    $limits = reward_leftovers($pdo, (int)$user['id'], $GLOBALS['config']);
     Response::json([
         'daily' => (int)($daily->fetch()['total'] ?? 0),
         'weekly' => (int)($weekly->fetch()['total'] ?? 0),
         'remaining_seconds' => (int)($stmt->fetch()['remaining'] ?? 0),
         'points' => (int)$user['points'],
+        'limits' => $limits,
     ]);
 }
 
@@ -413,12 +510,12 @@ switch (true) {
         break;
     case $path === '/surf/start' && $method === 'POST':
         if ($user = ensure_user($pdo, $config)) {
-            start_surf($pdo, $user);
+            start_surf($pdo, $user, $config);
         }
         break;
     case $path === '/surf/complete' && $method === 'POST':
         if ($user = ensure_user($pdo, $config)) {
-            complete_surf($pdo, $user);
+            complete_surf($pdo, $user, $config);
         }
         break;
     case $path === '/contact' && $method === 'POST':

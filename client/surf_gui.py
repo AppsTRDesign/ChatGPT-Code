@@ -1,7 +1,10 @@
 import random
+import string
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+
+from urllib.parse import urlparse
 
 import requests
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -40,6 +43,13 @@ class ApiClient:
             raise requests.HTTPError(f'{resp.status_code} {msg}')
         return resp
 
+    @staticmethod
+    def _json(resp: requests.Response):
+        try:
+            return resp.json()
+        except Exception as exc:
+            raise requests.HTTPError(f'Geçersiz JSON yanıtı: {resp.text[:200]}') from exc
+
     def register(self, email: str, password: str, name: str, password_confirm: str):
         resp = self._request('POST', '/auth/register', json={
             'email': email,
@@ -47,43 +57,43 @@ class ApiClient:
             'password_confirm': password_confirm,
             'name': name,
         })
-        return resp.json()
+        return self._json(resp)
 
     def login(self, email: str, password: str):
         resp = self._request('POST', '/auth/login', json={'email': email, 'password': password})
-        return resp.json()
+        return self._json(resp)
 
     def forgot_password(self, email: str):
         resp = self._request('POST', '/auth/forgot', json={'email': email})
-        return resp.json()
+        return self._json(resp)
 
     def profile(self, token: str):
         resp = self._request('GET', '/profile', token=token)
-        return resp.json().get('user')
+        return self._json(resp).get('user')
 
     def update_profile(self, token: str, payload: dict):
         resp = self._request('PATCH', '/profile', token=token, json=payload)
-        return resp.json()
+        return self._json(resp)
 
     def list_sites(self, token: str, page: int = 1):
         resp = self._request('GET', '/sites', token=token, params={'page': page})
-        return resp.json()
+        return self._json(resp)
 
     def create_site(self, token: str, payload: dict):
         resp = self._request('POST', '/sites', token=token, json=payload)
-        return resp.json()
+        return self._json(resp)
 
     def update_site(self, token: str, site_id: int, payload: dict):
         resp = self._request('PATCH', f'/sites/{site_id}', token=token, json=payload)
-        return resp.json()
+        return self._json(resp)
 
     def delete_site(self, token: str, site_id: int):
         resp = self._request('DELETE', f'/sites/{site_id}', token=token)
-        return resp.json()
+        return self._json(resp)
 
     def start_surf(self, token: str):
         resp = self._request('POST', '/surf/start', token=token)
-        return resp.json()
+        return self._json(resp)
 
     def complete_surf(self, token: str, session_id: int, consumed_seconds: int):
         resp = self._request(
@@ -92,23 +102,23 @@ class ApiClient:
             token=token,
             json={'session_id': session_id, 'consumed_seconds': consumed_seconds},
         )
-        return resp.json()
+        return self._json(resp)
 
     def dashboard(self, token: str):
         resp = self._request('GET', '/dashboard', token=token)
-        return resp.json()
+        return self._json(resp)
 
     def points_history(self, token: str):
         resp = self._request('GET', '/dashboard/history', token=token)
-        return resp.json().get('history', [])
+        return self._json(resp).get('history', [])
 
     def mail_settings(self):
         resp = self._request('GET', '/mail/settings')
-        return resp.json()
+        return self._json(resp)
 
     def send_mail(self, token: str, payload: dict):
         resp = self._request('POST', '/mail/send', token=token, json=payload)
-        return resp.json()
+        return self._json(resp)
 
 
 class SurfWorker(QtCore.QObject):
@@ -124,9 +134,35 @@ class SurfWorker(QtCore.QObject):
         self.token = token
         self.client = client
         self._running = True
+        self.browser = None
+        self.context = None
+        self.page = None
+        self._current_mobile = False
 
     def stop(self):
         self._running = False
+
+    def _ensure_page(self, playwright: Playwright, site: dict):
+        mobile = bool(site.get('mobile'))
+        if self.browser is None:
+            self.browser = playwright.chromium.launch(headless=False)
+        if self.context is None or self.page is None or self.page.is_closed() or self._current_mobile != mobile:
+            if self.context:
+                try:
+                    self.context.close()
+                except Exception:
+                    pass
+            context_kwargs: Dict[str, object] = {}
+            if mobile:
+                context_kwargs['user_agent'] = (
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 '
+                    '(KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
+                )
+                context_kwargs['viewport'] = {'width': 390, 'height': 844}
+            self.context = self.browser.new_context(**context_kwargs)
+            self.page = self.context.new_page()
+            self._current_mobile = mobile
+        return self.page
 
     def _build_plan(self, session_payload: dict) -> Tuple[List[SurfPlanStep], Dict]:
         plan_data = session_payload.get('plan') or []
@@ -149,6 +185,9 @@ class SurfWorker(QtCore.QObject):
         if flags['mouse_moves']:
             steps.append(SurfPlanStep('Mouse hareketleri', 'Rastgele bölgeler üzerinde dolaşma', min(remaining, 8)))
             remaining -= min(remaining, 8)
+        if flags['realistic'] and remaining > 0:
+            steps.append(SurfPlanStep('Metin seçimi', 'Paragrafları işaretle ve kopyala', min(remaining, 5)))
+            remaining -= min(remaining, 5)
         if flags['scroll']:
             steps.append(SurfPlanStep('Scroll', 'Aşağı-yukarı kaydırma', min(remaining, 6)))
             remaining -= min(remaining, 6)
@@ -165,25 +204,18 @@ class SurfWorker(QtCore.QObject):
             steps.append(SurfPlanStep('Sayfada kalma', 'Okuma ve bekleme', remaining))
         return steps, site
 
-    def _apply_actions(self, browser, site: dict, plan: List[SurfPlanStep]) -> int:
-        context_kwargs: Dict[str, object] = {}
-        if site.get('mobile'):
-            context_kwargs['user_agent'] = (
-                'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 '
-                '(KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
-            )
-            context_kwargs['viewport'] = {'width': 390, 'height': 844}
-        context = browser.new_context(**context_kwargs)
-        page = context.new_page()
+    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep]) -> int:
+        page = self._ensure_page(playwright, site)
         url = site.get('url')
         self.log.emit(f'Sayfa açılıyor: {url}')
         page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
         planned_total = max(1, sum(s.seconds for s in plan))
-        skipped = 0
         elapsed = 0
         viewport = page.viewport_size or {'width': 1280, 'height': 720}
         last_mouse: Optional[Tuple[int, int]] = None
+        host = urlparse(url).netloc
+        runtime_target = 0
         for step in plan:
             if not self._running:
                 break
@@ -194,14 +226,17 @@ class SurfWorker(QtCore.QObject):
             try:
                 if 'mouse' in step.title.lower():
                     performed, last_mouse = self._simulate_mouse_moves(page, viewport)
+                if 'metin' in step.title.lower():
+                    performed = self._simulate_text_highlight(page) or performed
                 if 'scroll' in step.title.lower():
                     performed = self._simulate_scroll(page, viewport) or performed
                 if 'tıklamalar' in step.title.lower():
-                    performed = self._simulate_clicks(page) or performed
+                    performed = self._simulate_clicks(page, host) or performed
                 if 'form' in step.title.lower():
                     performed = self._simulate_form(page) or performed
                 if 'medya' in step.title.lower():
-                    performed = self._simulate_media(page) or performed
+                    actions = site.get('media_actions') or site.get('media_options') or []
+                    performed = self._simulate_media(page, actions) or performed
                 if 'sayfada' in step.title.lower():
                     performed = True  # sadece bekleme adımı
             except Exception as action_err:
@@ -209,21 +244,20 @@ class SurfWorker(QtCore.QObject):
 
             self._emit_frame(page, last_mouse)
 
-            duration = step.seconds if performed else 0
-            if duration == 0 and step.seconds > 0 and 'sayfa' in step.title.lower():
-                duration = min(2, step.seconds)
-            if duration == 0:
-                skipped += step.seconds
+            duration = step.seconds if performed or 'sayfa' in step.title.lower() or 'bekleme' in step.title.lower() else 0
+            runtime_target += duration
             for _ in range(duration):
                 if not self._running:
                     break
                 elapsed += 1
-                total_seconds = max(1, planned_total - skipped)
-                percent = int((elapsed / total_seconds) * 100)
+                total_seconds = max(1, planned_total)
+                percent = min(100, int((elapsed / total_seconds) * 100))
                 self.progress.emit(percent, elapsed, total_seconds, detail)
                 page.wait_for_timeout(1000)
             self._emit_frame(page, last_mouse)
-        context.close()
+        if elapsed and elapsed < planned_total:
+            self.progress.emit(int((elapsed / planned_total) * 100), elapsed, planned_total, 'Plan tamamlandı')
+        self.progress.emit(100, elapsed or runtime_target, max(planned_total, runtime_target, 1), 'Tamamlandı')
         return elapsed
 
     def _simulate_mouse_moves(self, page, viewport: Dict[str, int]) -> Tuple[bool, Optional[Tuple[int, int]]]:
@@ -241,11 +275,44 @@ class SurfWorker(QtCore.QObject):
         page.mouse.wheel(0, -viewport['height'] // 2)
         return True
 
-    def _simulate_clicks(self, page) -> bool:
-        links = [lnk for lnk in page.query_selector_all('a') if lnk.is_visible()]
+    def _simulate_clicks(self, page, host: str) -> bool:
+        links = []
+        for lnk in page.query_selector_all('a[href]'):
+            if not lnk.is_visible():
+                continue
+            href = lnk.get_attribute('href') or ''
+            if href.startswith('#'):
+                continue
+            target = (lnk.get_attribute('target') or '').lower()
+            if target == '_blank':
+                continue
+            if host and host not in href and href.startswith('http'):
+                continue
+            links.append(lnk)
         if not links:
             return False
         random.choice(links).click(timeout=5000)
+        return True
+
+    def _simulate_text_highlight(self, page) -> bool:
+        candidates = page.query_selector_all('p, h1, h2, h3, h4')
+        visible = [el for el in candidates if el.is_visible() and (el.text_content() or '').strip()]
+        if not visible:
+            return False
+        target = random.choice(visible)
+        box = target.bounding_box()
+        if not box:
+            return False
+        start_x = int(box['x'] + 5)
+        start_y = int(box['y'] + box['height'] / 2)
+        end_x = int(box['x'] + box['width'] - 5)
+        end_y = start_y
+        page.mouse.move(start_x, start_y)
+        page.mouse.down()
+        page.mouse.move(end_x, end_y, steps=20)
+        page.mouse.up()
+        target.evaluate("el => el.style.textDecoration = 'line-through'")
+        page.keyboard.press('Control+C')
         return True
 
     def _simulate_form(self, page) -> bool:
@@ -254,26 +321,34 @@ class SurfWorker(QtCore.QObject):
             return False
         target = random.choice(fields)
         target.click()
-        target.type('NoaSoft deneme girdisi', delay=35)
+        filler = 'NoaSoft ' + ''.join(random.choice(string.ascii_letters) for _ in range(6))
+        target.fill(filler)
         page.keyboard.press('Control+A')
         page.keyboard.press('Control+C')
+        page.keyboard.press('Backspace')
         return True
 
-    def _simulate_media(self, page) -> bool:
+    def _simulate_media(self, page, actions: List[str]) -> bool:
         media = page.query_selector('video, audio')
         if not media:
             return False
+        if not actions:
+            actions = ['hover', 'delay', 'human_click', 'pause_play', 'volume', 'fullscreen', 'quality']
         try:
             media.hover()
-            page.wait_for_timeout(800)
-            media.click()
-            page.wait_for_timeout(600)
-            page.keyboard.press('Space')
-            page.keyboard.press('KeyF')
-            page.keyboard.press('ArrowUp')
-            quality_menu = page.query_selector('button[aria-label*="quality" i], [class*="quality"]')
-            if quality_menu:
-                quality_menu.click()
+            page.wait_for_timeout(400 if 'delay' in actions else 200)
+            if 'human_click' in actions:
+                media.click()
+            if 'pause_play' in actions:
+                page.keyboard.press('Space')
+            if 'fullscreen' in actions:
+                page.keyboard.press('KeyF')
+            if 'volume' in actions:
+                page.keyboard.press('ArrowUp')
+            if 'quality' in actions:
+                quality_menu = page.query_selector('button[aria-label*="quality" i], [class*="quality"]')
+                if quality_menu:
+                    quality_menu.click()
             return True
         except Exception as exc:
             self.log.emit(f'Medya etkileşimi atlandı: {exc}')
@@ -281,6 +356,8 @@ class SurfWorker(QtCore.QObject):
 
     def _emit_frame(self, page, last_mouse: Optional[Tuple[int, int]]):
         try:
+            if not page or page.is_closed():
+                return
             data = page.screenshot(full_page=False)
             x, y = last_mouse or (-1, -1)
             self.frame.emit(data, x, y)
@@ -290,7 +367,6 @@ class SurfWorker(QtCore.QObject):
     def run(self):
         try:
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=False)
                 while self._running:
                     try:
                         session = self.client.start_surf(self.token)
@@ -303,7 +379,7 @@ class SurfWorker(QtCore.QObject):
                         break
                     plan, site = self._build_plan(session)
                     session_id = session.get('session_id') or session.get('id')
-                    consumed_seconds = self._apply_actions(browser, site, plan)
+                    consumed_seconds = self._apply_actions(playwright, site, plan)
                     if not self._running:
                         break
                     try:
@@ -314,7 +390,16 @@ class SurfWorker(QtCore.QObject):
                     except Exception as exc:  # noqa: BLE001
                         self.failed.emit(str(exc))
                         break
-                browser.close()
+                if self.context:
+                    try:
+                        self.context.close()
+                    except Exception:
+                        pass
+                if self.browser:
+                    try:
+                        self.browser.close()
+                    except Exception:
+                        pass
         except Exception as exc:  # noqa: BLE001
             self.failed.emit(f'Surf sırasında hata: {exc}')
 
@@ -597,10 +682,6 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_view.setStyleSheet('background:#0b1224; color:#cbd5e1; border:1px solid #1f2937; border-radius:10px;')
         layout.addWidget(self.live_view)
 
-        self.plan_list = QtWidgets.QListWidget()
-        self.plan_list.setStyleSheet('background:#f8fafc;')
-        layout.addWidget(self.plan_list)
-
         self.progress = QtWidgets.QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
@@ -726,7 +807,16 @@ class SurfApp(QtWidgets.QMainWindow):
         remaining = dash.get('remaining_seconds', 0)
         total = dash.get('total_seconds', max(1, remaining))
         percent = min(100, int((remaining / max(1, total)) * 100))
-        self.summary_label.setText(f"Günlük: {daily} • Haftalık: {weekly} • Kalan Süre: {remaining} sn")
+        limits = dash.get('limits') or {}
+        caps_txt = []
+        if limits.get('daily_left') is not None:
+            caps_txt.append(f"Günlük limit: {limits.get('daily_left')} kaldı")
+        if limits.get('weekly_left') is not None:
+            caps_txt.append(f"Haftalık limit: {limits.get('weekly_left')} kaldı")
+        if limits.get('monthly_left') is not None:
+            caps_txt.append(f"Aylık limit: {limits.get('monthly_left')} kaldı")
+        caps_line = ' • '.join(caps_txt)
+        self.summary_label.setText(f"Günlük: {daily} • Haftalık: {weekly} • Kalan Süre: {remaining} sn{' • ' + caps_line if caps_line else ''}")
         self.remaining_bar.setValue(percent)
         self.timer_label.setText(f'Animasyonlu Sayaç: {remaining} sn')
         self.warning_bar.setVisible(points <= 0)
@@ -747,8 +837,12 @@ class SurfApp(QtWidgets.QMainWindow):
         self._fill_chart(self.weekly_chart.chart(), [(item['label'], item.get('weekly', 0)) for item in history])
 
     def _fill_chart(self, chart: QChart, items: List[Tuple[str, int]]):
+        for axis in chart.axes():
+            chart.removeAxis(axis)
         chart.removeAllSeries()
         series = QLineSeries()
+        series.setColor(QtGui.QColor('#38bdf8'))
+        series.setPointsVisible(True)
         if not items:
             items = [('0', 0)]
         for idx, (_, value) in enumerate(items):
@@ -756,8 +850,10 @@ class SurfApp(QtWidgets.QMainWindow):
         chart.addSeries(series)
         axis_x = QValueAxis()
         axis_x.setRange(0, max(1, len(items) - 1))
+        axis_x.setTickCount(min(6, len(items) + 1))
         axis_y = QValueAxis()
-        axis_y.setRange(0, max(10, max(v for _, v in items)))
+        axis_y.setRange(0, max(10, max(v for _, v in items) + 10))
+        axis_y.setTickCount(6)
         chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
         chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
         series.attachAxis(axis_x)
@@ -877,7 +973,6 @@ class SurfApp(QtWidgets.QMainWindow):
         if self.worker_thread and self.worker_thread.isRunning():
             self._toast('Zaten çalışıyor')
             return
-        self.plan_list.clear()
         self.progress.setValue(0)
         self.countdown_label.setText('Kalan süre: 0 sn / 0 sn')
         self.live_view.setPixmap(QtGui.QPixmap())
@@ -905,12 +1000,11 @@ class SurfApp(QtWidgets.QMainWindow):
         self._toast('Surf iptal komutu gönderildi')
 
     def _on_progress(self, percent: int, elapsed: int, total: int, detail: str):
-        self.plan_list.addItem(detail)
         self.progress.setValue(percent)
         self.countdown_label.setText(f'Kalan süre: {elapsed} sn / {total} sn')
 
     def _on_step(self, detail: str):
-        self.plan_list.addItem(detail)
+        self.status_label.setText(detail)
 
     def _on_frame(self, data: bytes, x: int, y: int):
         if not hasattr(self, 'live_view'):
@@ -958,7 +1052,7 @@ class SurfApp(QtWidgets.QMainWindow):
         payload = {
             'to': self.mail_to.text(),
             'subject': self.mail_subject.text(),
-            'message': self.mail_message.toPlainText(),
+            'body': self.mail_message.toPlainText(),
         }
         try:
             self.client.send_mail(self.token, payload)
