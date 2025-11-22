@@ -6,7 +6,7 @@ import string
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from urllib.parse import urlparse
 
@@ -997,6 +997,9 @@ class SurfApp(QtWidgets.QMainWindow):
         self.stack.setCurrentIndex(1)
         self.points_card.setText('Puan yükleniyor...')
         self.log_box.clear()
+        if not hasattr(self, 'persona_profiles'):
+            assets_dir = Path(__file__).resolve().parent / 'assets'
+            self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
         self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
         self._fetch_task_points()
         self.refresh_dashboard()
@@ -1113,7 +1116,7 @@ class SurfApp(QtWidgets.QMainWindow):
         }
         try:
             self.client.create_site(self.token, payload)
-            self._toast('Site eklendi/güncellendi ve puan düşüldü')
+            self._toast('Site kaydedildi ve havuza eklendi')
             self.load_sites()
             self.refresh_dashboard()
         except Exception as exc:
@@ -1295,45 +1298,99 @@ class SurfApp(QtWidgets.QMainWindow):
         dialog.resize(1040, 780)
         layout = QtWidgets.QVBoxLayout(dialog)
 
+        tabs = QtWidgets.QTabWidget()
+        layout.addWidget(tabs)
+
+        # --- İstatistikler Sekmesi ---
+        stats_tab = QtWidgets.QWidget()
+        stats_layout = QtWidgets.QVBoxLayout(stats_tab)
+        stats_layout.setContentsMargins(8, 8, 8, 8)
+
         summary_label = QtWidgets.QLabel()
         summary_label.setStyleSheet('font-weight:bold; font-size:15px;')
         points_label = QtWidgets.QLabel()
         points_label.setStyleSheet('font-weight:bold; color:#0f172a;')
-        layout.addWidget(summary_label)
-        layout.addWidget(points_label)
+        stats_layout.addWidget(summary_label)
+        stats_layout.addWidget(points_label)
 
         chart_row = QtWidgets.QHBoxLayout()
         point_chart_row = QtWidgets.QHBoxLayout()
-        layout.addLayout(chart_row)
-        layout.addLayout(point_chart_row)
+        stats_layout.addLayout(chart_row)
+        stats_layout.addLayout(point_chart_row)
 
         table = QtWidgets.QTableWidget()
-        headers = [
-            'Tarih', 'IP', 'Ülke', 'Ülke Kod', 'Kıta', 'Şehir', 'Koordinat', 'Platform', 'Cihaz',
-            'User Agent', 'ASN', 'ISP', 'Ağ', 'Tıklama', 'Scroll', 'Vurgu', 'Form', 'Medya'
-        ]
-        table.setColumnCount(len(headers))
-        table.setHorizontalHeaderLabels(headers)
+        mandatory_headers = ['Tarih', 'Ülke', 'Platform', 'Cihaz', 'Tıklama', 'Scroll', 'Vurgu', 'Form', 'Medya']
+        table.setColumnCount(len(mandatory_headers))
+        table.setHorizontalHeaderLabels(mandatory_headers)
         table.setSortingEnabled(True)
-        layout.addWidget(table)
+        stats_layout.addWidget(table)
 
         pagination_row = QtWidgets.QHBoxLayout()
         prev_btn = QtWidgets.QPushButton('Önceki')
         next_btn = QtWidgets.QPushButton('Sonraki')
         page_label = QtWidgets.QLabel()
+        for btn in (prev_btn, next_btn):
+            btn.setStyleSheet('padding:6px 10px;')
         pagination_row.addWidget(prev_btn)
         pagination_row.addWidget(next_btn)
         pagination_row.addWidget(page_label)
         pagination_row.addStretch()
-        layout.addLayout(pagination_row)
+        stats_layout.addLayout(pagination_row)
 
-        btn_row = QtWidgets.QHBoxLayout()
+        # --- Rapor Ayarları Sekmesi ---
+        report_tab = QtWidgets.QWidget()
+        report_layout = QtWidgets.QVBoxLayout(report_tab)
+        report_layout.setContentsMargins(10, 10, 10, 10)
+
+        report_info = QtWidgets.QLabel(
+            'PDF çıktısında Ülke / Platform / Cihaz / Tıklama alanları zorunludur.\n'
+            'IP, geo, kullanıcı ajanı ve ek metrikleri isteğe göre açıp kapatabilirsiniz.'
+        )
+        report_info.setWordWrap(True)
+        report_layout.addWidget(report_info)
+
+        options = QtWidgets.QGroupBox('Opsiyonel Alanlar')
+        form = QtWidgets.QFormLayout(options)
+        include_ip = QtWidgets.QCheckBox('IP + ASN + ISP + Ağ')
+        include_ip.setChecked(True)
+        include_geo = QtWidgets.QCheckBox('Ülke kodu + Şehir + Koordinat')
+        include_geo.setChecked(True)
+        include_ua = QtWidgets.QCheckBox('User Agent')
+        include_ua.setChecked(False)
+        include_metrics = QtWidgets.QCheckBox('Scroll / Vurgu / Form / Medya metrikleri')
+        include_metrics.setChecked(True)
+        form.addRow(include_ip)
+        form.addRow(include_geo)
+        form.addRow(include_ua)
+        form.addRow(include_metrics)
+        report_layout.addWidget(options)
+
         export_btn = QtWidgets.QPushButton('PDF olarak dışa aktar')
-        btn_row.addWidget(export_btn)
-        btn_row.addStretch()
-        layout.addLayout(btn_row)
+        export_btn.setStyleSheet('padding:8px 12px; font-weight:bold;')
+        report_layout.addWidget(export_btn, alignment=QtCore.Qt.AlignmentFlag.AlignRight)
 
-        state = {'page': 1, 'stats': None}
+        tabs.addTab(stats_tab, 'İstatistikler')
+        tabs.addTab(report_tab, 'Rapor Ayarları')
+
+        state = {
+            'page': 1,
+            'stats': None,
+            'report_settings': {
+                'ip': include_ip.isChecked(),
+                'geo': include_geo.isChecked(),
+                'ua': include_ua.isChecked(),
+                'metrics': include_metrics.isChecked(),
+            },
+        }
+
+        def _update_report_settings():
+            state['report_settings']['ip'] = include_ip.isChecked()
+            state['report_settings']['geo'] = include_geo.isChecked()
+            state['report_settings']['ua'] = include_ua.isChecked()
+            state['report_settings']['metrics'] = include_metrics.isChecked()
+
+        for cb in (include_ip, include_geo, include_ua, include_metrics):
+            cb.toggled.connect(_update_report_settings)
 
         def render(stats: dict):
             state['stats'] = stats
@@ -1359,23 +1416,11 @@ class SurfApp(QtWidgets.QMainWindow):
             events = stats.get('events', [])
             table.setRowCount(len(events))
             for r, ev in enumerate(events):
-                coord = ''
-                if ev.get('latitude') is not None and ev.get('longitude') is not None:
-                    coord = f"{ev.get('latitude')}, {ev.get('longitude')}"
                 row_items = [
                     ev.get('created_at', ''),
-                    ev.get('ip', ''),
                     ev.get('country', ''),
-                    ev.get('country_code', ''),
-                    ev.get('continent', ''),
-                    ev.get('city', ''),
-                    coord,
                     ev.get('platform', ''),
                     ev.get('device', ''),
-                    ev.get('user_agent', ''),
-                    str(ev.get('asn', '') or ''),
-                    ev.get('isp', '') or '',
-                    ev.get('network', '') or '',
                     str(ev.get('clicks', 0)),
                     str(ev.get('scrolls', 0)),
                     str(ev.get('highlights', 0)),
@@ -1394,6 +1439,12 @@ class SurfApp(QtWidgets.QMainWindow):
             next_btn.setEnabled(page < total_pages)
             state['page'] = page
 
+            # rapor ayarlarını güncelle
+            state['report_settings']['ip'] = include_ip.isChecked()
+            state['report_settings']['geo'] = include_geo.isChecked()
+            state['report_settings']['ua'] = include_ua.isChecked()
+            state['report_settings']['metrics'] = include_metrics.isChecked()
+
         def load(page: int = 1):
             try:
                 stats = self.client.site_stats(self.token, int(site_id), page)
@@ -1403,7 +1454,7 @@ class SurfApp(QtWidgets.QMainWindow):
 
         prev_btn.clicked.connect(lambda: load(max(1, state['page'] - 1)))
         next_btn.clicked.connect(lambda: load(state['page'] + 1))
-        export_btn.clicked.connect(lambda: self._export_stats_pdf(state['stats'] or {}))
+        export_btn.clicked.connect(lambda: self._export_stats_pdf(state['stats'] or {}, state['report_settings']))
 
         load(1)
         dialog.exec()
@@ -1484,9 +1535,12 @@ class SurfApp(QtWidgets.QMainWindow):
         view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         return view
 
-    def _export_stats_pdf(self, stats: dict):
+    def _export_stats_pdf(self, stats: dict, settings: Optional[dict] = None):
         if not SimpleDocTemplate:
             self._toast('PDF modülü yüklü değil (reportlab)', error=True)
+            return
+        if not stats:
+            self._toast('Önce istatistik yükleyin', error=True)
             return
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'PDF kaydet', 'site-raporu.pdf', 'PDF Files (*.pdf)')
         if not filename:
@@ -1503,7 +1557,9 @@ class SurfApp(QtWidgets.QMainWindow):
                 font_bold = 'NoaSoftFont-Bold'
         except Exception:
             pass
+        settings = settings or {}
         style = ParagraphStyle('body', fontName=font_name, fontSize=10, leading=14)
+        table_style = ParagraphStyle('table', fontName=font_name, fontSize=8, leading=10)
         story = [Paragraph('<b>NoaSoft Autosurf Site Raporu</b>', ParagraphStyle('title', fontName=font_bold, fontSize=14))]
         story.append(Spacer(1, 8))
         summary = stats.get('summary', {})
@@ -1516,26 +1572,86 @@ class SurfApp(QtWidgets.QMainWindow):
         ))
         story.append(Spacer(1, 6))
 
-        table_data = [[
-            'Tarih', 'IP', 'Ülke', 'Ülke Kod', 'Kıta', 'Şehir', 'Koordinat', 'ASN', 'ISP', 'Ağ',
-            'Platform', 'Cihaz', 'User Agent', 'Tıklama', 'Scroll', 'Vurgu', 'Form', 'Medya'
-        ]]
-        for ev in stats.get('events', [])[:40]:
-            table_data.append([
-                ev.get('created_at', ''), ev.get('ip', ''), ev.get('country', ''), ev.get('country_code', ''),
-                ev.get('continent', ''), ev.get('city', ''),
-                f"{ev.get('latitude', '')}, {ev.get('longitude', '')}" if ev.get('latitude') is not None else '',
-                str(ev.get('asn', '') or ''), ev.get('isp', '') or '', ev.get('network', '') or '',
-                ev.get('platform', ''), ev.get('device', ''), ev.get('user_agent', ''),
-                str(ev.get('clicks', 0)), str(ev.get('scrolls', 0)), str(ev.get('highlights', 0)),
-                str(ev.get('forms', 0)), str(ev.get('media', 0)),
-            ])
-        table = Table(table_data, repeatRows=1)
+        include_ip = bool(settings.get('ip'))
+        include_geo = bool(settings.get('geo'))
+        include_ua = bool(settings.get('ua'))
+        include_metrics = bool(settings.get('metrics', True))
+
+        headers: List[str] = ['Tarih', 'Ülke', 'Platform', 'Cihaz', 'Tıklama']
+        if include_metrics:
+            headers.extend(['Scroll', 'Vurgu', 'Form', 'Medya'])
+        if include_geo:
+            headers.extend(['Ülke Kod', 'Şehir', 'Koordinat'])
+        if include_ip:
+            headers.extend(['IP', 'ASN', 'ISP', 'Ağ'])
+        if include_ua:
+            headers.append('User Agent')
+
+        table_data: List[List[Any]] = [headers]
+        for ev in stats.get('events', [])[:80]:
+            row: List[Any] = [
+                ev.get('created_at', ''),
+                ev.get('country', ''),
+                ev.get('platform', ''),
+                ev.get('device', ''),
+                str(ev.get('clicks', 0)),
+            ]
+            if include_metrics:
+                row.extend([
+                    str(ev.get('scrolls', 0)),
+                    str(ev.get('highlights', 0)),
+                    str(ev.get('forms', 0)),
+                    str(ev.get('media', 0)),
+                ])
+            if include_geo:
+                coord_txt = ''
+                if ev.get('latitude') is not None and ev.get('longitude') is not None:
+                    coord_txt = f"{ev.get('latitude'):.3f}, {ev.get('longitude'):.3f}"
+                row.extend([
+                    ev.get('country_code', ''),
+                    ev.get('city', ''),
+                    coord_txt,
+                ])
+            if include_ip:
+                row.extend([
+                    ev.get('ip', ''),
+                    str(ev.get('asn', '') or ''),
+                    ev.get('isp', '') or '',
+                    ev.get('network', '') or '',
+                ])
+            if include_ua:
+                row.append(ev.get('user_agent', ''))
+
+            # Wrap long cells to avoid taşma
+            wrapped = [Paragraph(str(cell), table_style) for cell in row]
+            table_data.append(wrapped)
+
+        col_widths = None
+        try:
+            # Basit genişlik ayarı: uzun metinler için daha geniş sütunlar
+            base = doc.width
+            col_count = len(headers)
+            min_width = base / col_count
+            widths: List[float] = []
+            for head in headers:
+                if head in {'User Agent', 'ISP', 'Ağ'}:
+                    widths.append(min_width * 1.4)
+                elif head in {'Koordinat'}:
+                    widths.append(min_width * 1.1)
+                else:
+                    widths.append(min_width * 0.9)
+            col_widths = widths
+        except Exception:
+            col_widths = None
+
+        table = Table(table_data, repeatRows=1, colWidths=col_widths)
         table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), font_name),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f172a')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
             ('BACKGROUND', (0, 1), (-1, -1), colors.whitesmoke),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ]))
         story.append(table)
         story.append(Spacer(1, 8))
@@ -1545,6 +1661,7 @@ class SurfApp(QtWidgets.QMainWindow):
             [str(points.get('earned', 0)), str(points.get('spent', 0)), str(points.get('net', 0))],
         ])
         point_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), font_name),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0ea5e9')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
