@@ -189,6 +189,7 @@ class SurfWorker(QtCore.QObject):
         parent: Optional[QtCore.QObject] = None,
         mode: str = 'surf',
         task_config: Optional[dict] = None,
+        current_email: Optional[str] = None,
     ):
         super().__init__(parent)
         self.token = token
@@ -196,6 +197,7 @@ class SurfWorker(QtCore.QObject):
         self._running = True
         self.mode = mode
         self.task_config = task_config or {}
+        self.current_email = current_email or ''
         assets_dir = Path(__file__).resolve().parents[1] / 'assets'
         log_fn = self.log.emit
         self.browser_mgr = BrowserManager(assets_dir, log_fn)
@@ -424,6 +426,7 @@ class SurfApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('NoaSoft AutoSurf Kontrol Paneli')
+        self.setMinimumSize(960, 720)
         self.resize(1280, 820)
         self.client: Optional[ApiClient] = None
         self.token: Optional[str] = None
@@ -682,53 +685,10 @@ class SurfApp(QtWidgets.QMainWindow):
             media_layout.addWidget(cb)
         form.addLayout(media_layout, 4, 0, 1, 2)
 
-        self.google_enable = QtWidgets.QCheckBox('Google görevi (otomatik surf havuzu)')
-        self.google_enable.toggled.connect(self._toggle_google_options)
-        self.google_keyword = QtWidgets.QLineEdit()
-        self.google_country = QtWidgets.QComboBox()
-        for name, code in [('Global', 'com'), ('Brezilya', 'com.br'), ('Türkiye', 'com.tr'), ('ABD', 'com'), ('Almanya', 'de')]:
-            self.google_country.addItem(name, code)
-        self.google_pages = QtWidgets.QSpinBox()
-        self.google_pages.setRange(1, 10)
-        self.google_pages.setValue(3)
-        self.google_dwell = QtWidgets.QSpinBox()
-        self.google_dwell.setRange(5, 900)
-        self.google_dwell.setValue(30)
-        google_group = QtWidgets.QGroupBox('Google arama ayarları')
-        google_form = QtWidgets.QFormLayout(google_group)
-        google_form.addRow(self.google_enable)
-        google_form.addRow('Arama kelimesi', self.google_keyword)
-        google_form.addRow('Ülke', self.google_country)
-        google_form.addRow('Kaç sayfa tara', self.google_pages)
-        google_form.addRow('Sitede kalma (sn)', self.google_dwell)
-        form.addWidget(google_group, 5, 0, 1, 2)
-
-        self.youtube_enable = QtWidgets.QCheckBox('YouTube görevi (otomatik surf havuzu)')
-        self.youtube_enable.toggled.connect(self._toggle_youtube_options)
-        self.youtube_keyword = QtWidgets.QLineEdit()
-        self.youtube_video = QtWidgets.QLineEdit()
-        self.youtube_pages = QtWidgets.QSpinBox()
-        self.youtube_pages.setRange(1, 10)
-        self.youtube_pages.setValue(2)
-        self.youtube_dwell = QtWidgets.QSpinBox()
-        self.youtube_dwell.setRange(5, 1200)
-        self.youtube_dwell.setValue(60)
-        youtube_group = QtWidgets.QGroupBox('YouTube video ayarları')
-        youtube_form = QtWidgets.QFormLayout(youtube_group)
-        youtube_form.addRow(self.youtube_enable)
-        youtube_form.addRow('Arama kelimesi', self.youtube_keyword)
-        youtube_form.addRow('Video linki', self.youtube_video)
-        youtube_form.addRow('Arama sayfa sayısı', self.youtube_pages)
-        youtube_form.addRow('İzleme süresi (sn)', self.youtube_dwell)
-        form.addWidget(youtube_group, 6, 0, 1, 2)
-
-        self._toggle_google_options(False)
-        self._toggle_youtube_options(False)
-
         add_btn = QtWidgets.QPushButton('Siteyi Kaydet')
         add_btn.clicked.connect(self.add_or_update_site)
         add_btn.setStyleSheet('padding:10px 16px; font-weight:bold; background:#2563eb; color:white; border-radius:8px;')
-        form.addWidget(add_btn, 7, 0, 1, 2)
+        form.addWidget(add_btn, 5, 0, 1, 2)
 
         outer.addLayout(form)
 
@@ -796,29 +756,74 @@ class SurfApp(QtWidgets.QMainWindow):
     def _build_google_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         form = QtWidgets.QFormLayout(widget)
-        info = QtWidgets.QLabel('Google görevleri siteler sekmesinde kayıtlı siteler için otomatik çalışır. Burada yalnızca yapılandırma özetini görürsünüz.')
-        info.setWordWrap(True)
-        form.addRow(info)
-        placeholder = QtWidgets.QLabel('Site eklerken Google arama kelimesi, ülke, sayfa sayısı ve süreyi belirtin; görev havuza düşer ve otomatik tetiklenir.')
-        placeholder.setWordWrap(True)
-        form.addRow(placeholder)
-        btn = QtWidgets.QPushButton('Google görevleri havuzdan otomatik başlatılır')
-        btn.setEnabled(False)
-        form.addRow(btn)
+
+        self.google_name = QtWidgets.QLineEdit()
+        self.google_url = QtWidgets.QLineEdit()
+        self.google_keyword = QtWidgets.QLineEdit()
+        self.google_country = QtWidgets.QComboBox()
+        self._populate_countries(self.google_country)
+        self.google_pages = QtWidgets.QSpinBox()
+        self.google_pages.setRange(1, 10)
+        self.google_pages.setValue(3)
+        self.google_dwell = QtWidgets.QSpinBox()
+        self.google_dwell.setRange(5, 900)
+        self.google_dwell.setValue(40)
+
+        self.google_actions = self._build_action_checkboxes(include_media=True)
+
+        form.addRow('Site adı', self.google_name)
+        form.addRow('URL', self.google_url)
+        form.addRow('Arama kelimesi', self.google_keyword)
+        form.addRow('Ülke', self.google_country)
+        form.addRow('Kaç sayfa tara', self.google_pages)
+        form.addRow('Sitede kalma (sn)', self.google_dwell)
+        form.addRow(self.google_actions['container'])
+
+        btn_row = QtWidgets.QHBoxLayout()
+        save_btn = QtWidgets.QPushButton('Google görevli site ekle')
+        save_btn.clicked.connect(self.add_google_site)
+        run_btn = QtWidgets.QPushButton('Manuel Google görevi başlat')
+        run_btn.clicked.connect(self.start_google_task)
+        for btn in (save_btn, run_btn):
+            btn.setStyleSheet('padding:10px 14px; font-weight:bold;')
+            btn_row.addWidget(btn)
+        form.addRow(btn_row)
         return widget
 
     def _build_youtube_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         form = QtWidgets.QFormLayout(widget)
-        info = QtWidgets.QLabel('YouTube görevleri siteler sekmesinde eklediğiniz videolar için otomatik başlar; arama/izleme ayarları site kayıt formunda tanımlanır.')
-        info.setWordWrap(True)
-        form.addRow(info)
-        placeholder = QtWidgets.QLabel('Video linki veya arama kelimesini site kartına ekleyin, görev puanlaması havuza düşer ve diğer kullanıcılar tarafından tamamlanır.')
-        placeholder.setWordWrap(True)
-        form.addRow(placeholder)
-        btn = QtWidgets.QPushButton('YouTube görevleri havuzdan otomatik başlatılır')
-        btn.setEnabled(False)
-        form.addRow(btn)
+
+        self.youtube_name = QtWidgets.QLineEdit()
+        self.youtube_url = QtWidgets.QLineEdit()
+        self.youtube_keyword = QtWidgets.QLineEdit()
+        self.youtube_video = QtWidgets.QLineEdit()
+        self.youtube_pages = QtWidgets.QSpinBox()
+        self.youtube_pages.setRange(1, 10)
+        self.youtube_pages.setValue(2)
+        self.youtube_dwell = QtWidgets.QSpinBox()
+        self.youtube_dwell.setRange(5, 1200)
+        self.youtube_dwell.setValue(90)
+
+        self.youtube_actions = self._build_action_checkboxes(include_media=True)
+
+        form.addRow('Site adı', self.youtube_name)
+        form.addRow('URL', self.youtube_url)
+        form.addRow('Arama kelimesi', self.youtube_keyword)
+        form.addRow('Video linki', self.youtube_video)
+        form.addRow('Arama sayfa sayısı', self.youtube_pages)
+        form.addRow('İzleme süresi (sn)', self.youtube_dwell)
+        form.addRow(self.youtube_actions['container'])
+
+        btn_row = QtWidgets.QHBoxLayout()
+        save_btn = QtWidgets.QPushButton('YouTube görevli site ekle')
+        save_btn.clicked.connect(self.add_youtube_site)
+        run_btn = QtWidgets.QPushButton('Manuel YouTube görevi başlat')
+        run_btn.clicked.connect(self.start_youtube_task)
+        for btn in (save_btn, run_btn):
+            btn.setStyleSheet('padding:10px 14px; font-weight:bold;')
+            btn_row.addWidget(btn)
+        form.addRow(btn_row)
         return widget
 
     def _build_points_info_tab(self) -> QtWidgets.QWidget:
@@ -876,6 +881,22 @@ class SurfApp(QtWidgets.QMainWindow):
                 vbox.addWidget(cb)
             grid.addWidget(media_group, 3, 0, 1, 2)
         return {'container': container, 'flags': flags, 'media': media_boxes}
+
+    def _populate_countries(self, combo: QtWidgets.QComboBox):
+        combo.clear()
+        for name, code in [
+            ('Global', 'com'),
+            ('Türkiye', 'com.tr'),
+            ('ABD', 'com'),
+            ('Almanya', 'de'),
+            ('Brezilya', 'com.br'),
+            ('Hollanda', 'nl'),
+            ('İngiltere', 'uk'),
+            ('Kanada', 'ca'),
+            ('İspanya', 'es'),
+            ('Fransa', 'fr'),
+        ]:
+            combo.addItem(name, code)
 
     def _build_mail_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
@@ -959,6 +980,7 @@ class SurfApp(QtWidgets.QMainWindow):
     def _after_login(self):
         self.logout_btn.setVisible(True)
         self.stack.setCurrentIndex(1)
+        self.points_card.setText('Puan yükleniyor...')
         self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
         self.action_simulator.set_persona(self.personality)
         self._fetch_task_points()
@@ -1062,16 +1084,16 @@ class SurfApp(QtWidgets.QMainWindow):
             'form_fill': self.form_cb.isChecked(),
             'media': self.media_cb.isChecked(),
             'media_actions': [key for key, cb in self.media_option_boxes.items() if cb.isChecked()],
-            'google_enabled': self.google_enable.isChecked(),
-            'google_keyword': self.google_keyword.text(),
-            'google_country': self.google_country.currentData(),
-            'google_pages': self.google_pages.value(),
-            'google_dwell': self.google_dwell.value(),
-            'youtube_enabled': self.youtube_enable.isChecked(),
-            'youtube_keyword': self.youtube_keyword.text(),
-            'youtube_link': self.youtube_video.text(),
-            'youtube_pages': self.youtube_pages.value(),
-            'youtube_dwell': self.youtube_dwell.value(),
+            'google_enabled': False,
+            'google_keyword': '',
+            'google_country': '',
+            'google_pages': 0,
+            'google_dwell': 0,
+            'youtube_enabled': False,
+            'youtube_keyword': '',
+            'youtube_link': '',
+            'youtube_pages': 0,
+            'youtube_dwell': 0,
         }
         try:
             self.client.create_site(self.token, payload)
@@ -1081,24 +1103,83 @@ class SurfApp(QtWidgets.QMainWindow):
         except Exception as exc:
             self._toast(f'Kayıt hatası: {exc}', error=True)
 
+    def add_google_site(self):
+        if not self.client or not self.token:
+            self._toast('Önce giriş yapın')
+            return
+        flags = self._collect_flags(self.google_actions)
+        payload = {
+            'name': self.google_name.text(),
+            'url': self.google_url.text(),
+            'dwell_seconds': self.google_dwell.value(),
+            'mobile': flags.get('mobile'),
+            'realistic': flags.get('realistic'),
+            'mouse_moves': flags.get('mouse_moves'),
+            'link_clicks': flags.get('link_clicks'),
+            'scroll': flags.get('scroll'),
+            'form_fill': flags.get('form_fill'),
+            'media': flags.get('media'),
+            'media_actions': flags.get('media_actions', []),
+            'google_enabled': True,
+            'google_keyword': self.google_keyword.text(),
+            'google_country': self.google_country.currentData(),
+            'google_pages': self.google_pages.value(),
+            'google_dwell': self.google_dwell.value(),
+            'youtube_enabled': False,
+            'youtube_keyword': '',
+            'youtube_link': '',
+            'youtube_pages': 0,
+            'youtube_dwell': 0,
+        }
+        try:
+            self.client.create_site(self.token, payload)
+            self._toast('Google görevli site kaydedildi ve havuza eklendi')
+            self.load_sites()
+            self.refresh_dashboard()
+        except Exception as exc:  # noqa: BLE001
+            self._toast(f'Google kayıt hatası: {exc}', error=True)
+
+    def add_youtube_site(self):
+        if not self.client or not self.token:
+            self._toast('Önce giriş yapın')
+            return
+        flags = self._collect_flags(self.youtube_actions)
+        payload = {
+            'name': self.youtube_name.text(),
+            'url': self.youtube_url.text() or self.youtube_video.text(),
+            'dwell_seconds': self.youtube_dwell.value(),
+            'mobile': flags.get('mobile'),
+            'realistic': flags.get('realistic'),
+            'mouse_moves': flags.get('mouse_moves'),
+            'link_clicks': flags.get('link_clicks'),
+            'scroll': flags.get('scroll'),
+            'form_fill': flags.get('form_fill'),
+            'media': flags.get('media'),
+            'media_actions': flags.get('media_actions', []),
+            'google_enabled': False,
+            'google_keyword': '',
+            'google_country': '',
+            'google_pages': 0,
+            'google_dwell': 0,
+            'youtube_enabled': True,
+            'youtube_keyword': self.youtube_keyword.text(),
+            'youtube_link': self.youtube_video.text(),
+            'youtube_pages': self.youtube_pages.value(),
+            'youtube_dwell': self.youtube_dwell.value(),
+        }
+        try:
+            self.client.create_site(self.token, payload)
+            self._toast('YouTube görevli site kaydedildi ve havuza eklendi')
+            self.load_sites()
+            self.refresh_dashboard()
+        except Exception as exc:  # noqa: BLE001
+            self._toast(f'YouTube kayıt hatası: {exc}', error=True)
+
     def _toggle_media_options(self, checked: bool):
         for cb in self.media_option_boxes.values():
             cb.setEnabled(checked)
             if not checked:
                 cb.setChecked(False)
-
-    def _toggle_google_options(self, checked: bool):
-        for widget in [self.google_keyword, self.google_country, self.google_pages, self.google_dwell]:
-            widget.setEnabled(bool(checked))
-        if not checked:
-            self.google_keyword.clear()
-
-    def _toggle_youtube_options(self, checked: bool):
-        for widget in [self.youtube_keyword, self.youtube_video, self.youtube_pages, self.youtube_dwell]:
-            widget.setEnabled(bool(checked))
-        if not checked:
-            self.youtube_keyword.clear()
-            self.youtube_video.clear()
 
     def load_sites(self):
         if not self.client or not self.token:
@@ -1471,10 +1552,10 @@ class SurfApp(QtWidgets.QMainWindow):
         if not self.token:
             self._toast('Önce giriş yapın', error=True)
             return
-        flags = self._collect_flags(self.google_action_boxes)
+        flags = self._collect_flags(self.google_actions)
         config = {
-            'url': self.google_site.text(),
-            'site_url': self.google_site.text(),
+            'url': self.google_url.text(),
+            'site_url': self.google_url.text(),
             'keyword': self.google_keyword.text(),
             'country': self.google_country.currentData(),
             'pages': self.google_pages.value(),
@@ -1488,9 +1569,9 @@ class SurfApp(QtWidgets.QMainWindow):
         if not self.token:
             self._toast('Önce giriş yapın', error=True)
             return
-        flags = self._collect_flags(self.youtube_action_boxes)
+        flags = self._collect_flags(self.youtube_actions)
         config = {
-            'url': self.youtube_video.text(),
+            'url': self.youtube_video.text() or self.youtube_url.text(),
             'video_link': self.youtube_video.text(),
             'keyword': self.youtube_keyword.text(),
             'pages': self.youtube_pages.value(),
@@ -1524,7 +1605,13 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_view.setText('Chromium açılıyor...')
         self.start_btn.setEnabled(False)
         self.worker_thread = QtCore.QThread()
-        self.worker = SurfWorker(self.token, self.client, mode=mode, task_config=config)
+        self.worker = SurfWorker(
+            self.token,
+            self.client,
+            mode=mode,
+            task_config=config,
+            current_email=self.current_email or self.login_email.text() or self.reg_email.text(),
+        )
         self.worker.moveToThread(self.worker_thread)
         self.worker_thread.started.connect(self.worker.run)
         self.worker.progress.connect(self._on_progress)
