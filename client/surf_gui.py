@@ -46,7 +46,7 @@ from surf_worker import (
 
 try:
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
@@ -210,7 +210,8 @@ class SurfWorker(QtCore.QObject):
         # Assets dizini her zaman client/assets altında, çalıştırma konumundan bağımsız
         assets_dir = Path(__file__).resolve().parent / 'assets'
         log_fn = self.log.emit
-        self.browser_mgr = BrowserManager(assets_dir, log_fn)
+        ad_url = self.task_config.get('ad_banner_url') or 'https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1'
+        self.browser_mgr = BrowserManager(assets_dir, log_fn, ad_url=ad_url)
         self.youtube_handler = YouTubeHandler(self.browser_mgr, log_fn)
         self.geo_service = GeoService(assets_dir, log_fn)
         self.telemetry_builder = TelemetryBuilder(self.geo_service, log_fn)
@@ -293,7 +294,7 @@ class SurfWorker(QtCore.QObject):
                     if self.action_simulator.simulate_scroll(page, viewport, personality):
                         metrics['scrolls'] += 1
                         performed = True
-                if 'tıklamalar' in step.title.lower():
+                if 'tık' in step.title.lower() or 'link' in step.title.lower():
                     if self.action_simulator.simulate_clicks(page, host, personality):
                         metrics['clicks'] += 1
                         performed = True
@@ -365,9 +366,12 @@ class SurfWorker(QtCore.QObject):
         dwell = int(cfg.get('dwell', 30))
         keyword = cfg.get('keyword', '')
         link = cfg.get('video_link', '')
-        pages = max(1, int(cfg.get('pages', 1))) if keyword else 1
+        search_first = bool(cfg.get('search_first', True) and keyword)
         page = self.browser_mgr.ensure_page(playwright, flags)
-        visited, found, search_elapsed = self.youtube_handler.search_and_open(page, keyword, link, pages) if keyword or link else (1, True, 0)
+        visited, found, search_elapsed = self.youtube_handler.search_and_open(page, keyword, link, search_first) if (keyword or link) else (1, True, 0)
+        if not found:
+            metrics = {'found': False, 'search_elapsed': search_elapsed}
+            return search_elapsed, visited, metrics, page.url
         plan, site_flags = self._build_custom_plan(dwell, {**flags})
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
@@ -380,7 +384,8 @@ class SurfWorker(QtCore.QObject):
         )
         total = max(consumed, search_elapsed + dwell)
         metrics['found'] = found
-        return total, pages, metrics, page.url
+        metrics['search_elapsed'] = search_elapsed
+        return total, visited, metrics, page.url
 
     def run(self):
         try:
@@ -494,6 +499,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
         self.personality = PersonaEngine.random(self.persona_profiles, seed=None)
         self.device_id = self._device_id()
+        self.ad_banner_url = os.getenv('AD_BANNER_URL', 'https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1')
         self._build_ui()
 
     def _device_id(self) -> str:
@@ -900,22 +906,27 @@ class SurfApp(QtWidgets.QMainWindow):
     def _build_points_info_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         desc = QtWidgets.QLabel('Kazanılabilecek / harcanacak puanların özeti:')
         desc.setStyleSheet('font-weight:bold; font-size:14px;')
         layout.addWidget(desc)
         cards = [
-            ('Site ekleme', '- Süre', 'Siteyi havuza açarken süre kadar puan önceden ayrılır'),
-            ('Surf ödülü', '+ Süre', 'Gerçek ziyaretçilerin tamamladığı süre kadar puan geri alınır'),
-            ('Google görevi', '+ Taban + süre + sayfa katsayısı', 'Arama görünürlüğü ve sitede kalma birleşik getirisi'),
-            ('YouTube görevi', '+ Taban + izleme + sayfa katsayısı', 'Video izlenmesi ve medya aksiyonları'),
+            ('Site ekleme', '- Süre', 'Siteyi havuza açarken süre kadar puan ayrılır, surf tamamlanınca gerçek harcama yapılır'),
+            ('Surf ödülü', '+ Süre', 'Başka kullanıcı siteyi gezdiğinde geçirilen süre kadar puan kazanılır'),
+            ('Google görevi', '+ (Arama süresi + süre + sayfa*10)', 'Arama görünürlüğü + sayfa gezinmesi + sitede kalma'),
+            ('YouTube görevi', '+ (Arama süresi + izleme süresi)', 'Video izlenmesi ve medya aksiyonları'),
             ('SEO katkısı', '+ Etkileşim', 'Kaydırma, tıklama, form ve medya aksiyonları kaliteyi artırır'),
-            ('Puan akışı', '- Rezerv / + Ödül', 'Görev başlamadan puan kitlenir, başarıyla tamamlanınca iade edilir'),
+            ('Puan akışı', '+/− Anlık', 'Görev sonunda site sahibinden düşüp gezene eklenir'),
             ('Topluluk havuzu', '+ Pasif kazanç', 'Diğer kullanıcılar sitenizi gezerken puan toplarsınız'),
         ]
         grid = QtWidgets.QGridLayout()
+        grid.setSpacing(12)
         for idx, (title, pts, desc_text) in enumerate(cards):
             box = QtWidgets.QGroupBox(title)
-            box.setStyleSheet('font-weight:bold;')
+            box.setStyleSheet(
+                'QGroupBox { font-weight:bold; border:1px solid #e2e8f0; border-radius:8px; padding:8px; }'
+                'QGroupBox:hover { border-color:#0ea5e9; background:#f8fafc; }'
+            )
             inner = QtWidgets.QVBoxLayout(box)
             pts_label = QtWidgets.QLabel(pts)
             pts_label.setStyleSheet('color:#0ea5e9; font-size:13px; font-weight:bold;')
@@ -1575,7 +1586,7 @@ class SurfApp(QtWidgets.QMainWindow):
         stats_layout.addLayout(point_chart_row)
 
         table = QtWidgets.QTableWidget()
-        mandatory_headers = ['Tarih', 'Ziyaretçi', 'Ülke', 'Platform', 'Cihaz', 'Tıklama', 'Scroll', 'Vurgu', 'Form', 'Medya']
+        mandatory_headers = ['Tarih', 'Ziyaretçi', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Ziyaret', 'Scroll', 'Vurgu', 'Form', 'Medya']
         table.setColumnCount(len(mandatory_headers))
         table.setHorizontalHeaderLabels(mandatory_headers)
         table.setSortingEnabled(True)
@@ -1599,8 +1610,8 @@ class SurfApp(QtWidgets.QMainWindow):
         report_layout.setContentsMargins(10, 10, 10, 10)
 
         report_info = QtWidgets.QLabel(
-            'PDF çıktısında Ülke / Platform / Cihaz / Tıklama alanları zorunludur.\n'
-            'IP, geo, kullanıcı ajanı ve ek metrikleri isteğe göre açıp kapatabilirsiniz.'
+            'PDF çıktısında Ülke / Şehir / Platform / Cihaz / Ziyaret alanları zorunludur.\n'
+            'IP, ek geo detayları, kullanıcı ajanı ve ek metrikleri isteğe göre açıp kapatabilirsiniz.'
         )
         report_info.setWordWrap(True)
         report_layout.addWidget(report_info)
@@ -1609,16 +1620,20 @@ class SurfApp(QtWidgets.QMainWindow):
         form = QtWidgets.QFormLayout(options)
         include_ip = QtWidgets.QCheckBox('IP + ASN + ISP + Ağ')
         include_ip.setChecked(True)
-        include_geo = QtWidgets.QCheckBox('Ülke kodu + Şehir + Koordinat')
+        include_geo = QtWidgets.QCheckBox('Ülke kodu + Koordinat')
         include_geo.setChecked(True)
         include_ua = QtWidgets.QCheckBox('User Agent')
         include_ua.setChecked(False)
         include_metrics = QtWidgets.QCheckBox('Scroll / Vurgu / Form / Medya metrikleri')
         include_metrics.setChecked(True)
+        orientation_box = QtWidgets.QComboBox()
+        orientation_box.addItem('Dikey (A4)', 'portrait')
+        orientation_box.addItem('Yatay (A4)', 'landscape')
         form.addRow(include_ip)
         form.addRow(include_geo)
         form.addRow(include_ua)
         form.addRow(include_metrics)
+        form.addRow('Sayfa yönü', orientation_box)
         report_layout.addWidget(options)
 
         export_btn = QtWidgets.QPushButton('PDF olarak dışa aktar')
@@ -1636,6 +1651,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 'geo': include_geo.isChecked(),
                 'ua': include_ua.isChecked(),
                 'metrics': include_metrics.isChecked(),
+                'orientation': orientation_box.currentData(),
             },
         }
 
@@ -1644,9 +1660,11 @@ class SurfApp(QtWidgets.QMainWindow):
             state['report_settings']['geo'] = include_geo.isChecked()
             state['report_settings']['ua'] = include_ua.isChecked()
             state['report_settings']['metrics'] = include_metrics.isChecked()
+            state['report_settings']['orientation'] = orientation_box.currentData()
 
         for cb in (include_ip, include_geo, include_ua, include_metrics):
             cb.toggled.connect(_update_report_settings)
+        orientation_box.currentIndexChanged.connect(_update_report_settings)
 
         def render(stats: dict):
             state['stats'] = stats
@@ -1676,6 +1694,7 @@ class SurfApp(QtWidgets.QMainWindow):
                     ev.get('created_at', ''),
                     ev.get('surfer_name') or ev.get('surfer_email') or '',
                     ev.get('country', ''),
+                    ev.get('city', ''),
                     ev.get('platform', ''),
                     ev.get('device', ''),
                     str(ev.get('visits', ev.get('pages', 1) or 1)),
@@ -1784,7 +1803,9 @@ class SurfApp(QtWidgets.QMainWindow):
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'PDF kaydet', 'site-raporu.pdf', 'PDF Files (*.pdf)')
         if not filename:
             return
-        doc = SimpleDocTemplate(filename, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm)
+        orientation = (settings or {}).get('orientation') or 'portrait'
+        page_size = A4 if orientation == 'portrait' else landscape(A4)
+        doc = SimpleDocTemplate(filename, pagesize=page_size, leftMargin=18 * mm, rightMargin=18 * mm)
         font_name = 'Helvetica'
         font_bold = 'Helvetica-Bold'
         assets_dir = Path(__file__).resolve().parent / 'assets'
@@ -1818,11 +1839,11 @@ class SurfApp(QtWidgets.QMainWindow):
         include_ua = bool(settings.get('ua'))
         include_metrics = bool(settings.get('metrics', True))
 
-        headers: List[str] = ['Tarih', 'Ziyaretçi', 'Ülke', 'Platform', 'Cihaz', 'Ziyaret']
+        headers: List[str] = ['Tarih', 'Ziyaretçi', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Ziyaret']
         if include_metrics:
             headers.extend(['Scroll', 'Vurgu', 'Form', 'Medya'])
         if include_geo:
-            headers.extend(['Ülke Kod', 'Şehir', 'Koordinat'])
+            headers.extend(['Ülke Kod', 'Koordinat'])
         if include_ip:
             headers.extend(['IP', 'ASN', 'ISP', 'Ağ'])
         if include_ua:
@@ -1834,6 +1855,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 ev.get('created_at', ''),
                 ev.get('surfer_name') or ev.get('surfer_email') or '',
                 ev.get('country', ''),
+                ev.get('city', ''),
                 ev.get('platform', ''),
                 ev.get('device', ''),
                 str(ev.get('visits', ev.get('pages', 1) or 1)),
@@ -1851,7 +1873,6 @@ class SurfApp(QtWidgets.QMainWindow):
                     coord_txt = f"{ev.get('latitude'):.3f}, {ev.get('longitude'):.3f}"
                 row.extend([
                     ev.get('country_code', ''),
-                    ev.get('city', ''),
                     coord_txt,
                 ])
             if include_ip:
@@ -1947,6 +1968,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_view.setPixmap(QtGui.QPixmap())
         self.live_view.setText('Chromium açılıyor...')
         self.start_btn.setEnabled(False)
+        config = {**config, 'ad_banner_url': self.ad_banner_url}
         self.worker_thread = QtCore.QThread()
         self.worker = SurfWorker(
             self.token,

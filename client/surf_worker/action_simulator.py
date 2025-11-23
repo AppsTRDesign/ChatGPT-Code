@@ -202,6 +202,13 @@ class ActionSimulator:
                 href = lnk.get_attribute("href") or ""
                 if not href or href.startswith("#") or href.lower().startswith("javascript"):
                     continue
+                parsed = urlparse(href)
+                same_host = (not parsed.netloc) or (host and host in parsed.netloc)
+                target_attr = (lnk.get_attribute("target") or "").lower()
+                if target_attr == "_blank":
+                    continue
+                if parsed.scheme and parsed.netloc and not same_host:
+                    continue
                 links.append(lnk)
             except Exception:
                 continue
@@ -295,7 +302,9 @@ class ActionSimulator:
 
         # görsel efekt olsun diye belki css ile üzerini çiz
         try:
-            target.evaluate("el => el.style.textDecoration = 'underline'")
+            target.evaluate(
+                "el => { el.style.textDecoration = 'underline'; setTimeout(() => el.style.textDecoration='none', 1500); }"
+            )
         except Exception:
             pass
 

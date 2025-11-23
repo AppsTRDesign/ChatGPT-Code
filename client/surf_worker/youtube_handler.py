@@ -97,44 +97,37 @@ class YouTubeHandler:
         finally:
             self.detach_route_noise()
 
-    def search_and_open(self, page, keyword: str, video_link: str, pages: int) -> tuple[int, bool, int]:
+    def search_and_open(self, page, keyword: str, video_link: str, search_first: bool) -> tuple[int, bool, int]:
         visited = 1
         found = False
-        start = time.time()
-        if keyword:
-            page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
-            search_box = page.query_selector('input#search')
-            if search_box:
-                for ch in keyword:
-                    search_box.type(ch, delay=random.randint(40, 110))
-                search_box.press('Enter')
-                page.wait_for_timeout(random.randint(800, 1400))
+        start = time.monotonic()
+        trimmed = ''
         if video_link:
             trimmed = video_link.replace('https://www.youtube.com', '').replace('http://www.youtube.com', '')
-        else:
-            trimmed = ''
-        for _ in range(max(1, pages)):
-            for anchor in page.query_selector_all('a#video-title'):
+        if search_first and keyword:
+            page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
+            search_box = page.query_selector('input.ytSearchboxComponentInput, input#search')
+            if search_box:
+                search_box.click()
+                for ch in keyword:
+                    search_box.type(ch, delay=random.randint(35, 95))
+                search_box.press('Enter')
+                page.wait_for_timeout(random.randint(600, 1100))
+        deadline = start + 90
+        while time.monotonic() < deadline:
+            anchors = page.query_selector_all('a[href*="/watch?v="]')
+            for anchor in anchors:
                 href = anchor.get_attribute('href') or ''
                 if trimmed and trimmed in href:
                     anchor.hover()
-                    page.wait_for_timeout(random.randint(140, 320))
+                    page.wait_for_timeout(random.randint(120, 260))
                     anchor.click()
                     found = True
-                    return visited, found, int(time.time() - start)
-            if time.time() - start > 90:
-                break
-            next_btn = page.query_selector('a[aria-label*="Sonraki"], a[aria-label*="Next"]')
-            if next_btn:
-                visited += 1
-                next_btn.click()
-                page.wait_for_timeout(random.randint(700, 1200))
-            else:
-                break
-        if trimmed:
-            page.goto(video_link, wait_until='domcontentloaded')
-            found = True
-        return visited, found, int(time.time() - start)
+                    return visited, found, int(time.monotonic() - start)
+            page.mouse.wheel(0, random.randint(320, 760))
+            page.wait_for_timeout(random.randint(320, 680))
+            visited += 1
+        return visited, found, int(time.monotonic() - start)
 
 
 __all__ = ["YouTubeHandler"]

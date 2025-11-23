@@ -3,18 +3,18 @@ from typing import Dict, Optional
 
 
 class BrowserManager:
-    def __init__(self, assets_dir: Path, log):
+    def __init__(self, assets_dir: Path, log, ad_url: Optional[str] = None):
         self.assets_dir = assets_dir
         self.log = log
         self.browser = None
         self.context = None
         self.page = None
         self._current_mobile = False
+        self.ad_url = ad_url or 'https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1'
 
     def ensure_page(self, playwright, site: Dict) -> object:
         mobile = bool(site.get('mobile'))
-        if self.browser is None:
-            self.browser = playwright.chromium.launch(headless=False)
+        profile_dir = self.assets_dir / '.pw-profile'
         if self.context is None or self.page is None or self.page.is_closed() or self._current_mobile != mobile:
             self._close_context()
             context_kwargs: Dict[str, object] = {}
@@ -24,9 +24,13 @@ class BrowserManager:
                     '(KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
                 )
                 context_kwargs['viewport'] = {'width': 390, 'height': 844}
-            self.context = self.browser.new_context(**context_kwargs)
+            self.context = playwright.chromium.launch_persistent_context(
+                user_data_dir=str(profile_dir), headless=False, **context_kwargs
+            )
+            self.browser = self.context
             self.page = self.context.new_page()
             self._inject_pointer_overlay(self.page)
+            self._inject_ad_banner(self.page)
             self._patch_fingerprints(self.page)
             self._current_mobile = mobile
         return self.page
@@ -55,6 +59,42 @@ class BrowserManager:
             )
         except Exception:
             self.log('İmleç overlay enjekte edilemedi')
+
+    def _inject_ad_banner(self, page):
+        try:
+            page.add_init_script(
+                f"""
+                (() => {{
+                  const existing = document.getElementById('noasoft-banner');
+                  if (existing) return;
+                  const wrap = document.createElement('div');
+                  wrap.id = 'noasoft-banner';
+                  Object.assign(wrap.style, {{
+                    position: 'fixed', top: '0', left: '0', right: '0',
+                    height: '90px', background: '#0f172a', zIndex: 2147483646,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }});
+                  const closeBtn = document.createElement('button');
+                  closeBtn.innerText = '×';
+                  Object.assign(closeBtn.style, {{
+                    position: 'absolute', right: '8px', top: '8px',
+                    background: '#ef4444', color: '#fff', border: 'none',
+                    borderRadius: '4px', padding: '4px 8px', cursor: 'pointer'
+                  }});
+                  closeBtn.addEventListener('click', () => wrap.remove());
+                  const img = document.createElement('img');
+                  img.src = '{self.ad_url}';
+                  img.alt = 'Reklam Alanı';
+                  Object.assign(img.style, {{maxHeight: '80px', width: '100%', maxWidth: '1200px', objectFit: 'cover'}});
+                  wrap.appendChild(img);
+                  wrap.appendChild(closeBtn);
+                  document.addEventListener('DOMContentLoaded', () => document.body.prepend(wrap));
+                  if (document.body) document.body.prepend(wrap);
+                }})();
+                """
+            )
+        except Exception:
+            self.log('Reklam alanı enjekte edilemedi')
 
     def attach_route_handler(self, pattern: str, handler):
         if not self.context:

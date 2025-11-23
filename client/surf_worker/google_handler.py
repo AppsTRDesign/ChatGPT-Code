@@ -38,10 +38,12 @@ class GoogleHandler:
         Başarıyla kapatılırsa True, aksi halde False döner.
         """
         selectors = [
-            'div.recaptcha-checkbox',
+            '.recaptcha-checkbox',
             '.rc-anchor-checkbox',
             '.recaptcha-checkbox-border',
             'iframe[src*="recaptcha"]',
+            '.recaptcha-checkbox-unchecked',
+            '.goog-inline-block.recaptcha-checkbox-unchecked',
         ]
         try:
             box = None
@@ -81,7 +83,7 @@ class GoogleHandler:
         page.goto(host, wait_until='domcontentloaded')
         recaptcha_blocked = False
         try:
-            box = page.wait_for_selector('input[name="q"]', timeout=5000)
+            box = page.wait_for_selector('textarea#APjFqb, textarea.gLFyf, input[name="q"]', timeout=7000)
             box.click()
             for ch in keyword:
                 box.type(ch, delay=rng.randint(40, 110))
@@ -97,39 +99,56 @@ class GoogleHandler:
         target = site_url.replace('https://', '').replace('http://', '')
         limit_ms = 90000
 
-        start = page._impl_obj._loop.time() if hasattr(page, '_impl_obj') else time.time()
         search_start = time.monotonic()
-        for _ in range(pages):
+        deadline = search_start + 90
+        while time.monotonic() < deadline:
             if rng.random() < 0.65:
                 self._serp_hover(page, rng)
-            links = page.query_selector_all('a[href]')
-            for lnk in links:
+            results = page.query_selector_all('div.N54PNb.BToiNc a.zReHs[href]') or []
+            for lnk in results:
                 href = lnk.get_attribute('href') or ''
                 if target and target in href and 'google' not in href:
+                    box = lnk.bounding_box() or {'x': 0, 'y': 0, 'width': 12, 'height': 12}
                     lnk.hover()
-                    page.wait_for_timeout(rng.randint(140, 420))
+                    page.wait_for_timeout(rng.randint(120, 260))
                     lnk.click(position={
-                        'x': rng.uniform(4, 14),
-                        'y': rng.uniform(4, 14),
+                        'x': rng.uniform(2, box.get('width', 12)),
+                        'y': rng.uniform(2, box.get('height', 12)),
                     })
+                    try:
+                        page.wait_for_load_state('domcontentloaded', timeout=10000)
+                    except Exception:
+                        pass
                     found = True
                     break
             if found:
                 break
-            if (page._impl_obj._loop.time() - start if hasattr(page, '_impl_obj') else time.time() - start) * 1000 > limit_ms:
+            elapsed_ms = (time.monotonic() - search_start) * 1000
+            if elapsed_ms > limit_ms:
                 break
+            page_links = page.query_selector_all('td.NKTSme a')
             next_btn = page.query_selector('a#pnnext, a[aria-label="Sonraki"], a[aria-label="Next"]')
-            if next_btn:
+            target_page = None
+            if page_links:
+                try:
+                    target_page = page_links[min(len(page_links) - 1, visited_pages)]
+                except Exception:
+                    target_page = page_links[-1]
+            if target_page and visited_pages < pages:
+                visited_pages += 1
+                target_page.click()
+                page.wait_for_timeout(rng.randint(500, 900))
+            elif next_btn and visited_pages < pages:
                 visited_pages += 1
                 next_btn.click()
-                page.wait_for_timeout(rng.randint(620, 1200))
+                page.wait_for_timeout(rng.randint(500, 900))
             else:
-                break
+                page.wait_for_timeout(rng.randint(380, 620))
         search_elapsed = int(time.monotonic() - search_start)
         if recaptcha_blocked:
             return search_elapsed, visited_pages, {'recaptcha_blocked': True}, page.url, found, search_elapsed
         if not found:
-            self.log('Aranan site bulunamadı, kalan süreyi sitede gezinerek tamamlıyoruz')
+            return search_elapsed, visited_pages, {'found': False, 'search_elapsed': search_elapsed}, page.url, found, search_elapsed
         plan, site_flags = self.plan_engine.build_custom_plan(dwell, {**flags})
         consumed, metrics = apply_actions(
             playwright,
@@ -139,6 +158,8 @@ class GoogleHandler:
             initial_elapsed=search_elapsed,
         )
         total = max(consumed, search_elapsed + dwell)
+        metrics['found'] = True
+        metrics['search_elapsed'] = search_elapsed
         return total, visited_pages, metrics, page.url, found, search_elapsed
 
 

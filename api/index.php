@@ -332,7 +332,7 @@ function start_surf(PDO $pdo, array $user, array $config): void
             $mode = 'google';
             $plannedDwell = max(5, (int)($site['google_dwell'] ?: $site['dwell_seconds']));
             $plannedPages = max(1, (int)($site['google_pages'] ?: 1));
-            $spend = $plannedDwell + (int)($config['google_task_points'] ?? 50) + ($plannedPages * (int)($config['google_page_points'] ?? 10));
+            $spend = 90 + $plannedDwell + ($plannedPages * 10);
             $task = [
                 'keyword' => $site['google_keyword'] ?? '',
                 'country' => $site['google_country'] ?: 'com',
@@ -344,7 +344,7 @@ function start_surf(PDO $pdo, array $user, array $config): void
             $mode = 'youtube';
             $plannedDwell = max(5, (int)($site['youtube_dwell'] ?: $site['dwell_seconds']));
             $plannedPages = max(1, (int)($site['youtube_pages'] ?: 1));
-            $spend = $plannedDwell + (int)($config['youtube_task_points'] ?? 50) + ($plannedPages * (int)($config['youtube_page_points'] ?? 10));
+            $spend = 90 + $plannedDwell;
             $task = [
                 'keyword' => $site['youtube_keyword'] ?? '',
                 'video_link' => $site['youtube_link'] ?? '',
@@ -486,15 +486,23 @@ function complete_surf(PDO $pdo, array $user, array $config): void
         ->execute([$sessionId]);
     $plannedDwell = (int)($session['planned_dwell'] ?: $session['dwell_seconds']);
     $mode = $session['task_mode'] ?: 'standard';
-    $pagesVisited = (int)($telemetry['pages_visited'] ?? $session['planned_pages'] ?? 0);
+    $pagesVisited = max(1, (int)($telemetry['pages_visited'] ?? $session['planned_pages'] ?? 1));
+    $searchElapsed = (int)($telemetry['search_elapsed'] ?? 0);
+    $found = !empty($telemetry['found']);
     $baseReward = $plannedDwell;
     $recaptchaBlocked = !empty($telemetry['recaptcha_blocked']);
     if ($mode === 'google') {
-        $baseReward += (int)($config['google_task_points'] ?? 50);
-        $baseReward += ($pagesVisited ?: (int)($session['google_pages'] ?? 1)) * (int)($config['google_page_points'] ?? 10);
+        if (!$found) {
+            $baseReward = 90;
+        } else {
+            $baseReward = $searchElapsed + $plannedDwell + ($pagesVisited * 10);
+        }
     } elseif ($mode === 'youtube') {
-        $baseReward += (int)($config['youtube_task_points'] ?? 50);
-        $baseReward += ($pagesVisited ?: (int)($session['youtube_pages'] ?? 1)) * (int)($config['youtube_page_points'] ?? 10);
+        if (!$found) {
+            $baseReward = 90;
+        } else {
+            $baseReward = $searchElapsed + $plannedDwell;
+        }
     }
 
     $ownerId = (int)$session['owner_id'];
@@ -621,7 +629,7 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
     $sort = in_array($sort, $allowedSort, true) ? $sort : 'created_at';
     $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
 
-    $eventsStmt = $pdo->prepare('SELECT ss.surfer_id, u.email AS surfer_email, u.display_name AS surfer_name, ss.country, ss.country_code, ss.continent, ss.city, ss.latitude, ss.longitude, ss.ip, ss.asn, ss.isp, ss.network, ss.platform, ss.device, ss.user_agent, ss.clicks, ss.scrolls, ss.highlights, ss.forms, ss.media, ss.created_at
+    $eventsStmt = $pdo->prepare('SELECT ss.surfer_id, u.email AS surfer_email, u.display_name AS surfer_name, ss.country, ss.country_code, ss.continent, ss.city, ss.latitude, ss.longitude, ss.ip, ss.asn, ss.isp, ss.network, ss.platform, ss.device, ss.user_agent, ss.clicks, ss.scrolls, ss.highlights, ss.forms, ss.media, ss.created_at, 1 AS visits
         FROM site_stats ss JOIN users u ON u.id = ss.surfer_id WHERE ss.site_id = ? ORDER BY ' . $sort . ' ' . $dir . ' LIMIT ? OFFSET ?');
     $eventsStmt->bindValue(1, $siteId, PDO::PARAM_INT);
     $eventsStmt->bindValue(2, $perPage, PDO::PARAM_INT);
@@ -755,10 +763,8 @@ function mail_settings(array $config): void
 function task_config_endpoint(array $config): void
 {
     Response::json([
-        'google_base' => (int)($config['google_task_points'] ?? 50),
-        'youtube_base' => (int)($config['youtube_task_points'] ?? 50),
-        'google_page' => (int)($config['google_page_points'] ?? 10),
-        'youtube_page' => (int)($config['youtube_page_points'] ?? 10),
+        'google_base' => 90,
+        'youtube_base' => 90,
     ]);
 }
 
