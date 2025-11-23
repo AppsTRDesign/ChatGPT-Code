@@ -365,7 +365,10 @@ class SurfWorker(QtCore.QObject):
                     consumed, visited, metrics, surf_url = self._perform_google(playwright, self.task_config, self.task_config)
                     telemetry = self._build_telemetry({'mobile': self.task_config.get('mobile')}, metrics)
                     telemetry['pages_visited'] = visited
-                    self.finished.emit(consumed + visited)
+                    if metrics.get('recaptcha_blocked'):
+                        self.failed.emit('reCAPTCHA doğrulaması atlandı, puan yazılmadı')
+                    else:
+                        self.finished.emit(consumed + visited)
                 elif self.mode == 'youtube':
                     consumed, visited, metrics, surf_url = self._perform_youtube(playwright, self.task_config, self.task_config)
                     telemetry = self._build_telemetry({'mobile': self.task_config.get('mobile')}, metrics)
@@ -428,7 +431,10 @@ class SurfWorker(QtCore.QObject):
                                 telemetry['pages_visited'] = planned_pages
                             result = self.client.complete_surf(self.token, int(session_id), consumed_seconds, telemetry)
                             earned = int(result.get('earned', 0))
-                            self.log.emit(f'Oturum tamamlandı: +{earned} puan')
+                            if metrics.get('recaptcha_blocked'):
+                                self.log.emit('reCAPTCHA atlandı, puan hareketi yapılmadı')
+                            else:
+                                self.log.emit(f'Oturum tamamlandı: +{earned} puan')
                             self.finished.emit(earned)
                         except Exception as exc:  # noqa: BLE001
                             self.failed.emit(str(exc))
@@ -1410,8 +1416,9 @@ class SurfApp(QtWidgets.QMainWindow):
             actions = site.get('media_actions') or []
             cb.setChecked(key in actions)
 
-        google_enable = QtWidgets.QCheckBox('Google görevi')
-        google_enable.setChecked(bool(site.get('google_enabled')))
+        is_google = bool(site.get('google_enabled'))
+        is_youtube = bool(site.get('youtube_enabled'))
+
         google_keyword = QtWidgets.QLineEdit(site.get('google_keyword') or '')
         google_country = QtWidgets.QComboBox()
         self._populate_countries(google_country)
@@ -1424,8 +1431,6 @@ class SurfApp(QtWidgets.QMainWindow):
         google_dwell.setRange(5, 900)
         google_dwell.setValue(int(site.get('google_dwell') or site.get('dwell_seconds') or 30))
 
-        youtube_enable = QtWidgets.QCheckBox('YouTube görevi')
-        youtube_enable.setChecked(bool(site.get('youtube_enabled')))
         youtube_keyword = QtWidgets.QLineEdit(site.get('youtube_keyword') or '')
         youtube_search_cb = QtWidgets.QCheckBox('Önce arama yap, sonra videoya gir')
         youtube_search_cb.setChecked(bool(site.get('youtube_keyword')))
@@ -1442,18 +1447,18 @@ class SurfApp(QtWidgets.QMainWindow):
         form.addRow('Site adı', name_edit)
         form.addRow('URL', url_edit)
         form.addRow('Süre (sn)', dwell_spin)
+        if is_google:
+            form.addRow('Google kelime', google_keyword)
+            form.addRow('Google ülke', google_country)
+            form.addRow('Google sayfa', google_pages)
+            form.addRow('Google süre', google_dwell)
+        elif is_youtube:
+            form.addRow(youtube_search_cb)
+            form.addRow('YouTube kelime', youtube_keyword)
+            form.addRow('YouTube link', youtube_link)
+            form.addRow('YouTube sayfa', youtube_pages)
+            form.addRow('YouTube süre', youtube_dwell)
         form.addRow(flags_box['container'])
-        form.addRow(google_enable)
-        form.addRow('Google kelime', google_keyword)
-        form.addRow('Google ülke', google_country)
-        form.addRow('Google sayfa', google_pages)
-        form.addRow('Google süre', google_dwell)
-        form.addRow(youtube_enable)
-        form.addRow(youtube_search_cb)
-        form.addRow('YouTube kelime', youtube_keyword)
-        form.addRow('YouTube link', youtube_link)
-        form.addRow('YouTube sayfa', youtube_pages)
-        form.addRow('YouTube süre', youtube_dwell)
 
         btns = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Save | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
         form.addRow(btns)
@@ -1474,13 +1479,13 @@ class SurfApp(QtWidgets.QMainWindow):
                 'form_fill': flags_box['flags']['form_fill'].isChecked(),
                 'media': any(cb.isChecked() for cb in flags_box['media'].values()),
                 'media_actions': [k for k, cb in flags_box['media'].items() if cb.isChecked()],
-                'google_enabled': google_enable.isChecked(),
+                'google_enabled': is_google,
                 'google_keyword': google_keyword.text(),
                 'google_country': google_country.currentData(),
                 'google_pages': google_pages.value(),
                 'google_dwell': google_dwell.value(),
-                'youtube_enabled': youtube_enable.isChecked(),
-                'youtube_keyword': youtube_keyword.text() if youtube_enable.isChecked() and youtube_search_cb.isChecked() else '',
+                'youtube_enabled': is_youtube,
+                'youtube_keyword': youtube_keyword.text() if is_youtube and youtube_search_cb.isChecked() else '',
                 'youtube_link': youtube_link.text(),
                 'youtube_pages': youtube_pages.value(),
                 'youtube_dwell': youtube_dwell.value(),

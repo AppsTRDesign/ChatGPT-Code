@@ -488,6 +488,7 @@ function complete_surf(PDO $pdo, array $user, array $config): void
     $mode = $session['task_mode'] ?: 'standard';
     $pagesVisited = (int)($telemetry['pages_visited'] ?? $session['planned_pages'] ?? 0);
     $baseReward = $plannedDwell;
+    $recaptchaBlocked = !empty($telemetry['recaptcha_blocked']);
     if ($mode === 'google') {
         $baseReward += (int)($config['google_task_points'] ?? 50);
         $baseReward += ($pagesVisited ?: (int)($session['google_pages'] ?? 1)) * (int)($config['google_page_points'] ?? 10);
@@ -498,7 +499,7 @@ function complete_surf(PDO $pdo, array $user, array $config): void
 
     $ownerId = (int)$session['owner_id'];
     $reward = 0;
-    if ($ownerId !== (int)$user['id'] && $baseReward > 0) {
+    if (!$recaptchaBlocked && $ownerId !== (int)$user['id'] && $baseReward > 0) {
         $ownerLock = $pdo->prepare('SELECT id, points FROM users WHERE id = ? FOR UPDATE');
         $ownerLock->execute([$ownerId]);
         $owner = $ownerLock->fetch();
@@ -537,9 +538,16 @@ function complete_surf(PDO $pdo, array $user, array $config): void
         }
     }
 
-    persist_site_stats($pdo, (int)$session['site_id'], (int)$user['id'], $telemetry);
+    if (!$recaptchaBlocked) {
+        persist_site_stats($pdo, (int)$session['site_id'], (int)$user['id'], $telemetry);
+    }
     $pdo->commit();
-    Response::json(['earned' => $reward]);
+    Response::json([
+        'earned' => $reward,
+        'recaptcha_blocked' => $recaptchaBlocked,
+        'telemetry' => $telemetry,
+        'reward_limits' => reward_leftovers($pdo, $user, $config),
+    ]);
 }
 
 function persist_site_stats(PDO $pdo, int $siteId, int $surferId, array $telemetry): void

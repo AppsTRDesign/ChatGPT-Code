@@ -32,6 +32,42 @@ class GoogleHandler:
         except Exception:
             pass
 
+    def _try_recaptcha(self, page, rng) -> bool:
+        """
+        Bazı sonuç sayfalarında çıkan reCAPTCHA kutusunu tıklamayı dener.
+        Başarıyla kapatılırsa True, aksi halde False döner.
+        """
+        selectors = [
+            'div.recaptcha-checkbox',
+            '.rc-anchor-checkbox',
+            '.recaptcha-checkbox-border',
+            'iframe[src*="recaptcha"]',
+        ]
+        try:
+            box = None
+            for sel in selectors:
+                box = page.query_selector(sel)
+                if box:
+                    break
+            if not box:
+                return True  # recaptcha yok
+            # iframe içindeyse frame'e geç
+            if box.tag_name().lower() == 'iframe':
+                frame = box.content_frame()
+                if frame:
+                    inner = frame.query_selector('.recaptcha-checkbox-border')
+                    if inner:
+                        inner.click()
+                        frame.wait_for_timeout(rng.randint(600, 1200))
+                        return True
+            box.click()
+            page.wait_for_timeout(rng.randint(600, 1200))
+            # kutu kayboldu mu kontrol et
+            still = page.query_selector('.recaptcha-checkbox-unchecked, .rc-anchor-alert')
+            return still is None
+        except Exception:
+            return False
+
     def perform_google(self, playwright, cfg: dict, flags: dict, personality, apply_actions) -> Tuple[int, int, Dict, str]:
         dwell = int(cfg.get('dwell', 30))
         pages = max(1, int(cfg.get('pages', 1)))
@@ -43,12 +79,16 @@ class GoogleHandler:
         page = self.browser_manager.ensure_page(playwright, flags)
         rng = getattr(personality, 'rng', random.Random())
         page.goto(host, wait_until='domcontentloaded')
+        recaptcha_blocked = False
         try:
             box = page.wait_for_selector('input[name="q"]', timeout=5000)
             box.click()
             for ch in keyword:
                 box.type(ch, delay=rng.randint(40, 110))
             box.press('Enter')
+            if not self._try_recaptcha(page, rng):
+                self.log('reCAPTCHA çözülemedi, görev atlanıyor')
+                recaptcha_blocked = True
         except Exception:
             page.goto(f'{host}/search?q={requests.utils.quote(keyword)}&hl=en&gl={country}', wait_until='domcontentloaded')
 
@@ -84,6 +124,8 @@ class GoogleHandler:
                 page.wait_for_timeout(rng.randint(620, 1200))
             else:
                 break
+        if recaptcha_blocked:
+            return 0, visited_pages, {'recaptcha_blocked': True}, page.url
         if not found:
             self.log('Aranan site bulunamadı, kalan süreyi sitede gezinerek tamamlıyoruz')
         plan, site_flags = self.plan_engine.build_custom_plan(dwell, {**flags})
