@@ -32,6 +32,11 @@ function read_json(): array
     return is_array($data) ? $data : [];
 }
 
+function is_valid_email(string $email): bool
+{
+    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+}
+
 function current_user(PDO $pdo, array $config): ?array
 {
     $headers = function_exists('getallheaders') ? getallheaders() : [];
@@ -71,6 +76,10 @@ function register(PDO $pdo, array $config): void
     $maxMulti = isset($data['max_multi_accounts']) ? max(1, (int)$data['max_multi_accounts']) : 5;
     if (!$email || !$password || !$name) {
         Response::error('email, password ve name zorunlu');
+        return;
+    }
+    if (!is_valid_email($email)) {
+        Response::error('Geçersiz email formatı');
         return;
     }
     if (!$deviceId) {
@@ -131,6 +140,10 @@ function login(PDO $pdo, array $config): void
     $data = read_json();
     $email = $data['email'] ?? '';
     $password = $data['password'] ?? '';
+    if (!is_valid_email($email)) {
+        Response::error('Geçersiz email formatı');
+        return;
+    }
     $deviceId = trim($data['device_id'] ?? ($_SERVER['HTTP_X_DEVICE_ID'] ?? ''));
     $stmt = $pdo->prepare('SELECT id, email, password_hash, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward, daily_reward_started_at, weekly_reward_started_at, monthly_reward_started_at FROM users WHERE email = ? LIMIT 1');
     $stmt->execute([$email]);
@@ -161,6 +174,10 @@ function forgot_password(PDO $pdo): void
     $email = $data['email'] ?? '';
     if (!$email) {
         Response::error('email zorunlu');
+        return;
+    }
+    if (!is_valid_email($email)) {
+        Response::error('Geçersiz email formatı');
         return;
     }
     $pdo->prepare('INSERT INTO contact_messages (email, subject, body) VALUES (?,?,?)')
@@ -781,6 +798,10 @@ function contact(PDO $pdo, ?array $user, array $config): void
     $body = trim($data['body'] ?? '');
     if (!$email || !$body) {
         Response::error('email ve body zorunlu');
+        return;
+    }
+    if (!is_valid_email($email)) {
+        Response::error('Geçersiz email formatı');
         return;
     }
     $pdo->prepare('INSERT INTO contact_messages (user_id, email, subject, body) VALUES (?,?,?,?)')

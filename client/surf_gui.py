@@ -510,6 +510,9 @@ class SurfApp(QtWidgets.QMainWindow):
         self.points_history_data: Dict[str, list] = {}
         self.system_history_data: Dict[str, list] = {}
         self.reward_limits: Dict[str, Optional[int]] = {}
+        self.captcha_codes: Dict[str, str] = {}
+        self.captcha_labels: Dict[str, QtWidgets.QLabel] = {}
+        self.captcha_inputs: Dict[str, QtWidgets.QLineEdit] = {}
         assets_dir = Path(__file__).resolve().parent / 'assets'
         self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
         self.personality = PersonaEngine.random(self.persona_profiles, seed=None)
@@ -530,6 +533,70 @@ class SurfApp(QtWidgets.QMainWindow):
             return resp.status_code < 400
         except Exception:
             return False
+
+    @staticmethod
+    def _is_valid_email(email: str) -> bool:
+        return bool(email) and QtCore.QRegularExpression(r'^\S+@\S+\.\S+$').match(email).hasMatch()
+
+    def _generate_captcha_text(self, length: int = 5) -> str:
+        alphabet = string.ascii_uppercase + string.digits
+        return ''.join(random.choice(alphabet) for _ in range(length))
+
+    def _render_captcha_pixmap(self, text: str) -> QtGui.QPixmap:
+        image = QtGui.QImage(160, 48, QtGui.QImage.Format.Format_ARGB32)
+        image.fill(QtGui.QColor('#f1f5f9'))
+        painter = QtGui.QPainter(image)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        font = QtGui.QFont('Arial', 18, QtGui.QFont.Weight.Bold)
+        painter.setFont(font)
+        painter.setPen(QtGui.QColor('#0f172a'))
+        painter.drawText(image.rect(), QtCore.Qt.AlignmentFlag.AlignCenter, text)
+        painter.setPen(QtGui.QPen(QtGui.QColor('#94a3b8'), 1))
+        for _ in range(6):
+            painter.drawLine(
+                random.randint(0, image.width()),
+                random.randint(0, image.height()),
+                random.randint(0, image.width()),
+                random.randint(0, image.height()),
+            )
+        painter.end()
+        return QtGui.QPixmap.fromImage(image)
+
+    def _build_captcha_row(self, key: str) -> QtWidgets.QWidget:
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        img = QtWidgets.QLabel()
+        img.setFixedSize(170, 52)
+        self.captcha_labels[key] = img
+        refresh = QtWidgets.QPushButton('↻')
+        refresh.setFixedWidth(34)
+        refresh.clicked.connect(lambda: self._refresh_captcha(key))
+        entry = QtWidgets.QLineEdit()
+        entry.setPlaceholderText('Görünen metni yazın')
+        self.captcha_inputs[key] = entry
+        layout.addWidget(img)
+        layout.addWidget(refresh)
+        layout.addWidget(entry)
+        self._refresh_captcha(key)
+        return widget
+
+    def _refresh_captcha(self, key: str) -> None:
+        code = self._generate_captcha_text()
+        self.captcha_codes[key] = code
+        if key in self.captcha_labels:
+            self.captcha_labels[key].setPixmap(self._render_captcha_pixmap(code))
+        if key in self.captcha_inputs:
+            self.captcha_inputs[key].clear()
+
+    def _check_captcha(self, key: str) -> bool:
+        expected = self.captcha_codes.get(key, '')
+        entered = self.captcha_inputs.get(key).text().strip() if key in self.captcha_inputs else ''
+        if not expected or not entered or entered.lower() != expected.lower():
+            self._toast('Doğrulama metni hatalı', error=True)
+            self._refresh_captcha(key)
+            return False
+        return True
 
     def _device_id(self) -> str:
         cache_path = CURRENT_DIR / '.device_id'
@@ -634,6 +701,7 @@ class SurfApp(QtWidgets.QMainWindow):
         form.addRow('Şifre', self.reg_password)
         form.addRow('Şifre (Tekrar)', self.reg_password_confirm)
         form.addRow('İsim', self.reg_name)
+        form.addRow('Doğrulama', self._build_captcha_row('register'))
         form.addRow(register_btn)
         return widget
 
@@ -647,6 +715,7 @@ class SurfApp(QtWidgets.QMainWindow):
         login_btn.clicked.connect(self.login)
         form.addRow('Email', self.login_email)
         form.addRow('Şifre', self.login_password)
+        form.addRow('Doğrulama', self._build_captcha_row('login'))
         form.addRow(login_btn)
         return widget
 
@@ -657,6 +726,7 @@ class SurfApp(QtWidgets.QMainWindow):
         reset_btn = QtWidgets.QPushButton('Sıfırlama Maili Gönder')
         reset_btn.clicked.connect(self.reset_password)
         form.addRow('Email', self.reset_email)
+        form.addRow('Doğrulama', self._build_captcha_row('reset'))
         form.addRow(reset_btn)
         return widget
 
@@ -1084,11 +1154,15 @@ class SurfApp(QtWidgets.QMainWindow):
         self.mail_message = QtWidgets.QPlainTextEdit()
         self.mail_to = QtWidgets.QLineEdit('info@noasoft.org')
         self.mail_to.setReadOnly(True)
+        self.mail_from = QtWidgets.QLineEdit()
+        self.mail_from.setPlaceholderText('E-posta adresiniz')
         send_btn = QtWidgets.QPushButton('Gönder')
         send_btn.clicked.connect(self.send_mail)
         form.addRow('Alıcı', self.mail_to)
+        form.addRow('Gönderen', self.mail_from)
         form.addRow('Konu', self.mail_subject)
         form.addRow('Mesaj', self.mail_message)
+        form.addRow('Doğrulama', self._build_captcha_row('mail'))
         form.addRow(send_btn)
         return widget
 
@@ -1105,6 +1179,11 @@ class SurfApp(QtWidgets.QMainWindow):
         return widget
 
     def register(self):
+        if not self._is_valid_email(self.reg_email.text()):
+            self._toast('Lütfen geçerli bir email girin', error=True)
+            return
+        if not self._check_captcha('register'):
+            return
         self._init_client()
         if self.reg_password.text() != self.reg_password_confirm.text():
             self._toast('Şifreler eşleşmiyor', error=True)
@@ -1125,6 +1204,11 @@ class SurfApp(QtWidgets.QMainWindow):
             self._toast(f'Hata: {exc}', error=True)
 
     def login(self):
+        if not self._is_valid_email(self.login_email.text()):
+            self._toast('Lütfen geçerli bir email girin', error=True)
+            return
+        if not self._check_captcha('login'):
+            return
         self._init_client()
         try:
             resp = self.client.login(self.login_email.text(), self.login_password.text(), device_id=self.device_id)
@@ -1136,6 +1220,11 @@ class SurfApp(QtWidgets.QMainWindow):
             self._toast(f'Hata: {exc}', error=True)
 
     def reset_password(self):
+        if not self._is_valid_email(self.reset_email.text()):
+            self._toast('Lütfen geçerli bir email girin', error=True)
+            return
+        if not self._check_captcha('reset'):
+            return
         self._init_client()
         try:
             self.client.forgot_password(self.reset_email.text())
@@ -1197,8 +1286,11 @@ class SurfApp(QtWidgets.QMainWindow):
             self.youtube_name,
             self.youtube_url,
             self.youtube_keyword,
+            getattr(self, 'mail_from', None),
+            getattr(self, 'mail_subject', None),
         ]:
-            edit.clear()
+            if edit:
+                edit.clear()
         for spin in [self.dwell_spin, self.google_pages, self.google_dwell, self.youtube_pages, self.youtube_dwell]:
             spin.setValue(spin.minimum())
         for cb in [
@@ -1223,6 +1315,11 @@ class SurfApp(QtWidgets.QMainWindow):
         self.youtube_pages.setValue(self.youtube_pages.minimum())
         self.live_view.setPixmap(QtGui.QPixmap())
         self.live_view.setText('Chromium bekleme modunda')
+        if hasattr(self, 'mail_message'):
+            self.mail_message.clear()
+        for key in ('register', 'login', 'reset', 'mail'):
+            if key in self.captcha_labels:
+                self._refresh_captcha(key)
 
     def _make_copy_only(self, table: QtWidgets.QTableWidget):
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -1277,6 +1374,8 @@ class SurfApp(QtWidgets.QMainWindow):
             assets_dir = Path(__file__).resolve().parent / 'assets'
             self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
         self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
+        if hasattr(self, 'mail_from'):
+            self.mail_from.setText(self.current_email)
         self._fetch_task_points()
         self.refresh_dashboard()
         self.live_timer.start()
@@ -2400,12 +2499,20 @@ class SurfApp(QtWidgets.QMainWindow):
             config = self.client.mail_settings()
             to_addr = config.get('to') or config.get('email') or 'info@noasoft.org'
             self.mail_to.setText(to_addr)
+            if self.current_email:
+                self.mail_from.setText(self.current_email)
         except Exception:
             self.mail_to.setText('info@noasoft.org')
 
     def send_mail(self):
         if not self.client or not self.token:
             self._toast('Önce giriş yapın')
+            return
+        sender = self.mail_from.text().strip() or self.current_email or self.login_email.text() or self.reg_email.text()
+        if not self._is_valid_email(sender):
+            self._toast('Geçerli bir e-posta girin', error=True)
+            return
+        if not self._check_captcha('mail'):
             return
         subject = self.mail_subject.text().strip() or 'Autosurf talebi'
         body = self.mail_message.toPlainText().strip()
@@ -2416,7 +2523,7 @@ class SurfApp(QtWidgets.QMainWindow):
             'to': self.mail_to.text(),
             'subject': subject,
             'body': body,
-            'email': self.current_email or self.login_email.text() or self.reg_email.text(),
+            'email': sender,
         }
         try:
             self.client.send_mail(self.token, payload)
