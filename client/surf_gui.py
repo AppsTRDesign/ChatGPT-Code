@@ -662,15 +662,20 @@ class SurfApp(QtWidgets.QMainWindow):
         self.mail_tab = self._build_mail_tab()
         self.log_tab = self._build_log_tab()
 
-        self.tabs.addTab(self.dashboard_tab, 'Puan/Özet')
-        self.tabs.addTab(self.sites_tab, 'Siteler')
-        self.tabs.addTab(self.surf_tab, 'Surf + Puan')
-        self.tabs.addTab(self.google_tab, 'Google Görevi')
-        self.tabs.addTab(self.youtube_tab, 'YouTube Görevi')
-        self.tabs.addTab(self.points_info_tab, 'Puan Sistemi / Özellikler')
-        self.tabs.addTab(self.system_stats_tab, 'İstatistikler')
-        self.tabs.addTab(self.mail_tab, 'İletişim')
-        self.tabs.addTab(self.log_tab, 'Log')
+        self._tab_sequence = [
+            ('dashboard_tab', self.dashboard_tab, 'Puan/Özet'),
+            ('sites_tab', self.sites_tab, 'Siteler'),
+            ('surf_tab', self.surf_tab, 'Surf + Puan'),
+            ('google_tab', self.google_tab, 'Google Görevi'),
+            ('youtube_tab', self.youtube_tab, 'YouTube Görevi'),
+            ('points_info_tab', self.points_info_tab, 'Puan Sistemi / Özellikler'),
+            ('system_stats_tab', self.system_stats_tab, 'İstatistikler'),
+            ('mail_tab', self.mail_tab, 'İletişim'),
+            ('log_tab', self.log_tab, 'Log'),
+        ]
+
+        # Varsayılan olarak hepsi açık; config geldiğinde görünürlük yeniden ayarlanacak
+        self._rebuild_tabs(google_on=True, youtube_on=True)
         layout.addWidget(self.tabs)
         return widget
 
@@ -1216,6 +1221,32 @@ class SurfApp(QtWidgets.QMainWindow):
         QtWidgets.QApplication.clipboard().setText(item.text())
         self.status_label.setText('Kopyalandı')
 
+    def _rebuild_tabs(self, google_on: bool, youtube_on: bool):
+        """Tab sırasını koruyarak Google/YouTube sekmelerini aç/kapat."""
+        if not hasattr(self, 'tabs'):
+            return
+        current_title = None
+        if self.tabs.count():
+            current_idx = self.tabs.currentIndex()
+            if current_idx >= 0:
+                current_title = self.tabs.tabText(current_idx)
+
+        while self.tabs.count():
+            self.tabs.removeTab(0)
+
+        for key, widget, title in self._tab_sequence:
+            if key == 'google_tab' and not google_on:
+                continue
+            if key == 'youtube_tab' and not youtube_on:
+                continue
+            self.tabs.addTab(widget, title)
+
+        if current_title:
+            for idx in range(self.tabs.count()):
+                if self.tabs.tabText(idx) == current_title:
+                    self.tabs.setCurrentIndex(idx)
+                    break
+
     def _init_client(self):
         base_url = self.base_url_input.text().strip()
         if not base_url:
@@ -1252,14 +1283,9 @@ class SurfApp(QtWidgets.QMainWindow):
     def _apply_task_tab_visibility(self):
         if not hasattr(self, 'tabs'):
             return
-        google_on = bool(self.task_points.get('google_tasks_enabled', 1))
-        youtube_on = bool(self.task_points.get('youtube_tasks_enabled', 1))
-        google_idx = self.tabs.indexOf(self.google_tab)
-        youtube_idx = self.tabs.indexOf(self.youtube_tab)
-        if google_idx >= 0:
-            self.tabs.setTabVisible(google_idx, google_on)
-        if youtube_idx >= 0:
-            self.tabs.setTabVisible(youtube_idx, youtube_on)
+        google_on = bool(int(self.task_points.get('google_tasks_enabled', 1)))
+        youtube_on = bool(int(self.task_points.get('youtube_tasks_enabled', 1)))
+        self._rebuild_tabs(google_on, youtube_on)
 
     def refresh_dashboard(self):
         if not self.client or not self.token:
