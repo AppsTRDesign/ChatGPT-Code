@@ -245,6 +245,12 @@ class ActionSimulator:
                 href = lnk.get_attribute("href") or ""
                 if not href or href.startswith("#") or href.lower().startswith("javascript"):
                     continue
+                # Reklam bandı içindeki linkleri atla
+                try:
+                    if lnk.evaluate("el => !!el.closest('#noasoft-banner')"):
+                        continue
+                except Exception:
+                    pass
                 parsed = urlparse(href)
                 same_host = (not parsed.netloc) or (host and host in parsed.netloc)
                 target_attr = (lnk.get_attribute("target") or "").lower()

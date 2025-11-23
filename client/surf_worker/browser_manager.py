@@ -77,6 +77,7 @@ class BrowserManager:
                 "    dot.id = 'noasoft-pointer';"
                 "    Object.assign(dot.style, {position:'fixed',width:'26px',height:'26px',zIndex:2147483647,pointerEvents:'none',transform:'translate(-50%,-50%)'});"
                 "    dot.innerHTML = svgFor();"
+                "    try { (document.documentElement || document.body).style.cursor = 'none'; } catch (e) {}"
                 "    document.addEventListener('mousemove', ev => {dot.style.left = ev.clientX + 'px'; dot.style.top = ev.clientY + 'px';});"
                 "    (document.body || document.documentElement).appendChild(dot);"
                 "  };"
