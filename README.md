@@ -10,7 +10,7 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   3. PHP 8 üstünde çalıştırın (plesk/ana dizin, public değil). Tüm istekler `index.php` üzerinden karşılanır.
   4. `api/.htaccess` dosyasını yayın klasörüne ekleyin; Authorization header’ını ve CORS’u korur, 404 yerine istekleri `index.php`
      üzerinden yönlendirir.
-  5. Görev puanları için ekstra ayar gerekmiyor; Google/YouTube ödülleri arama süresi ve hedefin bulunmasına göre otomatik hesaplanır.
+5. Görev puanları için ekstra ayar gerekmiyor; Google/YouTube ödülleri arama süresi ve hedefin bulunmasına göre otomatik hesaplanır. Görev sekmelerini tamamen kapatmak isterseniz `api/config.php` içindeki `google_tasks_enabled` ve `youtube_tasks_enabled` değerlerini `0` (pasif) ya da `1` (aktif, varsayılan) yapabilirsiniz.
 - **Endpoint’ler:**
   - `POST /auth/register` — email/şifre/isim ile kayıt, başlangıç puanı verir.
   - `POST /auth/login` — token üretir.
@@ -35,7 +35,7 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
 - **Konum:** `client/surf_gui.py`
 - **Özellikler:**
   - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan/Özet, Siteler, Surf + Puan, Google Görevi, YouTube Görevi, Puan Sistemi/Özellikler, İstatistikler, İletişim, Log).
-  - Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; tek grafik üzerinde günlük/haftalık/aylık (seçilebilir) kazanılan/harcanan puan çizgileri.
+- Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; tek grafik üzerinde günlük/haftalık/aylık (seçilebilir) kazanılan/harcanan puan çizgileri veya bar görünümü, seri bazlı aç/kapat/tıklayınca üstü çizilen göstergeler.
   - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, medya aksiyon checkbox’ları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
   - Site detayları: her kayıtlı site için “Detaylar” butonu; ülke/şehir/IP/platform/cihaz/UA ve aksiyon adetleri tablo halinde, tek grafik üzerinde ziyaret ve harcama serileri (gün/hafta/ay seçilebilir) ve Türkçe karakter uyumlu PDF dışa aktarma (dikey/yatay yön seçilebilir, şehir alanı varsayılan görünür).
   - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, metin seçip çizme/kopyalama, form doldurup temizleme, medya kontrolleri), ilerleme çubuğu ve canlı önizleme (tarayıcı üzerinde yapay mouse overlay) ile puan kazanımı; loglar ayrı sekmede kopyalanabilir.

@@ -695,12 +695,29 @@ class SurfApp(QtWidgets.QMainWindow):
         for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
             self.points_range.addItem(label, key)
         selector_row.addWidget(self.points_range)
+
+        selector_row.addWidget(QtWidgets.QLabel('Grafik tipi'))
+        self.points_style = QtWidgets.QComboBox()
+        self.points_style.addItem('Bar', 'bar')
+        self.points_style.addItem('Çizgi', 'line')
+        selector_row.addWidget(self.points_style)
         selector_row.addStretch()
         layout.addLayout(selector_row)
 
-        self.points_chart = self._build_points_chart_view('Puan Akışı')
+        toggle_row = QtWidgets.QHBoxLayout()
+        self.points_toggle_earned = self._build_series_toggle('Kazanılan', '#3b82f6')
+        self.points_toggle_spent = self._build_series_toggle('Harcanan', '#ef4444')
+        for cb in (self.points_toggle_earned, self.points_toggle_spent):
+            cb.toggled.connect(self._render_points_chart)
+            toggle_row.addWidget(cb)
+        toggle_row.addStretch()
+        layout.addLayout(toggle_row)
+
+        self.points_chart = QChartView()
+        self.points_chart.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         layout.addWidget(self.points_chart)
         self.points_range.currentIndexChanged.connect(self._render_points_chart)
+        self.points_style.currentIndexChanged.connect(self._render_points_chart)
 
         return widget
 
@@ -970,12 +987,30 @@ class SurfApp(QtWidgets.QMainWindow):
         for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
             self.system_range.addItem(label, key)
         range_row.addWidget(self.system_range)
+
+        range_row.addWidget(QtWidgets.QLabel('Grafik tipi'))
+        self.system_style = QtWidgets.QComboBox()
+        self.system_style.addItem('Bar', 'bar')
+        self.system_style.addItem('Çizgi', 'line')
+        range_row.addWidget(self.system_style)
         range_row.addStretch()
         layout.addLayout(range_row)
 
-        self.system_chart = self._build_mix_chart_view('Ziyaret ve Puan Akışı')
+        toggle_row = QtWidgets.QHBoxLayout()
+        self.system_toggle_visit = self._build_series_toggle('Ziyaret', '#0ea5e9')
+        self.system_toggle_earned = self._build_series_toggle('Kazanılan', '#22c55e')
+        self.system_toggle_spent = self._build_series_toggle('Harcanan', '#ef4444')
+        for cb in (self.system_toggle_visit, self.system_toggle_earned, self.system_toggle_spent):
+            cb.toggled.connect(self._render_system_chart)
+            toggle_row.addWidget(cb)
+        toggle_row.addStretch()
+        layout.addLayout(toggle_row)
+
+        self.system_chart = QChartView()
+        self.system_chart.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         layout.addWidget(self.system_chart)
         self.system_range.currentIndexChanged.connect(self._render_system_chart)
+        self.system_style.currentIndexChanged.connect(self._render_system_chart)
         return widget
 
     def _build_action_checkboxes(self, include_media: bool = True) -> dict:
@@ -1266,34 +1301,67 @@ class SurfApp(QtWidgets.QMainWindow):
         self.points_history_data = history
         self._render_points_chart()
 
-    def _build_points_chart_view(self, title: str) -> QChartView:
+    def _build_series_toggle(self, label: str, color: str) -> QtWidgets.QCheckBox:
+        cb = QtWidgets.QCheckBox(label)
+        cb.setChecked(True)
+        base_style = f'QCheckBox::indicator {{ width:16px; height:16px; }} QCheckBox {{ color:{color}; font-weight:bold; }} '
+        cb.setProperty('base_style', base_style)
+        cb.setStyleSheet(base_style + 'text-decoration:none;')
+        cb.toggled.connect(lambda: self._refresh_toggle_style(cb))
+        return cb
+
+    @staticmethod
+    def _refresh_toggle_style(cb: QtWidgets.QCheckBox):
+        base_style = cb.property('base_style') or cb.styleSheet()
+        if cb.isChecked():
+            cb.setStyleSheet(base_style + ' text-decoration:none;')
+        else:
+            cb.setStyleSheet(base_style + ' text-decoration:line-through; color:#94a3b8;')
+
+    def _render_chart_generic(self, view: QChartView, categories: List[str], series_defs: List[dict], mode: str = 'line'):
         chart = QChart()
-        earned = QLineSeries()
-        earned.setColor(QtGui.QColor('#3b82f6'))
-        earned.setName('Kazanılan')
-        spent = QLineSeries()
-        spent.setColor(QtGui.QColor('#ef4444'))
-        spent.setName('Harcanan')
-        chart.addSeries(earned)
-        chart.addSeries(spent)
         axis_x = QBarCategoryAxis()
         axis_y = QValueAxis()
         axis_y.setLabelFormat('%d')
+        axis_x.append(categories or ['0'])
         chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
         chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-        earned.attachAxis(axis_x)
-        earned.attachAxis(axis_y)
-        spent.attachAxis(axis_x)
-        spent.attachAxis(axis_y)
-        chart.setTitle(title)
+        combined: List[int] = [0]
+
+        if mode == 'bar':
+            bars = QBarSeries(); bars.setBarWidth(0.9)
+            for ser in series_defs:
+                if not ser.get('enabled', True):
+                    continue
+                bset = QBarSet(ser.get('name', ''))
+                bset.setColor(QtGui.QColor(ser.get('color', '#0ea5e9')))
+                for val in ser.get('values', []):
+                    bset.append(val)
+                    combined.append(val)
+                bars.append(bset)
+            chart.addSeries(bars)
+            bars.attachAxis(axis_x)
+            bars.attachAxis(axis_y)
+        else:
+            for ser in series_defs:
+                if not ser.get('enabled', True):
+                    continue
+                line = QLineSeries()
+                line.setName(ser.get('name', ''))
+                line.setColor(QtGui.QColor(ser.get('color', '#0ea5e9')))
+                for idx, val in enumerate(ser.get('values', [])):
+                    line.append(idx, val)
+                    combined.append(val)
+                chart.addSeries(line)
+                line.attachAxis(axis_x)
+                line.attachAxis(axis_y)
+
+        min_val = min(combined)
+        max_val = max(combined)
+        pad = max(5, int((max_val - min_val) * 0.25) + 5)
+        axis_y.setRange(min_val - pad, max_val + pad)
         chart.legend().setVisible(True)
-        view = QChartView(chart)
-        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        view.setProperty('earned_series', earned)
-        view.setProperty('spent_series', spent)
-        view.setProperty('axis_x', axis_x)
-        view.setProperty('axis_y', axis_y)
-        return view
+        view.setChart(chart)
 
     def _render_points_chart(self):
         if not hasattr(self, 'points_chart'):
@@ -1302,54 +1370,23 @@ class SurfApp(QtWidgets.QMainWindow):
         history = self.points_history_data.get(period, []) if isinstance(self.points_history_data, dict) else []
         if not history:
             history = [{'label': '0', 'earned': 0, 'spent': 0}]
-        earned_series: QLineSeries = self.points_chart.property('earned_series')
-        spent_series: QLineSeries = self.points_chart.property('spent_series')
-        axis_x: QBarCategoryAxis = self.points_chart.property('axis_x')
-        axis_y: QValueAxis = self.points_chart.property('axis_y')
-        earned_series.clear(); spent_series.clear(); axis_x.clear()
-        categories: List[str] = []
-        values: List[int] = []
-        for idx, row in enumerate(history):
-            label = str(row.get('label', idx))
-            categories.append(label)
-            e_val = int(row.get('earned', 0))
-            s_val = int(row.get('spent', 0))
-            earned_series.append(idx, e_val)
-            spent_series.append(idx, s_val)
-            values.extend([e_val, s_val])
-        axis_x.append(categories)
-        min_val = min(values + [0])
-        max_val = max(values + [0])
-        pad = max(10, int((max_val - min_val) * 0.2) + 5)
-        axis_y.setRange(min_val - pad, max_val + pad)
-        self.points_chart.chart().update()
-
-    def _build_mix_chart_view(self, title: str) -> QChartView:
-        chart = QChart()
-        visit_bars = QBarSeries()
-        visit_set = QBarSet('Ziyaret')
-        visit_set.setColor(QtGui.QColor('#0ea5e9'))
-        visit_bars.append(visit_set)
-        visit_bars.setBarWidth(0.85)
-        earned = QLineSeries(); earned.setName('Kazanılan'); earned.setColor(QtGui.QColor('#22c55e'))
-        spent = QLineSeries(); spent.setName('Harcanan'); spent.setColor(QtGui.QColor('#ef4444'))
-        chart.addSeries(visit_bars); chart.addSeries(earned); chart.addSeries(spent)
-        axis_x = QBarCategoryAxis(); axis_y = QValueAxis(); axis_y.setLabelFormat('%d')
-        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-        visit_bars.attachAxis(axis_x); visit_bars.attachAxis(axis_y)
-        earned.attachAxis(axis_x); earned.attachAxis(axis_y)
-        spent.attachAxis(axis_x); spent.attachAxis(axis_y)
-        chart.setTitle(title)
-        chart.legend().setVisible(True)
-        view = QChartView(chart)
-        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        view.setProperty('visit_set', visit_set)
-        view.setProperty('earned_series', earned)
-        view.setProperty('spent_series', spent)
-        view.setProperty('axis_x', axis_x)
-        view.setProperty('axis_y', axis_y)
-        return view
+        categories = [str(row.get('label', idx)) for idx, row in enumerate(history)]
+        series_defs = [
+            {
+                'name': 'Kazanılan',
+                'color': '#3b82f6',
+                'values': [int(row.get('earned', 0)) for row in history],
+                'enabled': getattr(self, 'points_toggle_earned', None).isChecked() if hasattr(self, 'points_toggle_earned') else True,
+            },
+            {
+                'name': 'Harcanan',
+                'color': '#ef4444',
+                'values': [int(row.get('spent', 0)) for row in history],
+                'enabled': getattr(self, 'points_toggle_spent', None).isChecked() if hasattr(self, 'points_toggle_spent') else True,
+            },
+        ]
+        mode = self.points_style.currentData() if hasattr(self, 'points_style') else 'line'
+        self._render_chart_generic(self.points_chart, categories, series_defs, mode)
 
     def _render_system_chart(self):
         if not hasattr(self, 'system_chart'):
@@ -1364,34 +1401,39 @@ class SurfApp(QtWidgets.QMainWindow):
         point_history = self.system_history_data.get(period, []) if isinstance(self.system_history_data, dict) else []
         labels = []
         visit_vals: List[int] = []
-        earned_series: QLineSeries = self.system_chart.property('earned_series')
-        spent_series: QLineSeries = self.system_chart.property('spent_series')
-        visit_set: QBarSet = self.system_chart.property('visit_set')
-        axis_x: QBarCategoryAxis = self.system_chart.property('axis_x')
-        axis_y: QValueAxis = self.system_chart.property('axis_y')
-        earned_series.clear(); spent_series.clear(); visit_set.remove(0, visit_set.count()) if visit_set.count() else None
-        axis_x.clear()
-        combined: List[int] = []
-        max_len = max(len(visit_history), len(point_history))
+        spent_vals: List[int] = []
+        earned_vals: List[int] = []
+        max_len = max(len(visit_history), len(point_history)) or 1
         for idx in range(max_len):
             v_row = visit_history[idx] if idx < len(visit_history) else {}
             p_row = point_history[idx] if idx < len(point_history) else {}
-            label = str(v_row.get('label') or p_row.get('label') or idx)
-            labels.append(label)
-            v_val = int(v_row.get('visits', 0) or 0)
-            visit_vals.append(v_val)
-            visit_set.append(v_val)
-            e_val = int(p_row.get('earned', 0) or 0)
-            s_val = int(p_row.get('spent', 0) or 0)
-            earned_series.append(idx, e_val)
-            spent_series.append(idx, s_val)
-            combined.extend([v_val, e_val, s_val])
-        axis_x.append(labels or ['0'])
-        min_val = min(combined + [0])
-        max_val = max(combined + [0])
-        pad = max(5, int((max_val - min_val) * 0.25) + 5)
-        axis_y.setRange(min_val - pad, max_val + pad)
-        self.system_chart.chart().update()
+            labels.append(str(v_row.get('label') or p_row.get('label') or idx))
+            visit_vals.append(int(v_row.get('visits', 0) or 0))
+            earned_vals.append(int(p_row.get('earned', 0) or 0))
+            spent_vals.append(int(p_row.get('spent', 0) or 0))
+
+        series_defs = [
+            {
+                'name': 'Ziyaret',
+                'color': '#0ea5e9',
+                'values': visit_vals,
+                'enabled': getattr(self, 'system_toggle_visit', None).isChecked() if hasattr(self, 'system_toggle_visit') else True,
+            },
+            {
+                'name': 'Kazanılan',
+                'color': '#22c55e',
+                'values': earned_vals,
+                'enabled': getattr(self, 'system_toggle_earned', None).isChecked() if hasattr(self, 'system_toggle_earned') else True,
+            },
+            {
+                'name': 'Harcanan',
+                'color': '#ef4444',
+                'values': spent_vals,
+                'enabled': getattr(self, 'system_toggle_spent', None).isChecked() if hasattr(self, 'system_toggle_spent') else True,
+            },
+        ]
+        mode = self.system_style.currentData() if hasattr(self, 'system_style') else 'line'
+        self._render_chart_generic(self.system_chart, labels, series_defs, mode)
 
     def refresh_system_stats(self):
         if not self.client or not self.token:
@@ -1771,12 +1813,27 @@ class SurfApp(QtWidgets.QMainWindow):
         for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
             site_range.addItem(label, key)
         range_row.addWidget(site_range)
+
+        range_row.addWidget(QtWidgets.QLabel('Grafik tipi'))
+        chart_style = QtWidgets.QComboBox()
+        chart_style.addItem('Bar', 'bar')
+        chart_style.addItem('Çizgi', 'line')
+        range_row.addWidget(chart_style)
         range_row.addStretch()
         stats_layout.addLayout(range_row)
 
+        toggle_row = QtWidgets.QHBoxLayout()
+        visit_toggle = self._build_series_toggle('Ziyaret', '#0ea5e9')
+        spent_toggle = self._build_series_toggle('Harcanan', '#ef4444')
+        for cb in (visit_toggle, spent_toggle):
+            toggle_row.addWidget(cb)
+        toggle_row.addStretch()
+        stats_layout.addLayout(toggle_row)
+
         chart_row = QtWidgets.QHBoxLayout()
         stats_layout.addLayout(chart_row)
-        site_chart = self._build_mix_chart_view('Ziyaret ve Harcama')
+        site_chart = QChartView()
+        site_chart.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         chart_row.addWidget(site_chart)
 
         table = QtWidgets.QTableWidget()
@@ -1870,37 +1927,38 @@ class SurfApp(QtWidgets.QMainWindow):
             period = state['range_box'].currentData()
             visit_rows = history.get('charts', {}).get(period, [])
             point_rows = history.get('point_charts', {}).get(period, [])
-            view: QChartView = state['chart']
-            visit_set: QBarSet = view.property('visit_set')
-            earned_series: QLineSeries = view.property('earned_series')
-            spent_series: QLineSeries = view.property('spent_series')
-            axis_x: QBarCategoryAxis = view.property('axis_x')
-            axis_y: QValueAxis = view.property('axis_y')
-            visit_set.remove(0, visit_set.count()) if visit_set.count() else None
-            earned_series.clear(); spent_series.clear(); axis_x.clear()
             categories: List[str] = []
-            combined: List[int] = []
-            max_len = max(len(visit_rows), len(point_rows))
-            for idx in range(max_len or 1):
+            visits: List[int] = []
+            spent_vals: List[int] = []
+            max_len = max(len(visit_rows), len(point_rows)) or 1
+            for idx in range(max_len):
                 v_row = visit_rows[idx] if idx < len(visit_rows) else {}
                 p_row = point_rows[idx] if idx < len(point_rows) else {}
-                label = str(v_row.get('label') or p_row.get('label') or idx)
-                categories.append(label)
-                v_val = int(v_row.get('visits', 0) or 0)
-                visit_set.append(v_val)
-                e_val = int(p_row.get('earned', 0) or 0)
-                s_val = int(p_row.get('spent', 0) or 0)
-                earned_series.append(idx, e_val)
-                spent_series.append(idx, s_val)
-                combined.extend([v_val, e_val, s_val])
-            axis_x.append(categories or ['0'])
-            min_val = min(combined + [0])
-            max_val = max(combined + [0])
-            pad = max(5, int((max_val - min_val) * 0.2) + 5)
-            axis_y.setRange(min_val - pad, max_val + pad)
-            view.chart().update()
+                categories.append(str(v_row.get('label') or p_row.get('label') or idx))
+                visits.append(int(v_row.get('visits', 0) or 0))
+                spent_vals.append(int(p_row.get('spent', 0) or 0))
+
+            series_defs = [
+                {
+                    'name': 'Ziyaret',
+                    'color': '#0ea5e9',
+                    'values': visits,
+                    'enabled': visit_toggle.isChecked(),
+                },
+                {
+                    'name': 'Harcanan',
+                    'color': '#ef4444',
+                    'values': spent_vals,
+                    'enabled': spent_toggle.isChecked(),
+                },
+            ]
+            mode = chart_style.currentData()
+            self._render_chart_generic(site_chart, categories, series_defs, mode)
 
         site_range.currentIndexChanged.connect(render_chart)
+        chart_style.currentIndexChanged.connect(render_chart)
+        visit_toggle.toggled.connect(render_chart)
+        spent_toggle.toggled.connect(render_chart)
 
         def render(stats: dict):
             state['stats'] = stats
