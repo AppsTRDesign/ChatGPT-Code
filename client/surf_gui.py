@@ -513,6 +513,8 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_timer = QtCore.QTimer(self)
         self.live_timer.setInterval(10000)
         self.live_timer.timeout.connect(self._refresh_live_data)
+        self.google_enabled = True
+        self.youtube_enabled = True
         self._build_ui()
 
     def _device_id(self) -> str:
@@ -650,15 +652,25 @@ class SurfApp(QtWidgets.QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.tabs = QtWidgets.QTabWidget()
-        self.tabs.addTab(self._build_dashboard_tab(), 'Puan/Özet')
-        self.tabs.addTab(self._build_sites_tab(), 'Siteler')
-        self.tabs.addTab(self._build_surf_tab(), 'Surf + Puan')
-        self.tabs.addTab(self._build_google_tab(), 'Google Görevi')
-        self.tabs.addTab(self._build_youtube_tab(), 'YouTube Görevi')
-        self.tabs.addTab(self._build_points_info_tab(), 'Puan Sistemi / Özellikler')
-        self.tabs.addTab(self._build_system_stats_tab(), 'İstatistikler')
-        self.tabs.addTab(self._build_mail_tab(), 'İletişim')
-        self.tabs.addTab(self._build_log_tab(), 'Log')
+        self.dashboard_tab = self._build_dashboard_tab()
+        self.sites_tab = self._build_sites_tab()
+        self.surf_tab = self._build_surf_tab()
+        self.google_tab = self._build_google_tab()
+        self.youtube_tab = self._build_youtube_tab()
+        self.points_info_tab = self._build_points_info_tab()
+        self.system_stats_tab = self._build_system_stats_tab()
+        self.mail_tab = self._build_mail_tab()
+        self.log_tab = self._build_log_tab()
+
+        self.tabs.addTab(self.dashboard_tab, 'Puan/Özet')
+        self.tabs.addTab(self.sites_tab, 'Siteler')
+        self.tabs.addTab(self.surf_tab, 'Surf + Puan')
+        self.tabs.addTab(self.google_tab, 'Google Görevi')
+        self.tabs.addTab(self.youtube_tab, 'YouTube Görevi')
+        self.tabs.addTab(self.points_info_tab, 'Puan Sistemi / Özellikler')
+        self.tabs.addTab(self.system_stats_tab, 'İstatistikler')
+        self.tabs.addTab(self.mail_tab, 'İletişim')
+        self.tabs.addTab(self.log_tab, 'Log')
         layout.addWidget(self.tabs)
         return widget
 
@@ -1232,9 +1244,22 @@ class SurfApp(QtWidgets.QMainWindow):
             self._append_log('Görev puan bilgisi alındı')
         except Exception as exc:  # noqa: BLE001
             self._append_log(f'Görev puan konfigürasyonu alınamadı: {exc}')
+        self._apply_task_tab_visibility()
         self.load_sites()
         self.load_mail_settings()
         self.refresh_system_stats()
+
+    def _apply_task_tab_visibility(self):
+        if not hasattr(self, 'tabs'):
+            return
+        google_on = bool(self.task_points.get('google_tasks_enabled', 1))
+        youtube_on = bool(self.task_points.get('youtube_tasks_enabled', 1))
+        google_idx = self.tabs.indexOf(self.google_tab)
+        youtube_idx = self.tabs.indexOf(self.youtube_tab)
+        if google_idx >= 0:
+            self.tabs.setTabVisible(google_idx, google_on)
+        if youtube_idx >= 0:
+            self.tabs.setTabVisible(youtube_idx, youtube_on)
 
     def refresh_dashboard(self):
         if not self.client or not self.token:

@@ -34,7 +34,7 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
 ## Python GUI (PyQt6 + Playwright)
 - **Konum:** `client/surf_gui.py`
 - **Özellikler:**
-  - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan/Özet, Siteler, Surf + Puan, Google Görevi, YouTube Görevi, Puan Sistemi/Özellikler, İstatistikler, İletişim, Log).
+  - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan/Özet, Siteler, Surf + Puan, Google Görevi, YouTube Görevi, Puan Sistemi/Özellikler, İstatistikler, İletişim, Log). Google/YouTube sekmeleri `config.php` içindeki `google_tasks_enabled` ve `youtube_tasks_enabled` anahtarları 0’a çekildiğinde otomatik gizlenir.
 - Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; tek grafik üzerinde günlük/haftalık/aylık (seçilebilir) kazanılan/harcanan puan çizgileri veya bar görünümü, seri bazlı aç/kapat/tıklayınca üstü çizilen göstergeler.
   - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, medya aksiyon checkbox’ları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
   - Site detayları: her kayıtlı site için “Detaylar” butonu; ülke/şehir/IP/platform/cihaz/UA ve aksiyon adetleri tablo halinde, tek grafik üzerinde ziyaret ve harcama serileri (gün/hafta/ay seçilebilir) ve Türkçe karakter uyumlu PDF dışa aktarma (dikey/yatay yön seçilebilir, şehir alanı varsayılan görünür).

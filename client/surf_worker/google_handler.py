@@ -88,6 +88,8 @@ class GoogleHandler:
         rng = getattr(personality, 'rng', random.Random())
         page.goto(host, wait_until='domcontentloaded')
         recaptcha_blocked = False
+
+        search_start = time.monotonic()  # 90 sn sayaç hemen başlar
         try:
             box = page.wait_for_selector('textarea#APjFqb, textarea.gLFyf, input[name="q"]', timeout=7000)
             box.click()
@@ -100,11 +102,9 @@ class GoogleHandler:
         found = False
         visited_pages = 1
         target = site_url.replace('https://', '').replace('http://', '')
-        limit_ms = 90000
-
-        search_start = time.monotonic()
         deadline = search_start + 90
-        page_index = 0
+        next_page_index = 0
+
         while time.monotonic() < deadline:
             if rng.random() < 0.65:
                 self._serp_hover(page, rng)
@@ -130,31 +130,44 @@ class GoogleHandler:
                     break
             if found:
                 break
-            elapsed_ms = (time.monotonic() - search_start) * 1000
-            if elapsed_ms > limit_ms:
-                break
-            solved, pause = self._wait_recaptcha_manual(page, rng)
-            if not solved and pause > 0:
+
+            solved, _pause = self._wait_recaptcha_manual(page, rng)
+            if not solved:
                 recaptcha_blocked = True
                 break
+
             pagination_rows = page.query_selector_all('tr.mYW5bd td.NKTSme a') or []
-            ordered = pagination_rows if pagination_rows else []
-            if visited_pages < pages and ordered and page_index < len(ordered):
-                target_page = ordered[page_index]
-                page_index += 1
-                visited_pages += 1
-                try:
-                    target_page.click()
-                    page.wait_for_load_state('domcontentloaded', timeout=12000)
-                except Exception:
-                    page.wait_for_timeout(rng.randint(500, 900))
-                continue
+            if visited_pages < pages and pagination_rows:
+                desired = str(visited_pages + 1)
+                target_page = None
+                for anchor in pagination_rows:
+                    try:
+                        label = (anchor.text_content() or '').strip()
+                        if label == desired:
+                            target_page = anchor
+                            break
+                    except Exception:
+                        continue
+                if not target_page and next_page_index < len(pagination_rows):
+                    target_page = pagination_rows[next_page_index]
+                if target_page:
+                    next_page_index += 1
+                    visited_pages += 1
+                    try:
+                        target_page.click()
+                        page.wait_for_load_state('domcontentloaded', timeout=12000)
+                    except Exception:
+                        page.wait_for_timeout(rng.randint(500, 900))
+                    continue
+
             page.wait_for_timeout(rng.randint(180, 420))
+
         search_elapsed = int(time.monotonic() - search_start)
         if recaptcha_blocked:
             return search_elapsed, visited_pages, {'recaptcha_blocked': True}, page.url, found, search_elapsed
         if not found:
             return search_elapsed, visited_pages, {'found': False, 'search_elapsed': search_elapsed}, page.url, found, search_elapsed
+
         plan, site_flags = self.plan_engine.build_custom_plan(dwell, {**flags})
         consumed, metrics = apply_actions(
             playwright,
