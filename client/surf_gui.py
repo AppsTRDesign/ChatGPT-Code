@@ -695,12 +695,6 @@ class SurfApp(QtWidgets.QMainWindow):
         for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
             self.points_range.addItem(label, key)
         selector_row.addWidget(self.points_range)
-
-        selector_row.addWidget(QtWidgets.QLabel('Grafik tipi'))
-        self.points_style = QtWidgets.QComboBox()
-        self.points_style.addItem('Bar', 'bar')
-        self.points_style.addItem('Çizgi', 'line')
-        selector_row.addWidget(self.points_style)
         selector_row.addStretch()
         layout.addLayout(selector_row)
 
@@ -717,7 +711,6 @@ class SurfApp(QtWidgets.QMainWindow):
         self.points_chart.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         layout.addWidget(self.points_chart)
         self.points_range.currentIndexChanged.connect(self._render_points_chart)
-        self.points_style.currentIndexChanged.connect(self._render_points_chart)
 
         return widget
 
@@ -988,11 +981,6 @@ class SurfApp(QtWidgets.QMainWindow):
             self.system_range.addItem(label, key)
         range_row.addWidget(self.system_range)
 
-        range_row.addWidget(QtWidgets.QLabel('Grafik tipi'))
-        self.system_style = QtWidgets.QComboBox()
-        self.system_style.addItem('Bar', 'bar')
-        self.system_style.addItem('Çizgi', 'line')
-        range_row.addWidget(self.system_style)
         range_row.addStretch()
         layout.addLayout(range_row)
 
@@ -1010,7 +998,6 @@ class SurfApp(QtWidgets.QMainWindow):
         self.system_chart.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         layout.addWidget(self.system_chart)
         self.system_range.currentIndexChanged.connect(self._render_system_chart)
-        self.system_style.currentIndexChanged.connect(self._render_system_chart)
         return widget
 
     def _build_action_checkboxes(self, include_media: bool = True) -> dict:
@@ -1385,8 +1372,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 'enabled': getattr(self, 'points_toggle_spent', None).isChecked() if hasattr(self, 'points_toggle_spent') else True,
             },
         ]
-        mode = self.points_style.currentData() if hasattr(self, 'points_style') else 'line'
-        self._render_chart_generic(self.points_chart, categories, series_defs, mode)
+        self._render_chart_generic(self.points_chart, categories, series_defs, 'bar')
 
     def _render_system_chart(self):
         if not hasattr(self, 'system_chart'):
@@ -1432,8 +1418,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 'enabled': getattr(self, 'system_toggle_spent', None).isChecked() if hasattr(self, 'system_toggle_spent') else True,
             },
         ]
-        mode = self.system_style.currentData() if hasattr(self, 'system_style') else 'line'
-        self._render_chart_generic(self.system_chart, labels, series_defs, mode)
+        self._render_chart_generic(self.system_chart, labels, series_defs, 'bar')
 
     def refresh_system_stats(self):
         if not self.client or not self.token:
@@ -1700,16 +1685,14 @@ class SurfApp(QtWidgets.QMainWindow):
         youtube_keyword.setEnabled(youtube_search_cb.isChecked())
         youtube_search_cb.toggled.connect(youtube_keyword.setEnabled)
         youtube_link = QtWidgets.QLineEdit(site.get('youtube_link') or site.get('url') or '')
-        youtube_pages = QtWidgets.QSpinBox()
-        youtube_pages.setRange(1, 10)
-        youtube_pages.setValue(int(site.get('youtube_pages') or 1))
         youtube_dwell = QtWidgets.QSpinBox()
         youtube_dwell.setRange(5, 1200)
         youtube_dwell.setValue(int(site.get('youtube_dwell') or site.get('dwell_seconds') or 30))
 
         form.addRow('Site adı', name_edit)
-        form.addRow('URL', url_edit)
-        form.addRow('Süre (sn)', dwell_spin)
+        if not is_youtube:
+            form.addRow('URL', url_edit)
+            form.addRow('Süre (sn)', dwell_spin)
         if is_google:
             form.addRow('Google kelime', google_keyword)
             form.addRow('Google ülke', google_country)
@@ -1719,7 +1702,6 @@ class SurfApp(QtWidgets.QMainWindow):
             form.addRow(youtube_search_cb)
             form.addRow('YouTube kelime', youtube_keyword)
             form.addRow('YouTube link', youtube_link)
-            form.addRow('YouTube sayfa', youtube_pages)
             form.addRow('YouTube süre', youtube_dwell)
         form.addRow(flags_box['container'])
 
@@ -1750,9 +1732,11 @@ class SurfApp(QtWidgets.QMainWindow):
                 'youtube_enabled': is_youtube,
                 'youtube_keyword': youtube_keyword.text() if is_youtube and youtube_search_cb.isChecked() else '',
                 'youtube_link': youtube_link.text(),
-                'youtube_pages': youtube_pages.value(),
                 'youtube_dwell': youtube_dwell.value(),
             }
+            if is_youtube:
+                payload['url'] = youtube_link.text()
+                payload['dwell_seconds'] = youtube_dwell.value()
             if payload['google_enabled'] and (not payload['google_keyword'] or not payload['url']):
                 self._toast('Google görevi için kelime ve URL gerekli', error=True)
                 return
@@ -1813,12 +1797,6 @@ class SurfApp(QtWidgets.QMainWindow):
         for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
             site_range.addItem(label, key)
         range_row.addWidget(site_range)
-
-        range_row.addWidget(QtWidgets.QLabel('Grafik tipi'))
-        chart_style = QtWidgets.QComboBox()
-        chart_style.addItem('Bar', 'bar')
-        chart_style.addItem('Çizgi', 'line')
-        range_row.addWidget(chart_style)
         range_row.addStretch()
         stats_layout.addLayout(range_row)
 
@@ -1952,11 +1930,9 @@ class SurfApp(QtWidgets.QMainWindow):
                     'enabled': spent_toggle.isChecked(),
                 },
             ]
-            mode = chart_style.currentData()
-            self._render_chart_generic(site_chart, categories, series_defs, mode)
+            self._render_chart_generic(site_chart, categories, series_defs, 'bar')
 
         site_range.currentIndexChanged.connect(render_chart)
-        chart_style.currentIndexChanged.connect(render_chart)
         visit_toggle.toggled.connect(render_chart)
         spent_toggle.toggled.connect(render_chart)
 

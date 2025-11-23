@@ -217,8 +217,8 @@ class ActionSimulator:
             return False
 
         attempts = min(4, len(links))
-        for _ in range(attempts):
-            choice = random.choice(links)
+        for idx in range(attempts):
+            choice = links[idx]
             box = choice.bounding_box() or {"x": 0, "y": 0, "width": 0, "height": 0}
             cx = int(box["x"] + box["width"] * random.uniform(0.2, 0.8))
             cy = int(box["y"] + box["height"] * random.uniform(0.2, 0.8))
