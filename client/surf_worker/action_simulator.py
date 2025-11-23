@@ -202,7 +202,6 @@ class ActionSimulator:
                 href = lnk.get_attribute("href") or ""
                 if not href or href.startswith("#") or href.lower().startswith("javascript"):
                     continue
-                # Cross-site bağlantılara da izin ver ama boş/anchor olmayanları önceliklendir
                 links.append(lnk)
             except Exception:
                 continue
@@ -210,39 +209,41 @@ class ActionSimulator:
         if not links:
             return False
 
-        choice = random.choice(links)
-        box = choice.bounding_box() or {"x": 0, "y": 0, "width": 0, "height": 0}
-        cx = int(box["x"] + box["width"] * random.uniform(0.2, 0.8))
-        cy = int(box["y"] + box["height"] * random.uniform(0.2, 0.8))
-        tx, ty = persona.maybe_offset_target(cx, cy)
+        attempts = min(4, len(links))
+        for _ in range(attempts):
+            choice = random.choice(links)
+            box = choice.bounding_box() or {"x": 0, "y": 0, "width": 0, "height": 0}
+            cx = int(box["x"] + box["width"] * random.uniform(0.2, 0.8))
+            cy = int(box["y"] + box["height"] * random.uniform(0.2, 0.8))
+            tx, ty = persona.maybe_offset_target(cx, cy)
 
-        # başlangıç noktası hafif uzak bir yerden gelsin
-        start = (
-            cx + random.randint(-65, -25),
-            cy + random.randint(-45, 35),
-        )
-        path = behavior.generate_mouse_path(start, (int(tx), int(ty)))
-        for x, y in path:
-            page.mouse.move(int(x), int(y), steps=1)
-            if random.random() < 0.7:
-                page.wait_for_timeout(
-                    int(persona.reaction_delay_ms() * random.uniform(0.4, 1.1))
-                )
-
-        page.wait_for_timeout(random.randint(40, 160))
-
-        # persona bazlı click kararı
-        if not persona.should_click():
-            return False
-
-        try:
-            choice.click(timeout=5000)
-            page.wait_for_timeout(
-                int(persona.reaction_delay_ms() * random.uniform(0.8, 1.8))
+            start = (
+                cx + random.randint(-65, -25),
+                cy + random.randint(-45, 35),
             )
-            return True
-        except Exception:
-            return False
+            path = behavior.generate_mouse_path(start, (int(tx), int(ty)))
+            for x, y in path:
+                page.mouse.move(int(x), int(y), steps=1)
+                if random.random() < 0.7:
+                    page.wait_for_timeout(
+                        int(persona.reaction_delay_ms() * random.uniform(0.4, 1.1))
+                    )
+
+            page.wait_for_timeout(random.randint(40, 160))
+
+            force_click = persona.should_click() or random.random() < 0.6
+            if not force_click:
+                continue
+
+            try:
+                choice.click(timeout=5000)
+                page.wait_for_timeout(
+                    int(persona.reaction_delay_ms() * random.uniform(0.5, 1.2))
+                )
+                return True
+            except Exception:
+                continue
+        return False
 
     # ------------------------------------------------------------------ #
     # Metin vurgulama

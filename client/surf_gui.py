@@ -4,6 +4,7 @@ import platform
 import random
 import string
 import time
+import threading
 import uuid
 import hashlib
 from datetime import datetime
@@ -217,6 +218,8 @@ class SurfWorker(QtCore.QObject):
         self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
         self.action_simulator = ActionSimulator(self.youtube_handler, log_fn, self.personality)
         self.google_handler = GoogleHandler(self.browser_mgr, self.plan_engine, log_fn)
+        self.last_site_id: Optional[int] = None
+        self._duplicate_skip = 0
 
     def stop(self):
         self._running = False
@@ -233,6 +236,10 @@ class SurfWorker(QtCore.QObject):
         total_seconds = max(1, planned_total)
         percent = min(100, int((now_elapsed / total_seconds) * 100))
         self.progress.emit(percent, now_elapsed, total_seconds, detail)
+
+    def _progress_pump(self, started_at: float, planned_total: int, detail: str, stop_evt: threading.Event):
+        while not stop_evt.wait(0.4):
+            self._emit_progress_tick(started_at, planned_total, detail)
 
     def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep], personality: Optional[PersonaEngine] = None) -> Tuple[int, dict]:
         personality = personality or self.personality
@@ -258,6 +265,13 @@ class SurfWorker(QtCore.QObject):
             self.step_changed.emit(detail)
             self.log.emit(detail)
             performed = False
+            stop_evt = threading.Event()
+            pump = threading.Thread(
+                target=self._progress_pump,
+                args=(started_at, planned_total, detail, stop_evt),
+                daemon=True,
+            )
+            pump.start()
             try:
                 if 'mouse' in step.title.lower():
                     performed, last_mouse = self.action_simulator.simulate_mouse_moves(page, viewport, personality)
@@ -289,7 +303,9 @@ class SurfWorker(QtCore.QObject):
                     performed = True  # sadece bekleme adımı
             except Exception as action_err:
                 self.log.emit(f'Eylem hatası: {action_err}')
-
+            finally:
+                stop_evt.set()
+                pump.join(timeout=0.2)
             self._emit_frame(page, last_mouse)
             elapsed_now = int(time.monotonic() - started_at)
             self._emit_progress_tick(started_at, planned_total, detail, elapsed_override=elapsed_now)
@@ -366,12 +382,25 @@ class SurfWorker(QtCore.QObject):
                             else:
                                 self.failed.emit(message)
                             break
+                        site_meta = session.get('site') or {}
+                        site_id = site_meta.get('id')
+                        if site_id and site_id == self.last_site_id:
+                            self._duplicate_skip += 1
+                            if self._duplicate_skip >= 3:
+                                self.failed.emit('Aynı site ardışık olarak gönderiliyor, daha sonra tekrar deneyin')
+                                break
+                            self.log.emit('Aynı site tekrar geldi, yeni hedef bekleniyor...')
+                            time.sleep(1)
+                            continue
+                        self._duplicate_skip = 0
+                        if site_id:
+                            self.last_site_id = site_id
                         mode = session.get('task_mode') or 'standard'
                         session_id = session.get('session_id') or session.get('id')
                         planned_pages = int(session.get('planned_pages') or 0)
                         if mode == 'google':
                             task_cfg = session.get('task') or {}
-                            site = session.get('site') or {}
+                            site = site_meta
                             flags = {k: site.get(k) for k in ['mobile', 'realistic', 'mouse_moves', 'link_clicks', 'scroll', 'form_fill', 'media']}
                             flags['media_actions'] = site.get('media_actions') or []
                             task_cfg.setdefault('site_url', site.get('url', ''))
@@ -989,6 +1018,8 @@ class SurfApp(QtWidgets.QMainWindow):
         self.task_points = {}
         self.current_page = 1
         self.total_pages = 1
+        self.last_site_id = None
+        self._duplicate_skip = 0
         self.points_card.setText('Puan: 0')
         self.status_label.setText('Hazır')
         self.site_table.setRowCount(0)
@@ -1592,7 +1623,7 @@ class SurfApp(QtWidgets.QMainWindow):
             summary = stats.get('summary', {})
             points = stats.get('points', {})
             summary_label.setText(
-                f"Toplam ziyaret: {summary.get('total_visits', 0)} • Toplam tıklama: {summary.get('clicks', 0)}"
+                f"Toplam ziyaret: {summary.get('total_visits', 0)}"
             )
             points_label.setText(
                 f"Puanlar — Harcanan: {points.get('spent', 0)}"
@@ -1617,7 +1648,7 @@ class SurfApp(QtWidgets.QMainWindow):
                     ev.get('country', ''),
                     ev.get('platform', ''),
                     ev.get('device', ''),
-                    str(ev.get('clicks', 0)),
+                    str(ev.get('visits', ev.get('pages', 1) or 1)),
                     str(ev.get('scrolls', 0)),
                     str(ev.get('highlights', 0)),
                     str(ev.get('forms', 0)),
@@ -1659,20 +1690,15 @@ class SurfApp(QtWidgets.QMainWindow):
         chart = QChart()
         visits_set = QBarSet('Ziyaret')
         visits_set.setColor(QtGui.QColor('#2563eb'))
-        clicks_set = QBarSet('Tıklama')
-        clicks_set.setColor(QtGui.QColor('#f59e0b'))
         categories: List[str] = []
         for row in rows:
             categories.append(str(row.get('label')))
             visits_set.append(int(row.get('visits', 0)))
-            clicks_set.append(int(row.get('clicks', 0) or 0))
         if not categories:
             categories = ['Veri yok']
             visits_set.append(0)
-            clicks_set.append(0)
         bars = QBarSeries()
         bars.append(visits_set)
-        bars.append(clicks_set)
         chart.addSeries(bars)
         axis_x = QBarCategoryAxis()
         axis_x.append(categories)
@@ -1751,7 +1777,6 @@ class SurfApp(QtWidgets.QMainWindow):
         summary = stats.get('summary', {})
         points = stats.get('points', {})
         story.append(Paragraph(f"Toplam ziyaret: {summary.get('total_visits', 0)}", style))
-        story.append(Paragraph(f"Toplam tıklama: {summary.get('clicks', 0)}", style))
         story.append(Paragraph(
             f"Puanlar — Harcanan: {points.get('spent', 0)}",
             style,
@@ -1763,7 +1788,7 @@ class SurfApp(QtWidgets.QMainWindow):
         include_ua = bool(settings.get('ua'))
         include_metrics = bool(settings.get('metrics', True))
 
-        headers: List[str] = ['Tarih', 'Ziyaretçi', 'Ülke', 'Platform', 'Cihaz', 'Tıklama']
+        headers: List[str] = ['Tarih', 'Ziyaretçi', 'Ülke', 'Platform', 'Cihaz', 'Ziyaret']
         if include_metrics:
             headers.extend(['Scroll', 'Vurgu', 'Form', 'Medya'])
         if include_geo:
@@ -1781,7 +1806,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 ev.get('country', ''),
                 ev.get('platform', ''),
                 ev.get('device', ''),
-                str(ev.get('clicks', 0)),
+                str(ev.get('visits', ev.get('pages', 1) or 1)),
             ]
             if include_metrics:
                 row.extend([
