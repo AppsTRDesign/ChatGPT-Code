@@ -4,7 +4,15 @@ from typing import Dict, Optional
 
 
 class BrowserManager:
-    def __init__(self, assets_dir: Path, log, ad_html: Optional[str] = None):
+    def __init__(
+        self,
+        assets_dir: Path,
+        log,
+        ad_html: Optional[str] = None,
+        cursor_style: str = 'cursor_1',
+        cursor_primary: str = '#0f172a',
+        cursor_secondary: str = '#e11d48',
+    ):
         self.assets_dir = assets_dir
         self.log = log
         self.browser = None
@@ -16,6 +24,9 @@ class BrowserManager:
             '<img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;">'
             '</a>'
         )
+        self.cursor_style = cursor_style or 'cursor_1'
+        self.cursor_primary = cursor_primary or '#0f172a'
+        self.cursor_secondary = cursor_secondary or '#e11d48'
 
     def ensure_page(self, playwright, site: Dict) -> object:
         mobile = bool(site.get('mobile'))
@@ -40,37 +51,39 @@ class BrowserManager:
             self._current_mobile = mobile
         return self.page
 
+
     def _inject_pointer_overlay(self, page):
         try:
-            page.add_init_script(
-                """
-                (() => {
-                  const attach = () => {
-                    if (document.getElementById('noasoft-pointer')) return;
-                    const dot = document.createElement('div');
-                    dot.id = 'noasoft-pointer';
-                    Object.assign(dot.style, {
-                      position: 'fixed', width: '18px', height: '18px',
-                      borderRadius: '50%', background: 'rgba(16,185,129,0.9)',
-                      boxShadow: '0 0 14px rgba(16,185,129,0.85)',
-                      zIndex: 2147483647, pointerEvents: 'none',
-                      transform: 'translate(-50%,-50%)',
-                      mixBlendMode: 'screen',
-                    });
-                    document.addEventListener('mousemove', ev => {
-                      dot.style.left = ev.clientX + 'px';
-                      dot.style.top = ev.clientY + 'px';
-                    });
-                    (document.body || document.documentElement).appendChild(dot);
-                  };
-                  if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', attach, { once: true });
-                  } else {
-                    attach();
-                  }
-                })();
-                """
+            cfg_json = json.dumps(
+                {
+                    'style': self.cursor_style,
+                    'primary': self.cursor_primary,
+                    'secondary': self.cursor_secondary,
+                }
             )
+            script = (
+                "(() => {"
+                "  const cfg = "
+                + cfg_json
+                + ";"
+                "  const svgFor = () => {"
+                "    if (cfg.style === 'cursor_2') return '<svg width=\"28\" height=\"28\" viewBox=\"0 0 28 28\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M3 2.5 L24 13.5 L16 16 L13 25 Z\" fill=\"' + cfg.primary + '\" stroke=\"' + cfg.secondary + '\" stroke-width=\"2\" stroke-linejoin=\"round\" /></svg>';"
+                "    if (cfg.style === 'cursor_3') return '<svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"10\" cy=\"10\" r=\"7\" fill=\"' + cfg.primary + '\" stroke=\"' + cfg.secondary + '\" stroke-width=\"2\" /></svg>';"
+                "    return '<svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M2 2 L20 13 L13 14 L11 23 Z\" fill=\"' + cfg.primary + '\" stroke=\"' + cfg.secondary + '\" stroke-width=\"2\" stroke-linejoin=\"round\" /></svg>';"
+                "  };"
+                "  const attach = () => {"
+                "    if (document.getElementById('noasoft-pointer')) return;"
+                "    const dot = document.createElement('div');"
+                "    dot.id = 'noasoft-pointer';"
+                "    Object.assign(dot.style, {position:'fixed',width:'26px',height:'26px',zIndex:2147483647,pointerEvents:'none',transform:'translate(-50%,-50%)'});"
+                "    dot.innerHTML = svgFor();"
+                "    document.addEventListener('mousemove', ev => {dot.style.left = ev.clientX + 'px'; dot.style.top = ev.clientY + 'px';});"
+                "    (document.body || document.documentElement).appendChild(dot);"
+                "  };"
+                "  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', attach, { once: true }); } else { attach(); }"
+                "})();"
+            )
+            page.add_init_script(script)
         except Exception:
             self.log('İmleç overlay enjekte edilemedi')
 

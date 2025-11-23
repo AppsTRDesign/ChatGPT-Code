@@ -216,7 +216,17 @@ class SurfWorker(QtCore.QObject):
         assets_dir = Path(__file__).resolve().parent / 'assets'
         log_fn = self.log.emit
         ad_html = self.task_config.get('ad_banner_html') or '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>'
-        self.browser_mgr = BrowserManager(assets_dir, log_fn, ad_html=ad_html)
+        cursor_style = self.task_config.get('cursor_style') or 'cursor_1'
+        cursor_primary = self.task_config.get('cursor_primary') or '#0f172a'
+        cursor_secondary = self.task_config.get('cursor_secondary') or '#e11d48'
+        self.browser_mgr = BrowserManager(
+            assets_dir,
+            log_fn,
+            ad_html=ad_html,
+            cursor_style=cursor_style,
+            cursor_primary=cursor_primary,
+            cursor_secondary=cursor_secondary,
+        )
         self.youtube_handler = YouTubeHandler(self.browser_mgr, log_fn)
         self.geo_service = GeoService(assets_dir, log_fn)
         self.telemetry_builder = TelemetryBuilder(self.geo_service, log_fn)
@@ -263,8 +273,8 @@ class SurfWorker(QtCore.QObject):
         self.log.emit(f'Sayfa açılıyor: {url}')
         page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
-        planned_total = max(1, initial_elapsed + sum(s.seconds for s in plan))
-        started_at = time.monotonic() - initial_elapsed
+        planned_total = max(1, sum(s.seconds for s in plan))
+        started_at = time.monotonic()
         viewport = page.viewport_size or {'width': 1280, 'height': 720}
         last_mouse: Optional[Tuple[int, int]] = (
             int(viewport.get('width', 1280) / 2),
@@ -272,7 +282,7 @@ class SurfWorker(QtCore.QObject):
         )
         host = urlparse(url).netloc
         metrics = {'clicks': 0, 'scrolls': 0, 'highlights': 0, 'forms': 0, 'media': 0, 'mouse_moves': 0}
-        self._emit_progress_tick(started_at, planned_total, 'Başlatılıyor', elapsed_override=initial_elapsed)
+        self._emit_progress_tick(started_at, planned_total, 'Başlatılıyor', elapsed_override=0)
         for step in plan:
             if not self._running:
                 break
@@ -341,7 +351,7 @@ class SurfWorker(QtCore.QObject):
             time.sleep(sleep_for)
             elapsed_total = int(time.monotonic() - started_at)
             self._emit_progress_tick(started_at, planned_total, 'Bekleniyor', elapsed_override=elapsed_total)
-        final_total = max(planned_total, 1)
+        final_total = planned_total
         self.progress.emit(100, final_total, final_total, 'Tamamlandı')
         return final_total, metrics
 
@@ -394,9 +404,8 @@ class SurfWorker(QtCore.QObject):
             {**site_flags, 'url': page.url, 'dwell_seconds': dwell, 'found': found, 'search_elapsed': search_elapsed},
             plan,
             self.personality,
-            initial_elapsed=search_elapsed,
         )
-        total = max(consumed, search_elapsed + dwell)
+        total = search_elapsed + consumed
         metrics['found'] = found
         metrics['search_elapsed'] = search_elapsed
         return total, visited, metrics, page.url

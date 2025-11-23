@@ -174,9 +174,8 @@ class GoogleHandler:
             {**site_flags, 'url': page.url},
             plan,
             personality,
-            initial_elapsed=search_elapsed,
         )
-        total = max(consumed, search_elapsed + dwell)
+        total = search_elapsed + consumed
         metrics['found'] = True
         metrics['search_elapsed'] = search_elapsed
         return total, visited_pages, metrics, page.url, found, search_elapsed

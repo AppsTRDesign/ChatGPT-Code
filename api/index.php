@@ -852,6 +852,9 @@ function task_config_endpoint(array $config): void
         'ad_banner_html' => $config['ad_banner_html'] ?? null,
         'google_tasks_enabled' => !empty($config['google_tasks_enabled']),
         'youtube_tasks_enabled' => !empty($config['youtube_tasks_enabled']),
+        'cursor_style' => $config['cursor_style'] ?? 'cursor_1',
+        'cursor_primary' => $config['cursor_primary'] ?? '#0f172a',
+        'cursor_secondary' => $config['cursor_secondary'] ?? '#e11d48',
     ]);
 }
 

@@ -30,6 +30,8 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - `GET /stats/global` — toplam kullanıcı/site/ziyaret sayıları, kazanılan/harcanan puan ve günlük/haftalık/aylık ziyaret/puan serileri.
   - `GET /mail/settings` ve `POST /mail/send` — info@noasoft.org’a iletilecek mesajları API ayarlarından alır; `contact_email` değeri PHP `mail()` ile alıcı ve From olarak kullanılır.
   - `GET /tasks/config` — Google/YouTube görev bilgilendirmesi (sabit 90 saniyelik arama tabanı) ve Playwright reklam HTML ayarı.
+    Aynı zamanda tarayıcı imleci için `cursor_style` (cursor_1/cursor_2/cursor_3) ve renk ayarlarını (`cursor_primary`,
+    `cursor_secondary`) döndürür.
 
 ## Python GUI (PyQt6 + Playwright)
 - **Konum:** `client/surf_gui.py`
@@ -39,6 +41,7 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, medya aksiyon checkbox’ları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
   - Site detayları: her kayıtlı site için “Detaylar” butonu; ülke/şehir/IP/platform/cihaz/UA ve aksiyon adetleri tablo halinde, tek grafik üzerinde ziyaret ve harcama serileri (gün/hafta/ay seçilebilir) ve Türkçe karakter uyumlu PDF dışa aktarma (dikey/yatay yön seçilebilir, şehir alanı varsayılan görünür).
   - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, metin seçip çizme/kopyalama, form doldurup temizleme, medya kontrolleri), ilerleme çubuğu ve canlı önizleme (tarayıcı üzerinde yapay mouse overlay) ile puan kazanımı; loglar ayrı sekmede kopyalanabilir.
+    İmleç görünümü `cursor_style` ve renk ayarlarıyla (config.php) değiştirilebilir.
   - Google araması sekmesi: ülke seçimiyle arama kutusuna kelime yazıp Enter’lar, sonuç sayfalarında 90 saniyeye kadar hedef URL’yi arar; bulunursa siteye girip aksiyonları çalıştırır. Puan formülü: bulunamazsa 90, bulunursa (arama süresi + süre + sayfa*10).
   - YouTube sekmesi: isteğe göre arama kutusuna yazarak 90 saniyeye kadar `/watch?v=` sonuçlarını tarar; hedef video bulunursa açıp medya/görev aksiyonlarını uygular. Puan formülü: bulunamazsa 90, bulunursa (arama süresi + izleme süresi).
   - Puan sistemi sekmesi: kart bazlı harcama/kazanç özetleri ve günlük/haftalık/aylık limitleri gösterir; hemen ardından “İstatistikler” sekmesi tüm kullanıcı/site/ziyaret ve kazanılan/harcanan toplamlarını kart ve tek grafikle sunar.
