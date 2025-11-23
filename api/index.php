@@ -331,7 +331,9 @@ function start_surf(PDO $pdo, array $user, array $config): void
         $plannedPages = 0;
         $spend = $plannedDwell;
         $task = null;
-        if (!empty($site['google_enabled'])) {
+        $googleAllowed = !empty($config['google_tasks_enabled']);
+        $youtubeAllowed = !empty($config['youtube_tasks_enabled']);
+        if (!empty($site['google_enabled']) && $googleAllowed) {
             $mode = 'google';
             $plannedDwell = max(5, (int)($site['google_dwell'] ?: $site['dwell_seconds']));
             $plannedPages = max(1, (int)($site['google_pages'] ?: 1));
@@ -343,7 +345,7 @@ function start_surf(PDO $pdo, array $user, array $config): void
                 'dwell' => $plannedDwell,
                 'site_url' => $site['url'],
             ];
-        } elseif (!empty($site['youtube_enabled'])) {
+        } elseif (!empty($site['youtube_enabled']) && $youtubeAllowed) {
             $mode = 'youtube';
             $plannedDwell = max(5, (int)($site['youtube_dwell'] ?: $site['dwell_seconds']));
             $plannedPages = max(1, (int)($site['youtube_pages'] ?: 1));
@@ -827,6 +829,8 @@ function task_config_endpoint(array $config): void
         'google_base' => 90,
         'youtube_base' => 90,
         'ad_banner_html' => $config['ad_banner_html'] ?? null,
+        'google_tasks_enabled' => !empty($config['google_tasks_enabled']),
+        'youtube_tasks_enabled' => !empty($config['youtube_tasks_enabled']),
     ]);
 }
 

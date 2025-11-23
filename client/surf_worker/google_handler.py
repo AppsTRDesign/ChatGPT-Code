@@ -66,7 +66,7 @@ class GoogleHandler:
         except Exception:
             pass
         page.wait_for_timeout(rng.randint(400, 900))
-        self.log('reCAPTCHA algılandı, lütfen tarayıcıda elle geçin. 45 saniye bekleniyor...')
+        self.log('reCAPTCHA algılandı, lütfen tarayıcıda elle geçin (sayaç durdu).')
         solved = False
         try:
             page.wait_for_selector('.recaptcha-checkbox-checked, .recaptcha-success', timeout=45000)
@@ -134,19 +134,13 @@ class GoogleHandler:
             if elapsed_ms > limit_ms:
                 break
             solved, pause = self._wait_recaptcha_manual(page, rng)
-            if not solved:
+            if not solved and pause > 0:
                 recaptcha_blocked = True
-                deadline += pause
                 break
-            if pause:
-                deadline += pause
             pagination_rows = page.query_selector_all('tr.mYW5bd td.NKTSme a') or []
-            target_page = None
-            if pagination_rows and page_index < len(pagination_rows) and visited_pages < pages:
-                target_page = pagination_rows[page_index]
-            elif visited_pages < pages:
-                target_page = page.query_selector('a#pnnext, a[aria-label="Sonraki"], a[aria-label="Next"]')
-            if target_page and visited_pages < pages:
+            ordered = pagination_rows if pagination_rows else []
+            if visited_pages < pages and ordered and page_index < len(ordered):
+                target_page = ordered[page_index]
                 page_index += 1
                 visited_pages += 1
                 try:
@@ -154,8 +148,8 @@ class GoogleHandler:
                     page.wait_for_load_state('domcontentloaded', timeout=12000)
                 except Exception:
                     page.wait_for_timeout(rng.randint(500, 900))
-            else:
-                page.wait_for_timeout(rng.randint(380, 620))
+                continue
+            page.wait_for_timeout(rng.randint(180, 420))
         search_elapsed = int(time.monotonic() - search_start)
         if recaptcha_blocked:
             return search_elapsed, visited_pages, {'recaptcha_blocked': True}, page.url, found, search_elapsed

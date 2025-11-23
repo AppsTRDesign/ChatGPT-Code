@@ -45,20 +45,29 @@ class BrowserManager:
             page.add_init_script(
                 """
                 (() => {
-                  const dot = document.createElement('div');
-                  dot.id = 'noasoft-pointer';
-                  Object.assign(dot.style, {
-                    position: 'fixed', width: '16px', height: '16px',
-                    borderRadius: '50%', background: 'rgba(16,185,129,0.85)',
-                    boxShadow: '0 0 12px rgba(16,185,129,0.8)',
-                    zIndex: 2147483647, pointerEvents: 'none',
-                    transform: 'translate(-50%,-50%)',
-                  });
-                  document.addEventListener('mousemove', ev => {
-                    dot.style.left = ev.clientX + 'px';
-                    dot.style.top = ev.clientY + 'px';
-                  });
-                  document.body.appendChild(dot);
+                  const attach = () => {
+                    if (document.getElementById('noasoft-pointer')) return;
+                    const dot = document.createElement('div');
+                    dot.id = 'noasoft-pointer';
+                    Object.assign(dot.style, {
+                      position: 'fixed', width: '18px', height: '18px',
+                      borderRadius: '50%', background: 'rgba(16,185,129,0.9)',
+                      boxShadow: '0 0 14px rgba(16,185,129,0.85)',
+                      zIndex: 2147483647, pointerEvents: 'none',
+                      transform: 'translate(-50%,-50%)',
+                      mixBlendMode: 'screen',
+                    });
+                    document.addEventListener('mousemove', ev => {
+                      dot.style.left = ev.clientX + 'px';
+                      dot.style.top = ev.clientY + 'px';
+                    });
+                    (document.body || document.documentElement).appendChild(dot);
+                  };
+                  if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', attach, { once: true });
+                  } else {
+                    attach();
+                  }
                 })();
                 """
             )
@@ -85,8 +94,8 @@ class BrowserManager:
                 "    wrap.appendChild(content);"
                 "    wrap.appendChild(closeBtn);"
                 "    const attach = () => { if (document.body && !document.getElementById('noasoft-banner')) document.body.prepend(wrap); };"
-                "    document.addEventListener('DOMContentLoaded', attach);"
-                "    attach();"
+                "    document.addEventListener('DOMContentLoaded', attach, { once: true });"
+                "    if (document.readyState !== 'loading') attach();"
                 "  } catch (e) { console.warn('Reklam injeksiyonu hatası', e); }"
                 "})();"
             )

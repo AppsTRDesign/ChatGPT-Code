@@ -1330,6 +1330,7 @@ class SurfApp(QtWidgets.QMainWindow):
         visit_set = QBarSet('Ziyaret')
         visit_set.setColor(QtGui.QColor('#0ea5e9'))
         visit_bars.append(visit_set)
+        visit_bars.setBarWidth(0.85)
         earned = QLineSeries(); earned.setName('Kazanılan'); earned.setColor(QtGui.QColor('#22c55e'))
         spent = QLineSeries(); spent.setName('Harcanan'); spent.setColor(QtGui.QColor('#ef4444'))
         chart.addSeries(visit_bars); chart.addSeries(earned); chart.addSeries(spent)
@@ -2219,8 +2220,8 @@ class SurfApp(QtWidgets.QMainWindow):
         if self.worker_thread:
             try:
                 self.worker_thread.quit()
-                if force:
-                    self.worker_thread.wait(2000)
+                wait_ms = 3000 if force else 1000
+                self.worker_thread.wait(wait_ms)
             except Exception:
                 pass
         self.worker = None
