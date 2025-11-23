@@ -42,7 +42,7 @@ function current_user(PDO $pdo, array $config): ?array
     if (!$payload || empty($payload['uid'])) {
         return null;
     }
-    $stmt = $pdo->prepare('SELECT id, email, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward, daily_reward_started_at, weekly_reward_started_at, monthly_reward_started_at FROM users WHERE id = ?');
     $stmt->execute([$payload['uid']]);
     return $stmt->fetch();
 }
@@ -118,7 +118,7 @@ function register(PDO $pdo, array $config): void
         ]);
     $id = (int)$pdo->lastInsertId();
     $token = Jwt::encode(['uid' => $id, 'iat' => time()], $config['jwt_secret']);
-    $stmt = $pdo->prepare('SELECT id, email, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward, daily_reward_started_at, weekly_reward_started_at, monthly_reward_started_at FROM users WHERE id = ?');
     $stmt->execute([$id]);
     $user = $stmt->fetch();
     Response::json(['token' => $token, 'user' => $user], 201);
@@ -130,7 +130,7 @@ function login(PDO $pdo, array $config): void
     $email = $data['email'] ?? '';
     $password = $data['password'] ?? '';
     $deviceId = trim($data['device_id'] ?? ($_SERVER['HTTP_X_DEVICE_ID'] ?? ''));
-    $stmt = $pdo->prepare('SELECT id, email, password_hash, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward FROM users WHERE email = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, email, password_hash, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward, daily_reward_started_at, weekly_reward_started_at, monthly_reward_started_at FROM users WHERE email = ? LIMIT 1');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
     if (!$user || !password_verify($password, $user['password_hash'])) {
@@ -409,33 +409,58 @@ function build_plan(array $site): array
     return $steps;
 }
 
+function resolve_reward_window(PDO $pdo, array &$user, string $field, DateInterval $interval, bool $initialize = false): ?string
+{
+    $now = new DateTime();
+    $startStr = $user[$field] ?? null;
+
+    if (!$startStr) {
+        $firstEarn = $pdo->prepare('SELECT MIN(created_at) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward"');
+        $firstEarn->execute([$user['id']]);
+        $startStr = $firstEarn->fetchColumn() ?: null;
+        if (!$startStr && $initialize) {
+            $startStr = $now->format('Y-m-d H:i:s');
+        }
+    }
+
+    $start = $startStr ? new DateTime($startStr) : null;
+    $expired = $start && ((clone $start)->add($interval) <= $now);
+    if ($expired) {
+        $start = $initialize ? $now : null;
+        $startStr = $start ? $start->format('Y-m-d H:i:s') : null;
+    }
+
+    if (($user[$field] ?? null) !== $startStr) {
+        $stmt = $pdo->prepare("UPDATE users SET {$field} = ? WHERE id = ?");
+        $stmt->execute([$startStr, $user['id']]);
+        $user[$field] = $startStr;
+    }
+
+    return $startStr;
+}
+
 function clamp_reward(PDO $pdo, array $user, int $base, array $config): int
 {
-    $check = function (string $sql, array $params, int $cap) use ($pdo) {
+    $calc = function (?string $startAt, int $cap) use ($pdo, $user) {
         if ($cap <= 0) {
             return null;
         }
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        if (!$startAt) {
+            return $cap;
+        }
+        $stmt = $pdo->prepare('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND created_at >= ?');
+        $stmt->execute([$user['id'], $startAt]);
         $earned = (int)($stmt->fetchColumn() ?: 0);
         return max(0, $cap - $earned);
     };
 
-    $dailyLeft = $check(
-        'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE(created_at) = CURDATE()',
-        [$user['id']],
-        (int)($user['max_daily_reward'] ?? 0)
-    );
-    $weeklyLeft = $check(
-        'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND YEARWEEK(created_at,1) = YEARWEEK(NOW(),1)',
-        [$user['id']],
-        (int)($user['max_weekly_reward'] ?? 0)
-    );
-    $monthlyLeft = $check(
-        'SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE_FORMAT(created_at, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")',
-        [$user['id']],
-        (int)($user['max_monthly_reward'] ?? 0)
-    );
+    $dailyStart = resolve_reward_window($pdo, $user, 'daily_reward_started_at', new DateInterval('P1D'), true);
+    $weeklyStart = resolve_reward_window($pdo, $user, 'weekly_reward_started_at', new DateInterval('P7D'), true);
+    $monthlyStart = resolve_reward_window($pdo, $user, 'monthly_reward_started_at', new DateInterval('P30D'), true);
+
+    $dailyLeft = $calc($dailyStart, (int)($user['max_daily_reward'] ?? 0));
+    $weeklyLeft = $calc($weeklyStart, (int)($user['max_weekly_reward'] ?? 0));
+    $monthlyLeft = $calc($monthlyStart, (int)($user['max_monthly_reward'] ?? 0));
 
     $limits = array_filter([$dailyLeft, $weeklyLeft, $monthlyLeft], fn($v) => $v !== null);
     if (empty($limits)) {
@@ -447,20 +472,27 @@ function clamp_reward(PDO $pdo, array $user, int $base, array $config): int
 
 function reward_leftovers(PDO $pdo, array $user, array $config): array
 {
-    $calc = function (string $sql, int $cap) use ($pdo, $user) {
+    $calc = function (?string $startAt, int $cap) use ($pdo, $user) {
         if ($cap <= 0) {
             return null;
         }
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$user['id']]);
+        if (!$startAt) {
+            return $cap;
+        }
+        $stmt = $pdo->prepare('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND created_at >= ?');
+        $stmt->execute([$user['id'], $startAt]);
         $spent = (int)($stmt->fetchColumn() ?: 0);
         return max(0, $cap - $spent);
     };
 
+    $dailyStart = resolve_reward_window($pdo, $user, 'daily_reward_started_at', new DateInterval('P1D'), false);
+    $weeklyStart = resolve_reward_window($pdo, $user, 'weekly_reward_started_at', new DateInterval('P7D'), false);
+    $monthlyStart = resolve_reward_window($pdo, $user, 'monthly_reward_started_at', new DateInterval('P30D'), false);
+
     return [
-        'daily_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE(created_at) = CURDATE()', (int)($user['max_daily_reward'] ?? 0)),
-        'weekly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND YEARWEEK(created_at,1) = YEARWEEK(NOW(),1)', (int)($user['max_weekly_reward'] ?? 0)),
-        'monthly_left' => $calc('SELECT SUM(change_amount) FROM point_ledger WHERE user_id = ? AND reason = "surf_reward" AND DATE_FORMAT(created_at, "%Y-%m") = DATE_FORMAT(NOW(), "%Y-%m")', (int)($user['max_monthly_reward'] ?? 0)),
+        'daily_left' => $calc($dailyStart, (int)($user['max_daily_reward'] ?? 0)),
+        'weekly_left' => $calc($weeklyStart, (int)($user['max_weekly_reward'] ?? 0)),
+        'monthly_left' => $calc($monthlyStart, (int)($user['max_monthly_reward'] ?? 0)),
     ];
 }
 
@@ -647,31 +679,18 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
         FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
         GROUP BY DATE(created_at) ORDER BY DATE(created_at)');
     $daily->execute([$siteId]);
-    $weekly = $pdo->prepare('SELECT YEARWEEK(created_at,1) AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
+    $weekly = $pdo->prepare('SELECT DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY)) AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
         FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 12 WEEK)
-        GROUP BY YEARWEEK(created_at,1) ORDER BY YEARWEEK(created_at,1)');
+        GROUP BY DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY)) ORDER BY DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY))');
     $weekly->execute([$siteId]);
-    $monthly = $pdo->prepare('SELECT DATE_FORMAT(created_at, "%Y-%m") AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
+    $monthly = $pdo->prepare('SELECT DATE_FORMAT(created_at, "%Y-%m-01") AS label, COUNT(*) AS visits, SUM(clicks) AS clicks
         FROM site_stats WHERE site_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-        GROUP BY DATE_FORMAT(created_at, "%Y-%m") ORDER BY DATE_FORMAT(created_at, "%Y-%m")');
+        GROUP BY DATE_FORMAT(created_at, "%Y-%m-01") ORDER BY DATE_FORMAT(created_at, "%Y-%m-01")');
     $monthly->execute([$siteId]);
 
     $formatLabels = function (array $rows, string $period) {
         foreach ($rows as &$row) {
-            $label = $row['label'];
-            if ($period === 'daily') {
-                $dt = new DateTime($label);
-                $row['label'] = $dt->format('d/m/Y H:i');
-            } elseif ($period === 'weekly') {
-                $year = (int)substr((string)$label, 0, 4);
-                $week = (int)substr((string)$label, 4);
-                $dt = new DateTime();
-                $dt->setISODate($year, $week);
-                $row['label'] = $dt->format('d/m/Y H:i');
-            } elseif ($period === 'monthly') {
-                $dt = new DateTime($label . '-01');
-                $row['label'] = $dt->format('d/m/Y H:i');
-            }
+            $row['label'] = format_period_label($row['label'], $period);
         }
         return $rows;
     };
@@ -709,8 +728,8 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
 
     $point_history = [
         'daily' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 30 DAY)', 'DATE(created_at)', 'DATE(created_at)'), 'daily'),
-        'weekly' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 WEEK)', 'YEARWEEK(created_at,1)', 'YEARWEEK(created_at,1)'), 'weekly'),
-        'monthly' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)', 'DATE_FORMAT(created_at, "%Y-%m")', 'DATE_FORMAT(created_at, "%Y-%m")'), 'monthly'),
+        'weekly' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 WEEK)', 'DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY))', 'DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY))'), 'weekly'),
+        'monthly' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)', 'DATE_FORMAT(created_at, "%Y-%m-01")', 'DATE_FORMAT(created_at, "%Y-%m-01")'), 'monthly'),
     ];
 
     Response::json([
@@ -745,7 +764,7 @@ function update_profile_endpoint(PDO $pdo, array $user): void
         $hash = password_hash($password, PASSWORD_BCRYPT);
         $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $user['id']]);
     }
-    $stmt = $pdo->prepare('SELECT id, email, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, email, display_name, points, device_fingerprint, allow_multi_account, max_multi_accounts, max_daily_site_visits, max_daily_reward, max_weekly_reward, max_monthly_reward, daily_reward_started_at, weekly_reward_started_at, monthly_reward_started_at FROM users WHERE id = ?');
     $stmt->execute([$user['id']]);
     Response::json(['user' => $stmt->fetch()]);
 }
@@ -787,6 +806,19 @@ function mail_settings(array $config): void
     ]);
 }
 
+function format_period_label(string $bucket, string $period): string
+{
+    $start = new DateTime($bucket);
+    if ($period === 'daily') {
+        $end = (clone $start)->modify('+1 day');
+    } elseif ($period === 'weekly') {
+        $end = (clone $start)->modify('+6 day');
+    } else { // monthly
+        $end = (clone $start)->modify('+1 month');
+    }
+    return $start->format('d/m/Y') . ' - ' . $end->format('d/m/Y');
+}
+
 function task_config_endpoint(array $config): void
 {
     Response::json([
@@ -805,7 +837,7 @@ function aggregate_history(PDO $pdo, ?int $userId = null): array
         $params[] = $userId;
     }
 
-    $makeHistory = function (string $groupExpr, string $labelFormat, string $limitExpr = '') use ($pdo, $where, $params) {
+    $makeHistory = function (string $groupExpr, string $periodKey, string $limitExpr = '') use ($pdo, $where, $params) {
         $sql = "SELECT {$groupExpr} AS bucket, "
             . 'SUM(CASE WHEN change_amount > 0 THEN change_amount ELSE 0 END) AS earned,'
             . 'SUM(CASE WHEN change_amount < 0 THEN change_amount ELSE 0 END) AS spent '
@@ -815,9 +847,8 @@ function aggregate_history(PDO $pdo, ?int $userId = null): array
         $rows = $stmt->fetchAll();
         $history = [];
         foreach (array_reverse($rows) as $row) {
-            $dt = new DateTime($row['bucket']);
             $history[] = [
-                'label' => $dt->format($labelFormat),
+                'label' => format_period_label($row['bucket'], $periodKey),
                 'earned' => (int)($row['earned'] ?? 0),
                 'spent' => abs((int)($row['spent'] ?? 0)),
             ];
@@ -826,9 +857,9 @@ function aggregate_history(PDO $pdo, ?int $userId = null): array
     };
 
     return [
-        'daily' => $makeHistory('DATE(created_at)', 'd/m/Y H:i', 'LIMIT 30'),
-        'weekly' => $makeHistory('DATE_FORMAT(created_at, "%x-%v-01")', 'd/m/Y H:i', 'LIMIT 16'),
-        'monthly' => $makeHistory('DATE_FORMAT(created_at, "%Y-%m-01")', 'd/m/Y H:i', 'LIMIT 18'),
+        'daily' => $makeHistory('DATE(created_at)', 'daily', 'LIMIT 30'),
+        'weekly' => $makeHistory('DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY))', 'weekly', 'LIMIT 16'),
+        'monthly' => $makeHistory('DATE_FORMAT(created_at, "%Y-%m-01")', 'monthly', 'LIMIT 18'),
     ];
 }
 
@@ -839,16 +870,29 @@ function dashboard_history(PDO $pdo, array $user): void
 
 function dashboard(PDO $pdo, array $user): void
 {
-    $daily = $pdo->prepare('SELECT SUM(change_amount) AS total FROM point_ledger WHERE user_id = ? AND DATE(created_at)=CURDATE()');
-    $daily->execute([$user['id']]);
-    $weekly = $pdo->prepare('SELECT SUM(change_amount) AS total FROM point_ledger WHERE user_id = ? AND YEARWEEK(created_at,1)=YEARWEEK(NOW(),1)');
-    $weekly->execute([$user['id']]);
+    $dailyStart = resolve_reward_window($pdo, $user, 'daily_reward_started_at', new DateInterval('P1D'), false);
+    $weeklyStart = resolve_reward_window($pdo, $user, 'weekly_reward_started_at', new DateInterval('P7D'), false);
+    $monthlyStart = resolve_reward_window($pdo, $user, 'monthly_reward_started_at', new DateInterval('P30D'), false);
+
+    $sumSince = function (?string $start) use ($pdo, $user) {
+        if (!$start) {
+            return 0;
+        }
+        $stmt = $pdo->prepare('SELECT SUM(change_amount) AS total FROM point_ledger WHERE user_id = ? AND created_at >= ?');
+        $stmt->execute([$user['id'], $start]);
+        return (int)($stmt->fetchColumn() ?: 0);
+    };
+
+    $dailyTotal = $sumSince($dailyStart);
+    $weeklyTotal = $sumSince($weeklyStart);
+    $monthlyTotal = $sumSince($monthlyStart);
     $stmt = $pdo->prepare('SELECT SUM(dwell_seconds) AS remaining FROM sites WHERE user_id = ?');
     $stmt->execute([$user['id']]);
     $limits = reward_leftovers($pdo, $user, $GLOBALS['config']);
     Response::json([
-        'daily' => (int)($daily->fetch()['total'] ?? 0),
-        'weekly' => (int)($weekly->fetch()['total'] ?? 0),
+        'daily' => $dailyTotal,
+        'weekly' => $weeklyTotal,
+        'monthly' => $monthlyTotal,
         'remaining_seconds' => (int)($stmt->fetch()['remaining'] ?? 0),
         'points' => (int)$user['points'],
         'limits' => $limits,
@@ -867,14 +911,13 @@ function global_stats(PDO $pdo): void
     $totals['spent'] = abs((int)($ledger['spent'] ?? 0));
 
     // ziyaret grafiği (site_stats tarihleri) ve puan grafiği (point_ledger)
-    $visitHistory = function (string $groupExpr, string $labelFormat, string $limitExpr = '') use ($pdo) {
+    $visitHistory = function (string $groupExpr, string $periodKey, string $limitExpr = '') use ($pdo) {
         $sql = "SELECT {$groupExpr} AS bucket, COUNT(*) AS visits FROM site_stats GROUP BY bucket ORDER BY bucket DESC {$limitExpr}";
         $rows = $pdo->query($sql)->fetchAll();
         $hist = [];
         foreach (array_reverse($rows) as $row) {
-            $dt = new DateTime($row['bucket']);
             $hist[] = [
-                'label' => $dt->format($labelFormat),
+                'label' => format_period_label($row['bucket'], $periodKey),
                 'visits' => (int)($row['visits'] ?? 0),
             ];
         }
@@ -882,9 +925,9 @@ function global_stats(PDO $pdo): void
     };
 
     $history = aggregate_history($pdo, null);
-    $history['daily_visits'] = $visitHistory('DATE(created_at)', 'd/m/Y H:i', 'LIMIT 30');
-    $history['weekly_visits'] = $visitHistory('DATE_FORMAT(created_at, "%x-%v-01")', 'd/m/Y H:i', 'LIMIT 16');
-    $history['monthly_visits'] = $visitHistory('DATE_FORMAT(created_at, "%Y-%m-01")', 'd/m/Y H:i', 'LIMIT 18');
+    $history['daily_visits'] = $visitHistory('DATE(created_at)', 'daily', 'LIMIT 30');
+    $history['weekly_visits'] = $visitHistory('DATE(DATE_SUB(created_at, INTERVAL WEEKDAY(created_at) DAY))', 'weekly', 'LIMIT 16');
+    $history['monthly_visits'] = $visitHistory('DATE_FORMAT(created_at, "%Y-%m-01")', 'monthly', 'LIMIT 18');
 
     Response::json([
         'summary' => $totals,

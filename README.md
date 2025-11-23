@@ -23,9 +23,10 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
     kullanıcıya gün içinde kullanıcının profilindeki `max_daily_site_visits` değeri kadar gösterilir; varsayılan sınırlar kullanıcı tablosundaki
     sütun varsayılanlarından gelir).
   - `POST /surf/complete` — surf tamamlanınca puan kazandırır; günlük/haftalık/aylık kazanım limitleri kullanıcının profilindeki
-    max_daily/weekly/monthly_reward alanlarıyla kısıtlanır. İstemciden gelen IP/ülke/şehir/cihaz/aksiyon telemetrisi `site_stats` tablosuna kaydedilir.
-  - `GET /dashboard` — günlük/haftalık kazanç, kalan süre, puan ve limit özetleri.
-  - `GET /dashboard/history` — günlük/haftalık/aylık puan geçmişi (kazanılan/harcanan ayrımlı, d/m/Y H:i etiketli).
+    max_daily/weekly/monthly_reward alanlarıyla kısıtlanır ve ilk kazanılan puan anından itibaren 1/7/30 günlük pencereler otomatik
+    takip edilip süresi dolunca sıfırlanır. İstemciden gelen IP/ülke/şehir/cihaz/aksiyon telemetrisi `site_stats` tablosuna kaydedilir.
+  - `GET /dashboard` — günlük/haftalık/aylık kazanç, kalan süre, puan ve limit özetleri (pencereler ilk kazanç tarihine göre kayar).
+  - `GET /dashboard/history` — günlük/haftalık/aylık puan geçmişi (kazanılan/harcanan ayrımlı, d/m/Y – d/m/Y aralıklı etiketler).
   - `GET /stats/global` — toplam kullanıcı/site/ziyaret sayıları, kazanılan/harcanan puan ve günlük/haftalık/aylık ziyaret/puan serileri.
   - `GET /mail/settings` ve `POST /mail/send` — info@noasoft.org’a iletilecek mesajları API ayarlarından alır; `contact_email` değeri PHP `mail()` ile alıcı ve From olarak kullanılır.
   - `GET /tasks/config` — Google/YouTube görev bilgilendirmesi (sabit 90 saniyelik arama tabanı) ve Playwright reklam HTML ayarı.
@@ -64,3 +65,4 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
 - `client/assets/personas.json` içine yeni persona profili eklendiğinde GUI yeniden başlatıldığında otomatik algılanır; mouse/scroll/tıklama/tartışma hızları persona profiline göre çeşitlenir.
 - PDF çıktıları, eğer mevcutsa `client/assets/DejaVuSans.ttf` ve `DejaVuSans-Bold.ttf` fontlarını kullanarak Türkçe karakterleri tam destekleyecek şekilde üretilir; lisans gereği fontlar repo içinde yoktur, dosyaları aynı dizine manuel ekleyin. Rapor ayarlarından dikey/yatay sayfa yönünü ve isteğe bağlı alanları seçebilirsiniz.
 - Playwright sayfalarına üstte kapatılabilir bir reklam bandı eklenir; HTML kodu `api/config.php` içindeki `ad_banner_html` ile veya `AD_BANNER_HTML` ortam değişkeniyle özelleştirilebilir.
+- Otomasyon katmanı patcher ile yüklenir; `AUTOMATION_BACKEND` ortam değişkeni `sync_playwright` benzeri bir senkron başlatıcı sağlayan modüle işaret ederse GUI kodu değiştirmeden yeni motoru kullanır (varsayılan `playwright.sync_api`).

@@ -9,6 +9,7 @@ from .geo_service import GeoService
 from .plan_engine import PlanEngine, SurfPlanStep
 from .human_behavior_engine_v2 import BehaviorStep, HumanBehaviorEngineV2
 from .persona_engine import PersonaEngine, PersonaProfile, load_persona_profiles
+from .engine_patcher import get_sync_backend
 
 __all__ = [
     "BrowserManager",
@@ -24,4 +25,5 @@ __all__ = [
     "PersonaEngine",
     "PersonaProfile",
     "load_persona_profiles",
+    "get_sync_backend",
 ]

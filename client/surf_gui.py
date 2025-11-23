@@ -25,7 +25,7 @@ from PyQt6.QtCharts import (
     QValueAxis,
 )
 from PyQt6.QtSvgWidgets import QSvgWidget
-from playwright.sync_api import Playwright, sync_playwright
+from playwright.sync_api import Playwright
 
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
@@ -42,6 +42,7 @@ from surf_worker import (
     SurfPlanStep,
     TelemetryBuilder,
     YouTubeHandler,
+    get_sync_backend,
 )
 
 try:
@@ -396,7 +397,8 @@ class SurfWorker(QtCore.QObject):
             self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
             self.action_simulator.set_persona(self.personality)
             self.plan_engine.rng = getattr(self.personality, 'rng', None) or self.plan_engine.rng
-            with sync_playwright() as playwright:
+            backend = get_sync_backend()
+            with backend() as playwright:
                 if self.mode == 'google':
                     consumed, visited, metrics, surf_url = self._perform_google(playwright, self.task_config, self.task_config)
                     telemetry = self._build_telemetry({'mobile': self.task_config.get('mobile')}, metrics)
@@ -501,10 +503,14 @@ class SurfApp(QtWidgets.QMainWindow):
         self.task_points: Dict[str, int] = {}
         self.points_history_data: Dict[str, list] = {}
         self.system_history_data: Dict[str, list] = {}
+        self.reward_limits: Dict[str, Optional[int]] = {}
         assets_dir = Path(__file__).resolve().parent / 'assets'
         self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
         self.personality = PersonaEngine.random(self.persona_profiles, seed=None)
         self.device_id = self._device_id()
+        self.live_timer = QtCore.QTimer(self)
+        self.live_timer.setInterval(10000)
+        self.live_timer.timeout.connect(self._refresh_live_data)
         self._build_ui()
 
     def _device_id(self) -> str:
@@ -1084,12 +1090,14 @@ class SurfApp(QtWidgets.QMainWindow):
 
     def logout(self):
         self._stop_worker(force=True)
+        self.live_timer.stop()
         self.token = None
         self.logout_btn.setVisible(False)
         self.stack.setCurrentIndex(0)
         self.current_email = ''
         self.sites_cache = {}
         self.task_points = {}
+        self.reward_limits = {}
         self.current_page = 1
         self.total_pages = 1
         self.last_site_id = None
@@ -1164,6 +1172,7 @@ class SurfApp(QtWidgets.QMainWindow):
     def _make_copy_only(self, table: QtWidgets.QTableWidget):
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         table.itemClicked.connect(lambda item: self._copy_item(item))
+        table.itemDoubleClicked.connect(lambda item: self._copy_item(item))
 
     def _copy_item(self, item: Optional[QtWidgets.QTableWidgetItem]):
         if not item:
@@ -1189,6 +1198,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.personality = PersonaEngine.random(self.persona_profiles, seed=self.current_email or None)
         self._fetch_task_points()
         self.refresh_dashboard()
+        self.live_timer.start()
 
     def _fetch_task_points(self):
         if not self.client or not self.token:
@@ -1220,6 +1230,7 @@ class SurfApp(QtWidgets.QMainWindow):
         total = dash.get('total_seconds', max(1, remaining))
         percent = min(100, int((remaining / max(1, total)) * 100))
         limits = dash.get('limits') or {}
+        self.reward_limits = limits or {}
         caps_txt = []
         if limits.get('daily_left') is not None:
             caps_txt.append(f"Günlük limit: {limits.get('daily_left')} kaldı")
@@ -1903,10 +1914,15 @@ class SurfApp(QtWidgets.QMainWindow):
             render_chart()
 
             events = stats.get('events', [])
+            def _fmt_date(val: str) -> str:
+                try:
+                    return datetime.fromisoformat(str(val)).strftime('%d/%m/%Y %H:%M')
+                except Exception:
+                    return str(val)
             table.setRowCount(len(events))
             for r, ev in enumerate(events):
                 row_items = [
-                    ev.get('created_at', ''),
+                    _fmt_date(ev.get('created_at', '')),
                     ev.get('surfer_name') or ev.get('surfer_email') or '',
                     ev.get('country', ''),
                     ev.get('city', ''),
@@ -1945,12 +1961,12 @@ class SurfApp(QtWidgets.QMainWindow):
 
         prev_btn.clicked.connect(lambda: load(max(1, state['page'] - 1)))
         next_btn.clicked.connect(lambda: load(state['page'] + 1))
-        export_btn.clicked.connect(lambda: self._export_stats_pdf(state['stats'] or {}, state['report_settings']))
+        export_btn.clicked.connect(lambda: self._export_stats_pdf(state['stats'] or {}, state['report_settings'], state['range_box'].currentData()))
 
         load(1)
         dialog.exec()
 
-    def _export_stats_pdf(self, stats: dict, settings: Optional[dict] = None):
+    def _export_stats_pdf(self, stats: dict, settings: Optional[dict] = None, period: str = 'daily'):
         if not SimpleDocTemplate:
             self._toast('PDF modülü yüklü değil (reportlab)', error=True)
             return
@@ -1980,7 +1996,8 @@ class SurfApp(QtWidgets.QMainWindow):
         settings = settings or {}
         style = ParagraphStyle('body', fontName=font_name, fontSize=10, leading=14)
         table_style = ParagraphStyle('table', fontName=font_name, fontSize=8, leading=10)
-        story = [Paragraph('<b>NoaSoft Autosurf Site Raporu</b>', ParagraphStyle('title', fontName=font_bold, fontSize=14))]
+        period_title = {'daily': 'Günlük', 'weekly': 'Haftalık', 'monthly': 'Aylık'}.get(period, period)
+        story = [Paragraph(f'<b>NoaSoft Autosurf Site Raporu ({period_title})</b>', ParagraphStyle('title', fontName=font_bold, fontSize=14))]
         story.append(Spacer(1, 8))
         summary = stats.get('summary', {})
         points = stats.get('points', {})
@@ -1991,10 +2008,30 @@ class SurfApp(QtWidgets.QMainWindow):
         ))
         story.append(Spacer(1, 6))
 
+        chart_rows = (stats.get('charts', {}) or {}).get(period, [])
+        point_rows = (stats.get('point_charts', {}) or {}).get(period, [])
+        if chart_rows or point_rows:
+            visit_total = sum(int(r.get('visits', 0) or 0) for r in chart_rows)
+            earned_total = sum(int(r.get('earned', 0) or 0) for r in point_rows)
+            spent_total = sum(int(r.get('spent', 0) or 0) for r in point_rows)
+            story.append(
+                Paragraph(
+                    f"Seçilen dönem ({period_title}) — Ziyaret: {visit_total} • Kazanılan: {earned_total} • Harcanan: {spent_total}",
+                    style,
+                )
+            )
+            story.append(Spacer(1, 4))
+
         include_ip = bool(settings.get('ip'))
         include_geo = bool(settings.get('geo'))
         include_ua = bool(settings.get('ua'))
         include_metrics = bool(settings.get('metrics', True))
+
+        def _fmt_date(val: str) -> str:
+            try:
+                return datetime.fromisoformat(str(val)).strftime('%d/%m/%Y %H:%M')
+            except Exception:
+                return str(val)
 
         headers: List[str] = ['Tarih', 'Ziyaretçi', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Ziyaret']
         if include_metrics:
@@ -2009,7 +2046,7 @@ class SurfApp(QtWidgets.QMainWindow):
         table_data: List[List[Any]] = [headers]
         for ev in stats.get('events', [])[:80]:
             row: List[Any] = [
-                ev.get('created_at', ''),
+                _fmt_date(ev.get('created_at', '')),
                 ev.get('surfer_name') or ev.get('surfer_email') or '',
                 ev.get('country', ''),
                 ev.get('city', ''),
@@ -2098,6 +2135,19 @@ class SurfApp(QtWidgets.QMainWindow):
             return
         if self.worker_thread and self.worker_thread.isRunning():
             self._toast('Zaten çalışıyor')
+            return
+        limits = getattr(self, 'reward_limits', {}) or {}
+        exhausted = [
+            name
+            for name, value in (
+                ('Günlük', limits.get('daily_left')),
+                ('Haftalık', limits.get('weekly_left')),
+                ('Aylık', limits.get('monthly_left')),
+            )
+            if value is not None and value <= 0
+        ]
+        if exhausted:
+            self._toast(f"{', '.join(exhausted)} limitiniz dolu, lütfen daha sonra deneyin.", error=True)
             return
         self._launch_worker('surf', {'task_points': self.task_points})
 
@@ -2216,6 +2266,12 @@ class SurfApp(QtWidgets.QMainWindow):
     def _on_failed(self, message: str):
         self._toast(f'Hata: {message}', error=True)
         self.start_btn.setEnabled(True)
+
+    def _refresh_live_data(self):
+        if not self.client or not self.token:
+            return
+        self.refresh_dashboard()
+        self.refresh_system_stats()
 
     def load_mail_settings(self):
         if not self.client or not self.token:

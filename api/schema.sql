@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
     max_daily_reward INT NOT NULL DEFAULT 1200,
     max_weekly_reward INT NOT NULL DEFAULT 5000,
     max_monthly_reward INT NOT NULL DEFAULT 12000,
+    daily_reward_started_at DATETIME NULL,
+    weekly_reward_started_at DATETIME NULL,
+    monthly_reward_started_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
