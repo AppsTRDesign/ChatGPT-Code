@@ -2,7 +2,9 @@
 require __DIR__ . '/lib/Database.php';
 require __DIR__ . '/lib/Jwt.php';
 require __DIR__ . '/lib/Response.php';
-use DateTime;
+
+// PHP'nin global DateTime sınıfı için "use" satırı gereksizdi ve uyarı üretiyordu.
+// Uyarılar JSON yanıtlarının başına eklenip istemci parse hatasına yol açmaması için kaldırıldı.
 
 $config = require __DIR__ . '/config.php';
 $db = new Database($config);
