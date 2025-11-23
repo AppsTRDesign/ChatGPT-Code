@@ -279,6 +279,7 @@ class SurfWorker(QtCore.QObject):
             remaining_time = planned_total - int(time.monotonic() - started_at)
             if remaining_time <= 0:
                 break
+            step_budget_ms = max(0, min(step.seconds, remaining_time) * 1000)
             detail = f"{step.title} — {step.detail}"
             self.step_changed.emit(detail)
             self.log.emit(detail)
@@ -292,29 +293,33 @@ class SurfWorker(QtCore.QObject):
             pump.start()
             try:
                 if 'mouse' in step.title.lower():
-                    performed, last_mouse = self.action_simulator.simulate_mouse_moves(page, viewport, personality)
+                    performed, last_mouse = self.action_simulator.simulate_mouse_moves(
+                        page, viewport, personality, budget_ms=step_budget_ms
+                    )
                     if performed:
                         metrics['mouse_moves'] += 1
                 if 'metin' in step.title.lower():
-                    if self.action_simulator.simulate_text_highlight(page, personality):
+                    if self.action_simulator.simulate_text_highlight(page, personality, budget_ms=step_budget_ms):
                         metrics['highlights'] += 1
                         performed = True
                 if 'scroll' in step.title.lower():
-                    if self.action_simulator.simulate_scroll(page, viewport, personality):
+                    if self.action_simulator.simulate_scroll(page, viewport, personality, budget_ms=step_budget_ms):
                         metrics['scrolls'] += 1
                         performed = True
                 if 'tık' in step.title.lower() or 'link' in step.title.lower():
-                    if self.action_simulator.simulate_clicks(page, host, personality):
+                    if self.action_simulator.simulate_clicks(page, host, personality, budget_ms=step_budget_ms):
                         metrics['clicks'] += 1
                         performed = True
                 if 'form' in step.title.lower():
-                    if self.action_simulator.simulate_form(page, personality):
+                    if self.action_simulator.simulate_form(page, personality, budget_ms=step_budget_ms):
                         metrics['forms'] += 1
                         performed = True
                 if 'medya' in step.title.lower():
                     actions = site.get('media_actions') or site.get('media_options') or []
                     dwell_hint = int(site.get('dwell_seconds', step.seconds))
-                    if self.action_simulator.simulate_media(page, actions, dwell_hint, personality):
+                    if self.action_simulator.simulate_media(
+                        page, actions, dwell_hint, personality, budget_ms=step_budget_ms
+                    ):
                         metrics['media'] += 1
                         performed = True
                 if 'sayfada' in step.title.lower():
