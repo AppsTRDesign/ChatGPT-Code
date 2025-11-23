@@ -68,7 +68,7 @@ class GoogleHandler:
         except Exception:
             return False
 
-    def perform_google(self, playwright, cfg: dict, flags: dict, personality, apply_actions) -> Tuple[int, int, Dict, str]:
+    def perform_google(self, playwright, cfg: dict, flags: dict, personality, apply_actions) -> Tuple[int, int, Dict, str, bool, int]:
         dwell = int(cfg.get('dwell', 30))
         pages = max(1, int(cfg.get('pages', 1)))
         keyword = cfg.get('keyword', '')
@@ -98,6 +98,7 @@ class GoogleHandler:
         limit_ms = 90000
 
         start = page._impl_obj._loop.time() if hasattr(page, '_impl_obj') else time.time()
+        search_start = time.monotonic()
         for _ in range(pages):
             if rng.random() < 0.65:
                 self._serp_hover(page, rng)
@@ -124,13 +125,21 @@ class GoogleHandler:
                 page.wait_for_timeout(rng.randint(620, 1200))
             else:
                 break
+        search_elapsed = int(time.monotonic() - search_start)
         if recaptcha_blocked:
-            return 0, visited_pages, {'recaptcha_blocked': True}, page.url
+            return search_elapsed, visited_pages, {'recaptcha_blocked': True}, page.url, found, search_elapsed
         if not found:
             self.log('Aranan site bulunamadı, kalan süreyi sitede gezinerek tamamlıyoruz')
         plan, site_flags = self.plan_engine.build_custom_plan(dwell, {**flags})
-        consumed, metrics = apply_actions(playwright, {**site_flags, 'url': page.url}, plan, personality)
-        return consumed, visited_pages, metrics, page.url
+        consumed, metrics = apply_actions(
+            playwright,
+            {**site_flags, 'url': page.url},
+            plan,
+            personality,
+            initial_elapsed=search_elapsed,
+        )
+        total = max(consumed, search_elapsed + dwell)
+        return total, visited_pages, metrics, page.url, found, search_elapsed
 
 
 __all__ = ["GoogleHandler"]

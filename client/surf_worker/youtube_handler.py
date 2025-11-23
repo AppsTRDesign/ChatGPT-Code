@@ -97,8 +97,9 @@ class YouTubeHandler:
         finally:
             self.detach_route_noise()
 
-    def search_and_open(self, page, keyword: str, video_link: str, pages: int) -> int:
+    def search_and_open(self, page, keyword: str, video_link: str, pages: int) -> tuple[int, bool, int]:
         visited = 1
+        found = False
         start = time.time()
         if keyword:
             page.goto('https://www.youtube.com/', wait_until='domcontentloaded')
@@ -119,7 +120,8 @@ class YouTubeHandler:
                     anchor.hover()
                     page.wait_for_timeout(random.randint(140, 320))
                     anchor.click()
-                    return visited
+                    found = True
+                    return visited, found, int(time.time() - start)
             if time.time() - start > 90:
                 break
             next_btn = page.query_selector('a[aria-label*="Sonraki"], a[aria-label*="Next"]')
@@ -131,7 +133,8 @@ class YouTubeHandler:
                 break
         if trimmed:
             page.goto(video_link, wait_until='domcontentloaded')
-        return visited
+            found = True
+        return visited, found, int(time.time() - start)
 
 
 __all__ = ["YouTubeHandler"]

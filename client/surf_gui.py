@@ -207,7 +207,8 @@ class SurfWorker(QtCore.QObject):
         self.mode = mode
         self.task_config = task_config or {}
         self.current_email = current_email or ''
-        assets_dir = Path(__file__).resolve().parents[1] / 'assets'
+        # Assets dizini her zaman client/assets altında, çalıştırma konumundan bağımsız
+        assets_dir = Path(__file__).resolve().parent / 'assets'
         log_fn = self.log.emit
         self.browser_mgr = BrowserManager(assets_dir, log_fn)
         self.youtube_handler = YouTubeHandler(self.browser_mgr, log_fn)
@@ -241,15 +242,22 @@ class SurfWorker(QtCore.QObject):
         while not stop_evt.wait(0.4):
             self._emit_progress_tick(started_at, planned_total, detail)
 
-    def _apply_actions(self, playwright: Playwright, site: dict, plan: List[SurfPlanStep], personality: Optional[PersonaEngine] = None) -> Tuple[int, dict]:
+    def _apply_actions(
+        self,
+        playwright: Playwright,
+        site: dict,
+        plan: List[SurfPlanStep],
+        personality: Optional[PersonaEngine] = None,
+        initial_elapsed: int = 0,
+    ) -> Tuple[int, dict]:
         personality = personality or self.personality
         page = self.browser_mgr.ensure_page(playwright, site)
         url = site.get('url')
         self.log.emit(f'Sayfa açılıyor: {url}')
         page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
-        planned_total = max(1, sum(s.seconds for s in plan))
-        started_at = time.monotonic()
+        planned_total = max(1, initial_elapsed + sum(s.seconds for s in plan))
+        started_at = time.monotonic() - initial_elapsed
         viewport = page.viewport_size or {'width': 1280, 'height': 720}
         last_mouse: Optional[Tuple[int, int]] = (
             int(viewport.get('width', 1280) / 2),
@@ -257,7 +265,7 @@ class SurfWorker(QtCore.QObject):
         )
         host = urlparse(url).netloc
         metrics = {'clicks': 0, 'scrolls': 0, 'highlights': 0, 'forms': 0, 'media': 0, 'mouse_moves': 0}
-        self._emit_progress_tick(started_at, planned_total, 'Başlatılıyor', elapsed_override=0)
+        self._emit_progress_tick(started_at, planned_total, 'Başlatılıyor', elapsed_override=initial_elapsed)
         for step in plan:
             if not self._running:
                 break
@@ -311,11 +319,16 @@ class SurfWorker(QtCore.QObject):
             self._emit_progress_tick(started_at, planned_total, detail, elapsed_override=elapsed_now)
             self._emit_frame(page, last_mouse)
         elapsed_total = int(time.monotonic() - started_at)
-        if elapsed_total and elapsed_total < planned_total:
-            self.progress.emit(int((elapsed_total / planned_total) * 100), elapsed_total, planned_total, 'Plan tamamlandı')
+        # Planlanan süreden kısaysa kalan süreyi doğal akışta tamamla
+        while self._running and elapsed_total < planned_total:
+            remaining = planned_total - elapsed_total
+            sleep_for = min(0.5, remaining)
+            time.sleep(sleep_for)
+            elapsed_total = int(time.monotonic() - started_at)
+            self._emit_progress_tick(started_at, planned_total, 'Bekleniyor', elapsed_override=elapsed_total)
         final_total = max(planned_total, elapsed_total, 1)
-        self.progress.emit(100, max(elapsed_total, planned_total), final_total, 'Tamamlandı')
-        return elapsed_total, metrics
+        self.progress.emit(100, final_total, final_total, 'Tamamlandı')
+        return final_total, metrics
 
     def _emit_frame(self, page, last_mouse: Optional[Tuple[int, int]]):
         try:
@@ -333,13 +346,19 @@ class SurfWorker(QtCore.QObject):
     def _build_custom_plan(self, dwell: int, flags: dict) -> List[SurfPlanStep]:
         return self.plan_engine.build_custom_plan(dwell, flags)
 
-    def _perform_google(self, playwright: Playwright, cfg: dict, flags: dict) -> Tuple[int, int, dict, str]:
+    def _perform_google(self, playwright: Playwright, cfg: dict, flags: dict) -> Tuple[int, int, dict, str, bool, int]:
         return self.google_handler.perform_google(
             playwright,
             cfg,
             flags,
             self.personality,
-            lambda pw, site, plan, persona: self._apply_actions(pw, site, plan, persona),
+            lambda pw, site, plan, persona, initial_elapsed=0: self._apply_actions(
+                pw,
+                site,
+                plan,
+                persona,
+                initial_elapsed=initial_elapsed,
+            ),
         )
 
     def _perform_youtube(self, playwright: Playwright, cfg: dict, flags: dict) -> Tuple[int, int, dict, str]:
@@ -348,12 +367,20 @@ class SurfWorker(QtCore.QObject):
         link = cfg.get('video_link', '')
         pages = max(1, int(cfg.get('pages', 1))) if keyword else 1
         page = self.browser_mgr.ensure_page(playwright, flags)
-        visited = self.youtube_handler.search_and_open(page, keyword, link, pages) if keyword or link else 1
+        visited, found, search_elapsed = self.youtube_handler.search_and_open(page, keyword, link, pages) if keyword or link else (1, True, 0)
         plan, site_flags = self._build_custom_plan(dwell, {**flags})
         site_flags['media'] = True
         plan.insert(0, SurfPlanStep('Video açılıyor', 'YouTube oynatma', 2))
-        consumed, metrics = self._apply_actions(playwright, {**site_flags, 'url': page.url, 'dwell_seconds': dwell}, plan, self.personality)
-        return consumed, pages, metrics, page.url
+        consumed, metrics = self._apply_actions(
+            playwright,
+            {**site_flags, 'url': page.url, 'dwell_seconds': dwell, 'found': found, 'search_elapsed': search_elapsed},
+            plan,
+            self.personality,
+            initial_elapsed=search_elapsed,
+        )
+        total = max(consumed, search_elapsed + dwell)
+        metrics['found'] = found
+        return total, pages, metrics, page.url
 
     def run(self):
         try:
@@ -388,14 +415,10 @@ class SurfWorker(QtCore.QObject):
                         site_meta = session.get('site') or {}
                         site_id = site_meta.get('id')
                         if site_id and site_id == self.last_site_id:
-                            self._duplicate_skip += 1
-                            if self._duplicate_skip >= 3:
-                                self.failed.emit('Aynı site ardışık olarak gönderiliyor, daha sonra tekrar deneyin')
-                                break
+                            # Aynı site arka arkaya gelmesin
                             self.log.emit('Aynı site tekrar geldi, yeni hedef bekleniyor...')
-                            time.sleep(1)
+                            time.sleep(0.8)
                             continue
-                        self._duplicate_skip = 0
                         if site_id:
                             self.last_site_id = site_id
                         mode = session.get('task_mode') or 'standard'
@@ -407,8 +430,8 @@ class SurfWorker(QtCore.QObject):
                             flags = {k: site.get(k) for k in ['mobile', 'realistic', 'mouse_moves', 'link_clicks', 'scroll', 'form_fill', 'media']}
                             flags['media_actions'] = site.get('media_actions') or []
                             task_cfg.setdefault('site_url', site.get('url', ''))
-                            consumed_seconds, visited, metrics, surf_url = self._perform_google(playwright, task_cfg, flags)
-                            site = {**site, 'url': surf_url}
+                            consumed_seconds, visited, metrics, surf_url, found, search_elapsed = self._perform_google(playwright, task_cfg, flags)
+                            site = {**site, 'url': surf_url, 'found': found, 'search_elapsed': search_elapsed}
                             planned_pages = visited
                         elif mode == 'youtube':
                             task_cfg = session.get('task') or {}
@@ -427,6 +450,8 @@ class SurfWorker(QtCore.QObject):
                             break
                         try:
                             telemetry = self._build_telemetry(site, metrics)
+                            telemetry['found'] = site.get('found')
+                            telemetry['search_elapsed'] = site.get('search_elapsed')
                             if planned_pages:
                                 telemetry['pages_visited'] = planned_pages
                             result = self.client.complete_surf(self.token, int(session_id), consumed_seconds, telemetry)
