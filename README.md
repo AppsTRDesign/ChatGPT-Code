@@ -25,21 +25,22 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - `POST /surf/complete` — surf tamamlanınca puan kazandırır; günlük/haftalık/aylık kazanım limitleri kullanıcının profilindeki
     max_daily/weekly/monthly_reward alanlarıyla kısıtlanır. İstemciden gelen IP/ülke/şehir/cihaz/aksiyon telemetrisi `site_stats` tablosuna kaydedilir.
   - `GET /dashboard` — günlük/haftalık kazanç, kalan süre, puan ve limit özetleri.
-  - `GET /dashboard/history` — günlük/haftalık puan geçmişi.
+  - `GET /dashboard/history` — günlük/haftalık/aylık puan geçmişi (kazanılan/harcanan ayrımlı, d/m/Y H:i etiketli).
+  - `GET /stats/global` — toplam kullanıcı/site/ziyaret sayıları, kazanılan/harcanan puan ve günlük/haftalık/aylık ziyaret/puan serileri.
   - `GET /mail/settings` ve `POST /mail/send` — info@noasoft.org’a iletilecek mesajları API ayarlarından alır; `contact_email` değeri PHP `mail()` ile alıcı ve From olarak kullanılır.
-  - `GET /tasks/config` — Google/YouTube görev bilgilendirmesi (sabit 90 saniyelik arama tabanı) için istemciye bildirim.
+  - `GET /tasks/config` — Google/YouTube görev bilgilendirmesi (sabit 90 saniyelik arama tabanı) ve Playwright reklam HTML ayarı.
 
 ## Python GUI (PyQt6 + Playwright)
 - **Konum:** `client/surf_gui.py`
 - **Özellikler:**
-  - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan & Özet, Siteler, Surf + Puan, Google Görevi, YouTube Görevi, Puan Sistemi/Özellikler, İletişim, Log).
-  - Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; Chart.js hissi veren line + bar PyQt6-Charts grafikleriyle günlük/haftalık kazançlar.
+  - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan/Özet, Siteler, Surf + Puan, Google Görevi, YouTube Görevi, Puan Sistemi/Özellikler, İstatistikler, İletişim, Log).
+  - Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; tek grafik üzerinde günlük/haftalık/aylık (seçilebilir) kazanılan/harcanan puan çizgileri.
   - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, medya aksiyon checkbox’ları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
-  - Site detayları: her kayıtlı site için “Detaylar” butonu; ülke/şehir/IP/platform/cihaz/UA ve aksiyon adetleri tablo halinde, puan kazanç/harcama netleri için ayrı bar+line grafikleri, günlük/haftalık/aylık seriler ve tek tıkla Türkçe karakter uyumlu PDF dışa aktarma.
+  - Site detayları: her kayıtlı site için “Detaylar” butonu; ülke/şehir/IP/platform/cihaz/UA ve aksiyon adetleri tablo halinde, tek grafik üzerinde ziyaret ve harcama serileri (gün/hafta/ay seçilebilir) ve Türkçe karakter uyumlu PDF dışa aktarma (dikey/yatay yön seçilebilir, şehir alanı varsayılan görünür).
   - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, metin seçip çizme/kopyalama, form doldurup temizleme, medya kontrolleri), ilerleme çubuğu ve canlı önizleme (tarayıcı üzerinde yapay mouse overlay) ile puan kazanımı; loglar ayrı sekmede kopyalanabilir.
   - Google araması sekmesi: ülke seçimiyle arama kutusuna kelime yazıp Enter’lar, sonuç sayfalarında 90 saniyeye kadar hedef URL’yi arar; bulunursa siteye girip aksiyonları çalıştırır. Puan formülü: bulunamazsa 90, bulunursa (arama süresi + süre + sayfa*10).
   - YouTube sekmesi: isteğe göre arama kutusuna yazarak 90 saniyeye kadar `/watch?v=` sonuçlarını tarar; hedef video bulunursa açıp medya/görev aksiyonlarını uygular. Puan formülü: bulunamazsa 90, bulunursa (arama süresi + izleme süresi).
-  - Puan sistemi sekmesi: kart bazlı harcama/kazanç özetleri ve günlük/haftalık/aylık limitleri gösterir.
+  - Puan sistemi sekmesi: kart bazlı harcama/kazanç özetleri ve günlük/haftalık/aylık limitleri gösterir; hemen ardından “İstatistikler” sekmesi tüm kullanıcı/site/ziyaret ve kazanılan/harcanan toplamlarını kart ve tek grafikle sunar.
   - İletişim sekmesi: API’den çekilen mail ayarlarıyla info@noasoft.org’a mesaj iletimi.
 - **Çalıştırma:**
   ```bash
@@ -62,4 +63,4 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
 - GeoIP raporları için `client/assets/GeoLite2-City.mmdb`, `GeoLite2-Country.mmdb` ve `GeoLite2-ASN.mmdb` dosya yollarını kullanır; lisans gereği repo içinde dosya yoktur, aynı konuma ekleyin. Çözümlenen IP, ülke kodu, kıta, koordinat, ASN/ISP/ağ bilgileri ve user-agent, site istatistiklerinde saklanır ve PDF çıktısına eklenir.
 - `client/assets/personas.json` içine yeni persona profili eklendiğinde GUI yeniden başlatıldığında otomatik algılanır; mouse/scroll/tıklama/tartışma hızları persona profiline göre çeşitlenir.
 - PDF çıktıları, eğer mevcutsa `client/assets/DejaVuSans.ttf` ve `DejaVuSans-Bold.ttf` fontlarını kullanarak Türkçe karakterleri tam destekleyecek şekilde üretilir; lisans gereği fontlar repo içinde yoktur, dosyaları aynı dizine manuel ekleyin. Rapor ayarlarından dikey/yatay sayfa yönünü ve isteğe bağlı alanları seçebilirsiniz.
-- Playwright sayfalarına üstte kapatılabilir bir reklam bandı eklenir; varsayılan placeholder görseli `AD_BANNER_URL` ortam değişkeniyle değiştirebilirsiniz.
+- Playwright sayfalarına üstte kapatılabilir bir reklam bandı eklenir; HTML kodu `api/config.php` içindeki `ad_banner_html` ile veya `AD_BANNER_HTML` ortam değişkeniyle özelleştirilebilir.

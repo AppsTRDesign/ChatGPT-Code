@@ -3,14 +3,18 @@ from typing import Dict, Optional
 
 
 class BrowserManager:
-    def __init__(self, assets_dir: Path, log, ad_url: Optional[str] = None):
+    def __init__(self, assets_dir: Path, log, ad_html: Optional[str] = None):
         self.assets_dir = assets_dir
         self.log = log
         self.browser = None
         self.context = None
         self.page = None
         self._current_mobile = False
-        self.ad_url = ad_url or 'https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1'
+        self.ad_html = ad_html or (
+            '<a href="https://noasoft.org" target="_blank">'
+            '<img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;">'
+            '</a>'
+        )
 
     def ensure_page(self, playwright, site: Dict) -> object:
         mobile = bool(site.get('mobile'))
@@ -62,8 +66,7 @@ class BrowserManager:
 
     def _inject_ad_banner(self, page):
         try:
-            page.add_init_script(
-                f"""
+            script = """
                 (() => {{
                   const existing = document.getElementById('noasoft-banner');
                   if (existing) return;
@@ -71,8 +74,9 @@ class BrowserManager:
                   wrap.id = 'noasoft-banner';
                   Object.assign(wrap.style, {{
                     position: 'fixed', top: '0', left: '0', right: '0',
-                    height: '90px', background: '#0f172a', zIndex: 2147483646,
+                    background: '#0f172a', zIndex: 2147483646,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '6px', boxSizing: 'border-box'
                   }});
                   const closeBtn = document.createElement('button');
                   closeBtn.innerText = '×';
@@ -82,17 +86,16 @@ class BrowserManager:
                     borderRadius: '4px', padding: '4px 8px', cursor: 'pointer'
                   }});
                   closeBtn.addEventListener('click', () => wrap.remove());
-                  const img = document.createElement('img');
-                  img.src = '{self.ad_url}';
-                  img.alt = 'Reklam Alanı';
-                  Object.assign(img.style, {{maxHeight: '80px', width: '100%', maxWidth: '1200px', objectFit: 'cover'}});
-                  wrap.appendChild(img);
+                  const content = document.createElement('div');
+                  content.innerHTML = `{ad_html}`;
+                  Object.assign(content.style, {{width: '100%', maxWidth: '1200px'}});
+                  wrap.appendChild(content);
                   wrap.appendChild(closeBtn);
                   document.addEventListener('DOMContentLoaded', () => document.body.prepend(wrap));
                   if (document.body) document.body.prepend(wrap);
-                }})();
-                """
-            )
+                })();
+            """.format(ad_html=self.ad_html.replace('`', ''))
+            page.add_init_script(script)
         except Exception:
             self.log('Reklam alanı enjekte edilemedi')
 
@@ -138,26 +141,9 @@ class BrowserManager:
                   Object.defineProperty(navigator, 'webdriver', { get: () => false });
                   Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3] });
                   Object.defineProperty(navigator, 'languages', { get: () => ['tr-TR','en-US','en'] });
-                  window.chrome = window.chrome || { runtime: {} };
-                  const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
-                  if (originalQuery) {
-                    window.navigator.permissions.query = (parameters) => (
-                      parameters && parameters.name === 'notifications'
-                        ? Promise.resolve({ state: 'granted' })
-                        : originalQuery(parameters)
-                    );
-                  }
-                  const getParameter = WebGLRenderingContext.prototype.getParameter;
-                  WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                    if (parameter === 37445) return 'Google Inc.';
-                    if (parameter === 37446) return 'ANGLE (Intel, Intel(R) UHD Graphics, D3D11)';
-                    return getParameter.call(this, parameter);
-                  };
+                  try { navigator.permissions.query = (orig => (params) => orig(params).catch(() => ({state: 'granted'})))(navigator.permissions.query.bind(navigator.permissions)); } catch (e) {}
                 })();
                 """
             )
         except Exception:
             self.log('Fingerprint yamasi uygulanamadi')
-
-
-__all__ = ["BrowserManager"]

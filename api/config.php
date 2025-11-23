@@ -7,4 +7,6 @@ return [
     'jwt_secret' => getenv('JWT_SECRET') ?: 'change_this_secret',
     'initial_points' => 300,
     'contact_email' => getenv('CONTACT_EMAIL') ?: 'info@noasoft.org',
+    'ad_banner_html' => getenv('AD_BANNER_HTML')
+        ?: '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>',
 ];

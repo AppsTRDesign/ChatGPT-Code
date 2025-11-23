@@ -2,6 +2,7 @@
 require __DIR__ . '/lib/Database.php';
 require __DIR__ . '/lib/Jwt.php';
 require __DIR__ . '/lib/Response.php';
+use DateTime;
 
 $config = require __DIR__ . '/config.php';
 $db = new Database($config);
@@ -655,6 +656,30 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
         GROUP BY DATE_FORMAT(created_at, "%Y-%m") ORDER BY DATE_FORMAT(created_at, "%Y-%m")');
     $monthly->execute([$siteId]);
 
+    $formatLabels = function (array $rows, string $period) {
+        foreach ($rows as &$row) {
+            $label = $row['label'];
+            if ($period === 'daily') {
+                $dt = new DateTime($label);
+                $row['label'] = $dt->format('d/m/Y H:i');
+            } elseif ($period === 'weekly') {
+                $year = (int)substr((string)$label, 0, 4);
+                $week = (int)substr((string)$label, 4);
+                $dt = new DateTime();
+                $dt->setISODate($year, $week);
+                $row['label'] = $dt->format('d/m/Y H:i');
+            } elseif ($period === 'monthly') {
+                $dt = new DateTime($label . '-01');
+                $row['label'] = $dt->format('d/m/Y H:i');
+            }
+        }
+        return $rows;
+    };
+
+    $dailyRows = $formatLabels($daily->fetchAll(), 'daily');
+    $weeklyRows = $formatLabels($weekly->fetchAll(), 'weekly');
+    $monthlyRows = $formatLabels($monthly->fetchAll(), 'monthly');
+
     $pointSeries = function (string $windowSql, string $labelSql, string $groupBy) use ($pdo, $siteId, $user) {
         $sql = "SELECT {$labelSql} AS label,
                 SUM(CASE WHEN change_amount < 0 THEN -change_amount ELSE 0 END) AS spent
@@ -682,19 +707,21 @@ function site_stats(PDO $pdo, array $user, int $siteId): void
         'media' => (int)($totals['media'] ?? array_sum(array_column($events, 'media'))),
     ];
 
+    $point_history = [
+        'daily' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 30 DAY)', 'DATE(created_at)', 'DATE(created_at)'), 'daily'),
+        'weekly' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 WEEK)', 'YEARWEEK(created_at,1)', 'YEARWEEK(created_at,1)'), 'weekly'),
+        'monthly' => $formatLabels($pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)', 'DATE_FORMAT(created_at, "%Y-%m")', 'DATE_FORMAT(created_at, "%Y-%m")'), 'monthly'),
+    ];
+
     Response::json([
         'site' => $site,
         'events' => $events,
         'charts' => [
-            'daily' => $daily->fetchAll(),
-            'weekly' => $weekly->fetchAll(),
-            'monthly' => $monthly->fetchAll(),
+            'daily' => $dailyRows,
+            'weekly' => $weeklyRows,
+            'monthly' => $monthlyRows,
         ],
-        'point_charts' => [
-            'daily' => $pointSeries('DATE_SUB(CURDATE(), INTERVAL 30 DAY)', 'DATE(created_at)', 'DATE(created_at)'),
-            'weekly' => $pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 WEEK)', 'YEARWEEK(created_at,1)', 'YEARWEEK(created_at,1)'),
-            'monthly' => $pointSeries('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)', 'DATE_FORMAT(created_at, "%Y-%m")', 'DATE_FORMAT(created_at, "%Y-%m")'),
-        ],
+        'point_charts' => $point_history,
         'summary' => $summary,
         'points' => [
             'spent' => (int)($points['spent'] ?? 0),
@@ -765,23 +792,49 @@ function task_config_endpoint(array $config): void
     Response::json([
         'google_base' => 90,
         'youtube_base' => 90,
+        'ad_banner_html' => $config['ad_banner_html'] ?? null,
     ]);
+}
+
+function aggregate_history(PDO $pdo, ?int $userId = null): array
+{
+    $params = [];
+    $where = '';
+    if ($userId) {
+        $where = 'WHERE user_id = ?';
+        $params[] = $userId;
+    }
+
+    $makeHistory = function (string $groupExpr, string $labelFormat, string $limitExpr = '') use ($pdo, $where, $params) {
+        $sql = "SELECT {$groupExpr} AS bucket, "
+            . 'SUM(CASE WHEN change_amount > 0 THEN change_amount ELSE 0 END) AS earned,'
+            . 'SUM(CASE WHEN change_amount < 0 THEN change_amount ELSE 0 END) AS spent '
+            . "FROM point_ledger {$where} GROUP BY bucket ORDER BY bucket DESC {$limitExpr}";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+        $history = [];
+        foreach (array_reverse($rows) as $row) {
+            $dt = new DateTime($row['bucket']);
+            $history[] = [
+                'label' => $dt->format($labelFormat),
+                'earned' => (int)($row['earned'] ?? 0),
+                'spent' => abs((int)($row['spent'] ?? 0)),
+            ];
+        }
+        return $history;
+    };
+
+    return [
+        'daily' => $makeHistory('DATE(created_at)', 'd/m/Y H:i', 'LIMIT 30'),
+        'weekly' => $makeHistory('DATE_FORMAT(created_at, "%x-%v-01")', 'd/m/Y H:i', 'LIMIT 16'),
+        'monthly' => $makeHistory('DATE_FORMAT(created_at, "%Y-%m-01")', 'd/m/Y H:i', 'LIMIT 18'),
+    ];
 }
 
 function dashboard_history(PDO $pdo, array $user): void
 {
-    $stmt = $pdo->prepare('SELECT DATE(created_at) as label, SUM(change_amount) as net FROM point_ledger WHERE user_id = ? GROUP BY DATE(created_at) ORDER BY DATE(created_at) DESC LIMIT 14');
-    $stmt->execute([$user['id']]);
-    $rows = $stmt->fetchAll();
-    $history = [];
-    foreach (array_reverse($rows) as $row) {
-        $history[] = [
-            'label' => $row['label'],
-            'daily' => (int)$row['net'],
-            'weekly' => (int)$row['net'],
-        ];
-    }
-    Response::json(['history' => $history]);
+    Response::json(['history' => aggregate_history($pdo, (int)$user['id'])]);
 }
 
 function dashboard(PDO $pdo, array $user): void
@@ -799,6 +852,43 @@ function dashboard(PDO $pdo, array $user): void
         'remaining_seconds' => (int)($stmt->fetch()['remaining'] ?? 0),
         'points' => (int)$user['points'],
         'limits' => $limits,
+    ]);
+}
+
+function global_stats(PDO $pdo): void
+{
+    $totals = [
+        'users' => (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn(),
+        'sites' => (int)$pdo->query('SELECT COUNT(*) FROM sites')->fetchColumn(),
+        'visits' => (int)$pdo->query('SELECT COUNT(*) FROM site_stats')->fetchColumn(),
+    ];
+    $ledger = $pdo->query('SELECT SUM(CASE WHEN change_amount>0 THEN change_amount ELSE 0 END) AS earned, SUM(CASE WHEN change_amount<0 THEN change_amount ELSE 0 END) AS spent FROM point_ledger')->fetch();
+    $totals['earned'] = (int)($ledger['earned'] ?? 0);
+    $totals['spent'] = abs((int)($ledger['spent'] ?? 0));
+
+    // ziyaret grafiği (site_stats tarihleri) ve puan grafiği (point_ledger)
+    $visitHistory = function (string $groupExpr, string $labelFormat, string $limitExpr = '') use ($pdo) {
+        $sql = "SELECT {$groupExpr} AS bucket, COUNT(*) AS visits FROM site_stats GROUP BY bucket ORDER BY bucket DESC {$limitExpr}";
+        $rows = $pdo->query($sql)->fetchAll();
+        $hist = [];
+        foreach (array_reverse($rows) as $row) {
+            $dt = new DateTime($row['bucket']);
+            $hist[] = [
+                'label' => $dt->format($labelFormat),
+                'visits' => (int)($row['visits'] ?? 0),
+            ];
+        }
+        return $hist;
+    };
+
+    $history = aggregate_history($pdo, null);
+    $history['daily_visits'] = $visitHistory('DATE(created_at)', 'd/m/Y H:i', 'LIMIT 30');
+    $history['weekly_visits'] = $visitHistory('DATE_FORMAT(created_at, "%x-%v-01")', 'd/m/Y H:i', 'LIMIT 16');
+    $history['monthly_visits'] = $visitHistory('DATE_FORMAT(created_at, "%Y-%m-01")', 'd/m/Y H:i', 'LIMIT 18');
+
+    Response::json([
+        'summary' => $totals,
+        'history' => $history,
     ]);
 }
 
@@ -887,6 +977,11 @@ switch (true) {
     case $path === '/tasks/config' && $method === 'GET':
         if ($user = ensure_user($pdo, $config)) {
             task_config_endpoint($config);
+        }
+        break;
+    case $path === '/stats/global' && $method === 'GET':
+        if ($user = ensure_user($pdo, $config)) {
+            global_stats($pdo);
         }
         break;
     default:

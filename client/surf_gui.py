@@ -154,6 +154,10 @@ class ApiClient:
         resp = self._request('GET', '/dashboard/history', token=token)
         return self._json(resp).get('history', [])
 
+    def system_stats(self, token: str):
+        resp = self._request('GET', '/stats/global', token=token)
+        return self._json(resp)
+
     def mail_settings(self):
         resp = self._request('GET', '/mail/settings')
         return self._json(resp)
@@ -210,8 +214,8 @@ class SurfWorker(QtCore.QObject):
         # Assets dizini her zaman client/assets altında, çalıştırma konumundan bağımsız
         assets_dir = Path(__file__).resolve().parent / 'assets'
         log_fn = self.log.emit
-        ad_url = self.task_config.get('ad_banner_url') or 'https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1'
-        self.browser_mgr = BrowserManager(assets_dir, log_fn, ad_url=ad_url)
+        ad_html = self.task_config.get('ad_banner_html') or '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>'
+        self.browser_mgr = BrowserManager(assets_dir, log_fn, ad_html=ad_html)
         self.youtube_handler = YouTubeHandler(self.browser_mgr, log_fn)
         self.geo_service = GeoService(assets_dir, log_fn)
         self.telemetry_builder = TelemetryBuilder(self.geo_service, log_fn)
@@ -495,11 +499,12 @@ class SurfApp(QtWidgets.QMainWindow):
         self.current_email: str = ''
         self.sites_cache: Dict[int, dict] = {}
         self.task_points: Dict[str, int] = {}
+        self.points_history_data: Dict[str, list] = {}
+        self.system_history_data: Dict[str, list] = {}
         assets_dir = Path(__file__).resolve().parent / 'assets'
         self.persona_profiles = load_persona_profiles(assets_dir / 'personas.json')
         self.personality = PersonaEngine.random(self.persona_profiles, seed=None)
         self.device_id = self._device_id()
-        self.ad_banner_url = os.getenv('AD_BANNER_URL', 'https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1')
         self._build_ui()
 
     def _device_id(self) -> str:
@@ -637,12 +642,13 @@ class SurfApp(QtWidgets.QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.tabs = QtWidgets.QTabWidget()
-        self.tabs.addTab(self._build_dashboard_tab(), 'Puan & Özet')
+        self.tabs.addTab(self._build_dashboard_tab(), 'Puan/Özet')
         self.tabs.addTab(self._build_sites_tab(), 'Siteler')
         self.tabs.addTab(self._build_surf_tab(), 'Surf + Puan')
         self.tabs.addTab(self._build_google_tab(), 'Google Görevi')
         self.tabs.addTab(self._build_youtube_tab(), 'YouTube Görevi')
         self.tabs.addTab(self._build_points_info_tab(), 'Puan Sistemi / Özellikler')
+        self.tabs.addTab(self._build_system_stats_tab(), 'İstatistikler')
         self.tabs.addTab(self._build_mail_tab(), 'İletişim')
         self.tabs.addTab(self._build_log_tab(), 'Log')
         layout.addWidget(self.tabs)
@@ -652,6 +658,7 @@ class SurfApp(QtWidgets.QMainWindow):
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(widget)
         layout.setSpacing(10)
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
         self.warning_bar = QtWidgets.QLabel()
         self.warning_bar.setVisible(False)
@@ -674,45 +681,20 @@ class SurfApp(QtWidgets.QMainWindow):
         progress_row.addWidget(self.timer_label)
         layout.addLayout(progress_row)
 
-        chart_row = QtWidgets.QHBoxLayout()
-        self.daily_chart = self._build_chart('Günlük Kazanç')
-        self.weekly_chart = self._build_chart('Haftalık Kazanç')
-        chart_row.addWidget(self.daily_chart)
-        chart_row.addWidget(self.weekly_chart)
-        layout.addLayout(chart_row)
+        selector_row = QtWidgets.QHBoxLayout()
+        selector_row.addWidget(QtWidgets.QLabel('Gösterim'))
+        self.points_range = QtWidgets.QComboBox()
+        for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
+            self.points_range.addItem(label, key)
+        selector_row.addWidget(self.points_range)
+        selector_row.addStretch()
+        layout.addLayout(selector_row)
+
+        self.points_chart = self._build_points_chart_view('Puan Akışı')
+        layout.addWidget(self.points_chart)
+        self.points_range.currentIndexChanged.connect(self._render_points_chart)
 
         return widget
-
-    def _build_chart(self, title: str) -> QChartView:
-        line = QLineSeries()
-        line.setColor(QtGui.QColor('#ec4899'))
-        bar_set = QBarSet('Toplam')
-        bar_set.setColor(QtGui.QColor('#60a5fa'))
-        bars = QBarSeries()
-        bars.append(bar_set)
-        chart = QChart()
-        chart.addSeries(bars)
-        chart.addSeries(line)
-        axis_x = QBarCategoryAxis()
-        axis_y = QValueAxis()
-        axis_y.setLabelFormat('%d')
-        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-        bars.attachAxis(axis_x)
-        bars.attachAxis(axis_y)
-        line.attachAxis(axis_x)
-        line.attachAxis(axis_y)
-        chart.setTitle(title)
-        chart.legend().setVisible(True)
-        chart.legend().setLabelColor(QtGui.QColor('#0f172a'))
-        view = QChartView(chart)
-        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        view.setProperty('line_series', line)
-        view.setProperty('bar_series', bars)
-        view.setProperty('bar_set', bar_set)
-        view.setProperty('axis_x', axis_x)
-        view.setProperty('axis_y', axis_y)
-        return view
 
     def _build_sites_tab(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
@@ -782,6 +764,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.site_table.setSortingEnabled(True)
         self.site_table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.site_table.itemSelectionChanged.connect(self._on_site_selected)
+        self._make_copy_only(self.site_table)
         outer.addWidget(self.site_table)
 
         pager = QtWidgets.QHBoxLayout()
@@ -938,6 +921,55 @@ class SurfApp(QtWidgets.QMainWindow):
         layout.addLayout(grid)
         return widget
 
+    def _build_system_stats_tab(self) -> QtWidgets.QWidget:
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(widget)
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+
+        title = QtWidgets.QLabel('Genel İstatistikler')
+        title.setStyleSheet('font-weight:bold; font-size:14px;')
+        layout.addWidget(title)
+
+        cards_layout = QtWidgets.QHBoxLayout()
+        cards_layout.setSpacing(12)
+        self.system_cards: Dict[str, QtWidgets.QLabel] = {}
+        card_defs = [
+            ('Sites', '#0ea5e9', 'sites'),
+            ('Kullanıcılar', '#8b5cf6', 'users'),
+            ('Kazanılan', '#22c55e', 'earned'),
+            ('Harcanan', '#ef4444', 'spent'),
+            ('Ziyaretler', '#f59e0b', 'visits'),
+        ]
+        for title_txt, color, key in card_defs:
+            frame = QtWidgets.QFrame()
+            frame.setStyleSheet(f'background: #f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px;')
+            vbox = QtWidgets.QVBoxLayout(frame)
+            label = QtWidgets.QLabel(title_txt)
+            label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            label.setStyleSheet('font-weight:bold;')
+            value = QtWidgets.QLabel('0')
+            value.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            value.setStyleSheet(f'color:{color}; font-size:18px; font-weight:bold;')
+            vbox.addWidget(label)
+            vbox.addWidget(value)
+            cards_layout.addWidget(frame)
+            self.system_cards[key] = value
+        layout.addLayout(cards_layout)
+
+        range_row = QtWidgets.QHBoxLayout()
+        range_row.addWidget(QtWidgets.QLabel('Periyot'))
+        self.system_range = QtWidgets.QComboBox()
+        for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
+            self.system_range.addItem(label, key)
+        range_row.addWidget(self.system_range)
+        range_row.addStretch()
+        layout.addLayout(range_row)
+
+        self.system_chart = self._build_mix_chart_view('Ziyaret ve Puan Akışı')
+        layout.addWidget(self.system_chart)
+        self.system_range.currentIndexChanged.connect(self._render_system_chart)
+        return widget
+
     def _build_action_checkboxes(self, include_media: bool = True) -> dict:
         container = QtWidgets.QGroupBox('Görev Aksiyonları')
         grid = QtWidgets.QGridLayout(container)
@@ -1072,8 +1104,16 @@ class SurfApp(QtWidgets.QMainWindow):
         self.remaining_bar.setValue(0)
         self.timer_label.setText('Animasyonlu Sayaç: 0 sn')
         self.warning_bar.setVisible(False)
-        self._fill_chart(self.daily_chart, [('0', 0)])
-        self._fill_chart(self.weekly_chart, [('0', 0)])
+        self.points_history_data = {
+            'daily': [{'label': '0', 'earned': 0, 'spent': 0}],
+            'weekly': [{'label': '0', 'earned': 0, 'spent': 0}],
+            'monthly': [{'label': '0', 'earned': 0, 'spent': 0}],
+        }
+        self.system_history_data = {}
+        if hasattr(self, 'points_chart'):
+            self._render_points_chart()
+        if hasattr(self, 'system_chart'):
+            self._render_system_chart()
         self._reset_forms()
         self._toast('Çıkış yapıldı')
 
@@ -1121,6 +1161,16 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_view.setPixmap(QtGui.QPixmap())
         self.live_view.setText('Chromium bekleme modunda')
 
+    def _make_copy_only(self, table: QtWidgets.QTableWidget):
+        table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.itemClicked.connect(lambda item: self._copy_item(item))
+
+    def _copy_item(self, item: Optional[QtWidgets.QTableWidgetItem]):
+        if not item:
+            return
+        QtWidgets.QApplication.clipboard().setText(item.text())
+        self.status_label.setText('Kopyalandı')
+
     def _init_client(self):
         base_url = self.base_url_input.text().strip()
         if not base_url:
@@ -1150,6 +1200,7 @@ class SurfApp(QtWidgets.QMainWindow):
             self._append_log(f'Görev puan konfigürasyonu alınamadı: {exc}')
         self.load_sites()
         self.load_mail_settings()
+        self.refresh_system_stats()
 
     def refresh_dashboard(self):
         if not self.client or not self.token:
@@ -1192,36 +1243,156 @@ class SurfApp(QtWidgets.QMainWindow):
         try:
             history = self.client.points_history(self.token)
         except Exception:
-            history = []
-        if not history:
-            history = [{'label': 'Gün 1', 'daily': 0, 'weekly': 0}]
-        self._fill_chart(self.daily_chart, [(item['label'], item.get('daily', 0)) for item in history])
-        self._fill_chart(self.weekly_chart, [(item['label'], item.get('weekly', 0)) for item in history])
+            history = {}
+        if not isinstance(history, dict) or not history:
+            history = {
+                'daily': [{'label': '0', 'earned': 0, 'spent': 0}],
+                'weekly': [{'label': '0', 'earned': 0, 'spent': 0}],
+                'monthly': [{'label': '0', 'earned': 0, 'spent': 0}],
+            }
+        self.points_history_data = history
+        self._render_points_chart()
 
-    def _fill_chart(self, view: QChartView, items: List[Tuple[str, int]]):
-        if not items:
-            items = [('0', 0)]
-        line: QLineSeries = view.property('line_series')
-        bars: QBarSeries = view.property('bar_series')
-        bar_set: QBarSet = view.property('bar_set')
-        axis_x: QBarCategoryAxis = view.property('axis_x')
-        axis_y: QValueAxis = view.property('axis_y')
-        line.clear()
-        bar_set.remove(0, bar_set.count()) if bar_set.count() else None
-        categories = []
-        values = []
-        for idx, (label, value) in enumerate(items):
+    def _build_points_chart_view(self, title: str) -> QChartView:
+        chart = QChart()
+        earned = QLineSeries()
+        earned.setColor(QtGui.QColor('#3b82f6'))
+        earned.setName('Kazanılan')
+        spent = QLineSeries()
+        spent.setColor(QtGui.QColor('#ef4444'))
+        spent.setName('Harcanan')
+        chart.addSeries(earned)
+        chart.addSeries(spent)
+        axis_x = QBarCategoryAxis()
+        axis_y = QValueAxis()
+        axis_y.setLabelFormat('%d')
+        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
+        earned.attachAxis(axis_x)
+        earned.attachAxis(axis_y)
+        spent.attachAxis(axis_x)
+        spent.attachAxis(axis_y)
+        chart.setTitle(title)
+        chart.legend().setVisible(True)
+        view = QChartView(chart)
+        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        view.setProperty('earned_series', earned)
+        view.setProperty('spent_series', spent)
+        view.setProperty('axis_x', axis_x)
+        view.setProperty('axis_y', axis_y)
+        return view
+
+    def _render_points_chart(self):
+        if not hasattr(self, 'points_chart'):
+            return
+        period = self.points_range.currentData() if hasattr(self, 'points_range') else 'daily'
+        history = self.points_history_data.get(period, []) if isinstance(self.points_history_data, dict) else []
+        if not history:
+            history = [{'label': '0', 'earned': 0, 'spent': 0}]
+        earned_series: QLineSeries = self.points_chart.property('earned_series')
+        spent_series: QLineSeries = self.points_chart.property('spent_series')
+        axis_x: QBarCategoryAxis = self.points_chart.property('axis_x')
+        axis_y: QValueAxis = self.points_chart.property('axis_y')
+        earned_series.clear(); spent_series.clear(); axis_x.clear()
+        categories: List[str] = []
+        values: List[int] = []
+        for idx, row in enumerate(history):
+            label = str(row.get('label', idx))
             categories.append(label)
-            values.append(value)
-            line.append(idx, value)
-            bar_set.append(value)
-        axis_x.clear()
+            e_val = int(row.get('earned', 0))
+            s_val = int(row.get('spent', 0))
+            earned_series.append(idx, e_val)
+            spent_series.append(idx, s_val)
+            values.extend([e_val, s_val])
         axis_x.append(categories)
         min_val = min(values + [0])
         max_val = max(values + [0])
         pad = max(10, int((max_val - min_val) * 0.2) + 5)
         axis_y.setRange(min_val - pad, max_val + pad)
-        view.chart().update()
+        self.points_chart.chart().update()
+
+    def _build_mix_chart_view(self, title: str) -> QChartView:
+        chart = QChart()
+        visit_bars = QBarSeries()
+        visit_set = QBarSet('Ziyaret')
+        visit_set.setColor(QtGui.QColor('#0ea5e9'))
+        visit_bars.append(visit_set)
+        earned = QLineSeries(); earned.setName('Kazanılan'); earned.setColor(QtGui.QColor('#22c55e'))
+        spent = QLineSeries(); spent.setName('Harcanan'); spent.setColor(QtGui.QColor('#ef4444'))
+        chart.addSeries(visit_bars); chart.addSeries(earned); chart.addSeries(spent)
+        axis_x = QBarCategoryAxis(); axis_y = QValueAxis(); axis_y.setLabelFormat('%d')
+        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
+        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
+        visit_bars.attachAxis(axis_x); visit_bars.attachAxis(axis_y)
+        earned.attachAxis(axis_x); earned.attachAxis(axis_y)
+        spent.attachAxis(axis_x); spent.attachAxis(axis_y)
+        chart.setTitle(title)
+        chart.legend().setVisible(True)
+        view = QChartView(chart)
+        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        view.setProperty('visit_set', visit_set)
+        view.setProperty('earned_series', earned)
+        view.setProperty('spent_series', spent)
+        view.setProperty('axis_x', axis_x)
+        view.setProperty('axis_y', axis_y)
+        return view
+
+    def _render_system_chart(self):
+        if not hasattr(self, 'system_chart'):
+            return
+        period = self.system_range.currentData() if hasattr(self, 'system_range') else 'daily'
+        visits_key = {
+            'daily': 'daily_visits',
+            'weekly': 'weekly_visits',
+            'monthly': 'monthly_visits',
+        }.get(period, 'daily_visits')
+        visit_history = self.system_history_data.get(visits_key, []) if isinstance(self.system_history_data, dict) else []
+        point_history = self.system_history_data.get(period, []) if isinstance(self.system_history_data, dict) else []
+        labels = []
+        visit_vals: List[int] = []
+        earned_series: QLineSeries = self.system_chart.property('earned_series')
+        spent_series: QLineSeries = self.system_chart.property('spent_series')
+        visit_set: QBarSet = self.system_chart.property('visit_set')
+        axis_x: QBarCategoryAxis = self.system_chart.property('axis_x')
+        axis_y: QValueAxis = self.system_chart.property('axis_y')
+        earned_series.clear(); spent_series.clear(); visit_set.remove(0, visit_set.count()) if visit_set.count() else None
+        axis_x.clear()
+        combined: List[int] = []
+        max_len = max(len(visit_history), len(point_history))
+        for idx in range(max_len):
+            v_row = visit_history[idx] if idx < len(visit_history) else {}
+            p_row = point_history[idx] if idx < len(point_history) else {}
+            label = str(v_row.get('label') or p_row.get('label') or idx)
+            labels.append(label)
+            v_val = int(v_row.get('visits', 0) or 0)
+            visit_vals.append(v_val)
+            visit_set.append(v_val)
+            e_val = int(p_row.get('earned', 0) or 0)
+            s_val = int(p_row.get('spent', 0) or 0)
+            earned_series.append(idx, e_val)
+            spent_series.append(idx, s_val)
+            combined.extend([v_val, e_val, s_val])
+        axis_x.append(labels or ['0'])
+        min_val = min(combined + [0])
+        max_val = max(combined + [0])
+        pad = max(5, int((max_val - min_val) * 0.25) + 5)
+        axis_y.setRange(min_val - pad, max_val + pad)
+        self.system_chart.chart().update()
+
+    def refresh_system_stats(self):
+        if not self.client or not self.token:
+            return
+        try:
+            stats = self.client.system_stats(self.token) or {}
+        except Exception as exc:  # noqa: BLE001
+            self._append_log(f'Sistem istatistiği alınamadı: {exc}')
+            return
+        summary = stats.get('summary', {})
+        for key, label in (self.system_cards or {}).items():
+            label.setText(str(summary.get(key, 0)))
+        history = stats.get('history', {}) if isinstance(stats, dict) else {}
+        self.system_history_data = history
+        self._render_system_chart()
 
     def add_or_update_site(self):
         if not self.client or not self.token:
@@ -1580,16 +1751,26 @@ class SurfApp(QtWidgets.QMainWindow):
         stats_layout.addWidget(summary_label)
         stats_layout.addWidget(points_label)
 
+        range_row = QtWidgets.QHBoxLayout()
+        range_row.addWidget(QtWidgets.QLabel('Periyot'))
+        site_range = QtWidgets.QComboBox()
+        for label, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
+            site_range.addItem(label, key)
+        range_row.addWidget(site_range)
+        range_row.addStretch()
+        stats_layout.addLayout(range_row)
+
         chart_row = QtWidgets.QHBoxLayout()
-        point_chart_row = QtWidgets.QHBoxLayout()
         stats_layout.addLayout(chart_row)
-        stats_layout.addLayout(point_chart_row)
+        site_chart = self._build_mix_chart_view('Ziyaret ve Harcama')
+        chart_row.addWidget(site_chart)
 
         table = QtWidgets.QTableWidget()
         mandatory_headers = ['Tarih', 'Ziyaretçi', 'Ülke', 'Şehir', 'Platform', 'Cihaz', 'Ziyaret', 'Scroll', 'Vurgu', 'Form', 'Medya']
         table.setColumnCount(len(mandatory_headers))
         table.setHorizontalHeaderLabels(mandatory_headers)
         table.setSortingEnabled(True)
+        self._make_copy_only(table)
         stats_layout.addWidget(table)
 
         pagination_row = QtWidgets.QHBoxLayout()
@@ -1607,6 +1788,7 @@ class SurfApp(QtWidgets.QMainWindow):
         # --- Rapor Ayarları Sekmesi ---
         report_tab = QtWidgets.QWidget()
         report_layout = QtWidgets.QVBoxLayout(report_tab)
+        report_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
         report_layout.setContentsMargins(10, 10, 10, 10)
 
         report_info = QtWidgets.QLabel(
@@ -1646,6 +1828,9 @@ class SurfApp(QtWidgets.QMainWindow):
         state = {
             'page': 1,
             'stats': None,
+            'history': {},
+            'chart': site_chart,
+            'range_box': site_range,
             'report_settings': {
                 'ip': include_ip.isChecked(),
                 'geo': include_geo.isChecked(),
@@ -1666,6 +1851,43 @@ class SurfApp(QtWidgets.QMainWindow):
             cb.toggled.connect(_update_report_settings)
         orientation_box.currentIndexChanged.connect(_update_report_settings)
 
+        def render_chart():
+            history = state.get('history', {}) or {}
+            period = state['range_box'].currentData()
+            visit_rows = history.get('charts', {}).get(period, [])
+            point_rows = history.get('point_charts', {}).get(period, [])
+            view: QChartView = state['chart']
+            visit_set: QBarSet = view.property('visit_set')
+            earned_series: QLineSeries = view.property('earned_series')
+            spent_series: QLineSeries = view.property('spent_series')
+            axis_x: QBarCategoryAxis = view.property('axis_x')
+            axis_y: QValueAxis = view.property('axis_y')
+            visit_set.remove(0, visit_set.count()) if visit_set.count() else None
+            earned_series.clear(); spent_series.clear(); axis_x.clear()
+            categories: List[str] = []
+            combined: List[int] = []
+            max_len = max(len(visit_rows), len(point_rows))
+            for idx in range(max_len or 1):
+                v_row = visit_rows[idx] if idx < len(visit_rows) else {}
+                p_row = point_rows[idx] if idx < len(point_rows) else {}
+                label = str(v_row.get('label') or p_row.get('label') or idx)
+                categories.append(label)
+                v_val = int(v_row.get('visits', 0) or 0)
+                visit_set.append(v_val)
+                e_val = int(p_row.get('earned', 0) or 0)
+                s_val = int(p_row.get('spent', 0) or 0)
+                earned_series.append(idx, e_val)
+                spent_series.append(idx, s_val)
+                combined.extend([v_val, e_val, s_val])
+            axis_x.append(categories or ['0'])
+            min_val = min(combined + [0])
+            max_val = max(combined + [0])
+            pad = max(5, int((max_val - min_val) * 0.2) + 5)
+            axis_y.setRange(min_val - pad, max_val + pad)
+            view.chart().update()
+
+        site_range.currentIndexChanged.connect(render_chart)
+
         def render(stats: dict):
             state['stats'] = stats
             summary = stats.get('summary', {})
@@ -1677,15 +1899,8 @@ class SurfApp(QtWidgets.QMainWindow):
                 f"Puanlar — Harcanan: {points.get('spent', 0)}"
             )
 
-            self._clear_layout(chart_row)
-            for title, key in [('Günlük', 'daily'), ('Haftalık', 'weekly'), ('Aylık', 'monthly')]:
-                view = self._build_stats_chart(title, stats.get('charts', {}).get(key) or [])
-                chart_row.addWidget(view)
-
-            self._clear_layout(point_chart_row)
-            for title, key in [('Puan / Gün', 'daily'), ('Puan / Hafta', 'weekly'), ('Puan / Ay', 'monthly')]:
-                view = self._build_point_chart(title, stats.get('point_charts', {}).get(key) or [])
-                point_chart_row.addWidget(view)
+            state['history'] = stats
+            render_chart()
 
             events = stats.get('events', [])
             table.setRowCount(len(events))
@@ -1734,64 +1949,6 @@ class SurfApp(QtWidgets.QMainWindow):
 
         load(1)
         dialog.exec()
-
-    def _build_stats_chart(self, title: str, rows: List[dict]) -> QChartView:
-        chart = QChart()
-        visits_set = QBarSet('Ziyaret')
-        visits_set.setColor(QtGui.QColor('#2563eb'))
-        categories: List[str] = []
-        for row in rows:
-            categories.append(str(row.get('label')))
-            visits_set.append(int(row.get('visits', 0)))
-        if not categories:
-            categories = ['Veri yok']
-            visits_set.append(0)
-        bars = QBarSeries()
-        bars.append(visits_set)
-        chart.addSeries(bars)
-        axis_x = QBarCategoryAxis()
-        axis_x.append(categories)
-        axis_y = QValueAxis()
-        axis_y.setLabelFormat('%d')
-        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-        bars.attachAxis(axis_x)
-        bars.attachAxis(axis_y)
-        chart.setTitle(title)
-        chart.legend().setVisible(True)
-        view = QChartView(chart)
-        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        return view
-
-    def _build_point_chart(self, title: str, rows: List[dict]) -> QChartView:
-        chart = QChart()
-        spent_set = QBarSet('Harcanan')
-        spent_set.setColor(QtGui.QColor('#ef4444'))
-        categories: List[str] = []
-        for row in rows:
-            categories.append(str(row.get('label')))
-            spent_set.append(int(row.get('spent', 0)))
-        if not categories:
-            categories = ['Veri yok']
-            spent_set.append(0)
-
-        bars = QBarSeries()
-        bars.append(spent_set)
-        chart.addSeries(bars)
-
-        axis_x = QBarCategoryAxis()
-        axis_x.append(categories)
-        axis_y = QValueAxis()
-        axis_y.setLabelFormat('%d')
-        chart.addAxis(axis_x, QtCore.Qt.AlignmentFlag.AlignBottom)
-        chart.addAxis(axis_y, QtCore.Qt.AlignmentFlag.AlignLeft)
-        bars.attachAxis(axis_x)
-        bars.attachAxis(axis_y)
-        chart.setTitle(title)
-        chart.legend().setVisible(True)
-        view = QChartView(chart)
-        view.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-        return view
 
     def _export_stats_pdf(self, stats: dict, settings: Optional[dict] = None):
         if not SimpleDocTemplate:
@@ -1968,7 +2125,12 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_view.setPixmap(QtGui.QPixmap())
         self.live_view.setText('Chromium açılıyor...')
         self.start_btn.setEnabled(False)
-        config = {**config, 'ad_banner_url': self.ad_banner_url}
+        ad_html = None
+        if isinstance(self.task_points, dict):
+            ad_html = self.task_points.get('ad_banner_html')
+        if not ad_html:
+            ad_html = '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>'
+        config = {**config, 'ad_banner_html': ad_html}
         self.worker_thread = QtCore.QThread()
         self.worker = SurfWorker(
             self.token,
