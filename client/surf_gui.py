@@ -241,8 +241,9 @@ class SurfWorker(QtCore.QObject):
     def _emit_progress_tick(self, started_at: float, planned_total: int, detail: str, elapsed_override: Optional[int] = None) -> None:
         now_elapsed = elapsed_override if elapsed_override is not None else int(time.monotonic() - started_at)
         total_seconds = max(1, planned_total)
-        percent = min(100, int((now_elapsed / total_seconds) * 100))
-        self.progress.emit(percent, now_elapsed, total_seconds, detail)
+        capped = min(now_elapsed, total_seconds)
+        percent = min(100, int((capped / total_seconds) * 100))
+        self.progress.emit(percent, capped, total_seconds, detail)
 
     def _progress_pump(self, started_at: float, planned_total: int, detail: str, stop_evt: threading.Event):
         while not stop_evt.wait(0.4):
@@ -274,6 +275,9 @@ class SurfWorker(QtCore.QObject):
         self._emit_progress_tick(started_at, planned_total, 'Başlatılıyor', elapsed_override=initial_elapsed)
         for step in plan:
             if not self._running:
+                break
+            remaining_time = planned_total - int(time.monotonic() - started_at)
+            if remaining_time <= 0:
                 break
             detail = f"{step.title} — {step.detail}"
             self.step_changed.emit(detail)
@@ -332,7 +336,7 @@ class SurfWorker(QtCore.QObject):
             time.sleep(sleep_for)
             elapsed_total = int(time.monotonic() - started_at)
             self._emit_progress_tick(started_at, planned_total, 'Bekleniyor', elapsed_override=elapsed_total)
-        final_total = max(planned_total, elapsed_total, 1)
+        final_total = max(planned_total, 1)
         self.progress.emit(100, final_total, final_total, 'Tamamlandı')
         return final_total, metrics
 
@@ -516,6 +520,16 @@ class SurfApp(QtWidgets.QMainWindow):
         self.google_enabled = True
         self.youtube_enabled = True
         self._build_ui()
+
+    def _validate_url(self, url: str) -> bool:
+        parsed = urlparse(url)
+        if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+            return False
+        try:
+            resp = requests.head(url, timeout=5, allow_redirects=True)
+            return resp.status_code < 400
+        except Exception:
+            return False
 
     def _device_id(self) -> str:
         cache_path = CURRENT_DIR / '.device_id'
@@ -1493,6 +1507,9 @@ class SurfApp(QtWidgets.QMainWindow):
         if not self.site_name.text().strip() or not self.site_url.text().strip():
             self._toast('Site adı ve URL alanları zorunludur', error=True)
             return
+        if not self._validate_url(self.site_url.text().strip()):
+            self._toast('Geçerli ve erişilebilir bir URL girin', error=True)
+            return
         payload = {
             'name': self.site_name.text(),
             'url': self.site_url.text(),
@@ -1530,6 +1547,9 @@ class SurfApp(QtWidgets.QMainWindow):
             return
         if not self.google_name.text().strip() or not self.google_url.text().strip() or not self.google_keyword.text().strip():
             self._toast('Google görevi için ad, URL ve arama kelimesi gerekli', error=True)
+            return
+        if not self._validate_url(self.google_url.text().strip()):
+            self._toast('Geçerli ve erişilebilir bir Google hedef URL\'si girin', error=True)
             return
         flags = self._collect_flags(self.google_actions)
         payload = {
@@ -1569,6 +1589,9 @@ class SurfApp(QtWidgets.QMainWindow):
             return
         if not self.youtube_name.text().strip() or not self.youtube_url.text().strip():
             self._toast('YouTube görevi için ad ve URL zorunlu', error=True)
+            return
+        if not self._validate_url(self.youtube_url.text().strip()):
+            self._toast('Geçerli ve erişilebilir bir YouTube linki girin', error=True)
             return
         if self.youtube_search_cb.isChecked() and not self.youtube_keyword.text().strip():
             self._toast('Arama seçiliyse anahtar kelime gerekli', error=True)
@@ -1763,6 +1786,9 @@ class SurfApp(QtWidgets.QMainWindow):
             if not name_edit.text().strip() or not url_edit.text().strip():
                 self._toast('Ad ve URL boş olamaz', error=True)
                 return
+            if not self._validate_url(url_edit.text().strip()):
+                self._toast('Geçerli ve erişilebilir bir URL girin', error=True)
+                return
             payload = {
                 'name': name_edit.text(),
                 'url': url_edit.text(),
@@ -1791,11 +1817,17 @@ class SurfApp(QtWidgets.QMainWindow):
             if payload['google_enabled'] and (not payload['google_keyword'] or not payload['url']):
                 self._toast('Google görevi için kelime ve URL gerekli', error=True)
                 return
+            if payload['google_enabled'] and not self._validate_url(payload['url']):
+                self._toast('Geçerli bir Google hedef URL\'si girin', error=True)
+                return
             if payload['youtube_enabled'] and youtube_search_cb.isChecked() and not youtube_keyword.text().strip():
                 self._toast('YouTube araması için kelime girilmelidir', error=True)
                 return
             if payload['youtube_enabled'] and not payload['youtube_link']:
                 self._toast('YouTube linki boş olamaz', error=True)
+                return
+            if payload['youtube_enabled'] and not self._validate_url(payload['youtube_link']):
+                self._toast('Geçerli ve erişilebilir bir YouTube linki girin', error=True)
                 return
             try:
                 self.client.update_site(self.token, int(site_id), payload)
