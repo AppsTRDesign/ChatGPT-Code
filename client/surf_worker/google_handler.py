@@ -32,43 +32,49 @@ class GoogleHandler:
         except Exception:
             pass
 
-    def _try_recaptcha(self, page, rng) -> bool:
-        """
-        Bazı sonuç sayfalarında çıkan reCAPTCHA kutusunu tıklamayı dener.
-        Başarıyla kapatılırsa True, aksi halde False döner.
+    def _wait_recaptcha_manual(self, page, rng) -> Tuple[bool, float]:
+        """Kullanıcıya reCAPTCHA'yı elle çözmesi için fırsat tanır.
+
+        Dönüş: (çözüldü mü, duraksama_süresi)
         """
         selectors = [
             '.recaptcha-checkbox',
             '.rc-anchor-checkbox',
-            '.recaptcha-checkbox-border',
             'iframe[src*="recaptcha"]',
-            '.recaptcha-checkbox-unchecked',
             '.goog-inline-block.recaptcha-checkbox-unchecked',
         ]
-        try:
-            box = None
-            for sel in selectors:
+        start = time.monotonic()
+        box = None
+        for sel in selectors:
+            try:
                 box = page.query_selector(sel)
                 if box:
                     break
-            if not box:
-                return True  # recaptcha yok
-            # iframe içindeyse frame'e geç
+            except Exception:
+                continue
+        if not box:
+            return True, 0.0
+        try:
             if box.tag_name().lower() == 'iframe':
                 frame = box.content_frame()
                 if frame:
-                    inner = frame.query_selector('.recaptcha-checkbox-border')
-                    if inner:
-                        inner.click()
-                        frame.wait_for_timeout(rng.randint(600, 1200))
-                        return True
-            box.click()
-            page.wait_for_timeout(rng.randint(600, 1200))
-            # kutu kayboldu mu kontrol et
-            still = page.query_selector('.recaptcha-checkbox-unchecked, .rc-anchor-alert')
-            return still is None
+                    box = frame.query_selector('.recaptcha-checkbox-border') or box
         except Exception:
-            return False
+            pass
+        try:
+            box.scroll_into_view_if_needed()
+        except Exception:
+            pass
+        page.wait_for_timeout(rng.randint(400, 900))
+        self.log('reCAPTCHA algılandı, lütfen tarayıcıda elle geçin. 45 saniye bekleniyor...')
+        solved = False
+        try:
+            page.wait_for_selector('.recaptcha-checkbox-checked, .recaptcha-success', timeout=45000)
+            solved = True
+        except Exception:
+            solved = False
+        pause = time.monotonic() - start
+        return solved, pause
 
     def perform_google(self, playwright, cfg: dict, flags: dict, personality, apply_actions) -> Tuple[int, int, Dict, str, bool, int]:
         dwell = int(cfg.get('dwell', 30))
@@ -88,9 +94,6 @@ class GoogleHandler:
             for ch in keyword:
                 box.type(ch, delay=rng.randint(40, 110))
             box.press('Enter')
-            if not self._try_recaptcha(page, rng):
-                self.log('reCAPTCHA çözülemedi, görev atlanıyor')
-                recaptcha_blocked = True
         except Exception:
             page.goto(f'{host}/search?q={requests.utils.quote(keyword)}&hl=en&gl={country}', wait_until='domcontentloaded')
 
@@ -101,21 +104,25 @@ class GoogleHandler:
 
         search_start = time.monotonic()
         deadline = search_start + 90
+        page_index = 0
         while time.monotonic() < deadline:
             if rng.random() < 0.65:
                 self._serp_hover(page, rng)
-            results = page.query_selector_all('div.N54PNb.BToiNc a.zReHs[href]') or []
+            try:
+                results = page.query_selector_all('div.N54PNb.BToiNc a.zReHs[href]') or []
+            except Exception:
+                results = []
             for lnk in results:
                 href = lnk.get_attribute('href') or ''
                 if target and target in href and 'google' not in href:
-                    box = lnk.bounding_box() or {'x': 0, 'y': 0, 'width': 12, 'height': 12}
-                    lnk.hover()
-                    page.wait_for_timeout(rng.randint(120, 260))
-                    lnk.click(position={
-                        'x': rng.uniform(2, box.get('width', 12)),
-                        'y': rng.uniform(2, box.get('height', 12)),
-                    })
                     try:
+                        box = lnk.bounding_box() or {'x': 0, 'y': 0, 'width': 12, 'height': 12}
+                        lnk.hover()
+                        page.wait_for_timeout(rng.randint(120, 260))
+                        lnk.click(position={
+                            'x': rng.uniform(2, box.get('width', 12)),
+                            'y': rng.uniform(2, box.get('height', 12)),
+                        })
                         page.wait_for_load_state('domcontentloaded', timeout=10000)
                     except Exception:
                         pass
@@ -126,22 +133,27 @@ class GoogleHandler:
             elapsed_ms = (time.monotonic() - search_start) * 1000
             if elapsed_ms > limit_ms:
                 break
-            page_links = page.query_selector_all('td.NKTSme a')
-            next_btn = page.query_selector('a#pnnext, a[aria-label="Sonraki"], a[aria-label="Next"]')
+            solved, pause = self._wait_recaptcha_manual(page, rng)
+            if not solved:
+                recaptcha_blocked = True
+                deadline += pause
+                break
+            if pause:
+                deadline += pause
+            pagination_rows = page.query_selector_all('tr.mYW5bd td.NKTSme a') or []
             target_page = None
-            if page_links:
-                try:
-                    target_page = page_links[min(len(page_links) - 1, visited_pages)]
-                except Exception:
-                    target_page = page_links[-1]
+            if pagination_rows and page_index < len(pagination_rows) and visited_pages < pages:
+                target_page = pagination_rows[page_index]
+            elif visited_pages < pages:
+                target_page = page.query_selector('a#pnnext, a[aria-label="Sonraki"], a[aria-label="Next"]')
             if target_page and visited_pages < pages:
+                page_index += 1
                 visited_pages += 1
-                target_page.click()
-                page.wait_for_timeout(rng.randint(500, 900))
-            elif next_btn and visited_pages < pages:
-                visited_pages += 1
-                next_btn.click()
-                page.wait_for_timeout(rng.randint(500, 900))
+                try:
+                    target_page.click()
+                    page.wait_for_load_state('domcontentloaded', timeout=12000)
+                except Exception:
+                    page.wait_for_timeout(rng.randint(500, 900))
             else:
                 page.wait_for_timeout(rng.randint(380, 620))
         search_elapsed = int(time.monotonic() - search_start)

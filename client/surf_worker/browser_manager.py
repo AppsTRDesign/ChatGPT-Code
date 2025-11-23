@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -66,35 +67,29 @@ class BrowserManager:
 
     def _inject_ad_banner(self, page):
         try:
-            script = """
-                (() => {{
-                  const existing = document.getElementById('noasoft-banner');
-                  if (existing) return;
-                  const wrap = document.createElement('div');
-                  wrap.id = 'noasoft-banner';
-                  Object.assign(wrap.style, {{
-                    position: 'fixed', top: '0', left: '0', right: '0',
-                    background: '#0f172a', zIndex: 2147483646,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '6px', boxSizing: 'border-box'
-                  }});
-                  const closeBtn = document.createElement('button');
-                  closeBtn.innerText = '×';
-                  Object.assign(closeBtn.style, {{
-                    position: 'absolute', right: '8px', top: '8px',
-                    background: '#ef4444', color: '#fff', border: 'none',
-                    borderRadius: '4px', padding: '4px 8px', cursor: 'pointer'
-                  }});
-                  closeBtn.addEventListener('click', () => wrap.remove());
-                  const content = document.createElement('div');
-                  content.innerHTML = `{ad_html}`;
-                  Object.assign(content.style, {{width: '100%', maxWidth: '1200px'}});
-                  wrap.appendChild(content);
-                  wrap.appendChild(closeBtn);
-                  document.addEventListener('DOMContentLoaded', () => document.body.prepend(wrap));
-                  if (document.body) document.body.prepend(wrap);
-                })();
-            """.format(ad_html=self.ad_html.replace('`', ''))
+            ad_html_json = json.dumps(self.ad_html)
+            script = (
+                "(() => {"
+                "  try {"
+                "    if (document.getElementById('noasoft-banner')) return;"
+                "    const wrap = document.createElement('div');"
+                "    wrap.id = 'noasoft-banner';"
+                "    Object.assign(wrap.style, {position:'fixed',top:'0',left:'0',right:'0',background:'#0f172a',zIndex:2147483646,display:'flex',alignItems:'center',justifyContent:'center',padding:'6px',boxSizing:'border-box'});"
+                "    const closeBtn = document.createElement('button');"
+                "    closeBtn.innerText = '×';"
+                "    Object.assign(closeBtn.style, {position:'absolute',right:'8px',top:'8px',background:'#ef4444',color:'#fff',border:'none',borderRadius:'4px',padding:'4px 8px',cursor:'pointer'});"
+                "    closeBtn.addEventListener('click', () => wrap.remove());"
+                "    const content = document.createElement('div');"
+                f"    content.innerHTML = {ad_html_json};"
+                "    Object.assign(content.style, {width:'100%',maxWidth:'1200px'});"
+                "    wrap.appendChild(content);"
+                "    wrap.appendChild(closeBtn);"
+                "    const attach = () => { if (document.body && !document.getElementById('noasoft-banner')) document.body.prepend(wrap); };"
+                "    document.addEventListener('DOMContentLoaded', attach);"
+                "    attach();"
+                "  } catch (e) { console.warn('Reklam injeksiyonu hatası', e); }"
+                "})();"
+            )
             page.add_init_script(script)
         except Exception:
             self.log('Reklam alanı enjekte edilemedi')

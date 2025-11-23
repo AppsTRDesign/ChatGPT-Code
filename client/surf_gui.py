@@ -480,6 +480,8 @@ class SurfWorker(QtCore.QObject):
             message = str(exc)
             if 'Target page, context or browser has been closed' in message:
                 message = 'Sayfa veya tarayıcı kapandığı için görev tamamlanamadı'
+            if 'Execution context was destroyed' in message:
+                message = 'Sayfa yeniden yüklendiği için komut yarım kaldı'
             self.failed.emit(f'Surf sırasında hata: {message}')
 
 
