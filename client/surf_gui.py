@@ -24,6 +24,10 @@ from PyQt6.QtCharts import (
     QLineSeries,
     QValueAxis,
 )
+try:  # QtWebEngine is required for rich ad rendering; fall back silently if missing
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+except Exception:  # noqa: BLE001
+    QWebEngineView = None
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright
 
@@ -694,12 +698,25 @@ class SurfApp(QtWidgets.QMainWindow):
         frame.setStyleSheet('background:#0f172a; border-radius:10px;')
         layout = QtWidgets.QHBoxLayout(frame)
         layout.setContentsMargins(14, 10, 14, 10)
-        self.ad_label = QtWidgets.QLabel()
-        self.ad_label.setTextFormat(QtCore.Qt.TextFormat.RichText)
-        self.ad_label.setOpenExternalLinks(True)
-        self.ad_label.setWordWrap(True)
-        self.ad_label.setStyleSheet('color:white; font-size:13px;')
-        layout.addWidget(self.ad_label)
+
+        if QWebEngineView:
+            self.ad_view = QWebEngineView()
+            self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
+            self.ad_view.setZoomFactor(1.0)
+            self.ad_view.setMinimumHeight(110)
+            self.ad_view.setMaximumHeight(180)
+            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+            self.ad_view.page().setBackgroundColor(QtGui.QColor('#0f172a'))
+            layout.addWidget(self.ad_view)
+        else:
+            self.ad_view = None
+            self.ad_label = QtWidgets.QLabel()
+            self.ad_label.setTextFormat(QtCore.Qt.TextFormat.RichText)
+            self.ad_label.setOpenExternalLinks(True)
+            self.ad_label.setWordWrap(True)
+            self.ad_label.setStyleSheet('color:white; font-size:13px;')
+            layout.addWidget(self.ad_label)
+
         frame.setVisible(False)
         return frame
 
@@ -1443,7 +1460,14 @@ class SurfApp(QtWidgets.QMainWindow):
         if not ad_enabled:
             self.ad_banner.setVisible(False)
             return
-        self.ad_label.setText(ad_html or default_html)
+        if getattr(self, 'ad_view', None) is not None:
+            try:
+                base = QtCore.QUrl(self.base_url_input.text().strip() or 'https://noasoft.org')
+            except Exception:
+                base = QtCore.QUrl('https://noasoft.org')
+            self.ad_view.setHtml(ad_html or default_html, baseUrl=base)
+        else:
+            self.ad_label.setText(ad_html or default_html)
         self.ad_banner.setVisible(True)
 
     def _apply_task_tab_visibility(self):
