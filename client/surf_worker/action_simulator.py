@@ -247,7 +247,14 @@ class ActionSimulator:
                     continue
                 # Reklam bandı içindeki linkleri atla
                 try:
-                    if lnk.evaluate("el => !!el.closest('#noasoft-banner')"):
+                    if lnk.evaluate("el => !!el.closest('#noasoft-banner') || el.getAttribute('data-noasoft-banner') === '1'"):
+                        continue
+                except Exception:
+                    pass
+                try:
+                    box = lnk.bounding_box() or {}
+                    if box and box.get("y", 0) < 130:
+                        # Banner bölgesiyle çakışma ihtimali yüksekse geç
                         continue
                 except Exception:
                     pass
@@ -306,7 +313,10 @@ class ActionSimulator:
                 continue
 
             try:
-                choice.click(timeout=5000)
+                click_timeout = 5000
+                if budget_ms:
+                    click_timeout = max(800, min(5000, budget_ms))
+                choice.click(timeout=click_timeout)
                 post_pause = int(persona.reaction_delay_ms() * random.uniform(0.5, 1.2))
                 if deadline:
                     remaining = int(max(0, (deadline - time.monotonic()) * 1000))
@@ -334,71 +344,80 @@ class ActionSimulator:
         behavior = self.behavior if persona is self.persona else HumanBehaviorEngineV2(persona)
         deadline = time.monotonic() + budget_ms / 1000 if budget_ms else None
 
-        candidates = page.query_selector_all("p, h1, h2, h3, h4")
-        visible = [
-            el for el in candidates
-            if el.is_visible() and (el.text_content() or "").strip()
-        ]
-        if not visible:
+        selectors = ["h1", "h2", "h3", "h4", "h5", "h6", "p"]
+        elements = []
+        for sel in selectors:
+            try:
+                elems = page.query_selector_all(sel)
+            except Exception:
+                elems = []
+            for el in elems:
+                try:
+                    if el.is_visible() and (el.text_content() or "").strip():
+                        elements.append(el)
+                except Exception:
+                    continue
+        if not elements:
             return False
 
-        target = random.choice(visible)
-        box = target.bounding_box()
-        if not box:
-            return False
+        # Önce ilk görünen öğeleri dene, süre varsa bir ikincisini daha seç
+        picks = elements[:2]
+        success = False
+        for target in picks:
+            box = target.bounding_box()
+            if not box:
+                continue
+            start_x = int(box["x"] + 5)
+            start_y = int(box["y"] + box["height"] * random.uniform(0.35, 0.65))
+            end_x = int(box["x"] + box["width"] * random.uniform(0.55, 0.95))
+            end_y = start_y
 
-        start_x = int(box["x"] + 5)
-        start_y = int(box["y"] + box["height"] * random.uniform(0.35, 0.65))
-        end_x = int(box["x"] + box["width"] * random.uniform(0.55, 0.95))
-        end_y = start_y
+            path = behavior.generate_mouse_path((start_x, start_y), (end_x, end_y))
+            if not path:
+                continue
 
-        path = behavior.generate_mouse_path((start_x, start_y), (end_x, end_y))
-        if not path:
-            return False
+            page.mouse.move(start_x, start_y, steps=1)
+            page.mouse.down()
+            for x, y in path:
+                if deadline and time.monotonic() >= deadline:
+                    break
+                page.mouse.move(int(x), int(y), steps=1)
+                if random.random() < 0.6:
+                    pause = int(persona.reaction_delay_ms() * random.uniform(0.25, 0.8))
+                    if deadline:
+                        remaining = int(max(0, (deadline - time.monotonic()) * 1000))
+                        if remaining <= 0:
+                            break
+                        pause = min(pause, remaining)
+                    page.wait_for_timeout(pause)
+            page.mouse.up()
 
-        # drag ile seçme
-        page.mouse.move(start_x, start_y, steps=1)
-        page.mouse.down()
-        for x, y in path:
+            try:
+                target.evaluate(
+                    "el => { el.style.textDecoration = 'underline'; setTimeout(() => el.style.textDecoration='none', 1200); }"
+                )
+            except Exception:
+                pass
+
+            page.keyboard.press("Control+C")
+
+            dwell_factor = persona.dwell_factor_for_text()
+            pause = int(persona.reaction_delay_ms() * dwell_factor * 3.5)
+            if deadline:
+                remaining = int(max(0, (deadline - time.monotonic()) * 1000))
+                if remaining <= 0:
+                    return True
+                pause = min(pause, remaining)
+            page.wait_for_timeout(pause)
+            success = True
             if deadline and time.monotonic() >= deadline:
                 break
-            page.mouse.move(int(x), int(y), steps=1)
-            if random.random() < 0.6:
-                pause = int(persona.reaction_delay_ms() * random.uniform(0.25, 0.8))
-                if deadline:
-                    remaining = int(max(0, (deadline - time.monotonic()) * 1000))
-                    if remaining <= 0:
-                        break
-                    pause = min(pause, remaining)
-                page.wait_for_timeout(pause)
-        page.mouse.up()
 
-        # görsel efekt olsun diye belki css ile üzerini çiz
         try:
-            target.evaluate(
-                "el => { el.style.textDecoration = 'underline'; setTimeout(() => el.style.textDecoration='none', 1500); }"
-            )
+            page.evaluate("document.getSelection && document.getSelection().removeAllRanges && document.getSelection().removeAllRanges();")
         except Exception:
             pass
-
-        # kopyalama
-        page.keyboard.press("Control+A")
-        page.keyboard.press("Control+C")
-
-        # metin okuma süresini persona’ya göre ayarla
-        dwell_factor = persona.dwell_factor_for_text()
-        pause = int(persona.reaction_delay_ms() * dwell_factor * 4.0)
-        if deadline:
-            remaining = int(max(0, (deadline - time.monotonic()) * 1000))
-            if remaining <= 0:
-                return True
-            pause = min(pause, remaining)
-        page.wait_for_timeout(pause)
-        try:
-            target.evaluate("el => el.style.textDecoration = 'none'")
-        except Exception:
-            pass
-        return True
+        return success
 
     # ------------------------------------------------------------------ #
     # Form etkileşimi

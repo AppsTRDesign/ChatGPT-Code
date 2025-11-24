@@ -9,6 +9,7 @@ class BrowserManager:
         assets_dir: Path,
         log,
         ad_html: Optional[str] = None,
+        ad_enabled: bool = True,
         cursor_style: str = 'cursor_1',
         cursor_primary: str = '#0f172a',
         cursor_secondary: str = '#e11d48',
@@ -19,6 +20,7 @@ class BrowserManager:
         self.context = None
         self.page = None
         self._current_mobile = False
+        self.ad_enabled = ad_enabled
         self.ad_html = ad_html or (
             '<a href="https://noasoft.org" target="_blank">'
             '<img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;">'
@@ -46,7 +48,11 @@ class BrowserManager:
             self.browser = self.context
             self.page = self.context.new_page()
             self._inject_pointer_overlay(self.page)
-            self._inject_ad_banner(self.page)
+            if self.ad_enabled:
+                self._inject_ad_banner(self.page)
+                self._inject_click_guard(self.page)
+            else:
+                self._inject_click_guard(self.page, banner_only=False)
             self._patch_fingerprints(self.page)
             self._current_mobile = mobile
         return self.page
@@ -107,6 +113,7 @@ class BrowserManager:
                 "    Object.assign(content.style, {width:'100%',maxWidth:'1200px'});"
                 "    wrap.appendChild(content);"
                 "    wrap.appendChild(closeBtn);"
+                "    wrap.setAttribute('data-noasoft-banner', '1');"
                 "    const attach = () => { if (document.body && !document.getElementById('noasoft-banner')) document.body.prepend(wrap); };"
                 "    document.addEventListener('DOMContentLoaded', attach, { once: true });"
                 "    if (document.readyState !== 'loading') attach();"
@@ -116,6 +123,25 @@ class BrowserManager:
             page.add_init_script(script)
         except Exception:
             self.log('Reklam alanı enjekte edilemedi')
+
+    def _inject_click_guard(self, page, banner_only: bool = True):
+        try:
+            block_script = (
+                "(() => {"
+                "  const bannerSel = '#noasoft-banner';"
+                "  const allowBanner = el => el && (el.closest && el.closest(bannerSel));"
+                "  document.addEventListener('click', (ev) => {"
+                "    if (!ev.isTrusted) return;"
+                "    const target = ev.target;"
+                "    if (bannerSel && allowBanner(target)) return;"
+                "    if (!" + ("true" if banner_only else "false") + ") { ev.preventDefault(); ev.stopImmediatePropagation(); return; }"
+                "    ev.preventDefault(); ev.stopImmediatePropagation();"
+                "  }, true);"
+                "})();"
+            )
+            page.add_init_script(block_script)
+        except Exception:
+            self.log('Kullanıcı tıklama koruması eklenemedi')
 
     def attach_route_handler(self, pattern: str, handler):
         if not self.context:

@@ -850,11 +850,13 @@ function task_config_endpoint(array $config): void
         'google_base' => 90,
         'youtube_base' => 90,
         'ad_banner_html' => $config['ad_banner_html'] ?? null,
+        'ad_banner_enabled' => !empty($config['ad_banner_enabled']),
         'google_tasks_enabled' => !empty($config['google_tasks_enabled']),
         'youtube_tasks_enabled' => !empty($config['youtube_tasks_enabled']),
         'cursor_style' => $config['cursor_style'] ?? 'cursor_1',
         'cursor_primary' => $config['cursor_primary'] ?? '#0f172a',
         'cursor_secondary' => $config['cursor_secondary'] ?? '#e11d48',
+        'cursor_styles' => $config['cursor_styles'] ?? ['cursor_1' => 'Klasik ok', 'cursor_2' => 'İnce üçgen', 'cursor_3' => 'Daire imleç'],
     ]);
 }
 

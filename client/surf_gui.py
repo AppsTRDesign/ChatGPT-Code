@@ -216,6 +216,7 @@ class SurfWorker(QtCore.QObject):
         assets_dir = Path(__file__).resolve().parent / 'assets'
         log_fn = self.log.emit
         ad_html = self.task_config.get('ad_banner_html') or '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>'
+        ad_enabled = bool(int(self.task_config.get('ad_banner_enabled', 1)))
         cursor_style = self.task_config.get('cursor_style') or 'cursor_1'
         cursor_primary = self.task_config.get('cursor_primary') or '#0f172a'
         cursor_secondary = self.task_config.get('cursor_secondary') or '#e11d48'
@@ -223,6 +224,7 @@ class SurfWorker(QtCore.QObject):
             assets_dir,
             log_fn,
             ad_html=ad_html,
+            ad_enabled=ad_enabled,
             cursor_style=cursor_style,
             cursor_primary=cursor_primary,
             cursor_secondary=cursor_secondary,
@@ -273,7 +275,10 @@ class SurfWorker(QtCore.QObject):
         self.log.emit(f'Sayfa açılıyor: {url}')
         page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
-        planned_total = max(1, sum(s.seconds for s in plan))
+        plan_sum = max(1, sum(s.seconds for s in plan))
+        requested_total = int(site.get('dwell_seconds', plan_sum)) if site else plan_sum
+        planned_total = max(1, requested_total)
+        scale = planned_total / plan_sum if plan_sum else 1.0
         started_at = time.monotonic()
         viewport = page.viewport_size or {'width': 1280, 'height': 720}
         last_mouse: Optional[Tuple[int, int]] = (
@@ -289,7 +294,7 @@ class SurfWorker(QtCore.QObject):
             remaining_time = planned_total - int(time.monotonic() - started_at)
             if remaining_time <= 0:
                 break
-            step_budget_ms = max(0, min(step.seconds, remaining_time) * 1000)
+            step_budget_ms = max(0, min(int(step.seconds * scale), remaining_time) * 1000)
             detail = f"{step.title} — {step.detail}"
             self.step_changed.emit(detail)
             self.log.emit(detail)
@@ -2411,9 +2416,10 @@ class SurfApp(QtWidgets.QMainWindow):
         ad_html = None
         if isinstance(self.task_points, dict):
             ad_html = self.task_points.get('ad_banner_html')
+        ad_enabled = bool(int(self.task_points.get('ad_banner_enabled', 1))) if isinstance(self.task_points, dict) else True
         if not ad_html:
             ad_html = '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>'
-        config = {**config, 'ad_banner_html': ad_html}
+        config = {**config, 'ad_banner_html': ad_html, 'ad_banner_enabled': ad_enabled}
         self.worker_thread = QtCore.QThread()
         self.worker = SurfWorker(
             self.token,
