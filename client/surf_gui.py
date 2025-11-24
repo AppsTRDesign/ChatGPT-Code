@@ -2359,8 +2359,13 @@ class SurfApp(QtWidgets.QMainWindow):
                 ])
             if include_geo:
                 coord_txt = ''
-                if ev.get('latitude') is not None and ev.get('longitude') is not None:
-                    coord_txt = f"{ev.get('latitude'):.3f}, {ev.get('longitude'):.3f}"
+                lat = ev.get('latitude')
+                lon = ev.get('longitude')
+                if lat is not None and lon is not None:
+                    try:
+                        coord_txt = f"{float(lat):.3f}, {float(lon):.3f}"
+                    except Exception:
+                        coord_txt = f"{lat}, {lon}"
                 row.extend([
                     ev.get('country_code', ''),
                     coord_txt,
