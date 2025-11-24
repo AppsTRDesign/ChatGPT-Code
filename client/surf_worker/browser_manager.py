@@ -8,8 +8,6 @@ class BrowserManager:
         self,
         assets_dir: Path,
         log,
-        ad_html: Optional[str] = None,
-        ad_enabled: bool = True,
         cursor_style: str = 'cursor_1',
         cursor_primary: str = '#0f172a',
         cursor_secondary: str = '#e11d48',
@@ -20,12 +18,6 @@ class BrowserManager:
         self.context = None
         self.page = None
         self._current_mobile = False
-        self.ad_enabled = ad_enabled
-        self.ad_html = ad_html or (
-            '<a href="https://noasoft.org" target="_blank">'
-            '<img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;">'
-            '</a>'
-        )
         self.cursor_style = cursor_style or 'cursor_1'
         self.cursor_primary = cursor_primary or '#0f172a'
         self.cursor_secondary = cursor_secondary or '#e11d48'
@@ -48,11 +40,6 @@ class BrowserManager:
             self.browser = self.context
             self.page = self.context.new_page()
             self._inject_pointer_overlay(self.page)
-            if self.ad_enabled:
-                self._inject_ad_banner(self.page)
-                self._inject_click_guard(self.page)
-            else:
-                self._inject_click_guard(self.page, banner_only=False)
             self._patch_fingerprints(self.page)
             self._current_mobile = mobile
         return self.page
@@ -93,55 +80,6 @@ class BrowserManager:
             page.add_init_script(script)
         except Exception:
             self.log('İmleç overlay enjekte edilemedi')
-
-    def _inject_ad_banner(self, page):
-        try:
-            ad_html_json = json.dumps(self.ad_html)
-            script = (
-                "(() => {"
-                "  try {"
-                "    if (document.getElementById('noasoft-banner')) return;"
-                "    const wrap = document.createElement('div');"
-                "    wrap.id = 'noasoft-banner';"
-                "    Object.assign(wrap.style, {position:'fixed',top:'0',left:'0',right:'0',background:'#0f172a',zIndex:2147483646,display:'flex',alignItems:'center',justifyContent:'center',padding:'6px',boxSizing:'border-box'});"
-                "    const closeBtn = document.createElement('button');"
-                "    closeBtn.innerText = '×';"
-                "    Object.assign(closeBtn.style, {position:'absolute',right:'8px',top:'8px',background:'#ef4444',color:'#fff',border:'none',borderRadius:'4px',padding:'4px 8px',cursor:'pointer'});"
-                "    closeBtn.addEventListener('click', () => wrap.remove());"
-                "    const content = document.createElement('div');"
-                f"    content.innerHTML = {ad_html_json};"
-                "    Object.assign(content.style, {width:'100%',maxWidth:'1200px'});"
-                "    wrap.appendChild(content);"
-                "    wrap.appendChild(closeBtn);"
-                "    wrap.setAttribute('data-noasoft-banner', '1');"
-                "    const attach = () => { if (document.body && !document.getElementById('noasoft-banner')) document.body.prepend(wrap); };"
-                "    document.addEventListener('DOMContentLoaded', attach, { once: true });"
-                "    if (document.readyState !== 'loading') attach();"
-                "  } catch (e) { console.warn('Reklam injeksiyonu hatası', e); }"
-                "})();"
-            )
-            page.add_init_script(script)
-        except Exception:
-            self.log('Reklam alanı enjekte edilemedi')
-
-    def _inject_click_guard(self, page, banner_only: bool = True):
-        try:
-            block_script = (
-                "(() => {"
-                "  const bannerSel = '#noasoft-banner';"
-                "  const allowBanner = el => el && (el.closest && el.closest(bannerSel));"
-                "  document.addEventListener('click', (ev) => {"
-                "    if (!ev.isTrusted) return;"
-                "    const target = ev.target;"
-                "    if (bannerSel && allowBanner(target)) return;"
-                "    if (!" + ("true" if banner_only else "false") + ") { ev.preventDefault(); ev.stopImmediatePropagation(); return; }"
-                "    ev.preventDefault(); ev.stopImmediatePropagation();"
-                "  }, true);"
-                "})();"
-            )
-            page.add_init_script(block_script)
-        except Exception:
-            self.log('Kullanıcı tıklama koruması eklenemedi')
 
     def attach_route_handler(self, pattern: str, handler):
         if not self.context:

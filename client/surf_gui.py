@@ -215,16 +215,12 @@ class SurfWorker(QtCore.QObject):
         # Assets dizini her zaman client/assets altında, çalıştırma konumundan bağımsız
         assets_dir = Path(__file__).resolve().parent / 'assets'
         log_fn = self.log.emit
-        ad_html = self.task_config.get('ad_banner_html') or '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>'
-        ad_enabled = bool(int(self.task_config.get('ad_banner_enabled', 1)))
         cursor_style = self.task_config.get('cursor_style') or 'cursor_1'
         cursor_primary = self.task_config.get('cursor_primary') or '#0f172a'
         cursor_secondary = self.task_config.get('cursor_secondary') or '#e11d48'
         self.browser_mgr = BrowserManager(
             assets_dir,
             log_fn,
-            ad_html=ad_html,
-            ad_enabled=ad_enabled,
             cursor_style=cursor_style,
             cursor_primary=cursor_primary,
             cursor_secondary=cursor_secondary,
@@ -643,6 +639,9 @@ class SurfApp(QtWidgets.QMainWindow):
         header = self._build_header()
         root_layout.addWidget(header)
 
+        self.ad_banner = self._build_ad_banner()
+        root_layout.addWidget(self.ad_banner)
+
         self.stack = QtWidgets.QStackedWidget()
         self.stack.addWidget(self._build_auth_panel())
         self.stack.addWidget(self._build_app_panel())
@@ -688,6 +687,20 @@ class SurfApp(QtWidgets.QMainWindow):
         self.logout_btn.setVisible(False)
         self.logout_btn.setStyleSheet('background:#ef4444; color:white; padding:10px 14px; border-radius:10px; font-weight:bold;')
         layout.addWidget(self.logout_btn)
+        return frame
+
+    def _build_ad_banner(self) -> QtWidgets.QWidget:
+        frame = QtWidgets.QFrame()
+        frame.setStyleSheet('background:#0f172a; border-radius:10px;')
+        layout = QtWidgets.QHBoxLayout(frame)
+        layout.setContentsMargins(14, 10, 14, 10)
+        self.ad_label = QtWidgets.QLabel()
+        self.ad_label.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.ad_label.setOpenExternalLinks(True)
+        self.ad_label.setWordWrap(True)
+        self.ad_label.setStyleSheet('color:white; font-size:13px;')
+        layout.addWidget(self.ad_label)
+        frame.setVisible(False)
         return frame
 
     def _build_auth_panel(self) -> QtWidgets.QWidget:
@@ -1275,6 +1288,8 @@ class SurfApp(QtWidgets.QMainWindow):
         self.remaining_bar.setValue(0)
         self.timer_label.setText('Animasyonlu Sayaç: 0 sn')
         self.warning_bar.setVisible(False)
+        if hasattr(self, 'ad_banner'):
+            self.ad_banner.setVisible(False)
         self.points_history_data = {
             'daily': [{'label': '0', 'earned': 0, 'spent': 0}],
             'weekly': [{'label': '0', 'earned': 0, 'spent': 0}],
@@ -1407,10 +1422,29 @@ class SurfApp(QtWidgets.QMainWindow):
             self._append_log('Görev puan bilgisi alındı')
         except Exception as exc:  # noqa: BLE001
             self._append_log(f'Görev puan konfigürasyonu alınamadı: {exc}')
+        self._refresh_ad_banner()
         self._apply_task_tab_visibility()
         self.load_sites()
         self.load_mail_settings()
         self.refresh_system_stats()
+
+    def _refresh_ad_banner(self):
+        default_html = (
+            '<a href="https://noasoft.org" target="_blank">'
+            '<img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" '
+            'style="width:100%;max-width:1200px;">'
+            '</a>'
+        )
+        ad_html = ''
+        ad_enabled = True
+        if isinstance(self.task_points, dict):
+            ad_html = self.task_points.get('ad_banner_html') or default_html
+            ad_enabled = bool(int(self.task_points.get('ad_banner_enabled', 1)))
+        if not ad_enabled:
+            self.ad_banner.setVisible(False)
+            return
+        self.ad_label.setText(ad_html or default_html)
+        self.ad_banner.setVisible(True)
 
     def _apply_task_tab_visibility(self):
         if not hasattr(self, 'tabs'):
@@ -2413,13 +2447,6 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_view.setPixmap(QtGui.QPixmap())
         self.live_view.setText('Chromium açılıyor...')
         self.start_btn.setEnabled(False)
-        ad_html = None
-        if isinstance(self.task_points, dict):
-            ad_html = self.task_points.get('ad_banner_html')
-        ad_enabled = bool(int(self.task_points.get('ad_banner_enabled', 1))) if isinstance(self.task_points, dict) else True
-        if not ad_html:
-            ad_html = '<a href="https://noasoft.org" target="_blank"><img src="https://placehold.co/1200x90/1A1A1A/FFFFFF?text=Reklam+Alan%C4%B1" style="width:100%;max-width:1200px;"></a>'
-        config = {**config, 'ad_banner_html': ad_html, 'ad_banner_enabled': ad_enabled}
         self.worker_thread = QtCore.QThread()
         self.worker = SurfWorker(
             self.token,
