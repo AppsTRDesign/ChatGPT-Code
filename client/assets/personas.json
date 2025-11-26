@@ -1,0 +1,98 @@
+[
+  {
+    "name": "fast",
+    "mouse_speed": 0.9,
+    "mouse_smoothness": 0.3,
+    "scroll_intensity": 0.9,
+    "scroll_style": "constant",
+    "click_frequency": 0.3,
+    "attention_span": 0.3,
+    "hesitation": 0.1,
+    "error_rate": 0.05,
+    "reaction_time_min_ms": 80,
+    "reaction_time_max_ms": 200,
+    "media_behavior": "skip",
+    "read_behavior": "skim"
+  },
+  {
+    "name": "reader",
+    "mouse_speed": 0.4,
+    "mouse_smoothness": 0.8,
+    "scroll_intensity": 0.3,
+    "scroll_style": "stop_and_go",
+    "click_frequency": 0.7,
+    "attention_span": 0.9,
+    "hesitation": 0.6,
+    "error_rate": 0.3,
+    "reaction_time_min_ms": 300,
+    "reaction_time_max_ms": 800,
+    "media_behavior": "focused",
+    "read_behavior": "deep"
+  },
+  {
+    "name": "clicker",
+    "mouse_speed": 0.6,
+    "mouse_smoothness": 0.5,
+    "scroll_intensity": 0.4,
+    "scroll_style": "stop_and_go",
+    "click_frequency": 0.9,
+    "attention_span": 0.5,
+    "hesitation": 0.2,
+    "error_rate": 0.25,
+    "reaction_time_min_ms": 120,
+    "reaction_time_max_ms": 400,
+    "media_behavior": "curious",
+    "read_behavior": "scan"
+  },
+  {
+    "name": "media_fan",
+    "mouse_speed": 0.5,
+    "mouse_smoothness": 0.7,
+    "scroll_intensity": 0.5,
+    "scroll_style": "constant",
+    "click_frequency": 0.4,
+    "attention_span": 0.8,
+    "hesitation": 0.4,
+    "error_rate": 0.2,
+    "reaction_time_min_ms": 150,
+    "reaction_time_max_ms": 600,
+    "media_behavior": "intense",
+    "read_behavior": "scan"
+  },
+  {
+    "name": "hesitant",
+    "mouse_speed": 0.3,
+    "mouse_smoothness": 0.5,
+    "scroll_intensity": 0.2,
+    "scroll_style": "micro",
+    "click_frequency": 0.2,
+    "attention_span": 0.4,
+    "hesitation": 0.9,
+    "error_rate": 0.4,
+    "reaction_time_min_ms": 400,
+    "reaction_time_max_ms": 1000,
+    "media_behavior": "random",
+    "read_behavior": "inconsistent"
+  },
+  {
+    "name": "night_reader",
+    "extends": "reader",
+    "mouse_speed": 0.35,
+    "scroll_style": "stop_and_go",
+    "attention_span": 1.0,
+    "hesitation": 0.7,
+    "media_behavior": "focused",
+    "read_behavior": "deep"
+  },
+  {
+    "name": "balanced_human",
+    "mix": [
+      { "name": "fast", "weight": 0.6 },
+      { "name": "reader", "weight": 0.4 }
+    ],
+    "mouse_smoothness": 0.65,
+    "scroll_style": "constant",
+    "media_behavior": "curious",
+    "read_behavior": "scan"
+  }
+]
