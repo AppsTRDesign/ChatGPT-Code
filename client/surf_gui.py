@@ -540,11 +540,11 @@ class SurfApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('NoaSoft AutoSurf Kontrol Paneli')
-        self.setMinimumSize(900, 760)
+        self.setMinimumSize(900, 870)
         self.worker = None
         self.worker_thread = None
         self.persona_profiles = None
-        self.resize(1220, 780)
+        self.resize(1220, 890)
         self.client: Optional[ApiClient] = None
         self.token: Optional[str] = None
         self.worker_thread: Optional[QtCore.QThread] = None
@@ -727,48 +727,59 @@ class SurfApp(QtWidgets.QMainWindow):
         frame = QtWidgets.QFrame()
         frame.setStyleSheet('background:#0f172a; border-radius:10px;')
         frame.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+
         layout = QtWidgets.QHBoxLayout(frame)
         layout.setContentsMargins(10, 8, 10, 0)
         layout.setSpacing(6)
 
         if QWebEngineView:
             self.ad_view = QWebEngineView()
+
+            # --- Sayfa kontrol ---
             self.ad_view.setPage(AdPage(self.ad_view))
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
+
+            # --- Başlangıç yükseklikleri ---
             self.ad_view.setMinimumHeight(100)
             self.ad_view.setMaximumHeight(16777215)  # sınırsız
+
+            # --- Cursor (banner genelinde el işareti) ---
+            self.ad_view.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
+
+            # --- Focus ayarları ---
             self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
             self.ad_view.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Expanding,
                 QtWidgets.QSizePolicy.Policy.Fixed,
             )
+
+            # --- Web engine ayarları ---
             try:
                 page = self.ad_view.page()
                 page.setBackgroundColor(QtGui.QColor('#0f172a'))
+
                 if QWebEngineSettings:
-                    settings = page.settings()
-                    settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-                    settings.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
-                    settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
-                    settings.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
-                    settings.setAttribute(
-                        QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
-                    )
-                    settings.setAttribute(
-                        QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
-                    )
-                    settings.setAttribute(
-                        QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True
-                    )
-                    settings.setAttribute(
-                        QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True
-                    )
-                page.loadFinished.connect(lambda ok: self._fix_link_cursor())
-                page.loadFinished.connect(lambda ok: self._auto_resize_banner())
+                    s = page.settings()
+                    s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+                    s.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
+                    s.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+                    s.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+                    s.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
+                    s.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+                    s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
+                    s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
+
+                # --- Link el imleci + otomatik boyut ---
+                page.loadFinished.connect(self._fix_link_cursor)
+                page.loadFinished.connect(self._auto_resize_banner)
+
             except Exception:
                 pass
+
             layout.addWidget(self.ad_view)
+
+        # --- WebEngine yoksa label'a düş ---
         else:
             self.ad_view = None
             self.ad_label = QtWidgets.QLabel()
@@ -1163,7 +1174,7 @@ class SurfApp(QtWidgets.QMainWindow):
         cards_layout.setSpacing(12)
         self.system_cards: Dict[str, QtWidgets.QLabel] = {}
         card_defs = [
-            ('Sites', '#0ea5e9', 'sites'),
+            ('Siteler', '#0ea5e9', 'sites'),
             ('Kullanıcılar', '#8b5cf6', 'users'),
             ('Kazanılan', '#22c55e', 'earned'),
             ('Harcanan', '#ef4444', 'spent'),
@@ -1608,6 +1619,67 @@ class SurfApp(QtWidgets.QMainWindow):
             self.ad_view.page().runJavaScript(js, apply_height)
         except Exception:
             pass
+
+    def _resize_banner_to_content(self):
+        if not getattr(self, "ad_view", None):
+            return
+
+        try:
+            js = """
+        (function() {
+            var body = document.body;
+            var html = document.documentElement;
+
+            var h1 = body ? body.scrollHeight : 0;
+            var h2 = body ? body.offsetHeight : 0;
+            var h3 = html ? html.scrollHeight : 0;
+            var h4 = html ? html.offsetHeight : 0;
+            var h5 = html ? html.clientHeight : 0;
+
+            var maxH = Math.max(h1, h2, h3, h4, h5);
+
+            var iframes = document.getElementsByTagName('iframe');
+            for (var i = 0; i < iframes.length; i++) {
+                try {
+                    var ih = iframes[i].scrollHeight 
+                          || iframes[i].offsetHeight 
+                          || iframes[i].clientHeight;
+                    if (ih > maxH) maxH = ih;
+                } catch(e){}
+            }
+
+            return maxH;
+        })();
+            """
+
+            def _apply_height(h):
+                if not h:
+                    return
+
+                try:
+                    h = int(float(h))
+                except Exception:
+                    return
+
+                # --- Esmer Yakışıklım için final ayarlar ---
+                MIN_H = 100      # 90 da olur ama 100 daha estetik
+                MAX_H = 600      # hem özgür hem güvenli
+                PADDING = 20     # üst-alt boşluk
+
+                new_h = h + PADDING
+
+                if new_h < MIN_H:
+                    new_h = MIN_H
+                elif new_h > MAX_H:
+                    new_h = MAX_H
+
+                print(f"[BANNER AUTO] içerik:{h} → uygulanan:{new_h}")
+                self.ad_view.setFixedHeight(new_h)
+
+            self.ad_view.page().runJavaScript(js, _apply_height)
+
+        except Exception as e:
+            print("resize error:", e)
 
     def _fix_link_cursor(self):
         if not getattr(self, "ad_view", None):
