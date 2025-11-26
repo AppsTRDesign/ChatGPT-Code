@@ -26,9 +26,9 @@ from PyQt6.QtCharts import (
     QValueAxis,
 )
 try:  # QtWebEngine is required for rich ad rendering; fall back silently if missing
-    from PyQt6.QtWebEngineWidgets import QWebEnginePage, QWebEngineView
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
 except Exception:  # noqa: BLE001
-    QWebEnginePage = QWebEngineView = None
+    QWebEngineView = None
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright
 
@@ -37,49 +37,8 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 
-if QWebEnginePage:
+if QWebEngineView:
     from PyQt6.QtWebEngineCore import QWebEngineSettings
-
-    class AdPage(QWebEnginePage):
-        """Opens ad clicks externally while still letting the creative load inline."""
-
-        def __init__(self, parent=None):  # noqa: D401
-            super().__init__(parent)
-            try:
-                self.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-                self.settings().setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
-                self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
-                self.settings().setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
-                self.settings().setAttribute(
-                    QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
-                )
-                self.settings().setAttribute(
-                    QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
-                )
-                self.settings().setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
-                self.settings().setAttribute(
-                    QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True
-                )
-                self.settings().setAttribute(
-                    QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True
-                )
-            except Exception:
-                pass
-
-        def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # type: ignore[override]
-            # Only divert explicit link clicks; allow the initial setHtml load and in-frame assets.
-            try:
-                if nav_type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
-                    QtGui.QDesktopServices.openUrl(url)
-                    return False
-            except Exception:
-                # In case enum access fails, fall back to allowing unless it is a user click
-                pass
-            return True
-
-        def createWindow(self, _type):  # noqa: D401
-            # Prevent in-view popups; rely on acceptNavigationRequest
-            return None
 
 from surf_worker import (
     ActionSimulator,
@@ -135,15 +94,13 @@ class ApiClient:
         except Exception as exc:
             raise requests.HTTPError(f'Geçersiz JSON yanıtı: {resp.text[:200]}') from exc
 
-    def register(self, email: str, password: str, name: str, password_confirm: str, device_id: str, allow_multi: int = 0, max_multi: int = 5):
+    def register(self, email: str, password: str, name: str, password_confirm: str, device_id: str):
         resp = self._request('POST', '/auth/register', json={
             'email': email,
             'password': password,
             'password_confirm': password_confirm,
             'name': name,
             'device_id': device_id,
-            'allow_multi_account': allow_multi,
-            'max_multi_accounts': max_multi,
         })
         return self._json(resp)
 
@@ -753,10 +710,22 @@ class SurfApp(QtWidgets.QMainWindow):
             self.ad_view.setZoomFactor(1.0)
             self.ad_view.setMinimumHeight(140)
             self.ad_view.setMaximumHeight(200)
-            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
             try:
-                self.ad_view.setPage(AdPage(self.ad_view))
-                self.ad_view.page().setBackgroundColor(QtGui.QColor('#0f172a'))
+                page = self.ad_view.page()
+                page.setBackgroundColor(QtGui.QColor('#0f172a'))
+                if QWebEngineSettings:
+                    settings = page.settings()
+                    settings.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+                    settings.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
+                    settings.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+                    settings.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+                    settings.setAttribute(
+                        QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
+                    )
+                    settings.setAttribute(
+                        QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
+                    )
             except Exception:
                 pass
             layout.addWidget(self.ad_view)
@@ -1533,14 +1502,7 @@ class SurfApp(QtWidgets.QMainWindow):
             )
 
             try:
-                tmp = getattr(self, "_ad_tmp", None)
-                if not tmp:
-                    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
-                    tmp = Path(tmp_file.name)
-                    tmp_file.close()
-                    self._ad_tmp = tmp
-                tmp.write_text(full_html, encoding="utf-8")
-                self.ad_view.load(QtCore.QUrl.fromLocalFile(str(tmp)))
+                self.ad_view.setContent(full_html.encode("utf-8"), "text/html", base)
             except Exception:
                 self.ad_view.setHtml(full_html, baseUrl=base)
         else:
