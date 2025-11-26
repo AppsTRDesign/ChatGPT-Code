@@ -5,6 +5,7 @@ import random
 import string
 import time
 import threading
+import tempfile
 import uuid
 import hashlib
 from datetime import datetime
@@ -753,9 +754,11 @@ class SurfApp(QtWidgets.QMainWindow):
             self.ad_view.setMinimumHeight(140)
             self.ad_view.setMaximumHeight(200)
             self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
-            if QWebEnginePage and 'AdPage' in globals():
+            try:
                 self.ad_view.setPage(AdPage(self.ad_view))
-            self.ad_view.page().setBackgroundColor(QtGui.QColor('#0f172a'))
+                self.ad_view.page().setBackgroundColor(QtGui.QColor('#0f172a'))
+            except Exception:
+                pass
             layout.addWidget(self.ad_view)
         else:
             self.ad_view = None
@@ -1529,8 +1532,17 @@ class SurfApp(QtWidgets.QMainWindow):
                 "</body></html>"
             )
 
-            # setContent keeps external assets working while honoring the provided base URL.
-            self.ad_view.setContent(full_html.encode("utf-8"), "text/html", base)
+            try:
+                tmp = getattr(self, "_ad_tmp", None)
+                if not tmp:
+                    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
+                    tmp = Path(tmp_file.name)
+                    tmp_file.close()
+                    self._ad_tmp = tmp
+                tmp.write_text(full_html, encoding="utf-8")
+                self.ad_view.load(QtCore.QUrl.fromLocalFile(str(tmp)))
+            except Exception:
+                self.ad_view.setHtml(full_html, baseUrl=base)
         else:
             self.ad_label.setText(ad_html)
 
