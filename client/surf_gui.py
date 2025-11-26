@@ -25,15 +25,32 @@ from PyQt6.QtCharts import (
     QValueAxis,
 )
 try:  # QtWebEngine is required for rich ad rendering; fall back silently if missing
-    from PyQt6.QtWebEngineWidgets import QWebEngineView
+    from PyQt6.QtWebEngineWidgets import QWebEnginePage, QWebEngineView
 except Exception:  # noqa: BLE001
-    QWebEngineView = None
+    QWebEnginePage = QWebEngineView = None
 from PyQt6.QtSvgWidgets import QSvgWidget
 from playwright.sync_api import Playwright
 
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
+
+
+if QWebEnginePage:
+    class AdPage(QWebEnginePage):
+        """Opens ad clicks in the default browser instead of navigating inline."""
+
+        def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # type: ignore[override]
+            try:
+                # Always launch external links in the system browser
+                QtGui.QDesktopServices.openUrl(url)
+            except Exception:
+                pass
+            return False
+
+        def createWindow(self, _type):  # noqa: D401
+            # Prevent in-view popups; rely on acceptNavigationRequest
+            return None
 
 from surf_worker import (
     ActionSimulator,
@@ -512,7 +529,7 @@ class SurfApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('NoaSoft AutoSurf Kontrol Paneli')
-        self.setMinimumSize(820, 640)
+        self.setMinimumSize(900, 760)
         self.worker = None
         self.worker_thread = None
         self.persona_profiles = None
@@ -703,9 +720,11 @@ class SurfApp(QtWidgets.QMainWindow):
             self.ad_view = QWebEngineView()
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
-            self.ad_view.setMinimumHeight(110)
-            self.ad_view.setMaximumHeight(180)
-            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+            self.ad_view.setMinimumHeight(140)
+            self.ad_view.setMaximumHeight(200)
+            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+            if QWebEnginePage and 'AdPage' in globals():
+                self.ad_view.setPage(AdPage(self.ad_view))
             self.ad_view.page().setBackgroundColor(QtGui.QColor('#0f172a'))
             layout.addWidget(self.ad_view)
         else:
