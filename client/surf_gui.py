@@ -27,6 +27,7 @@ from PyQt6.QtCharts import (
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtSvgWidgets import QSvgWidget
 from PyQt6.QtGui import QDesktopServices
 from playwright.sync_api import Playwright
@@ -571,6 +572,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.stats_refresh_interval = 30000
         self.google_enabled = True
         self.youtube_enabled = True
+        self.channel = QWebChannel(self)
         self._build_ui()
 
     def _validate_url(self, url: str) -> bool:
@@ -735,26 +737,21 @@ class SurfApp(QtWidgets.QMainWindow):
         if QWebEngineView:
             self.ad_view = QWebEngineView()
 
-            # --- Sayfa kontrol ---
             self.ad_view.setPage(AdPage(self.ad_view))
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
 
-            # --- Başlangıç yükseklikleri ---
             self.ad_view.setMinimumHeight(100)
-            self.ad_view.setMaximumHeight(16777215)  # sınırsız
-
-            # --- Cursor (banner genelinde el işareti) ---
+            self.ad_view.setMaximumHeight(16777215)  # Qt maksimum değer
+            
             self.ad_view.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
 
-            # --- Focus ayarları ---
             self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
             self.ad_view.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Expanding,
-                QtWidgets.QSizePolicy.Policy.Fixed,
+                QtWidgets.QSizePolicy.Policy.Fixed
             )
 
-            # --- Web engine ayarları ---
             try:
                 page = self.ad_view.page()
                 page.setBackgroundColor(QtGui.QColor('#0f172a'))
@@ -770,24 +767,23 @@ class SurfApp(QtWidgets.QMainWindow):
                     s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
                     s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
 
-                # --- Link el imleci + otomatik boyut ---
                 page.loadFinished.connect(self._fix_link_cursor)
                 page.loadFinished.connect(self._auto_resize_banner)
+                page.loadFinished.connect(self._inject_resize_observer)
 
             except Exception:
                 pass
 
             layout.addWidget(self.ad_view)
 
-        # --- WebEngine yoksa label'a düş ---
         else:
             self.ad_view = None
-            self.ad_label = QtWidgets.QLabel()
-            self.ad_label.setTextFormat(QtCore.Qt.TextFormat.RichText)
-            self.ad_label.setOpenExternalLinks(True)
-            self.ad_label.setWordWrap(True)
-            self.ad_label.setStyleSheet('color:white; font-size:13px;')
-            layout.addWidget(self.ad_label)
+            label = QtWidgets.QLabel()
+            label.setTextFormat(QtCore.Qt.TextFormat.RichText)
+            label.setOpenExternalLinks(True)
+            label.setWordWrap(True)
+            label.setStyleSheet('color:white; font-size:13px;')
+            layout.addWidget(label)
 
         frame.setVisible(False)
         return frame
@@ -1566,59 +1562,101 @@ class SurfApp(QtWidgets.QMainWindow):
         if not getattr(self, "ad_view", None):
             return
 
-        js = """
-        (function(){
-            let body = document.body;
-            let html = document.documentElement;
+        js = r"""
+    (function() {
+        let maxH = 0;
 
-            let values = [
-                body ? body.scrollHeight : 0,
-                body ? body.offsetHeight : 0,
-                body ? body.clientHeight : 0,
-                html ? html.scrollHeight : 0,
-                html ? html.offsetHeight : 0,
-                html ? html.clientHeight : 0
-            ];
+        // 1) IMG'ler
+        try {
+            let imgs = document.getElementsByTagName("img");
+            for (let i = 0; i < imgs.length; i++) {
+                let ih = imgs[i].naturalHeight || imgs[i].clientHeight || imgs[i].offsetHeight;
+                if (ih > maxH) maxH = ih;
+            }
+        } catch(e){}
 
-            let maxH = Math.max.apply(null, values);
-
-            // iframe derin tarama (YouTube, TikTok, reklam)
-            let iframes = document.getElementsByTagName('iframe');
+        // 2) Tüm IFRAME'ler
+        try {
+            let iframes = document.getElementsByTagName("iframe");
             for (let i = 0; i < iframes.length; i++) {
                 let f = iframes[i];
-                let h = f.scrollHeight || f.offsetHeight || f.clientHeight;
-                if (h > maxH) maxH = h;
+                let ih = f.clientHeight || f.scrollHeight || f.offsetHeight;
+
+                // Google Ads için özel tarama
+                try {
+                    let doc = f.contentWindow.document;
+                    let b1 = doc.body ? doc.body.scrollHeight : 0;
+                    let b2 = doc.documentElement ? doc.documentElement.scrollHeight : 0;
+                    ih = Math.max(ih, b1, b2);
+                } catch(e){}
+
+                if (ih > maxH) maxH = ih;
             }
+        } catch(e){}
 
-            return maxH || 0;
-        })();
-        """
+        // 3) DOM yüksekliği (son çare)
+        try {
+            let body = document.body;
+            let html = document.documentElement;
+            let domH = Math.max(
+                body.scrollHeight, body.offsetHeight,
+                html.clientHeight, html.scrollHeight, html.offsetHeight
+            );
+            if (domH > maxH) maxH = domH;
+        } catch(e){}
 
-        def apply_height(h):
+        return maxH;
+    })();
+    """
+
+        def apply(h):
             try:
                 h = int(float(h))
             except Exception:
                 return
 
-            if h < 50:
+            if h <= 0:
                 return
 
-            if h > 450:
-                h += 40
-            elif h > 300:
-                h += 25
-            else:
-                h += 15
+            MIN_H = 90
+            MAX_H = 600
+            PADDING = 20
 
-            h = max(120, min(600, h))
+            new_h = max(MIN_H, min(h + PADDING, MAX_H))
 
-            print(f"[BANNER AUTO] içerik={h}")
-            self.ad_view.setFixedHeight(h)
+            print(f"[AUTO-RESIZE] içerik={h} → uygulanacak={new_h}")
+            self.ad_view.setFixedHeight(new_h)
 
         try:
-            self.ad_view.page().runJavaScript(js, apply_height)
+            self.ad_view.page().runJavaScript(js, apply)
+        except Exception as e:
+            print("resize error:", e)
+
+    def _inject_resize_observer(self):
+        if not getattr(self, "ad_view", None):
+            return
+
+        js = r"""
+    (function() {
+        let ro = new ResizeObserver(() => {
+            try { qt.autoResize(); } catch(e){}
+        });
+
+        ro.observe(document.body);
+    })();
+    """
+
+        self.ad_view.page().setWebChannel(self.channel)
+        try:
+            self.channel.registerObject("qt", self)
         except Exception:
             pass
+
+        self.ad_view.page().runJavaScript(js)
+
+    @QtCore.pyqtSlot()
+    def autoResize(self):
+        self._auto_resize_banner()
 
     def _resize_banner_to_content(self):
         if not getattr(self, "ad_view", None):
