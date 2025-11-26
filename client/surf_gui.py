@@ -56,6 +56,12 @@ if QWebEnginePage:
                     QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
                 )
                 self.settings().setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
+                self.settings().setAttribute(
+                    QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True
+                )
+                self.settings().setAttribute(
+                    QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True
+                )
             except Exception:
                 pass
 
@@ -1517,7 +1523,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 f"{ad_html or default_html}"
                 "</body></html>"
             )
-            self.ad_view.setHtml(html_doc, baseUrl=base)
+            self.ad_view.setContent(html_doc.encode('utf-8'), 'text/html', base)
         else:
             self.ad_label.setText(ad_html or default_html)
         self.ad_banner.setVisible(True)
