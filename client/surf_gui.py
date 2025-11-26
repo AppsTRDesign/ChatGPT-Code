@@ -37,8 +37,11 @@ if str(CURRENT_DIR) not in sys.path:
 
 
 class AdPage(QWebEnginePage):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
-        print("NAV TYPE =", nav_type)
+        print("NAV TYPE =", nav_type, "MAIN_FRAME =", is_main_frame)
 
         if nav_type in (
             QWebEnginePage.NavigationType.NavigationTypeLinkClicked,
@@ -50,6 +53,17 @@ class AdPage(QWebEnginePage):
             return False
 
         return super().acceptNavigationRequest(url, nav_type, is_main_frame)
+
+    def createWindow(self, window_type):
+        popup_page = QWebEnginePage(self)
+
+        def handle_url(u):
+            if not u.isEmpty():
+                print("[POPUP CLICK] Açılıyor:", u.toString())
+                QDesktopServices.openUrl(u)
+
+        popup_page.urlChanged.connect(handle_url)
+        return popup_page
 
 from surf_worker import (
     ActionSimulator,
@@ -751,6 +765,7 @@ class SurfApp(QtWidgets.QMainWindow):
                         QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True
                     )
                 page.loadFinished.connect(self._resize_banner_to_content)
+                page.loadFinished.connect(lambda ok: self._fix_link_cursor())
             except Exception:
                 pass
             layout.addWidget(self.ad_view)
@@ -1540,19 +1555,63 @@ class SurfApp(QtWidgets.QMainWindow):
         if not getattr(self, "ad_view", None):
             return
         try:
-            def _update_height(h):
+            js = """
+        (function() {
+            var body = document.body;
+            var html = document.documentElement;
+
+            var h1 = body ? body.scrollHeight : 0;
+            var h2 = body ? body.offsetHeight : 0;
+            var h3 = html ? html.scrollHeight : 0;
+            var h4 = html ? html.offsetHeight : 0;
+            var h5 = html ? html.clientHeight : 0;
+
+            var maxH = Math.max(h1, h2, h3, h4, h5);
+
+            var iframes = document.getElementsByTagName('iframe');
+            for (var i = 0; i < iframes.length; i++) {
+                try {
+                    var ih = iframes[i].scrollHeight || iframes[i].offsetHeight || iframes[i].clientHeight;
+                    if (ih > maxH) maxH = ih;
+                } catch (e) {}
+            }
+
+            return maxH;
+        })();
+        """
+
+            def _apply_height(h):
                 if not h:
                     return
                 try:
-                    val = int(float(h))
+                    h = int(float(h))
                 except Exception:
                     return
-                clamped = max(110, min(190, val + 20))
-                self.ad_view.setFixedHeight(clamped)
+                new_h = h + 20
+                new_h = max(120, new_h)
+                new_h = min(600, new_h)
+                self.ad_view.setFixedHeight(new_h)
 
-            self.ad_view.page().runJavaScript(
-                "document.body ? document.body.scrollHeight : 0", _update_height
-            )
+            self.ad_view.page().runJavaScript(js, _apply_height)
+        except Exception:
+            pass
+
+    def _fix_link_cursor(self):
+        if not getattr(self, "ad_view", None):
+            return
+        js = """
+        const applyCursor = () => {
+            document.querySelectorAll('a').forEach(a => {
+                a.style.cursor = "pointer";
+            });
+        };
+        applyCursor();
+        new MutationObserver(applyCursor).observe(
+            document.body, { childList: true, subtree: true }
+        );
+        """
+        try:
+            self.ad_view.page().runJavaScript(js)
         except Exception:
             pass
 
