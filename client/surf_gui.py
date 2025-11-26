@@ -1529,12 +1529,8 @@ class SurfApp(QtWidgets.QMainWindow):
                 "</body></html>"
             )
 
-            temp_path = os.path.join(os.getcwd(), "banner_temp.html")
-            with open(temp_path, "w", encoding="utf-8") as f:
-                f.write(full_html)
-
-            url = QtCore.QUrl.fromLocalFile(temp_path)
-            self.ad_view.load(url)
+            # setContent keeps external assets working while honoring the provided base URL.
+            self.ad_view.setContent(full_html.encode("utf-8"), "text/html", base)
         else:
             self.ad_label.setText(ad_html)
 
