@@ -49,6 +49,12 @@ if QWebEnginePage:
                 self.settings().setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
                 self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
                 self.settings().setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+                self.settings().setAttribute(
+                    QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
+                )
+                self.settings().setAttribute(
+                    QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
+                )
                 self.settings().setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
             except Exception:
                 pass
@@ -1504,7 +1510,9 @@ class SurfApp(QtWidgets.QMainWindow):
             except Exception:
                 base = QtCore.QUrl('https://noasoft.org')
             html_doc = (
-                "<html><head><meta charset='utf-8'></head>"
+                "<html><head><meta charset='utf-8'>"
+                f"<base href='{base.toString(QtCore.QUrl.ComponentFormattingOption.PrettyDecoded)}'>"
+                "</head>"
                 "<body style='margin:0;padding:0;background:#0f172a;text-align:center;'>"
                 f"{ad_html or default_html}"
                 "</body></html>"
