@@ -736,8 +736,8 @@ class SurfApp(QtWidgets.QMainWindow):
             self.ad_view.setPage(AdPage(self.ad_view))
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
-            self.ad_view.setMinimumHeight(150)
-            self.ad_view.setMaximumHeight(220)
+            self.ad_view.setMinimumHeight(100)
+            self.ad_view.setMaximumHeight(16777215)  # sınırsız
             self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
             self.ad_view.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Expanding,
@@ -764,8 +764,8 @@ class SurfApp(QtWidgets.QMainWindow):
                     settings.setAttribute(
                         QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True
                     )
-                page.loadFinished.connect(self._resize_banner_to_content)
                 page.loadFinished.connect(lambda ok: self._fix_link_cursor())
+                page.loadFinished.connect(lambda ok: self._auto_resize_banner())
             except Exception:
                 pass
             layout.addWidget(self.ad_view)
@@ -1545,54 +1545,67 @@ class SurfApp(QtWidgets.QMainWindow):
                 self.ad_view.setContent(full_html.encode("utf-8"), "text/html", base)
             except Exception:
                 self.ad_view.setHtml(full_html, baseUrl=base)
-            self._resize_banner_to_content()
+            self._auto_resize_banner()
         else:
             self.ad_label.setText(ad_html)
 
         self.ad_banner.setVisible(True)
 
-    def _resize_banner_to_content(self):
+    def _auto_resize_banner(self):
         if not getattr(self, "ad_view", None):
             return
-        try:
-            js = """
-        (function() {
-            var body = document.body;
-            var html = document.documentElement;
 
-            var h1 = body ? body.scrollHeight : 0;
-            var h2 = body ? body.offsetHeight : 0;
-            var h3 = html ? html.scrollHeight : 0;
-            var h4 = html ? html.offsetHeight : 0;
-            var h5 = html ? html.clientHeight : 0;
+        js = """
+        (function(){
+            let body = document.body;
+            let html = document.documentElement;
 
-            var maxH = Math.max(h1, h2, h3, h4, h5);
+            let values = [
+                body ? body.scrollHeight : 0,
+                body ? body.offsetHeight : 0,
+                body ? body.clientHeight : 0,
+                html ? html.scrollHeight : 0,
+                html ? html.offsetHeight : 0,
+                html ? html.clientHeight : 0
+            ];
 
-            var iframes = document.getElementsByTagName('iframe');
-            for (var i = 0; i < iframes.length; i++) {
-                try {
-                    var ih = iframes[i].scrollHeight || iframes[i].offsetHeight || iframes[i].clientHeight;
-                    if (ih > maxH) maxH = ih;
-                } catch (e) {}
+            let maxH = Math.max.apply(null, values);
+
+            // iframe derin tarama (YouTube, TikTok, reklam)
+            let iframes = document.getElementsByTagName('iframe');
+            for (let i = 0; i < iframes.length; i++) {
+                let f = iframes[i];
+                let h = f.scrollHeight || f.offsetHeight || f.clientHeight;
+                if (h > maxH) maxH = h;
             }
 
-            return maxH;
+            return maxH || 0;
         })();
         """
 
-            def _apply_height(h):
-                if not h:
-                    return
-                try:
-                    h = int(float(h))
-                except Exception:
-                    return
-                new_h = h + 20
-                new_h = max(120, new_h)
-                new_h = min(600, new_h)
-                self.ad_view.setFixedHeight(new_h)
+        def apply_height(h):
+            try:
+                h = int(float(h))
+            except Exception:
+                return
 
-            self.ad_view.page().runJavaScript(js, _apply_height)
+            if h < 50:
+                return
+
+            if h > 450:
+                h += 40
+            elif h > 300:
+                h += 25
+            else:
+                h += 15
+
+            h = max(120, min(600, h))
+
+            print(f"[BANNER AUTO] içerik={h}")
+            self.ad_view.setFixedHeight(h)
+
+        try:
+            self.ad_view.page().runJavaScript(js, apply_height)
         except Exception:
             pass
 
