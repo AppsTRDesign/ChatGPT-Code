@@ -15,6 +15,12 @@ return [
     'cursor_style' => getenv('CURSOR_STYLE') ?: 'cursor_1',
     'cursor_primary' => getenv('CURSOR_PRIMARY') ?: '#0f172a',
     'cursor_secondary' => getenv('CURSOR_SECONDARY') ?: '#e11d48',
+    // Sistem istatistikleri yenileme modu: 1 = periyodik, 0 = işlemden sonra
+    'stats_auto_refresh' => getenv('STATS_AUTO_REFRESH') === '0' ? 0 : 1,
+    // Otomatik yenileme aralığı (saniye)
+    'stats_refresh_interval' => getenv('STATS_REFRESH_INTERVAL')
+        ? (int)getenv('STATS_REFRESH_INTERVAL')
+        : 30,
     // İsteğe göre yeni stiller için anahtar -> tanım eşleşmeleri
     'cursor_styles' => [
         'cursor_1' => 'Klasik ok',

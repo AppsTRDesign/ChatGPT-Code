@@ -47,6 +47,9 @@ if QWebEnginePage:
             try:
                 self.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
                 self.settings().setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
+                self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
+                self.settings().setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+                self.settings().setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
             except Exception:
                 pass
 
@@ -569,6 +572,8 @@ class SurfApp(QtWidgets.QMainWindow):
         self.live_timer = QtCore.QTimer(self)
         self.live_timer.setInterval(10000)
         self.live_timer.timeout.connect(self._refresh_live_data)
+        self.stats_auto_refresh = True
+        self.stats_refresh_interval = 30000
         self.google_enabled = True
         self.youtube_enabled = True
         self._build_ui()
@@ -1461,7 +1466,7 @@ class SurfApp(QtWidgets.QMainWindow):
             self.mail_from.setText(self.current_email)
         self._fetch_task_points()
         self.refresh_dashboard()
-        self.live_timer.start()
+        self._apply_refresh_policy()
 
     def _fetch_task_points(self):
         if not self.client or not self.token:
@@ -1476,6 +1481,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self.load_sites()
         self.load_mail_settings()
         self.refresh_system_stats()
+        self._apply_refresh_policy()
 
     def _refresh_ad_banner(self):
         default_html = (
@@ -1497,7 +1503,13 @@ class SurfApp(QtWidgets.QMainWindow):
                 base = QtCore.QUrl(self.base_url_input.text().strip() or 'https://noasoft.org')
             except Exception:
                 base = QtCore.QUrl('https://noasoft.org')
-            self.ad_view.setHtml(ad_html or default_html, baseUrl=base)
+            html_doc = (
+                "<html><head><meta charset='utf-8'></head>"
+                "<body style='margin:0;padding:0;background:#0f172a;text-align:center;'>"
+                f"{ad_html or default_html}"
+                "</body></html>"
+            )
+            self.ad_view.setHtml(html_doc, baseUrl=base)
         else:
             self.ad_label.setText(ad_html or default_html)
         self.ad_banner.setVisible(True)
@@ -1508,6 +1520,27 @@ class SurfApp(QtWidgets.QMainWindow):
         google_on = bool(int(self.task_points.get('google_tasks_enabled', 1)))
         youtube_on = bool(int(self.task_points.get('youtube_tasks_enabled', 1)))
         self._rebuild_tabs(google_on, youtube_on)
+
+    def _apply_refresh_policy(self):
+        auto = True
+        interval_ms = 30000
+        if isinstance(self.task_points, dict):
+            try:
+                auto = bool(int(self.task_points.get('stats_auto_refresh', 1)))
+            except Exception:
+                auto = True
+            try:
+                interval_ms = max(5000, int(self.task_points.get('stats_refresh_interval', 30)) * 1000)
+            except Exception:
+                interval_ms = 30000
+        self.stats_auto_refresh = auto
+        self.stats_refresh_interval = interval_ms
+        self.live_timer.setInterval(interval_ms)
+        if auto and self.token:
+            if not self.live_timer.isActive():
+                self.live_timer.start()
+        else:
+            self.live_timer.stop()
 
     def refresh_dashboard(self):
         if not self.client or not self.token:
@@ -1746,6 +1779,7 @@ class SurfApp(QtWidgets.QMainWindow):
             self._toast('Site kaydedildi ve havuza eklendi')
             self.load_sites()
             self.refresh_dashboard()
+            self._refresh_on_event()
         except Exception as exc:
             self._toast(f'Kayıt hatası: {exc}', error=True)
 
@@ -1788,6 +1822,7 @@ class SurfApp(QtWidgets.QMainWindow):
             self._toast('Google görevli site kaydedildi ve havuza eklendi')
             self.load_sites()
             self.refresh_dashboard()
+            self._refresh_on_event()
         except Exception as exc:  # noqa: BLE001
             self._toast(f'Google kayıt hatası: {exc}', error=True)
 
@@ -1833,6 +1868,7 @@ class SurfApp(QtWidgets.QMainWindow):
             self._toast('YouTube görevli site kaydedildi ve havuza eklendi')
             self.load_sites()
             self.refresh_dashboard()
+            self._refresh_on_event()
         except Exception as exc:  # noqa: BLE001
             self._toast(f'YouTube kayıt hatası: {exc}', error=True)
 
@@ -2589,6 +2625,7 @@ class SurfApp(QtWidgets.QMainWindow):
         self._toast(f'Oturum tamamlandı +{earned} puan')
         self.earnings_label.setText(f'Kazanılan: {earned} puan')
         self.refresh_dashboard()
+        self._refresh_on_event()
 
     def _on_failed(self, message: str):
         self._toast(f'Hata: {message}', error=True)
@@ -2599,6 +2636,11 @@ class SurfApp(QtWidgets.QMainWindow):
             return
         self.refresh_dashboard()
         self.refresh_system_stats()
+
+    def _refresh_on_event(self):
+        if self.stats_auto_refresh:
+            return
+        self._refresh_live_data()
 
     def load_mail_settings(self):
         if not self.client or not self.token:

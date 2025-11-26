@@ -11,6 +11,7 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   4. `api/.htaccess` dosyasını yayın klasörüne ekleyin; Authorization header’ını ve CORS’u korur, 404 yerine istekleri `index.php`
      üzerinden yönlendirir.
 5. Görev puanları için ekstra ayar gerekmiyor; Google/YouTube ödülleri arama süresi ve hedefin bulunmasına göre otomatik hesaplanır. Görev sekmelerini tamamen kapatmak isterseniz `api/config.php` içindeki `google_tasks_enabled` ve `youtube_tasks_enabled` değerlerini `0` (pasif) ya da `1` (aktif, varsayılan) yapabilirsiniz.
+6. Sistem istatistiklerini yenileme modu `stats_auto_refresh` (1 = belirlenen aralıkta otomatik, 0 = yalnızca işlemlerden sonra) ve aralık değeri `stats_refresh_interval` (saniye, varsayılan 30) ile ayarlanır.
 - **Endpoint’ler:**
   - `POST /auth/register` — email/şifre/isim ile kayıt, başlangıç puanı verir.
   - `POST /auth/login` — token üretir.
@@ -29,15 +30,15 @@ PHP tabanlı API ve PyQt6 ile hazırlanmış masaüstü kontrol paneli aynı rep
   - `GET /dashboard/history` — günlük/haftalık/aylık puan geçmişi (kazanılan/harcanan ayrımlı, d/m/Y – d/m/Y aralıklı etiketler).
   - `GET /stats/global` — toplam kullanıcı/site/ziyaret sayıları, kazanılan/harcanan puan ve günlük/haftalık/aylık ziyaret/puan serileri.
   - `GET /mail/settings` ve `POST /mail/send` — info@noasoft.org’a iletilecek mesajları API ayarlarından alır; `contact_email` değeri PHP `mail()` ile alıcı ve From olarak kullanılır.
-  - `GET /tasks/config` — Google/YouTube görev bilgilendirmesi (sabit 90 saniyelik arama tabanı) ve Playwright reklam HTML ayarı.
-    Aynı zamanda tarayıcı imleci için `cursor_style` (cursor_1/cursor_2/cursor_3) ve renk ayarlarını (`cursor_primary`,
-    `cursor_secondary`) döndürür.
+  - `GET /tasks/config` — Google/YouTube görev bilgilendirmesi (sabit 90 saniyelik arama tabanı), reklam HTML ayarı,
+    istatistik yenileme modu/aralığı ve tarayıcı imleci için `cursor_style` (cursor_1/cursor_2/cursor_3) ile renk ayarlarını
+    (`cursor_primary`, `cursor_secondary`) döndürür.
 
 ## Python GUI (PyQt6 + Playwright)
 - **Konum:** `client/surf_gui.py`
 - **Özellikler:**
   - NoaSoft logolu başlık kartı ve sağ üstte Discord kartı tarzı puan alanı; giriş yapılmadan kayıt/giriş/şifre sıfırla sekmeleri, girişten sonra ana sekmeler (Puan/Özet, Siteler, Surf + Puan, Google Görevi, YouTube Görevi, Puan Sistemi/Özellikler, İstatistikler, İletişim, Log). Google/YouTube sekmeleri `config.php` içindeki `google_tasks_enabled` ve `youtube_tasks_enabled` anahtarları 0’a çekildiğinde otomatik gizlenir.
-- Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; tek grafik üzerinde günlük/haftalık/aylık (seçilebilir) kazanılan/harcanan puan çizgileri veya bar görünümü, seri bazlı aç/kapat/tıklayınca üstü çizilen göstergeler.
+- Dashboard sekmesinde animasyonlu sayaç ve uyarı bandı; tek grafik üzerinde günlük/haftalık/aylık (seçilebilir) kazanılan/harcanan puan çizgileri veya bar görünümü, seri bazlı aç/kapat/tıklayınca üstü çizilen göstergeler. İstatistikler `stats_auto_refresh` değeri 1 ise ayarlanan saniye aralığında, 0 ise surf tamamlandığında/site işlemlerinden sonra yenilenir.
   - Site ekleme/güncelleme formu: süre, mobil/realistik/mouse/tıklama/scroll/form/media bayrakları, medya aksiyon checkbox’ları, detaylı davranış önizlemesi, sayfalama ve silme butonları.
   - Site detayları: her kayıtlı site için “Detaylar” butonu; ülke/şehir/IP/platform/cihaz/UA ve aksiyon adetleri tablo halinde, tek grafik üzerinde ziyaret ve harcama serileri (gün/hafta/ay seçilebilir) ve Türkçe karakter uyumlu PDF dışa aktarma (dikey/yatay yön seçilebilir, şehir alanı varsayılan görünür).
   - Surf sekmesi: Playwright Chromium ile gerçekçi gezinme (mobil UA, scroll, mouse hareketi, link tıklama, metin seçip çizme/kopyalama, form doldurup temizleme, medya kontrolleri), ilerleme çubuğu ve canlı önizleme (tarayıcı üzerinde yapay mouse overlay) ile puan kazanımı; loglar ayrı sekmede kopyalanabilir.

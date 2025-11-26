@@ -857,6 +857,8 @@ function task_config_endpoint(array $config): void
         'cursor_primary' => $config['cursor_primary'] ?? '#0f172a',
         'cursor_secondary' => $config['cursor_secondary'] ?? '#e11d48',
         'cursor_styles' => $config['cursor_styles'] ?? ['cursor_1' => 'Klasik ok', 'cursor_2' => 'İnce üçgen', 'cursor_3' => 'Daire imleç'],
+        'stats_auto_refresh' => isset($config['stats_auto_refresh']) ? (int)$config['stats_auto_refresh'] : 1,
+        'stats_refresh_interval' => isset($config['stats_refresh_interval']) ? (int)$config['stats_refresh_interval'] : 30,
     ]);
 }
 
