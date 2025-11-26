@@ -38,7 +38,7 @@ if str(CURRENT_DIR) not in sys.path:
 
 
 if QWebEngineView:
-    from PyQt6.QtWebEngineCore import QWebEngineSettings
+    from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 
 from surf_worker import (
     ActionSimulator,
@@ -701,16 +701,30 @@ class SurfApp(QtWidgets.QMainWindow):
     def _build_ad_banner(self) -> QtWidgets.QWidget:
         frame = QtWidgets.QFrame()
         frame.setStyleSheet('background:#0f172a; border-radius:10px;')
+        frame.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         layout = QtWidgets.QHBoxLayout(frame)
-        layout.setContentsMargins(14, 10, 14, 10)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(6)
 
         if QWebEngineView:
+            class _AdPage(QWebEnginePage):
+                def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # type: ignore[override]
+                    if nav_type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+                        QtGui.QDesktopServices.openUrl(url)
+                        return False
+                    return super().acceptNavigationRequest(url, nav_type, is_main_frame)
+
             self.ad_view = QWebEngineView()
+            self.ad_view.setPage(_AdPage(self.ad_view))
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
-            self.ad_view.setMinimumHeight(140)
-            self.ad_view.setMaximumHeight(200)
-            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+            self.ad_view.setMinimumHeight(130)
+            self.ad_view.setMaximumHeight(170)
+            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+            self.ad_view.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Expanding,
+                QtWidgets.QSizePolicy.Policy.Fixed,
+            )
             try:
                 page = self.ad_view.page()
                 page.setBackgroundColor(QtGui.QColor('#0f172a'))
@@ -726,6 +740,13 @@ class SurfApp(QtWidgets.QMainWindow):
                     settings.setAttribute(
                         QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True
                     )
+                    settings.setAttribute(
+                        QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True
+                    )
+                    settings.setAttribute(
+                        QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True
+                    )
+                page.loadFinished.connect(self._resize_banner_to_content)
             except Exception:
                 pass
             layout.addWidget(self.ad_view)
@@ -1505,10 +1526,31 @@ class SurfApp(QtWidgets.QMainWindow):
                 self.ad_view.setContent(full_html.encode("utf-8"), "text/html", base)
             except Exception:
                 self.ad_view.setHtml(full_html, baseUrl=base)
+            self._resize_banner_to_content()
         else:
             self.ad_label.setText(ad_html)
 
         self.ad_banner.setVisible(True)
+
+    def _resize_banner_to_content(self):
+        if not getattr(self, "ad_view", None):
+            return
+        try:
+            def _update_height(h):
+                if not h:
+                    return
+                try:
+                    val = int(float(h))
+                except Exception:
+                    return
+                clamped = max(110, min(190, val + 20))
+                self.ad_view.setFixedHeight(clamped)
+
+            self.ad_view.page().runJavaScript(
+                "document.body ? document.body.scrollHeight : 0", _update_height
+            )
+        except Exception:
+            pass
 
     def _apply_task_tab_visibility(self):
         if not hasattr(self, 'tabs'):
