@@ -37,16 +37,29 @@ if str(CURRENT_DIR) not in sys.path:
 
 
 if QWebEnginePage:
-    class AdPage(QWebEnginePage):
-        """Opens ad clicks in the default browser instead of navigating inline."""
+    from PyQt6.QtWebEngineCore import QWebEngineSettings
 
-        def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # type: ignore[override]
+    class AdPage(QWebEnginePage):
+        """Opens ad clicks externally while still letting the creative load inline."""
+
+        def __init__(self, parent=None):  # noqa: D401
+            super().__init__(parent)
             try:
-                # Always launch external links in the system browser
-                QtGui.QDesktopServices.openUrl(url)
+                self.settings().setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+                self.settings().setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
             except Exception:
                 pass
-            return False
+
+        def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # type: ignore[override]
+            # Only divert explicit link clicks; allow the initial setHtml load and in-frame assets.
+            try:
+                if nav_type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+                    QtGui.QDesktopServices.openUrl(url)
+                    return False
+            except Exception:
+                # In case enum access fails, fall back to allowing unless it is a user click
+                pass
+            return True
 
         def createWindow(self, _type):  # noqa: D401
             # Prevent in-view popups; rely on acceptNavigationRequest
