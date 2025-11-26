@@ -30,6 +30,7 @@ try:  # QtWebEngine is required for rich ad rendering; fall back silently if mis
 except Exception:  # noqa: BLE001
     QWebEngineView = None
 from PyQt6.QtSvgWidgets import QSvgWidget
+from PyQt6.QtGui import QDesktopServices
 from playwright.sync_api import Playwright
 
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -39,6 +40,15 @@ if str(CURRENT_DIR) not in sys.path:
 
 if QWebEngineView:
     from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
+
+    class BannerPage(QWebEnginePage):
+        """Custom page to allow banner clicks to open externally while keeping content running."""
+
+        def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # noqa: D401
+            if nav_type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
+                QDesktopServices.openUrl(url)
+                return False
+            return super().acceptNavigationRequest(url, nav_type, is_main_frame)
 
 from surf_worker import (
     ActionSimulator,
@@ -703,23 +713,20 @@ class SurfApp(QtWidgets.QMainWindow):
         frame.setStyleSheet('background:#0f172a; border-radius:10px;')
         frame.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         layout = QtWidgets.QHBoxLayout(frame)
-        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setContentsMargins(10, 8, 10, 0)
         layout.setSpacing(6)
 
         if QWebEngineView:
-            class _AdPage(QWebEnginePage):
-                def acceptNavigationRequest(self, url, nav_type, is_main_frame):  # type: ignore[override]
-                    if nav_type == QWebEnginePage.NavigationType.NavigationTypeLinkClicked:
-                        QtGui.QDesktopServices.openUrl(url)
-                        return False
-                    return super().acceptNavigationRequest(url, nav_type, is_main_frame)
-
             self.ad_view = QWebEngineView()
-            self.ad_view.setPage(_AdPage(self.ad_view))
+            if 'BannerPage' in globals():
+                try:
+                    self.ad_view.setPage(BannerPage(self.ad_view))
+                except Exception:
+                    pass
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
-            self.ad_view.setMinimumHeight(130)
-            self.ad_view.setMaximumHeight(170)
+            self.ad_view.setMinimumHeight(150)
+            self.ad_view.setMaximumHeight(220)
             self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
             self.ad_view.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Expanding,
