@@ -6,7 +6,8 @@ from typing import Dict, List, Optional, Tuple
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
-from PyQt6 import QtCore, QtGui, QtSvgWidgets, QtWidgets
+from PyQt6 import QtCore, QtSvgWidgets, QtWidgets
+from PyQt6.QtGui import QCursor
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -155,7 +156,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, APP_TITLE, "Lütfen arama kelimesi girin.")
             return
         self.fetch_filters_btn.setEnabled(False)
-        QtWidgets.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.CursorShape.BusyCursor))
+        QtWidgets.QApplication.setOverrideCursor(QCursor(QtCore.Qt.CursorShape.BusyCursor))
         try:
             filters = self.scraper.fetch_filters(term)
         finally:
