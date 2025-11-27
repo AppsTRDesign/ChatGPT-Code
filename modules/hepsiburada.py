@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
 
@@ -31,6 +32,17 @@ class HepsiburadaScraper:
         "Yeni Eklenenler": "siralama=enyeni",
     }
 
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+    def _launch_browser(self, playwright_client):
+        try:
+            self.logger.info("Chrome kanalı ile başlatılıyor (görünür)")
+            return playwright_client.chromium.launch(headless=False, channel="chrome")
+        except Exception as exc:
+            self.logger.warning("Chrome kanalı açılamadı, Chromium kullanılacak: %s", exc)
+            return playwright_client.chromium.launch(headless=False)
+
     def _build_url(self, term: str, quick_filters: List[str], sorting: Optional[str], extra_filters: List[str], page: int) -> str:
         params = [f"q={quote_plus(term)}"]
         for key in quick_filters:
@@ -45,15 +57,17 @@ class HepsiburadaScraper:
         return f"{self.BASE_URL}?" + "&".join(params)
 
     def fetch_filters(self, term: str) -> List[Tuple[str, str]]:
+        self.logger.info("Filtreler getiriliyor (aranan terim: %s)", term)
+        filters: List[Tuple[str, str]] = []
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = self._launch_browser(p)
             page = browser.new_page()
-            filters: List[Tuple[str, str]] = []
             try:
                 page.goto(f"{self.BASE_URL}?q={quote_plus(term)}", wait_until="networkidle")
                 try:
                     page.wait_for_selector("#VerticalFilter", timeout=7000)
                 except PlaywrightTimeoutError:
+                    self.logger.warning("Filtre alanı zaman aşımına uğradı")
                     return []
                 elements = page.query_selector_all("#VerticalFilter a")
                 for el in elements:
@@ -61,9 +75,12 @@ class HepsiburadaScraper:
                     text = el.inner_text().strip()
                     if href and text:
                         filters.append((text, href.replace("/ara?", "")))
+                self.logger.info("%s filtre bulundu", len(filters))
+            except Exception:
+                self.logger.exception("Filtreler alınırken hata oluştu")
             finally:
                 browser.close()
-            return filters
+        return filters
 
     def fetch_products(
         self,
@@ -75,40 +92,53 @@ class HepsiburadaScraper:
         per_page_limit: int,
     ) -> List[Product]:
         products: List[Product] = []
+        self.logger.info(
+            "Ürünler getiriliyor | arama='%s' sayfa_limit=%s sayfa_başı_limit=%s",
+            term,
+            page_limit,
+            per_page_limit,
+        )
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = self._launch_browser(p)
             page = browser.new_page()
-            for page_number in range(1, page_limit + 1):
-                url = self._build_url(term, quick_filters, sorting, extra_filters, page_number)
-                page.goto(url, wait_until="networkidle")
-                page.wait_for_timeout(1500)
-                card_selector = "li[class^='productListContent-']"
-                cards = page.query_selector_all(card_selector)
-                if not cards:
-                    break
-                collected = 0
-                for card in cards:
-                    title_el = card.query_selector("h2 a, h3 a")
-                    price_el = card.query_selector("[data-test-id^='final-price'], .price-module_finalPrice__LtjvY")
-                    img_el = card.query_selector("picture img[src^='https://productimages.hepsiburada.net']")
-                    link = title_el.get_attribute("href") if title_el else ""
-                    name = title_el.get_attribute("title") if title_el else ""
-                    price = price_el.inner_text().strip() if price_el else ""
-                    image = img_el.get_attribute("src") if img_el else ""
-                    if not image or "https://productimages.hepsiburada.net" not in image:
-                        continue
-                    is_ad = link.startswith("https://adservice.hepsiburada.com") if link else False
-                    products.append(
-                        Product(
-                            name=name or "",
-                            price=price or "",
-                            link=link or "",
-                            image=image,
-                            is_ad=is_ad,
-                        )
-                    )
-                    collected += 1
-                    if collected >= per_page_limit:
+            try:
+                for page_number in range(1, page_limit + 1):
+                    url = self._build_url(term, quick_filters, sorting, extra_filters, page_number)
+                    self.logger.info("Sayfa açılıyor: %s", url)
+                    page.goto(url, wait_until="networkidle")
+                    page.wait_for_timeout(1500)
+                    card_selector = "li[class^='productListContent-']"
+                    cards = page.query_selector_all(card_selector)
+                    if not cards:
+                        self.logger.info("Kart bulunamadı, döngü sonlandırılıyor (sayfa=%s)", page_number)
                         break
-            browser.close()
+                    collected = 0
+                    for card in cards:
+                        title_el = card.query_selector("h2 a, h3 a")
+                        price_el = card.query_selector("[data-test-id^='final-price'], .price-module_finalPrice__LtjvY")
+                        img_el = card.query_selector("picture img[src^='https://productimages.hepsiburada.net']")
+                        link = title_el.get_attribute("href") if title_el else ""
+                        name = title_el.get_attribute("title") if title_el else ""
+                        price = price_el.inner_text().strip() if price_el else ""
+                        image = img_el.get_attribute("src") if img_el else ""
+                        if not image or "https://productimages.hepsiburada.net" not in image:
+                            continue
+                        is_ad = link.startswith("https://adservice.hepsiburada.com") if link else False
+                        products.append(
+                            Product(
+                                name=name or "",
+                                price=price or "",
+                                link=link or "",
+                                image=image,
+                                is_ad=is_ad,
+                            )
+                        )
+                        collected += 1
+                        if collected >= per_page_limit:
+                            self.logger.info("Sayfa başına limit (%s) doldu", per_page_limit)
+                            break
+            except Exception:
+                self.logger.exception("Ürünler alınırken hata oluştu")
+            finally:
+                browser.close()
         return products
