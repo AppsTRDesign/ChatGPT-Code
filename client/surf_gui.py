@@ -1361,6 +1361,13 @@ class SurfApp(QtWidgets.QMainWindow):
         self.warning_bar.setVisible(False)
         if hasattr(self, 'ad_banner'):
             self.ad_banner.setVisible(False)
+            if getattr(self, 'ad_view', None) is not None:
+                try:
+                    # Başlangıç yüksekliğine dön ve içeriği sıfırla ki yeni oturumda yeniden hesaplansın
+                    self.ad_view.setFixedHeight(90)
+                    self.ad_view.setHtml('<html><body style="margin:0;padding:0;background:#0f172a;"></body></html>')
+                except Exception:
+                    pass
         self.points_history_data = {
             'daily': [{'label': '0', 'earned': 0, 'spent': 0}],
             'weekly': [{'label': '0', 'earned': 0, 'spent': 0}],
