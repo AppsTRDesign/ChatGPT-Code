@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import quote_plus
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 from include.models import Product
 
@@ -31,7 +32,7 @@ class HepsiburadaScraper:
     }
 
     def _build_url(self, term: str, quick_filters: List[str], sorting: Optional[str], extra_filters: List[str], page: int) -> str:
-        params = [f"q={term}"]
+        params = [f"q={quote_plus(term)}"]
         for key in quick_filters:
             if key in self.QUICK_FILTERS:
                 params.append(self.QUICK_FILTERS[key])
@@ -47,10 +48,13 @@ class HepsiburadaScraper:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto(f"{self.BASE_URL}?q={term}", wait_until="networkidle")
-            page.wait_for_timeout(2000)
             filters: List[Tuple[str, str]] = []
             try:
+                page.goto(f"{self.BASE_URL}?q={quote_plus(term)}", wait_until="networkidle")
+                try:
+                    page.wait_for_selector("#VerticalFilter", timeout=7000)
+                except PlaywrightTimeoutError:
+                    return []
                 elements = page.query_selector_all("#VerticalFilter a")
                 for el in elements:
                     href = el.get_attribute("href") or ""
@@ -68,6 +72,7 @@ class HepsiburadaScraper:
         sorting: Optional[str],
         extra_filters: List[str],
         page_limit: int,
+        per_page_limit: int,
     ) -> List[Product]:
         products: List[Product] = []
         with sync_playwright() as p:
@@ -81,6 +86,7 @@ class HepsiburadaScraper:
                 cards = page.query_selector_all(card_selector)
                 if not cards:
                     break
+                collected = 0
                 for card in cards:
                     title_el = card.query_selector("h2 a, h3 a")
                     price_el = card.query_selector("[data-test-id^='final-price'], .price-module_finalPrice__LtjvY")
@@ -101,5 +107,8 @@ class HepsiburadaScraper:
                             is_ad=is_ad,
                         )
                     )
+                    collected += 1
+                    if collected >= per_page_limit:
+                        break
             browser.close()
         return products

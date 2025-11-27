@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
-from PyQt6 import QtSvgWidgets, QtWidgets
+from PyQt6 import QtCore, QtSvgWidgets, QtWidgets
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -35,21 +35,32 @@ class HepsiburadaTab(QtWidgets.QWidget):
         form_layout = QtWidgets.QGridLayout()
         self.search_input = QtWidgets.QLineEdit()
         self.search_input.setPlaceholderText("Aranacak kelime")
+        self.search_input.textChanged.connect(self._disable_listing)
+
         self.page_input = QtWidgets.QSpinBox()
         self.page_input.setMinimum(1)
         self.page_input.setMaximum(50)
         self.page_input.setValue(2)
+
+        self.per_page_input = QtWidgets.QSpinBox()
+        self.per_page_input.setMinimum(1)
+        self.per_page_input.setMaximum(200)
+        self.per_page_input.setValue(50)
+
         self.fetch_filters_btn = QtWidgets.QPushButton("Filtreleri Getir")
         self.fetch_filters_btn.clicked.connect(self._load_filters)
         self.list_products_btn = QtWidgets.QPushButton("Ürünleri Listele")
+        self.list_products_btn.setEnabled(False)
         self.list_products_btn.clicked.connect(self._list_products)
 
         form_layout.addWidget(QtWidgets.QLabel("Arama"), 0, 0)
         form_layout.addWidget(self.search_input, 0, 1)
         form_layout.addWidget(QtWidgets.QLabel("Sayfa Sayısı"), 0, 2)
         form_layout.addWidget(self.page_input, 0, 3)
-        form_layout.addWidget(self.fetch_filters_btn, 0, 4)
-        form_layout.addWidget(self.list_products_btn, 0, 5)
+        form_layout.addWidget(QtWidgets.QLabel("Sayfa Başına Ürün"), 0, 4)
+        form_layout.addWidget(self.per_page_input, 0, 5)
+        form_layout.addWidget(self.fetch_filters_btn, 1, 0)
+        form_layout.addWidget(self.list_products_btn, 1, 1)
 
         layout.addLayout(form_layout)
 
@@ -143,12 +154,25 @@ class HepsiburadaTab(QtWidgets.QWidget):
         if not term:
             QtWidgets.QMessageBox.warning(self, APP_TITLE, "Lütfen arama kelimesi girin.")
             return
-        filters = self.scraper.fetch_filters(term)
+        self.fetch_filters_btn.setEnabled(False)
+        QtWidgets.QApplication.setOverrideCursor(QtWidgets.QCursor(QtCore.Qt.CursorShape.BusyCursor))
+        try:
+            filters = self.scraper.fetch_filters(term)
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+            self.fetch_filters_btn.setEnabled(True)
+        if not filters:
+            QtWidgets.QMessageBox.warning(self, APP_TITLE, "Filtreler alınamadı, lütfen tekrar deneyin.")
+            self.list_products_btn.setEnabled(False)
+            return
         self.dynamic_filters = filters
         for i in reversed(range(self.dynamic_filter_layout.count())):
-            widget = self.dynamic_filter_layout.itemAt(i).widget()
+            item = self.dynamic_filter_layout.itemAt(i)
+            widget = item.widget()
             if widget:
                 widget.setParent(None)
+            else:
+                self.dynamic_filter_layout.removeItem(item)
         self.dynamic_filter_checks: Dict[str, QtWidgets.QCheckBox] = {}
         for name, query in filters:
             cb = QtWidgets.QCheckBox(name)
@@ -156,6 +180,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
             self.dynamic_filter_layout.addWidget(cb)
             self.dynamic_filter_checks[name] = cb
         self.dynamic_filter_layout.addStretch()
+        self.list_products_btn.setEnabled(True)
 
     def _collect_quick_filters(self) -> List[str]:
         return [label for label, cb in self.quick_filter_checks.items() if cb.isChecked()]
@@ -185,8 +210,12 @@ class HepsiburadaTab(QtWidgets.QWidget):
         sorting = self._collect_sorting()
         extra_filters = self._collect_dynamic_filters()
         page_limit = self.page_input.value()
-        self.products = self.scraper.fetch_products(term, quick_filters, sorting, extra_filters, page_limit)
+        per_page_limit = self.per_page_input.value()
+        self.products = self.scraper.fetch_products(term, quick_filters, sorting, extra_filters, page_limit, per_page_limit)
         self.table.populate(self.products)
+
+    def _disable_listing(self):
+        self.list_products_btn.setEnabled(False)
 
     def _export_json(self):
         selected = self.table.checked_products()
