@@ -736,54 +736,39 @@ class SurfApp(QtWidgets.QMainWindow):
 
         if QWebEngineView:
             self.ad_view = QWebEngineView()
-
             self.ad_view.setPage(AdPage(self.ad_view))
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
-
-            self.ad_view.setMinimumHeight(100)
-            self.ad_view.setMaximumHeight(16777215)  # Qt maksimum değer
-            
-            self.ad_view.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
-
-            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+            self.ad_view.setMinimumHeight(80)
+            self.ad_view.setMaximumHeight(16777215)
             self.ad_view.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Expanding,
-                QtWidgets.QSizePolicy.Policy.Fixed
+                QtWidgets.QSizePolicy.Policy.Fixed,
             )
+            self.ad_view.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.PointingHandCursor))
+            self.ad_view.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
 
-            try:
-                page = self.ad_view.page()
-                page.setBackgroundColor(QtGui.QColor('#0f172a'))
+            self.channel = QWebChannel()
 
-                if QWebEngineSettings:
-                    s = page.settings()
-                    s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
-                    s.setAttribute(QWebEngineSettings.WebAttribute.AutoLoadImages, True)
-                    s.setAttribute(QWebEngineSettings.WebAttribute.LocalStorageEnabled, True)
-                    s.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
-                    s.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
-                    s.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
-                    s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanOpenWindows, True)
-                    s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptCanAccessClipboard, True)
+            page = self.ad_view.page()
+            page.setBackgroundColor(QtGui.QColor('#0f172a'))
 
-                page.loadFinished.connect(self._fix_link_cursor)
-                page.loadFinished.connect(self._auto_resize_banner)
-                page.loadFinished.connect(self._inject_resize_observer)
+            s = page.settings()
+            s.setAttribute(QWebEngineSettings.WebAttribute.JavascriptEnabled, True)
+            s.setAttribute(QWebEngineSettings.WebAttribute.PluginsEnabled, True)
+            s.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
 
-            except Exception:
-                pass
+            page.loadFinished.connect(self._fix_link_cursor)
+            page.loadFinished.connect(self._auto_resize_banner)
+            page.loadFinished.connect(self._inject_resize_observer)
 
             layout.addWidget(self.ad_view)
 
         else:
             self.ad_view = None
-            label = QtWidgets.QLabel()
-            label.setTextFormat(QtCore.Qt.TextFormat.RichText)
-            label.setOpenExternalLinks(True)
-            label.setWordWrap(True)
-            label.setStyleSheet('color:white; font-size:13px;')
-            layout.addWidget(label)
+            lbl = QtWidgets.QLabel("WebEngine yok")
+            lbl.setStyleSheet("color:white;")
+            layout.addWidget(lbl)
 
         frame.setVisible(False)
         return frame
@@ -1564,73 +1549,66 @@ class SurfApp(QtWidgets.QMainWindow):
 
         js = r"""
     (function() {
-        let maxH = 0;
-
-        // 1) IMG'ler
-        try {
-            let imgs = document.getElementsByTagName("img");
-            for (let i = 0; i < imgs.length; i++) {
-                let ih = imgs[i].naturalHeight || imgs[i].clientHeight || imgs[i].offsetHeight;
-                if (ih > maxH) maxH = ih;
-            }
-        } catch(e){}
-
-        // 2) Tüm IFRAME'ler
-        try {
-            let iframes = document.getElementsByTagName("iframe");
-            for (let i = 0; i < iframes.length; i++) {
-                let f = iframes[i];
-                let ih = f.clientHeight || f.scrollHeight || f.offsetHeight;
-
-                // Google Ads için özel tarama
-                try {
-                    let doc = f.contentWindow.document;
-                    let b1 = doc.body ? doc.body.scrollHeight : 0;
-                    let b2 = doc.documentElement ? doc.documentElement.scrollHeight : 0;
-                    ih = Math.max(ih, b1, b2);
-                } catch(e){}
-
-                if (ih > maxH) maxH = ih;
-            }
-        } catch(e){}
-
-        // 3) DOM yüksekliği (son çare)
         try {
             let body = document.body;
             let html = document.documentElement;
-            let domH = Math.max(
-                body.scrollHeight, body.offsetHeight,
-                html.clientHeight, html.scrollHeight, html.offsetHeight
-            );
-            if (domH > maxH) maxH = domH;
-        } catch(e){}
 
-        return maxH;
+            let h_body = Math.max(
+                body.scrollHeight,
+                body.offsetHeight,
+                html.scrollHeight,
+                html.offsetHeight,
+                html.clientHeight
+            );
+
+            let img_max = 0;
+            let imgs = document.getElementsByTagName("img");
+            for (let i = 0; i < imgs.length; i++) {
+                let h = imgs[i].naturalHeight || imgs[i].height || 0;
+                if (h > img_max) img_max = h;
+            }
+
+            let iframe_max = 0;
+            let ifr = document.getElementsByTagName("iframe");
+            for (let i = 0; i < ifr.length; i++) {
+                let h =
+                    (ifr[i].contentWindow?.document?.body?.scrollHeight) ||
+                    ifr[i].scrollHeight ||
+                    ifr[i].clientHeight || 0;
+                if (h > iframe_max) iframe_max = h;
+            }
+
+            let ads_max = 0;
+            let adNodes = document.querySelectorAll("*[id^='aswift'], *[id^='google_ads']");
+            adNodes.forEach(n => {
+                let h = n.offsetHeight || n.scrollHeight || 0;
+                if (h > ads_max) ads_max = h;
+            });
+
+            return Math.max(h_body, img_max, iframe_max, ads_max);
+        } catch(e){
+            return 100;
+        }
     })();
     """
 
         def apply(h):
+            if not h:
+                return
+
             try:
                 h = int(float(h))
-            except Exception:
+            except:
                 return
 
-            if h <= 0:
-                return
+            new_h = h + 10
+            new_h = max(80, min(new_h, 900))
 
-            MIN_H = 90
-            MAX_H = 600
-            PADDING = 20
+            print(f"[AUTO-RESIZE PRO] içerik={h} → final: {new_h}")
 
-            new_h = max(MIN_H, min(h + PADDING, MAX_H))
-
-            print(f"[AUTO-RESIZE] içerik={h} → uygulanacak={new_h}")
             self.ad_view.setFixedHeight(new_h)
 
-        try:
-            self.ad_view.page().runJavaScript(js, apply)
-        except Exception as e:
-            print("resize error:", e)
+        self.ad_view.page().runJavaScript(js, apply)
 
     def _inject_resize_observer(self):
         if not getattr(self, "ad_view", None):
@@ -1638,11 +1616,25 @@ class SurfApp(QtWidgets.QMainWindow):
 
         js = r"""
     (function() {
-        let ro = new ResizeObserver(() => {
-            try { qt.autoResize(); } catch(e){}
-        });
+        try {
+            let obs = new ResizeObserver(() => { try { qt.autoResize(); } catch(e){} });
+            let obs2 = new MutationObserver(() => { try { qt.autoResize(); } catch(e){} });
 
-        ro.observe(document.body);
+            obs.observe(document.body);
+
+            obs2.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true
+            });
+
+            let imgs = document.getElementsByTagName('img');
+            for (let i = 0; i < imgs.length; i++){
+                imgs[i].addEventListener('load', () => {
+                    try { qt.autoResize(); } catch(e) {}
+                });
+            }
+        } catch(e){}
     })();
     """
 
@@ -1658,85 +1650,23 @@ class SurfApp(QtWidgets.QMainWindow):
     def autoResize(self):
         self._auto_resize_banner()
 
-    def _resize_banner_to_content(self):
-        if not getattr(self, "ad_view", None):
-            return
-
-        try:
-            js = """
-        (function() {
-            var body = document.body;
-            var html = document.documentElement;
-
-            var h1 = body ? body.scrollHeight : 0;
-            var h2 = body ? body.offsetHeight : 0;
-            var h3 = html ? html.scrollHeight : 0;
-            var h4 = html ? html.offsetHeight : 0;
-            var h5 = html ? html.clientHeight : 0;
-
-            var maxH = Math.max(h1, h2, h3, h4, h5);
-
-            var iframes = document.getElementsByTagName('iframe');
-            for (var i = 0; i < iframes.length; i++) {
-                try {
-                    var ih = iframes[i].scrollHeight 
-                          || iframes[i].offsetHeight 
-                          || iframes[i].clientHeight;
-                    if (ih > maxH) maxH = ih;
-                } catch(e){}
-            }
-
-            return maxH;
-        })();
-            """
-
-            def _apply_height(h):
-                if not h:
-                    return
-
-                try:
-                    h = int(float(h))
-                except Exception:
-                    return
-
-                # --- Esmer Yakışıklım için final ayarlar ---
-                MIN_H = 100      # 90 da olur ama 100 daha estetik
-                MAX_H = 600      # hem özgür hem güvenli
-                PADDING = 20     # üst-alt boşluk
-
-                new_h = h + PADDING
-
-                if new_h < MIN_H:
-                    new_h = MIN_H
-                elif new_h > MAX_H:
-                    new_h = MAX_H
-
-                print(f"[BANNER AUTO] içerik:{h} → uygulanan:{new_h}")
-                self.ad_view.setFixedHeight(new_h)
-
-            self.ad_view.page().runJavaScript(js, _apply_height)
-
-        except Exception as e:
-            print("resize error:", e)
-
     def _fix_link_cursor(self):
         if not getattr(self, "ad_view", None):
             return
-        js = """
-        const applyCursor = () => {
-            document.querySelectorAll('a').forEach(a => {
-                a.style.cursor = "pointer";
-            });
-        };
-        applyCursor();
-        new MutationObserver(applyCursor).observe(
-            document.body, { childList: true, subtree: true }
-        );
-        """
-        try:
-            self.ad_view.page().runJavaScript(js)
-        except Exception:
-            pass
+        js = r"""
+    (function(){
+        const css = `
+            a, a * {
+                cursor: pointer !important;
+            }
+        `;
+        let s = document.createElement("style");
+        s.innerText = css;
+        document.head.appendChild(s);
+    })();
+    """
+
+        self.ad_view.page().runJavaScript(js)
 
     def _apply_task_tab_visibility(self):
         if not hasattr(self, 'tabs'):
