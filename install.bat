@@ -15,13 +15,13 @@ echo [2/7] Sanal ortam aktif ediliyor...
 call .venv\Scripts\activate
 
 echo [3/7] Pip stabil surume cekiliyor (23.2.1)...
-py -m pip install --upgrade pip
+python -m pip install --upgrade pip
 
 echo [4/7] Pip cache temizleniyor...
-py -m pip cache purge
+python -m pip cache purge
 
 echo [5/7] Gereksinimler yukleniyor (Qt6.5 garanti)...
-py -m pip install -r requirements.txt --no-cache-dir
+python -m pip install -r requirements.txt --no-cache-dir
 
 if %ERRORLEVEL% neq 0 (
     echo HATA: requirements kurulurken sorun olustu!
