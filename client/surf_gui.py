@@ -1655,15 +1655,29 @@ class SurfApp(QtWidgets.QMainWindow):
         if not getattr(self, "ad_view", None):
             return
         js = r"""
-    (function(){
-        const css = `
-            a, a * {
-                cursor: pointer !important;
+    (function() {
+
+        // Tüm A etiketlerine anında pointer ata
+        function applyPointer() {
+            const links = document.querySelectorAll("a");
+            for (let i = 0; i < links.length; i++) {
+                links[i].style.cursor = "pointer";
             }
-        `;
-        let s = document.createElement("style");
-        s.innerText = css;
-        document.head.appendChild(s);
+        }
+
+        // İlk uygulama
+        applyPointer();
+
+        // DOM değiştikçe linkleri tekrar kontrol et
+        const observer = new MutationObserver(() => {
+            applyPointer();
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
     })();
     """
 
