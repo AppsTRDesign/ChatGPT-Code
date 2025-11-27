@@ -739,8 +739,9 @@ class SurfApp(QtWidgets.QMainWindow):
             self.ad_view.setPage(AdPage(self.ad_view))
             self.ad_view.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
             self.ad_view.setZoomFactor(1.0)
-            self.ad_view.setMinimumHeight(80)
-            self.ad_view.setMaximumHeight(16777215)
+            self.ad_view.setMinimumHeight(70)
+            self.ad_view.setMaximumHeight(600)
+            self.ad_view.setFixedHeight(90)
             self.ad_view.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Expanding,
                 QtWidgets.QSizePolicy.Policy.Fixed,
@@ -1602,7 +1603,7 @@ class SurfApp(QtWidgets.QMainWindow):
                 return
 
             new_h = h + 10
-            new_h = max(80, min(new_h, 900))
+            new_h = max(70, min(new_h, 600))
 
             print(f"[AUTO-RESIZE PRO] içerik={h} → final: {new_h}")
 
