@@ -56,73 +56,91 @@ class HepsiburadaScraper:
             params.append(f"sayfa={page}")
         return f"{self.BASE_URL}?" + "&".join(params)
 
-    def fetch_filters(self, term: str) -> List[Tuple[str, str]]:
-        self.logger.info("Filtreler getiriliyor (aranan terim: %s)", term)
-        filters: List[Tuple[str, str]] = []
+    def fetch_filters(self, term: str):
+        try:
+            self.logger.info("Filtreler getiriliyor (aranan terim: %s)", term)
 
-        with sync_playwright() as p:
-            browser = self._launch_browser(p)
-            page = browser.new_page()
-            page.set_default_timeout(40000)
+            with sync_playwright() as p:
+                browser = self._launch_browser(p)
+                page = browser.new_page()
 
-            try:
                 url = f"{self.BASE_URL}?q={quote_plus(term)}"
                 self.logger.info("Sayfa açılıyor: %s", url)
 
-                # networkidle yerine DOMContentLoaded
-                page.goto(url, wait_until="domcontentloaded")
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
-                # Yeni filtre konteyneri (Hepsiburada güncel)
-                FILTER_CONTAINER = "div[id='leftNavContainer']"
+                page.wait_for_selector("div.VerticalFilter", timeout=20000)
 
-                try:
-                    page.wait_for_selector(FILTER_CONTAINER, timeout=10000)
-                except Exception:
+                filter_groups = page.query_selector_all("div[data-test-id='collapse-container']")
+                if not filter_groups:
                     self.logger.warning("Filtre konteyneri bulunamadı!")
-                    return []
+                    return None
 
-                # Tüm filtre grupları (accordion)
-                groups = page.query_selector_all(
-                    "div[id='leftNavContainer'] div[class*='accordion']"
-                )
+                results = {}
 
-                for g in groups:
-                    try:
-                        # Grup başlığı
-                        header = g.query_selector("div[class*='accordionHeader']")
-                        if not header:
+                for group in filter_groups:
+                    title_el = group.query_selector("div[data-test-id='collapse-title']")
+                    if not title_el:
+                        continue
+
+                    title = title_el.inner_text().strip()
+                    if not title:
+                        continue
+
+                    content = group.query_selector("div[data-test-id='collapse-content']")
+                    if not content:
+                        continue
+
+                    group_items = []
+
+                    checkbox_items = content.query_selector_all("input[type='checkbox']")
+                    for chk in checkbox_items:
+                        classlist = chk.get_attribute("class") or ""
+                        if "switch" in classlist.lower():
                             continue
 
-                        group_name = header.inner_text().strip()
-                        if not group_name:
+                        label_el = chk.evaluate_handle("node => node.closest('label')")
+                        if not label_el:
                             continue
 
-                        # Grubu aç
-                        header.click()
-                        page.wait_for_timeout(200)
+                        text_el = label_el.query_selector(
+                            "div.seoAnchorLink-nCW0yP4qoVI_AhEjVAY_"
+                        )
+                        if not text_el:
+                            continue
 
-                        # Checkbox filtreleri
-                        items = g.query_selector_all("input[type='checkbox']")
+                        val = chk.get_attribute("value") or ""
+                        name = text_el.inner_text().strip()
+                        if name:
+                            group_items.append(
+                                {"type": "checkbox", "label": name, "value": val}
+                            )
 
-                        for item in items:
-                            lbl = item.evaluate("el => el.parentElement?.innerText") or ""
-                            val = item.get_attribute("value") or ""
+                    searchbox = content.query_selector("input[placeholder='Filtrele']")
+                    if searchbox:
+                        group_items.append({"type": "searchbox", "placeholder": "Filtrele"})
 
-                            if lbl and val:
-                                filters.append((f"{group_name}: {lbl.strip()}", f"filtreler={val}"))
+                    slider = content.query_selector(
+                        ".price-range-slider, .rangeSlider, input[type='range']"
+                    )
+                    if slider:
+                        group_items.append(
+                            {
+                                "type": "range",
+                                "min": slider.get_attribute("min") or "0",
+                                "max": slider.get_attribute("max") or "999999",
+                            }
+                        )
 
-                    except Exception as e:
-                        self.logger.warning("Grup okunamadı: %s", e)
+                    if group_items:
+                        results[title] = group_items
 
-                self.logger.info("Toplam %s filtre bulundu.", len(filters))
-
-            except Exception:
-                self.logger.exception("Filtreler alınırken hata oluştu")
-
-            finally:
                 browser.close()
+                return results
 
-        return filters
+        except Exception:
+            self.logger.error("Filtreler alınırken hata oluştu", exc_info=True)
+            return None
 
     def fetch_products(
         self,

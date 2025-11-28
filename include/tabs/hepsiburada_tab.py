@@ -255,54 +255,85 @@ class HepsiburadaTab(QtWidgets.QWidget):
             if widget:
                 widget.setParent(None)
 
-        groups = {}
-
-        for name, query in filters:
-            if ":" in name:
-                group, item_text = name.split(":", 1)
-            else:
-                group = "Diğer"
-                item_text = name
-            group = group.strip()
-            item_text = item_text.strip()
-            groups.setdefault(group, []).append((item_text, query))
+        if isinstance(filters, list):
+            grouped = {}
+            for name, query in filters:
+                if ":" in name:
+                    group, item_text = name.split(":", 1)
+                else:
+                    group, item_text = "Diğer", name
+                grouped.setdefault(group.strip(), []).append(
+                    {"type": "checkbox", "label": item_text.strip(), "value": query}
+                )
+            filters = grouped
 
         self.dynamic_filter_checks = {}
 
-        for idx, (group_name, items) in enumerate(groups.items()):
+        for idx, (group_name, items) in enumerate(filters.items()):
             group_box = QtWidgets.QGroupBox(group_name)
             group_layout = QtWidgets.QVBoxLayout(group_box)
 
-            if group_name.lower() == "marka":
-                w = self._create_brand_filter_widget(items)
-                group_layout.addWidget(w)
-            elif group_name.lower().startswith("fiyat"):
-                h = QtWidgets.QHBoxLayout()
+            checkboxes: List[QtWidgets.QCheckBox] = []
+            search_boxes: List[QtWidgets.QLineEdit] = []
 
-                self.price_min = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
-                self.price_max = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+            for item in items:
+                item_type = item.get("type", "checkbox") if isinstance(item, dict) else "checkbox"
 
-                self.price_min.setRange(0, 20000)
-                self.price_max.setRange(0, 20000)
+                if item_type == "searchbox":
+                    search = QtWidgets.QLineEdit()
+                    search.setPlaceholderText(item.get("placeholder", "Filtrele"))
+                    search_boxes.append(search)
+                    group_layout.addWidget(search)
+                    continue
 
-                self.price_min.setValue(0)
-                self.price_max.setValue(20000)
+                if item_type == "range":
+                    h = QtWidgets.QHBoxLayout()
+                    self.price_min = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+                    self.price_max = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
 
-                self._styled_slider(self.price_min)
-                self._styled_slider(self.price_max)
+                    try:
+                        min_val = int(item.get("min", 0))
+                        max_val = int(item.get("max", 20000))
+                    except Exception:
+                        min_val, max_val = 0, 20000
 
-                h.addWidget(QtWidgets.QLabel("Min"))
-                h.addWidget(self.price_min)
-                h.addWidget(QtWidgets.QLabel("Max"))
-                h.addWidget(self.price_max)
+                    self.price_min.setRange(min_val, max_val)
+                    self.price_max.setRange(min_val, max_val)
+                    self.price_min.setValue(min_val)
+                    self.price_max.setValue(max_val)
 
-                group_layout.addLayout(h)
-            else:
-                for name_text, query in items:
-                    cb = QtWidgets.QCheckBox(name_text)
-                    cb.setProperty("query", query)
-                    group_layout.addWidget(cb)
-                    self.dynamic_filter_checks[name_text] = cb
+                    self._styled_slider(self.price_min)
+                    self._styled_slider(self.price_max)
+
+                    h.addWidget(QtWidgets.QLabel("Min"))
+                    h.addWidget(self.price_min)
+                    h.addWidget(QtWidgets.QLabel("Max"))
+                    h.addWidget(self.price_max)
+
+                    group_layout.addLayout(h)
+                    continue
+
+                label_text = item.get("label") if isinstance(item, dict) else str(item)
+                query_val = item.get("value", "") if isinstance(item, dict) else ""
+                if query_val and not query_val.startswith(("filtreler=", "puan=", "siralama=")):
+                    query_val = f"filtreler={query_val}"
+
+                cb = QtWidgets.QCheckBox(label_text)
+                cb.setProperty("query", query_val)
+                checkboxes.append(cb)
+                group_layout.addWidget(cb)
+                self.dynamic_filter_checks[label_text] = cb
+
+            if search_boxes and checkboxes:
+                def make_filter(_: QtWidgets.QLineEdit):
+                    def _filter(text: str):
+                        text_lower = text.lower()
+                        for cb in checkboxes:
+                            cb.setVisible(text_lower in cb.text().lower())
+                    return _filter
+
+                for search in search_boxes:
+                    search.textChanged.connect(make_filter(search))
 
             self._apply_groupbox_style(group_box, idx)
             self.dynamic_filter_main_layout.addWidget(group_box)
