@@ -58,99 +58,94 @@ class HepsiburadaScraper:
         return f"{self.BASE_URL}?" + "&".join(params)
 
     def fetch_filters(self, term: str):
-        from urllib.parse import quote_plus
-
-        self.logger.info("Filtreler getiriliyor (aranan terim: %s)", term)
-        results: dict = {}
-
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(channel="chrome", headless=self.HEADLESS)
-                page = browser.new_page()
-                page.set_default_timeout(45000)
+            self.logger.info("Filtreler getiriliyor (aranan terim: %s)", term)
 
-                url = f"{self.BASE_URL}?q={quote_plus(term)}"
+            with sync_playwright() as p:
+                browser = p.chromium.launch(channel="chrome", headless=False)
+                page = browser.new_page()
+
+                url = f"https://www.hepsiburada.com/ara?q={quote_plus(term)}"
                 self.logger.info("Sayfa açılıyor: %s", url)
 
-                page.goto(url, wait_until="domcontentloaded")
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
-                page.wait_for_timeout(2500)
+                page.wait_for_selector("div.VerticalFilter", timeout=20000)
 
-                page.wait_for_selector("div.VerticalFilter", timeout=15000)
+                filter_groups = page.query_selector_all(
+                    "div[data-test-id='collapse-container']"
+                )
+                if not filter_groups:
+                    self.logger.warning("Filtre konteyneri bulunamadı!")
+                    return None
 
-                groups = page.query_selector_all("div[data-test-id='collapse-container']")
-                if not groups:
-                    self.logger.warning("Filtre grupları bulunamadı!")
-                    return results
+                results = {}
 
-                self.logger.info("%s filtre grubu bulundu", len(groups))
-
-                for group in groups:
-                    header_el = group.query_selector("div[data-test-id='collapse-title']")
-                    if not header_el:
+                for group in filter_groups:
+                    title_el = group.query_selector("div[data-test-id='collapse-title']")
+                    if not title_el:
                         continue
 
-                    group_title = header_el.inner_text().strip()
-                    if not group_title:
-                        continue
-
-                    results[group_title] = []
-
+                    title = title_el.inner_text().strip()
                     content = group.query_selector("div[data-test-id='collapse-content']")
                     if not content:
                         continue
 
-                    checkbox_inputs = content.query_selector_all("input[type='checkbox']")
-                    for chk in checkbox_inputs:
-                        classes = chk.get_attribute("class") or ""
-                        if "switch" in classes.lower():
+                    group_items = []
+
+                    checkbox_items = content.query_selector_all("input[type='checkbox']")
+                    for chk in checkbox_items:
+                        classlist = chk.get_attribute("class") or ""
+                        if "switch" in classlist.lower():
                             continue
 
-                        name_attr = chk.get_attribute("name") or ""
-                        value_attr = chk.get_attribute("value") or ""
-                        if not name_attr or not value_attr:
-                            continue
-
-                        lbl_el = chk.evaluate_handle("node => node.closest('label')")
-                        label_text = ""
-
-                        if lbl_el:
-                            txt_el = lbl_el.query_selector(
+                        label_el = chk.evaluate_handle("node => node.closest('label')")
+                        if label_el:
+                            text_el = label_el.query_selector(
                                 "div.seoAnchorLink-nCW0yP4qoVI_AhEjVAY_"
                             )
-                            if txt_el:
-                                label_text = txt_el.inner_text().strip()
+                            if text_el:
+                                val = chk.get_attribute("value") or ""
+                                name_attr = chk.get_attribute("name") or ""
+                                label_text = text_el.inner_text().strip()
+                                query_val = (
+                                    f"{name_attr}:{val}" if name_attr and val else val
+                                )
+                                group_items.append(
+                                    {
+                                        "type": "checkbox",
+                                        "label": label_text,
+                                        "value": query_val,
+                                    }
+                                )
 
-                        query_str = f"{name_attr}:{value_attr}"
-
-                        results[group_title].append(
-                            {
-                                "type": "checkbox",
-                                "label": label_text,
-                                "name": name_attr,
-                                "value": value_attr,
-                                "query": query_str,
-                            }
-                        )
-
-                    searchbox_el = content.query_selector("input[placeholder='Filtrele']")
-                    if searchbox_el:
-                        results[group_title].append(
+                    searchbox = content.query_selector("input[placeholder='Filtrele']")
+                    if searchbox:
+                        group_items.append(
                             {"type": "searchbox", "placeholder": "Filtrele"}
                         )
 
-                    slider_el = content.query_selector(
+                    slider = content.query_selector(
                         ".price-range-slider, .rangeSlider, input[type='range']"
                     )
-                    if slider_el:
-                        results[group_title].append({"type": "range-slider"})
+                    if slider:
+                        group_items.append(
+                            {
+                                "type": "range",
+                                "min": slider.get_attribute("min") or "0",
+                                "max": slider.get_attribute("max") or "999999",
+                            }
+                        )
+
+                    if group_items:
+                        results[title] = group_items
 
                 browser.close()
                 return results
 
         except Exception:
-            self.logger.exception("Filtreler alınırken hata oluştu")
-            return results
+            self.logger.error("Filtreler alınırken hata oluştu", exc_info=True)
+            return None
 
     def fetch_products(
         self,
