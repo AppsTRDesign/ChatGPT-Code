@@ -44,13 +44,35 @@ class HepsiburadaScraper:
             self.logger.warning("Chrome kanalı açılamadı, Chromium kullanılacak: %s", exc)
             return playwright_client.chromium.launch(headless=False)
 
-    def _build_url(self, term: str, quick_filters: List[str], sorting: Optional[str], extra_filters: List[str], page: int) -> str:
+    def _build_url(
+        self,
+        term: str,
+        quick_filters: List[str],
+        sorting: Optional[str],
+        extra_filters: List[str],
+        page: int,
+    ) -> str:
         params = [f"q={quote_plus(term)}"]
+        filter_parts: List[str] = []
+
+        def _consume_filter_value(value: str):
+            if not value:
+                return
+            if value.startswith("filtreler="):
+                filter_parts.append(value.replace("filtreler=", "", 1))
+            else:
+                params.append(value)
+
         for key in quick_filters:
             if key in self.QUICK_FILTERS:
-                params.append(self.QUICK_FILTERS[key])
+                _consume_filter_value(self.QUICK_FILTERS[key])
+
         for item in extra_filters:
-            params.append(item)
+            _consume_filter_value(item)
+
+        if filter_parts:
+            params.append(f"filtreler={';'.join(filter_parts)}")
+
         if sorting and sorting in self.SORTING_OPTIONS:
             params.append(self.SORTING_OPTIONS[sorting])
         if page > 1:
