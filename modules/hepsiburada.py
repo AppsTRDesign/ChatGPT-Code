@@ -140,54 +140,73 @@ class HepsiburadaScraper:
             page_limit,
             per_page_limit,
         )
+
         with sync_playwright() as p:
             browser = self._launch_browser(p)
             page = browser.new_page()
-            page.set_default_timeout(60000)
+            page.set_default_timeout(50000)
+
             try:
                 for page_number in range(1, page_limit + 1):
                     url = self._build_url(term, quick_filters, sorting, extra_filters, page_number)
                     self.logger.info("Sayfa açılıyor: %s", url)
+
+                    # ❌ networkidle yok
                     page.goto(url, wait_until="domcontentloaded")
 
+                    # ✔ ürün konteyneri bekle
                     try:
-                        page.wait_for_selector("ul.productListContent-wrapper", timeout=10000)
-                    except Exception:
                         page.wait_for_selector("li[class^='productListContent-']", timeout=10000)
+                    except Exception:
+                        page.wait_for_timeout(1200)
 
-                    page.wait_for_timeout(1200)
+                    page.wait_for_timeout(800)  # Stabilizasyon
+
                     card_selector = "li[class^='productListContent-']"
                     cards = page.query_selector_all(card_selector)
+
                     if not cards:
                         self.logger.info("Kart bulunamadı, döngü sonlandırılıyor (sayfa=%s)", page_number)
                         break
+
                     collected = 0
+
                     for card in cards:
-                        title_el = card.query_selector("h2 a, h3 a")
-                        price_el = card.query_selector("[data-test-id^='final-price'], .price-module_finalPrice__LtjvY")
-                        img_el = card.query_selector("picture img[src^='https://productimages.hepsiburada.net']")
-                        link = title_el.get_attribute("href") if title_el else ""
-                        name = title_el.get_attribute("title") if title_el else ""
-                        price = price_el.inner_text().strip() if price_el else ""
-                        image = img_el.get_attribute("src") if img_el else ""
-                        if not image or "https://productimages.hepsiburada.net" not in image:
-                            continue
-                        is_ad = link.startswith("https://adservice.hepsiburada.com") if link else False
-                        products.append(
-                            Product(
-                                name=name or "",
-                                price=price or "",
-                                link=link or "",
-                                image=image,
-                                is_ad=is_ad,
+                        try:
+                            title_el = card.query_selector("h2 a, h3 a")
+                            price_el = card.query_selector("[data-test-id^='final-price'], .price-module_finalPrice__LtjvY")
+                            img_el = card.query_selector("picture img[src^='https://productimages.hepsiburada.net']")
+
+                            link = title_el.get_attribute("href") if title_el else ""
+                            name = title_el.get_attribute("title") if title_el else ""
+                            price = price_el.inner_text().strip() if price_el else ""
+                            image = img_el.get_attribute("src") if img_el else ""
+
+                            if not image:
+                                continue
+
+                            is_ad = link.startswith("https://adservice.hepsiburada.com") if link else False
+
+                            products.append(
+                                Product(
+                                    name=name or "",
+                                    price=price or "",
+                                    link=link or "",
+                                    image=image,
+                                    is_ad=is_ad,
+                                )
                             )
-                        )
-                        collected += 1
-                        if collected >= per_page_limit:
-                            self.logger.info("Sayfa başına limit (%s) doldu", per_page_limit)
-                            break
+
+                            collected += 1
+                            if collected >= per_page_limit:
+                                break
+
+                        except Exception:
+                            continue
+
             except Exception:
                 self.logger.exception("Ürünler alınırken hata oluştu")
             finally:
                 browser.close()
+
         return products
