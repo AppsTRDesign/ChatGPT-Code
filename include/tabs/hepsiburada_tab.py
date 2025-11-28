@@ -275,6 +275,9 @@ class HepsiburadaTab(QtWidgets.QWidget):
 
             checkboxes: List[QtWidgets.QCheckBox] = []
             search_boxes: List[QtWidgets.QLineEdit] = []
+            not_found_label = QtWidgets.QLabel("Sonuç bulunamadı")
+            not_found_label.setStyleSheet("color: #b00020; font-style: italic;")
+            not_found_label.hide()
 
             for item in items:
                 item_type = item.get("type", "checkbox") if isinstance(item, dict) else "checkbox"
@@ -286,7 +289,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
                     group_layout.addWidget(search)
                     continue
 
-                if item_type == "range":
+                if item_type in {"range", "range-slider"}:
                     h = QtWidgets.QHBoxLayout()
                     self.price_min = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
                     self.price_max = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
@@ -314,7 +317,9 @@ class HepsiburadaTab(QtWidgets.QWidget):
                     continue
 
                 label_text = item.get("label") if isinstance(item, dict) else str(item)
-                query_val = item.get("value", "") if isinstance(item, dict) else ""
+                query_val = ""
+                if isinstance(item, dict):
+                    query_val = item.get("query") or item.get("value", "")
                 if query_val and not query_val.startswith(("filtreler=", "puan=", "siralama=")):
                     query_val = f"filtreler={query_val}"
 
@@ -328,12 +333,21 @@ class HepsiburadaTab(QtWidgets.QWidget):
                 def make_filter(_: QtWidgets.QLineEdit):
                     def _filter(text: str):
                         text_lower = text.lower()
+                        visible = 0
                         for cb in checkboxes:
-                            cb.setVisible(text_lower in cb.text().lower())
+                            match = text_lower in cb.text().lower()
+                            cb.setVisible(match)
+                            if match:
+                                visible += 1
+                        not_found_label.setVisible(visible == 0)
                     return _filter
 
                 for search in search_boxes:
                     search.textChanged.connect(make_filter(search))
+
+                group_layout.addWidget(not_found_label)
+            elif search_boxes:
+                group_layout.addWidget(not_found_label)
 
             self._apply_groupbox_style(group_box, idx)
             self.dynamic_filter_main_layout.addWidget(group_box)
