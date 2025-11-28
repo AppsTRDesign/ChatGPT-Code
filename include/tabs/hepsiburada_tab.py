@@ -21,12 +21,67 @@ from include.widgets import ProductTable
 from modules.hepsiburada import HepsiburadaScraper
 
 
+class ProductWorkerSignals(QtCore.QObject):
+    item_found = QtCore.pyqtSignal(dict)
+    finished = QtCore.pyqtSignal()
+    error = QtCore.pyqtSignal(str)
+
+
+class ProductWorker(QtCore.QRunnable):
+    def __init__(
+        self,
+        scraper: HepsiburadaScraper,
+        term: str,
+        quick_filters: List[str],
+        sorting: Optional[str],
+        extra_filters: List[str],
+        page_limit: int,
+        per_page_limit: int,
+    ) -> None:
+        super().__init__()
+        self.scraper = scraper
+        self.term = term
+        self.quick_filters = quick_filters
+        self.sorting = sorting
+        self.extra_filters = extra_filters
+        self.page_limit = page_limit
+        self.per_page_limit = per_page_limit
+        self.sigs = ProductWorkerSignals()
+
+    @QtCore.pyqtSlot()
+    def run(self) -> None:
+        try:
+            products = self.scraper.collect_products(
+                self.term,
+                self.quick_filters,
+                self.sorting,
+                self.extra_filters,
+                self.page_limit,
+                self.per_page_limit,
+            )
+            for product in products:
+                self.sigs.item_found.emit(
+                    {
+                        "title": product.name,
+                        "price": product.price,
+                        "link": product.link,
+                        "image": product.image,
+                        "is_ad": product.is_ad,
+                    }
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.sigs.error.emit(str(exc))
+        finally:
+            self.sigs.finished.emit()
+
+
 class HepsiburadaTab(QtWidgets.QWidget):
     def __init__(self, parent: Optional[QtWidgets.QWidget] = None):
         super().__init__(parent)
         self.scraper = HepsiburadaScraper()
         self.products: List[Product] = []
         self.dynamic_filters: List[Tuple[str, str]] = []
+        self.threadpool = QtCore.QThreadPool.globalInstance()
         self._setup_ui()
 
     def _setup_ui(self):
@@ -371,7 +426,12 @@ class HepsiburadaTab(QtWidgets.QWidget):
         extra_filters = self._collect_dynamic_filters()
         page_limit = self.spinPageCount.value()
         per_page_limit = self.spinProductsPerPage.value()
-        self.products = self.scraper.collect_products(
+        self.list_products_btn.setEnabled(False)
+        self.table.setRowCount(0)
+        self.products = []
+
+        worker = ProductWorker(
+            self.scraper,
             term,
             quick_filters,
             sorting,
@@ -379,7 +439,39 @@ class HepsiburadaTab(QtWidgets.QWidget):
             page_limit,
             per_page_limit,
         )
-        self.table.populate(self.products)
+        worker.sigs.item_found.connect(self.add_product_to_table)
+        worker.sigs.finished.connect(lambda: self.list_products_btn.setEnabled(True))
+        worker.sigs.error.connect(
+            lambda msg: QtWidgets.QMessageBox.critical(
+                self, APP_TITLE, f"Ürünler alınırken hata oluştu:\n{msg}"
+            )
+        )
+        self.threadpool.start(worker)
+
+    def add_product_to_table(self, item: dict):
+        product = Product(
+            name=item.get("title", ""),
+            price=item.get("price"),
+            link=item.get("link", ""),
+            image=item.get("image", ""),
+            is_ad=item.get("is_ad", False),
+        )
+        self.products.append(product)
+
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+
+        checkbox_item = QtWidgets.QTableWidgetItem()
+        checkbox_item.setFlags(checkbox_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+        checkbox_item.setCheckState(QtCore.Qt.CheckState.Unchecked)
+        self.table.setItem(row, 0, checkbox_item)
+
+        self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(item.get("title", "")))
+        self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(item.get("price", ""))))
+        self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(item.get("link", "")))
+        self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(item.get("image", "")))
+        ad_text = "Evet" if item.get("is_ad", False) else "Hayır"
+        self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(ad_text))
 
     def _disable_listing(self):
         self.list_products_btn.setEnabled(False)
