@@ -587,96 +587,147 @@ class HepsiburadaTab(QtWidgets.QWidget):
         if not selected:
             QtWidgets.QMessageBox.information(self, APP_TITLE, "Lütfen dışa aktarmak için ürün seçin.")
             return
+
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "PDF kaydet", "urunler.pdf", "PDF Files (*.pdf)"
+            self, "PDF Olarak Kaydet", filter="PDF (*.pdf)"
         )
         if not path:
             return
 
-        from reportlab.lib import colors
-        from reportlab.lib.enums import TA_LEFT
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.lib.units import cm
-        from reportlab.platypus import Image, SimpleDocTemplate, Table, TableStyle
-
-        pdf = SimpleDocTemplate(
-            path,
-            pagesize=landscape(A4),
-            rightMargin=20,
-            leftMargin=20,
-            topMargin=20,
-            bottomMargin=20,
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.platypus import (
+            SimpleDocTemplate,
+            Paragraph,
+            Spacer,
+            Image,
+            Table,
+            TableStyle,
+            PageBreak,
         )
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.pagesizes import A4
+        from reportlab.graphics.shapes import Drawing
+        from reportlab.graphics import renderPDF
+        from reportlab.graphics.barcode import qr
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+
+        try:
+            pdfmetrics.registerFont(TTFont("DejaVu", DEJAVU_FONT_PATH))
+            font_name = "DejaVu"
+        except Exception:
+            font_name = "Helvetica"
 
         styles = getSampleStyleSheet()
-        body = ParagraphStyle(
-            "Body",
-            parent=styles["Normal"],
-            fontName="Helvetica",
-            fontSize=8,
-            leading=10,
-            alignment=TA_LEFT,
+        styles.add(
+            ParagraphStyle(
+                name="ProductTitle",
+                fontName=font_name,
+                fontSize=11,
+                spaceAfter=6,
+                leading=14,
+            )
         )
-
-        header = ["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]
-        data = [header]
-
-        MAX_IMG_W = 120
-        MAX_IMG_H = 120
-
-        for item in selected:
-            p_title = Paragraph(item.get("name", ""), body)
-
-            short_link = item.get("link", "")
-            if len(short_link) > 60:
-                short_link = short_link[:60] + "..."
-            p_link = Paragraph(short_link, body)
-
-            is_ad = "Evet" if item.get("is_ad") else "Hayır"
-
-            img_path = item.get("image", "")
-            try:
-                img = Image(img_path)
-                img._restrictSize(MAX_IMG_W, MAX_IMG_H)
-            except Exception:
-                img = Paragraph("-", body)
-
-            row = [
-                p_title,
-                Paragraph(item.get("price", ""), body),
-                p_link,
-                img,
-                Paragraph(is_ad, body),
-            ]
-
-            data.append(row)
-
-        table = Table(
-            data,
-            colWidths=[6 * cm, 2.5 * cm, 6.5 * cm, 4 * cm, 2 * cm],
-        )
-
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.45, 0.00)),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("GRID", (0, 0), (-1, -1), 0.2, colors.grey),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ]
+        styles.add(
+            ParagraphStyle(
+                name="NormalTR",
+                fontName=font_name,
+                fontSize=9,
+                leading=12,
             )
         )
 
-        pdf.build([table])
+        doc = SimpleDocTemplate(
+            path,
+            pagesize=A4,
+            leftMargin=30,
+            rightMargin=30,
+            topMargin=70,
+            bottomMargin=40,
+        )
+
+        story = []
+
+        try:
+            logo = Image("assets/logo.svg", width=80, height=80)
+            story.append(logo)
+            story.append(Spacer(1, 10))
+        except Exception:
+            pass
+
+        for item in selected:
+            name = item.get("name", "")
+            price = item.get("price", "")
+            link = item.get("link", "")
+            image_url = item.get("image", "")
+            is_ad = "Evet" if item.get("is_ad", False) else "Hayır"
+
+            img_obj = ""
+            if image_url.startswith("http"):
+                try:
+                    import requests
+                    from io import BytesIO
+
+                    response = requests.get(image_url, timeout=5)
+                    if response.status_code == 200:
+                        bio = BytesIO(response.content)
+                        img_obj = Image(bio, width=120, height=120, preserveAspectRatio=True)
+                except Exception:
+                    img_obj = ""
+
+            qr_code = qr.QrCodeWidget(link)
+            bounds = qr_code.getBounds()
+            size = 70
+            width = bounds[2] - bounds[0]
+            height = bounds[3] - bounds[1]
+            d = Drawing(size, size)
+            d.add(qr_code, name="QR")
+
+            clickable_link = f"""<link href=\"{link}\">{link}</link>"""
+
+            card_data = [
+                [
+                    img_obj,
+                    Paragraph(
+                        f"<b>{name}</b><br/><br/><b>Fiyat:</b> {price} TL<br/><b>Reklam:</b> {is_ad}<br/><br/>{clickable_link}",
+                        styles["NormalTR"],
+                    ),
+                    d,
+                ]
+            ]
+
+            card = Table(
+                card_data,
+                colWidths=[130, 290, 80],
+                rowHeights=[140],
+            )
+            card.setStyle(
+                TableStyle(
+                    [
+                        ("BOX", (0, 0), (-1, -1), 1, colors.grey),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                        ("TOPPADDING", (0, 0), (-1, -1), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                        ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+                        ("INNERGRID", (0, 0), (-1, -1), 0.3, colors.lightgrey),
+                    ]
+                )
+            )
+
+            story.append(card)
+            story.append(Spacer(1, 15))
+
+        def footer(canvas, doc):
+            canvas.saveState()
+            canvas.setFont(font_name, 8)
+            canvas.drawString(30, 20, "NoaSoft — Hepsiburada Veri Çıktısı")
+            canvas.drawRightString(A4[0] - 30, 20, f"Sayfa {doc.page}")
+            canvas.restoreState()
+
+        doc.build(story, onLaterPages=footer, onFirstPage=footer)
 
         QtWidgets.QMessageBox.information(self, APP_TITLE, "PDF dışa aktarımı tamamlandı.")
     

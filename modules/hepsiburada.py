@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import quote_plus
+from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
 from playwright.async_api import async_playwright
 from playwright.sync_api import sync_playwright
@@ -220,6 +220,9 @@ class HepsiburadaScraper:
                     )
 
                     title = await title_el.inner_text() if title_el else ""
+                    if not title.strip():
+                        continue
+
                     link = await link_el.get_attribute("href") if link_el else ""
                     image = await img_el.get_attribute("src") if img_el else ""
                     price = await price_el.inner_text() if price_el else ""
@@ -228,17 +231,25 @@ class HepsiburadaScraper:
                         link = "https://www.hepsiburada.com" + link
 
                     is_ad = "adservice.hepsiburada.com" in link
+                    if is_ad:
+                        try:
+                            parsed = urlparse(link)
+                            qs = parse_qs(parsed.query)
+                            redirect = qs.get("redirect", [None])[0]
+                            if redirect:
+                                link = unquote(redirect)
+                        except Exception:
+                            pass
 
-                    products.append(
-                        {
-                            "title": title.strip(),
-                            "price": price.strip(),
-                            "link": link,
-                            "image": image,
-                            "is_ad": is_ad,
-                        }
-                    )
-                    self.logger.info("Ürün bulundu: %s", title.strip())
+                    product_payload = {
+                        "title": title.strip(),
+                        "price": price.strip(),
+                        "link": link,
+                        "image": image,
+                        "is_ad": is_ad,
+                    }
+                    products.append(product_payload)
+                    self.logger.info("Ürün bulundu: %s", product_payload["title"])
 
                     page_collected += 1
                     if page_collected >= products_per_page:
