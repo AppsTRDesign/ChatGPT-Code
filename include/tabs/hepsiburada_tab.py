@@ -273,21 +273,8 @@ class HepsiburadaTab(QtWidgets.QWidget):
             group_box = QtWidgets.QGroupBox(group_name)
             group_layout = QtWidgets.QVBoxLayout(group_box)
 
-            checkboxes: List[QtWidgets.QCheckBox] = []
-            search_boxes: List[QtWidgets.QLineEdit] = []
-            not_found_label = QtWidgets.QLabel("Sonuç bulunamadı")
-            not_found_label.setStyleSheet("color: #b00020; font-style: italic;")
-            not_found_label.hide()
-
             for item in items:
                 item_type = item.get("type", "checkbox") if isinstance(item, dict) else "checkbox"
-
-                if item_type == "searchbox":
-                    search = QtWidgets.QLineEdit()
-                    search.setPlaceholderText(item.get("placeholder", "Filtrele"))
-                    search_boxes.append(search)
-                    group_layout.addWidget(search)
-                    continue
 
                 if item_type in {"range", "range-slider"}:
                     h = QtWidgets.QHBoxLayout()
@@ -325,29 +312,8 @@ class HepsiburadaTab(QtWidgets.QWidget):
 
                 cb = QtWidgets.QCheckBox(label_text)
                 cb.setProperty("query", query_val)
-                checkboxes.append(cb)
                 group_layout.addWidget(cb)
                 self.dynamic_filter_checks[label_text] = cb
-
-            if search_boxes and checkboxes:
-                def make_filter(_: QtWidgets.QLineEdit):
-                    def _filter(text: str):
-                        text_lower = text.lower()
-                        visible = 0
-                        for cb in checkboxes:
-                            match = text_lower in cb.text().lower()
-                            cb.setVisible(match)
-                            if match:
-                                visible += 1
-                        not_found_label.setVisible(visible == 0)
-                    return _filter
-
-                for search in search_boxes:
-                    search.textChanged.connect(make_filter(search))
-
-                group_layout.addWidget(not_found_label)
-            elif search_boxes:
-                group_layout.addWidget(not_found_label)
 
             self._apply_groupbox_style(group_box, idx)
             self.dynamic_filter_main_layout.addWidget(group_box)

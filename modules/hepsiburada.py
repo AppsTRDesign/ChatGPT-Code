@@ -84,7 +84,7 @@ class HepsiburadaScraper:
             self.logger.info("Filtreler getiriliyor (aranan terim: %s)", term)
 
             with sync_playwright() as p:
-                browser = p.chromium.launch(channel="chrome", headless=False)
+                browser = p.chromium.launch(channel="chrome", headless=self.HEADLESS)
                 page = browser.new_page()
 
                 url = f"https://www.hepsiburada.com/ara?q={quote_plus(term)}"
@@ -141,12 +141,6 @@ class HepsiburadaScraper:
                                     }
                                 )
 
-                    searchbox = content.query_selector("input[placeholder='Filtrele']")
-                    if searchbox:
-                        group_items.append(
-                            {"type": "searchbox", "placeholder": "Filtrele"}
-                        )
-
                     slider = content.query_selector(
                         ".price-range-slider, .rangeSlider, input[type='range']"
                     )
@@ -178,7 +172,7 @@ class HepsiburadaScraper:
         page_limit: int,
         per_page_limit: int,
     ) -> List[Product]:
-        products: List[Product] = []
+        results: List[Product] = []
         self.logger.info(
             "Ürünler getiriliyor | arama='%s' sayfa_limit=%s sayfa_başı_limit=%s",
             term,
@@ -188,55 +182,90 @@ class HepsiburadaScraper:
 
         with sync_playwright() as p:
             browser = self._launch_browser(p)
-            page = browser.new_page()
-            page.set_default_timeout(50000)
+            context = browser.new_context()
+            page = context.new_page()
+            page.set_default_timeout(60000)
 
             try:
                 for page_number in range(1, page_limit + 1):
                     url = self._build_url(term, quick_filters, sorting, extra_filters, page_number)
                     self.logger.info("Sayfa açılıyor: %s", url)
 
-                    # ❌ networkidle yok
                     page.goto(url, wait_until="domcontentloaded")
+                    page.wait_for_timeout(2000)
 
-                    # ✔ ürün konteyneri bekle
                     try:
-                        page.wait_for_selector("li[class^='productListContent-']", timeout=10000)
+                        page.wait_for_selector(
+                            "ul.productListContent-frGrtf5XrVXRwJ05HUfU", timeout=15000
+                        )
                     except Exception:
-                        page.wait_for_timeout(1200)
+                        self.logger.warning("Ürün listesi bulunamadı (sayfa=%s)", page_number)
+                        break
 
-                    page.wait_for_timeout(800)  # Stabilizasyon
+                    items = page.query_selector_all(
+                        "li.productListContent-zAP0Y5msy8OHn5z7T_K_"
+                    )
 
-                    card_selector = "li[class^='productListContent-']"
-                    cards = page.query_selector_all(card_selector)
-
-                    if not cards:
-                        self.logger.info("Kart bulunamadı, döngü sonlandırılıyor (sayfa=%s)", page_number)
+                    if not items:
+                        self.logger.info(
+                            "Kart bulunamadı, döngü sonlandırılıyor (sayfa=%s)", page_number
+                        )
                         break
 
                     collected = 0
 
-                    for card in cards:
+                    for item in items:
                         try:
-                            title_el = card.query_selector("h2 a, h3 a")
-                            price_el = card.query_selector("[data-test-id^='final-price'], .price-module_finalPrice__LtjvY")
-                            img_el = card.query_selector("picture img[src^='https://productimages.hepsiburada.net']")
-
-                            link = title_el.get_attribute("href") if title_el else ""
-                            name = title_el.get_attribute("title") if title_el else ""
-                            price = price_el.inner_text().strip() if price_el else ""
-                            image = img_el.get_attribute("src") if img_el else ""
-
-                            if not image:
+                            link_el = item.query_selector(
+                                "a.productCardLink-module_productCardLink__GZ3eU"
+                            )
+                            if not link_el:
                                 continue
 
-                            is_ad = link.startswith("https://adservice.hepsiburada.com") if link else False
+                            raw_link = (link_el.get_attribute("href") or "").strip()
 
-                            products.append(
+                            if "redirect=" in raw_link:
+                                from urllib.parse import parse_qs, urlparse
+
+                                parsed = urlparse(raw_link)
+                                qs = parse_qs(parsed.query)
+                                if "redirect" in qs:
+                                    raw_link = qs["redirect"][0]
+
+                            if raw_link.startswith("/"):
+                                full_link = "https://hepsiburada.com" + raw_link
+                            else:
+                                full_link = raw_link
+
+                            title_el = item.query_selector("h2.title-module_titleRoot__dNDiZ a")
+                            if not title_el:
+                                continue
+                            title = title_el.inner_text().strip()
+
+                            price_el = item.query_selector("[data-test-id^='final-price']")
+                            price_val: float | None = None
+                            if price_el:
+                                raw_price = price_el.inner_text().strip()
+                                cleaned = raw_price.replace(".", "").replace(" TL", "").replace(",", "."
+                                )
+                                try:
+                                    price_val = float(cleaned)
+                                except Exception:
+                                    price_val = None
+
+                            img_el = item.query_selector("img.hbImageView-module_hbImage__Ca3xO")
+                            image = img_el.get_attribute("src") if img_el else ""
+
+                            ad_flag = item.query_selector(
+                                ".advertisement-module_adRoot__d48uZ"
+                            )
+                            is_ad = bool(ad_flag)
+
+                            results.append(
                                 Product(
-                                    name=name or "",
-                                    price=price or "",
-                                    link=link or "",
+                                    name=title,
+                                    price=price_val,
+                                    link=full_link,
                                     image=image,
                                     is_ad=is_ad,
                                 )
@@ -250,8 +279,8 @@ class HepsiburadaScraper:
                             continue
 
             except Exception:
-                self.logger.exception("Ürünler alınırken hata oluştu")
+                self.logger.error("Ürünler alınırken hata oluştu", exc_info=True)
             finally:
                 browser.close()
 
-        return products
+        return results

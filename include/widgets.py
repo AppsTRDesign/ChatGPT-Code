@@ -31,7 +31,8 @@ class ProductTable(QtWidgets.QTableWidget):
             self.setItem(row, 0, checkbox_item)
 
             self.setItem(row, 1, QtWidgets.QTableWidgetItem(product.name))
-            self.setItem(row, 2, QtWidgets.QTableWidgetItem(product.price))
+            price_text = "" if product.price is None else str(product.price)
+            self.setItem(row, 2, QtWidgets.QTableWidgetItem(price_text))
             self.setItem(row, 3, QtWidgets.QTableWidgetItem(product.link))
             self.setItem(row, 4, QtWidgets.QTableWidgetItem(product.image))
             self.setItem(row, 5, QtWidgets.QTableWidgetItem("Evet" if product.is_ad else "Hayır"))
@@ -42,15 +43,22 @@ class ProductTable(QtWidgets.QTableWidget):
             item = self.item(row, 0)
             if item and item.checkState() == QtCore.Qt.CheckState.Checked:
                 products.append(
-                    Product(
-                        name=self.item(row, 1).text(),
-                        price=self.item(row, 2).text(),
-                        link=self.item(row, 3).text(),
-                        image=self.item(row, 4).text(),
-                        is_ad=self.item(row, 5).text() == "Evet",
-                    )
+                        Product(
+                            name=self.item(row, 1).text(),
+                            price=self._parse_price_cell(self.item(row, 2).text()),
+                            link=self.item(row, 3).text(),
+                            image=self.item(row, 4).text(),
+                            is_ad=self.item(row, 5).text() == "Evet",
+                        )
                 )
         return products
+
+    @staticmethod
+    def _parse_price_cell(value: str) -> float | None:
+        try:
+            return float(value)
+        except Exception:
+            return None
 
     def set_all_checked(self, checked: bool):
         state = QtCore.Qt.CheckState.Checked if checked else QtCore.Qt.CheckState.Unchecked
