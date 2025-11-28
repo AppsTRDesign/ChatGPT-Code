@@ -13,7 +13,7 @@ DEJAVU_FONT_PATH = os.path.join("assets", "DejaVuSans.ttf")  # Kullanıcı taraf
 @dataclass
 class Product:
     name: str
-    price: float | None
+    price: str | None
     link: str
     image: str
     is_ad: bool
@@ -21,7 +21,7 @@ class Product:
 
 class ProductModel(BaseModel):
     name: str
-    price: float | None
+    price: str | None
     link: HttpUrl | str
     image: HttpUrl | str
     is_ad: bool

@@ -180,12 +180,13 @@ class HepsiburadaScraper:
         max_pages: int = 1,
         products_per_page: int = 50,
     ) -> list[dict]:
-        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
-
         products: list[dict] = []
-        loaded_pages = 1
 
-        while loaded_pages <= max_pages:
+        for page_no in range(1, max_pages + 1):
+            page_url = url if page_no == 1 else f"{url}&sayfa={page_no}"
+            self.logger.info("Sayfa açılıyor: %s", page_url)
+            await page.goto(page_url, wait_until="domcontentloaded", timeout=60000)
+
             for _ in range(7):
                 await page.mouse.wheel(0, 2500)
                 await asyncio.sleep(0.6)
@@ -198,10 +199,11 @@ class HepsiburadaScraper:
 
             items = []
             for sel in selectors:
-                elements = await page.query_selector_all(sel)
-                if elements:
-                    items.extend(elements)
+                found = await page.query_selector_all(sel)
+                if found:
+                    items.extend(found)
 
+            page_collected = 0
             for item in items:
                 try:
                     title_el = await item.query_selector(
@@ -238,16 +240,11 @@ class HepsiburadaScraper:
                     )
                     self.logger.info("Ürün bulundu: %s", title.strip())
 
+                    page_collected += 1
+                    if page_collected >= products_per_page:
+                        break
                 except Exception:
                     continue
-
-            if len(products) >= loaded_pages * products_per_page:
-                loaded_pages += 1
-                next_url = url + f"&sayfa={loaded_pages}"
-                await page.goto(next_url, wait_until="domcontentloaded")
-                continue
-            else:
-                break
 
         return products
 
