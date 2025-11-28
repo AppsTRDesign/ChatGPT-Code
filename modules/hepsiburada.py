@@ -9,6 +9,21 @@ from playwright.sync_api import sync_playwright
 from include.models import Product
 
 
+def _parse_price(price_raw: str) -> float | None:
+    if not price_raw:
+        return None
+    try:
+        cleaned = (
+            price_raw.replace("TL", "")
+            .replace(".", "")
+            .replace(",", ".")
+            .strip()
+        )
+        return float(cleaned)
+    except Exception:
+        return None
+
+
 class HepsiburadaScraper:
     BASE_URL = "https://www.hepsiburada.com/ara"
     HEADLESS = False
@@ -273,12 +288,14 @@ class HepsiburadaScraper:
                                 except Exception:
                                     real_link = link
 
+                            numeric_price = _parse_price(price)
+
                             products.append(
                                 Product(
                                     name=name,
-                                    price=price,
+                                    price=numeric_price,
                                     link=real_link,
-                                    image=image,
+                                    image=image or "",
                                     is_ad=is_ad,
                                 )
                             )

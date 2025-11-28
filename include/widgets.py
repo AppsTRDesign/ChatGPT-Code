@@ -29,14 +29,19 @@ class ProductTable(QtWidgets.QTableWidget):
             checkbox_item = QtWidgets.QTableWidgetItem()
             checkbox_item.setFlags(checkbox_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
             checkbox_item.setCheckState(QtCore.Qt.CheckState.Unchecked)
+            checkbox_item.setData(QtCore.Qt.ItemDataRole.UserRole, product)
             self.setItem(row, 0, checkbox_item)
 
-            self.setItem(row, 1, QtWidgets.QTableWidgetItem(product.name))
+            self.setItem(row, 1, QtWidgets.QTableWidgetItem(product.name or ""))
             price_text = "" if product.price is None else str(product.price)
             self.setItem(row, 2, QtWidgets.QTableWidgetItem(price_text))
-            self.setItem(row, 3, QtWidgets.QTableWidgetItem(product.link))
-            self.setItem(row, 4, QtWidgets.QTableWidgetItem(product.image))
-            self.setItem(row, 5, QtWidgets.QTableWidgetItem("Evet" if product.is_ad else "Hayır"))
+            self.setItem(row, 3, QtWidgets.QTableWidgetItem(product.link or ""))
+            self.setItem(row, 4, QtWidgets.QTableWidgetItem(product.image or ""))
+            self.setItem(
+                row,
+                5,
+                QtWidgets.QTableWidgetItem("Evet" if product.is_ad else "Hayır"),
+            )
 
     def checked_products(self) -> List[Product]:
         products: List[Product] = []

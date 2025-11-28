@@ -467,8 +467,11 @@ class HepsiburadaTab(QtWidgets.QWidget):
         checkbox_item.setData(QtCore.Qt.ItemDataRole.UserRole, product)
         self.table.setItem(row, 0, checkbox_item)
 
+        price_val = item.get("price")
+        price_text = "" if price_val is None else str(price_val)
+
         self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(item.get("title", "")))
-        self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(str(item.get("price", ""))))
+        self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(price_text))
         self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(item.get("link", "")))
         self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(item.get("image", "")))
         ad_text = "Evet" if item.get("is_ad", False) else "Hayır"
