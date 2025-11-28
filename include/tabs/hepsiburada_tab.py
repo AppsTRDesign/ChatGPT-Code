@@ -475,7 +475,12 @@ class HepsiburadaTab(QtWidgets.QWidget):
         price_text = "" if price_val is None else str(price_val)
 
         self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(item.get("title", "")))
-        self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(price_text))
+        price_item = QtWidgets.QTableWidgetItem(price_text)
+        if isinstance(price_val, (int, float)):
+            price_item.setData(QtCore.Qt.ItemDataRole.UserRole, float(price_val))
+        else:
+            price_item.setData(QtCore.Qt.ItemDataRole.UserRole, None)
+        self.table.setItem(row, 2, price_item)
         self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(item.get("link", "")))
         self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(item.get("image", "")))
         ad_text = "Evet" if item.get("is_ad", False) else "Hayır"
