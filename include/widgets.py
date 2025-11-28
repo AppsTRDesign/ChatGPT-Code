@@ -18,6 +18,7 @@ class ProductTable(QtWidgets.QTableWidget):
         self.verticalHeader().setVisible(False)
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setRowCount(0)
 
     def populate(self, products: List[Product]):
         self.setRowCount(0)
