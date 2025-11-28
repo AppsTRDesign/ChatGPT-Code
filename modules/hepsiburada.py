@@ -166,69 +166,86 @@ class HepsiburadaScraper:
             return None
 
     async def fetch_products(
-        self, page, url: str, max_pages: int = 1, products_per_page: int = 50
+        self,
+        page,
+        url: str,
+        max_pages: int = 1,
+        products_per_page: int = 50,
     ) -> list[dict]:
-        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
         products: list[dict] = []
-        last_height = None
-        loaded_pages = 1
 
-        while loaded_pages <= max_pages:
+        for page_no in range(1, max_pages + 1):
+
+            final_url = f"{url}&sayfa={page_no}"
+            print(f"📄 {page_no}. sayfa açılıyor → {final_url}")
+
+            await page.goto(final_url, timeout=60000)
+
             try:
-                for _ in range(25):
-                    await page.keyboard.press("End")
-                    await page.wait_for_timeout(500)
+                await page.wait_for_load_state("domcontentloaded", timeout=30000)
+            except:
+                pass
 
-                new_height = await page.evaluate("document.body.scrollHeight")
+            for _ in range(7):
+                await page.mouse.wheel(0, 3000)
+                await asyncio.sleep(0.8)
 
-                if last_height == new_height:
-                    break
+            cards = await page.query_selector_all(
+                "li[data-test-id='product-card'], li[class*='productListContent']"
+            )
 
-                last_height = new_height
+            print(f"🔍 Bulunan ürün kartı: {len(cards)}")
 
-                items = await page.query_selector_all("li[data-test-id='product-card']")
+            for card in cards:
+                try:
+                    title_el = await card.query_selector(
+                        "h3[data-test-id='product-card-name'], h3 a, h2 a"
+                    )
+                    title = (
+                        (await title_el.inner_text()).strip()
+                        if title_el
+                        else "İsim yok"
+                    )
 
-                for item in items:
-                    try:
-                        title_el = await item.query_selector("h3[data-test-id='product-card-name']")
-                        price_el = await item.query_selector(
-                            "div[data-test-id='price-current-price']"
-                        )
-                        link_el = await item.query_selector("a[data-test-id='product-card-link']")
-                        image_el = await item.query_selector("img")
+                    link_el = await card.query_selector(
+                        "a[data-test-id='product-card-link'], h3 a, h2 a"
+                    )
 
-                        title = await title_el.inner_text() if title_el else ""
-                        price_raw = await price_el.inner_text() if price_el else ""
-                        link = await link_el.get_attribute("href") if link_el else ""
-                        image = await image_el.get_attribute("src") if image_el else ""
+                    href = await link_el.get_attribute("href") if link_el else None
 
-                        if link and link.startswith("/"):
-                            link = "https://hepsiburada.com" + link
+                    if href and href.startswith("/"):
+                        link = "https://hepsiburada.com" + href
+                    else:
+                        link = href
 
-                        price = float(
-                            price_raw.replace(".", "").replace(",", ".").replace("TL", "").strip() or 0
-                        )
+                    price_el = await card.query_selector(
+                        "[data-test-id='price-current-price'], "
+                        "span[data-test-id='price-current-price'], "
+                        "div.price-module_finalPrice__LtjvY"
+                    )
+                    price_raw = (
+                        (await price_el.inner_text()).strip()
+                        if price_el
+                        else "0"
+                    )
+                    price = price_raw
 
-                        products.append(
-                            {
-                                "title": title,
-                                "price": price,
-                                "link": link,
-                                "image": image,
-                                "is_ad": False,
-                            }
-                        )
+                    img_el = await card.query_selector("img")
+                    image = await img_el.get_attribute("src") if img_el else None
 
-                    except Exception:
-                        continue
+                    product = {
+                        "title": title,
+                        "price": price,
+                        "link": link,
+                        "image": image,
+                        "is_ad": False,
+                    }
 
-                if len(products) >= products_per_page * loaded_pages:
-                    loaded_pages += 1
+                    products.append(product)
 
-            except Exception as e:
-                print("Scroll error:", e)
-                break
+                except:
+                    continue
 
         return products
 
