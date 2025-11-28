@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import quote_plus
+from urllib.parse import parse_qs, quote_plus, urlparse
 
 from playwright.async_api import async_playwright
 from playwright.sync_api import sync_playwright
@@ -219,6 +219,12 @@ class HepsiburadaScraper:
                     else:
                         link = href
 
+                    is_ad = False
+                    if link and "adservice.hepsiburada.com" in link:
+                        is_ad = True
+                        real_url = parse_qs(urlparse(link).query).get("redirect", [None])[0]
+                        link = real_url or link
+
                     price_el = await card.query_selector(
                         "[data-test-id='price-current-price'], "
                         "span[data-test-id='price-current-price'], "
@@ -239,7 +245,7 @@ class HepsiburadaScraper:
                         "price": price,
                         "link": link,
                         "image": image,
-                        "is_ad": False,
+                        "is_ad": is_ad,
                     }
 
                     products.append(product)
