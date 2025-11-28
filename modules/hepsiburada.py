@@ -62,10 +62,13 @@ class HepsiburadaScraper:
         with sync_playwright() as p:
             browser = self._launch_browser(p)
             page = browser.new_page()
+            page.set_default_timeout(60000)
             try:
-                page.goto(f"{self.BASE_URL}?q={quote_plus(term)}", wait_until="networkidle")
+                page.goto(
+                    f"{self.BASE_URL}?q={quote_plus(term)}", wait_until="networkidle", timeout=60000
+                )
                 try:
-                    page.wait_for_selector("#VerticalFilter", timeout=7000)
+                    page.wait_for_selector("#VerticalFilter", timeout=20000)
                 except PlaywrightTimeoutError:
                     self.logger.warning("Filtre alanı zaman aşımına uğradı")
                     return []
@@ -101,6 +104,7 @@ class HepsiburadaScraper:
         with sync_playwright() as p:
             browser = self._launch_browser(p)
             page = browser.new_page()
+            page.set_default_timeout(60000)
             try:
                 for page_number in range(1, page_limit + 1):
                     url = self._build_url(term, quick_filters, sorting, extra_filters, page_number)

@@ -145,10 +145,169 @@ class HepsiburadaTab(QtWidgets.QWidget):
         self.dynamic_filter_container = QtWidgets.QScrollArea()
         self.dynamic_filter_container.setWidgetResizable(True)
         inner = QtWidgets.QWidget()
-        self.dynamic_filter_layout = QtWidgets.QVBoxLayout(inner)
+        self.dynamic_filter_main_layout = QtWidgets.QVBoxLayout(inner)
         self.dynamic_filter_container.setWidget(inner)
         layout.addWidget(self.dynamic_filter_container)
         return box
+
+    def _apply_groupbox_style(self, group_box: QtWidgets.QGroupBox, index: int):
+        colors = [
+            ("#ff9a00", "#ffb347"),
+            ("#ff3d77", "#ff6b9c"),
+            ("#00c6ff", "#0072ff"),
+            ("#7b2ff7", "#f107a3"),
+            ("#42e695", "#3bb2b8"),
+            ("#ff512f", "#dd2476"),
+        ]
+        c1, c2 = colors[index % len(colors)]
+
+        group_box.setStyleSheet(
+            f"
+        QGroupBox {{
+            margin-top: 12px;
+            font-weight: bold;
+            border: 2px solid {c2};
+            border-radius: 8px;
+            padding: 8px;
+            background: qlineargradient(
+                x1:0, y1:0, x2:1, y2:1,
+                stop:0 {c1},
+                stop:1 white
+            );
+        }}
+        QGroupBox:title {{
+            subcontrol-origin: margin;
+            left: 10px;
+            top: -2px;
+        }}
+    "
+        )
+
+    def _styled_slider(self, slider: QtWidgets.QSlider):
+        slider.setStyleSheet(
+            """
+        QSlider::groove:horizontal {
+            height: 8px;
+            border-radius: 4px;
+            background: qlineargradient(
+                x1:0, y1:0, x2:1, y2:0,
+                stop:0 #ff9a00,
+                stop:1 #ff3d77
+            );
+        }
+        QSlider::handle:horizontal {
+            background: #ffffff;
+            border: 2px solid #ff3d77;
+            width: 18px;
+            margin: -6px 0;
+            border-radius: 9px;
+        }
+        QSlider::handle:hover {
+            background: #ffe5ef;
+        }
+    """
+        )
+
+    def _create_brand_filter_widget(self, items):
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(container)
+
+        search_box = QtWidgets.QLineEdit()
+        search_box.setPlaceholderText("Marka ara…")
+        layout.addWidget(search_box)
+
+        list_widget = QtWidgets.QListWidget()
+        list_widget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+
+        model = QtCore.QStringListModel([name for name, _ in items])
+        proxy = QtCore.QSortFilterProxyModel()
+        proxy.setSourceModel(model)
+        proxy.setFilterCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
+
+        search_box.textChanged.connect(proxy.setFilterFixedString)
+
+        def refresh_list():
+            list_widget.clear()
+            for i in range(proxy.rowCount()):
+                text = proxy.index(i, 0).data()
+                checkbox = QtWidgets.QCheckBox(text)
+
+                for name, query in items:
+                    if name == text:
+                        checkbox.setProperty("query", query)
+                        self.dynamic_filter_checks[name] = checkbox
+
+                item = QtWidgets.QListWidgetItem(list_widget)
+                list_widget.setItemWidget(item, checkbox)
+
+        refresh_list()
+        proxy.rowsInserted.connect(refresh_list)
+        proxy.rowsRemoved.connect(refresh_list)
+
+        layout.addWidget(list_widget)
+
+        return container
+
+    def _render_filters_grouped(self, filters):
+        for i in reversed(range(self.dynamic_filter_main_layout.count())):
+            item = self.dynamic_filter_main_layout.itemAt(i)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+
+        groups = {}
+
+        for name, query in filters:
+            if ":" in name:
+                group, item_text = name.split(":", 1)
+            else:
+                group = "Diğer"
+                item_text = name
+            group = group.strip()
+            item_text = item_text.strip()
+            groups.setdefault(group, []).append((item_text, query))
+
+        self.dynamic_filter_checks = {}
+
+        for idx, (group_name, items) in enumerate(groups.items()):
+            group_box = QtWidgets.QGroupBox(group_name)
+            group_layout = QtWidgets.QVBoxLayout(group_box)
+
+            if group_name.lower() == "marka":
+                w = self._create_brand_filter_widget(items)
+                group_layout.addWidget(w)
+            elif group_name.lower().startswith("fiyat"):
+                h = QtWidgets.QHBoxLayout()
+
+                self.price_min = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+                self.price_max = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+
+                self.price_min.setRange(0, 20000)
+                self.price_max.setRange(0, 20000)
+
+                self.price_min.setValue(0)
+                self.price_max.setValue(20000)
+
+                self._styled_slider(self.price_min)
+                self._styled_slider(self.price_max)
+
+                h.addWidget(QtWidgets.QLabel("Min"))
+                h.addWidget(self.price_min)
+                h.addWidget(QtWidgets.QLabel("Max"))
+                h.addWidget(self.price_max)
+
+                group_layout.addLayout(h)
+            else:
+                for name_text, query in items:
+                    cb = QtWidgets.QCheckBox(name_text)
+                    cb.setProperty("query", query)
+                    group_layout.addWidget(cb)
+                    self.dynamic_filter_checks[name_text] = cb
+
+            self._apply_groupbox_style(group_box, idx)
+            self.dynamic_filter_main_layout.addWidget(group_box)
+
+        self.dynamic_filter_main_layout.addStretch()
 
     def _load_filters(self):
         term = self.search_input.text().strip()
@@ -167,20 +326,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
             self.list_products_btn.setEnabled(False)
             return
         self.dynamic_filters = filters
-        for i in reversed(range(self.dynamic_filter_layout.count())):
-            item = self.dynamic_filter_layout.itemAt(i)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
-            else:
-                self.dynamic_filter_layout.removeItem(item)
-        self.dynamic_filter_checks: Dict[str, QtWidgets.QCheckBox] = {}
-        for name, query in filters:
-            cb = QtWidgets.QCheckBox(name)
-            cb.setProperty("query", query)
-            self.dynamic_filter_layout.addWidget(cb)
-            self.dynamic_filter_checks[name] = cb
-        self.dynamic_filter_layout.addStretch()
+        self._render_filters_grouped(filters)
         self.list_products_btn.setEnabled(True)
 
     def _collect_quick_filters(self) -> List[str]:
