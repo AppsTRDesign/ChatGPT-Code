@@ -213,8 +213,24 @@ class HepsiburadaScraper:
                         "a[data-test-id='product-card-link'], a"
                     )
                     img_el = await item.query_selector(
-                        "img[data-test-id='product-image'], img[class*='product-image'], img"
+                        "picture img[class*='hbImageView-module_hbImage__']"
                     )
+                    if not img_el:
+                        img_el = await item.query_selector("picture img")
+                    if not img_el:
+                        img_el = await item.query_selector("img")
+
+                    srcset_el = await item.query_selector(
+                        "picture source[type='image/webp']"
+                    )
+                    image = ""
+                    if srcset_el:
+                        srcset_val = await srcset_el.get_attribute("srcset")
+                        if srcset_val:
+                            image = srcset_val.split(" ")[0]
+
+                    if not image and img_el:
+                        image = await img_el.get_attribute("src")
                     price_el = await item.query_selector(
                         "span[data-test-id='price-current-price'], div.price-module_finalPrice__LtjvY"
                     )
@@ -224,7 +240,6 @@ class HepsiburadaScraper:
                         continue
 
                     link = await link_el.get_attribute("href") if link_el else ""
-                    image = await img_el.get_attribute("src") if img_el else ""
                     price = await price_el.inner_text() if price_el else ""
 
                     if link.startswith("/"):
