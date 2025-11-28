@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
 
+from playwright.async_api import async_playwright
 from playwright.sync_api import sync_playwright
 
 from include.models import Product
@@ -163,124 +165,134 @@ class HepsiburadaScraper:
             self.logger.error("Filtreler alınırken hata oluştu", exc_info=True)
             return None
 
-    def fetch_products(
+    async def fetch_products(
+        self, page, url: str, max_pages: int = 1, products_per_page: int = 50
+    ) -> list[dict]:
+        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+
+        products: list[dict] = []
+        last_height = None
+        loaded_pages = 1
+
+        while loaded_pages <= max_pages:
+            try:
+                for _ in range(25):
+                    await page.keyboard.press("End")
+                    await page.wait_for_timeout(500)
+
+                new_height = await page.evaluate("document.body.scrollHeight")
+
+                if last_height == new_height:
+                    break
+
+                last_height = new_height
+
+                items = await page.query_selector_all("li[data-test-id='product-card']")
+
+                for item in items:
+                    try:
+                        title_el = await item.query_selector("h3[data-test-id='product-card-name']")
+                        price_el = await item.query_selector(
+                            "div[data-test-id='price-current-price']"
+                        )
+                        link_el = await item.query_selector("a[data-test-id='product-card-link']")
+                        image_el = await item.query_selector("img")
+
+                        title = await title_el.inner_text() if title_el else ""
+                        price_raw = await price_el.inner_text() if price_el else ""
+                        link = await link_el.get_attribute("href") if link_el else ""
+                        image = await image_el.get_attribute("src") if image_el else ""
+
+                        if link and link.startswith("/"):
+                            link = "https://hepsiburada.com" + link
+
+                        price = float(
+                            price_raw.replace(".", "").replace(",", ".").replace("TL", "").strip() or 0
+                        )
+
+                        products.append(
+                            {
+                                "title": title,
+                                "price": price,
+                                "link": link,
+                                "image": image,
+                                "is_ad": False,
+                            }
+                        )
+
+                    except Exception:
+                        continue
+
+                if len(products) >= products_per_page * loaded_pages:
+                    loaded_pages += 1
+
+            except Exception as e:
+                print("Scroll error:", e)
+                break
+
+        return products
+
+    async def _launch_browser_async(self, playwright_client):
+        try:
+            self.logger.info("Chrome kanalı ile başlatılıyor (görünür)")
+            return await playwright_client.chromium.launch(
+                headless=self.HEADLESS, channel="chrome"
+            )
+        except Exception as exc:
+            self.logger.warning("Chrome kanalı açılamadı, Chromium kullanılacak: %s", exc)
+            return await playwright_client.chromium.launch(headless=self.HEADLESS)
+
+    async def _collect_products_async(
         self,
         term: str,
-        quick_filters: List[str],
-        sorting: Optional[str],
-        extra_filters: List[str],
-        page_limit: int,
+        quick_filters: list[str],
+        sorting: str | None,
+        extra_filters: list[str],
+        max_pages: int,
         per_page_limit: int,
-    ) -> List[Product]:
-        results: List[Product] = []
+    ) -> list[Product]:
+        url = self._build_url(term, quick_filters, sorting, extra_filters, 1)
+        async with async_playwright() as p:
+            browser = await self._launch_browser_async(p)
+            page = await browser.new_page()
+            page.set_default_timeout(60000)
+            raw_products = await self.fetch_products(
+                page, url, max_pages=max_pages, products_per_page=per_page_limit
+            )
+            await browser.close()
+
+        return [
+            Product(
+                name=item.get("title", ""),
+                price=item.get("price"),
+                link=item.get("link", ""),
+                image=item.get("image", ""),
+                is_ad=item.get("is_ad", False),
+            )
+            for item in raw_products
+        ]
+
+    def collect_products(
+        self,
+        term: str,
+        quick_filters: list[str],
+        sorting: str | None,
+        extra_filters: list[str],
+        max_pages: int,
+        per_page_limit: int,
+    ) -> list[Product]:
         self.logger.info(
             "Ürünler getiriliyor | arama='%s' sayfa_limit=%s sayfa_başı_limit=%s",
             term,
-            page_limit,
+            max_pages,
             per_page_limit,
         )
-
-        with sync_playwright() as p:
-            browser = self._launch_browser(p)
-            context = browser.new_context()
-            page = context.new_page()
-            page.set_default_timeout(60000)
-
-            try:
-                for page_number in range(1, page_limit + 1):
-                    url = self._build_url(term, quick_filters, sorting, extra_filters, page_number)
-                    self.logger.info("Sayfa açılıyor: %s", url)
-
-                    page.goto(url, wait_until="domcontentloaded")
-                    page.wait_for_timeout(2000)
-
-                    try:
-                        page.wait_for_selector(
-                            "ul.productListContent-frGrtf5XrVXRwJ05HUfU", timeout=15000
-                        )
-                    except Exception:
-                        self.logger.warning("Ürün listesi bulunamadı (sayfa=%s)", page_number)
-                        break
-
-                    items = page.query_selector_all(
-                        "li.productListContent-zAP0Y5msy8OHn5z7T_K_"
-                    )
-
-                    if not items:
-                        self.logger.info(
-                            "Kart bulunamadı, döngü sonlandırılıyor (sayfa=%s)", page_number
-                        )
-                        break
-
-                    collected = 0
-
-                    for item in items:
-                        try:
-                            link_el = item.query_selector(
-                                "a.productCardLink-module_productCardLink__GZ3eU"
-                            )
-                            if not link_el:
-                                continue
-
-                            raw_link = (link_el.get_attribute("href") or "").strip()
-
-                            if "redirect=" in raw_link:
-                                from urllib.parse import parse_qs, urlparse
-
-                                parsed = urlparse(raw_link)
-                                qs = parse_qs(parsed.query)
-                                if "redirect" in qs:
-                                    raw_link = qs["redirect"][0]
-
-                            if raw_link.startswith("/"):
-                                full_link = "https://hepsiburada.com" + raw_link
-                            else:
-                                full_link = raw_link
-
-                            title_el = item.query_selector("h2.title-module_titleRoot__dNDiZ a")
-                            if not title_el:
-                                continue
-                            title = title_el.inner_text().strip()
-
-                            price_el = item.query_selector("[data-test-id^='final-price']")
-                            price_val: float | None = None
-                            if price_el:
-                                raw_price = price_el.inner_text().strip()
-                                cleaned = raw_price.replace(".", "").replace(" TL", "").replace(",", "."
-                                )
-                                try:
-                                    price_val = float(cleaned)
-                                except Exception:
-                                    price_val = None
-
-                            img_el = item.query_selector("img.hbImageView-module_hbImage__Ca3xO")
-                            image = img_el.get_attribute("src") if img_el else ""
-
-                            ad_flag = item.query_selector(
-                                ".advertisement-module_adRoot__d48uZ"
-                            )
-                            is_ad = bool(ad_flag)
-
-                            results.append(
-                                Product(
-                                    name=title,
-                                    price=price_val,
-                                    link=full_link,
-                                    image=image,
-                                    is_ad=is_ad,
-                                )
-                            )
-
-                            collected += 1
-                            if collected >= per_page_limit:
-                                break
-
-                        except Exception:
-                            continue
-
-            except Exception:
-                self.logger.error("Ürünler alınırken hata oluştu", exc_info=True)
-            finally:
-                browser.close()
-
-        return results
+        try:
+            return asyncio.run(
+                self._collect_products_async(
+                    term, quick_filters, sorting, extra_filters, max_pages, per_page_limit
+                )
+            )
+        except Exception:
+            self.logger.error("Ürünler alınırken hata oluştu", exc_info=True)
+            return []

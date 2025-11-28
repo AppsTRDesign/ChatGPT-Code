@@ -42,11 +42,13 @@ class HepsiburadaTab(QtWidgets.QWidget):
         self.page_input.setMinimum(1)
         self.page_input.setMaximum(50)
         self.page_input.setValue(2)
+        self.spinPageCount = self.page_input
 
         self.per_page_input = QtWidgets.QSpinBox()
         self.per_page_input.setMinimum(1)
         self.per_page_input.setMaximum(200)
         self.per_page_input.setValue(50)
+        self.spinProductsPerPage = self.per_page_input
 
         self.fetch_filters_btn = QtWidgets.QPushButton("Filtreleri Getir")
         self.fetch_filters_btn.clicked.connect(self._load_filters)
@@ -367,9 +369,16 @@ class HepsiburadaTab(QtWidgets.QWidget):
         quick_filters = self._collect_quick_filters()
         sorting = self._collect_sorting()
         extra_filters = self._collect_dynamic_filters()
-        page_limit = self.page_input.value()
-        per_page_limit = self.per_page_input.value()
-        self.products = self.scraper.fetch_products(term, quick_filters, sorting, extra_filters, page_limit, per_page_limit)
+        page_limit = self.spinPageCount.value()
+        per_page_limit = self.spinProductsPerPage.value()
+        self.products = self.scraper.collect_products(
+            term,
+            quick_filters,
+            sorting,
+            extra_filters,
+            page_limit,
+            per_page_limit,
+        )
         self.table.populate(self.products)
 
     def _disable_listing(self):
