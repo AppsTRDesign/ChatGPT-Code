@@ -162,7 +162,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
         c1, c2 = colors[index % len(colors)]
 
         group_box.setStyleSheet(
-            f"
+            f"""
         QGroupBox {{
             margin-top: 12px;
             font-weight: bold;
@@ -180,7 +180,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
             left: 10px;
             top: -2px;
         }}
-    "
+    """
         )
 
     def _styled_slider(self, slider: QtWidgets.QSlider):
