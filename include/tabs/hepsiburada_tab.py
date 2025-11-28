@@ -16,7 +16,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
 
-from include.models import APP_TITLE, DEJAVU_FONT_PATH, Product, ProductModel
+from include.models import APP_TITLE, DEJAVU_FONT_PATH, Product
 from include.widgets import ProductTable
 from modules.hepsiburada import HepsiburadaScraper
 
@@ -457,6 +457,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
             is_ad=item.get("is_ad", False),
         )
         self.products.append(product)
+        self.scraper.logger.info("Tabloya eklendi: %s", product.name)
 
         row = self.table.rowCount()
         self.table.insertRow(row)
@@ -490,16 +491,14 @@ class HepsiburadaTab(QtWidgets.QWidget):
             return
         payload = []
         for item in selected:
-            price_raw = item.get("price", "")
-            numeric_price = self.table._parse_price_cell(str(price_raw)) if price_raw else None
             payload.append(
-                ProductModel(
-                    name=item.get("name", ""),
-                    price=numeric_price,
-                    link=item.get("link", ""),
-                    image=item.get("image", ""),
-                    is_ad=item.get("is_ad", False),
-                ).model_dump()
+                {
+                    "name": item.get("name", ""),
+                    "price": item.get("price", ""),
+                    "link": item.get("link", ""),
+                    "image": item.get("image", ""),
+                    "is_ad": item.get("is_ad", False),
+                }
             )
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -513,30 +512,73 @@ class HepsiburadaTab(QtWidgets.QWidget):
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Excel Olarak Kaydet", filter="Excel (*.xlsx)")
         if not path:
             return
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        import os
+
         wb = Workbook()
         ws = wb.active
         ws.title = "Hepsiburada"
+
         headers = ["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]
         ws.append(headers)
+
+        header_fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
+        header_font = Font(bold=True, color="000000")
+        for col, title in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
         font = Font(name="DejaVu Sans") if os.path.exists(DEJAVU_FONT_PATH) else Font(name="Calibri")
+
+        thin = Side(border_style="thin", color="AAAAAA")
+        border = Border(top=thin, left=thin, right=thin, bottom=thin)
+
+        row_index = 2
         for item in selected:
-            price_raw = item.get("price", "")
-            numeric_price = self.table._parse_price_cell(str(price_raw)) if price_raw else None
+            price_str = item.get("price", "")
             ws.append(
                 [
                     item.get("name", ""),
-                    numeric_price if numeric_price is not None else "",
+                    price_str,
                     item.get("link", ""),
                     item.get("image", ""),
                     "Evet" if item.get("is_ad", False) else "Hayır",
                 ]
             )
-        for column_cells in ws.columns:
-            length = max(len(str(cell.value)) for cell in column_cells)
-            ws.column_dimensions[column_cells[0].column_letter].width = length + 2
-            for cell in column_cells:
+
+            for col in range(1, 6):
+                cell = ws.cell(row=row_index, column=col)
                 cell.font = font
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
+                cell.border = border
+
+            ad_cell = ws.cell(row=row_index, column=5)
+            if ad_cell.value == "Evet":
+                ad_cell.fill = PatternFill(start_color="FF9999", fill_type="solid")
+            else:
+                ad_cell.fill = PatternFill(start_color="CCFFCC", fill_type="solid")
+
+            link_cell = ws.cell(row=row_index, column=3)
+            if link_cell.value and link_cell.value.startswith("http"):
+                link_cell.hyperlink = link_cell.value
+                link_cell.font = Font(color="0000EE", underline="single")
+
+            row_index += 1
+
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    length = len(str(cell.value))
+                    if length > max_len:
+                        max_len = length
+                except Exception:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max_len + 3, 55)
+
         wb.save(path)
         QtWidgets.QMessageBox.information(self, APP_TITLE, "XLSX dışa aktarımı tamamlandı.")
 
@@ -545,42 +587,96 @@ class HepsiburadaTab(QtWidgets.QWidget):
         if not selected:
             QtWidgets.QMessageBox.information(self, APP_TITLE, "Lütfen dışa aktarmak için ürün seçin.")
             return
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "PDF Olarak Kaydet", filter="PDF (*.pdf)")
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "PDF kaydet", "urunler.pdf", "PDF Files (*.pdf)"
+        )
         if not path:
             return
-        if os.path.exists(DEJAVU_FONT_PATH):
-            pdfmetrics.registerFont(TTFont("DejaVuSans", DEJAVU_FONT_PATH))
-            font_name = "DejaVuSans"
-        else:
-            font_name = "Helvetica"
-        doc = SimpleDocTemplate(path, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm)
-        data = [["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]]
-        for item in selected:
-            price_raw = item.get("price", "")
-            numeric_price = self.table._parse_price_cell(str(price_raw)) if price_raw else None
-            row = [
-                item.get("name", "") or "",
-                numeric_price if numeric_price is not None else "",
-                item.get("link", "") or "",
-                item.get("image", "") or "",
-                "Evet" if item.get("is_ad", False) else "Hayır",
-            ]
-            data.append(row)
-        table = Table(data, repeatRows=1)
-        style = TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightblue),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("FONTNAME", (0, 0), (-1, -1), font_name),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ]
+
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_LEFT
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import cm
+        from reportlab.platypus import Image, SimpleDocTemplate, Table, TableStyle
+
+        pdf = SimpleDocTemplate(
+            path,
+            pagesize=landscape(A4),
+            rightMargin=20,
+            leftMargin=20,
+            topMargin=20,
+            bottomMargin=20,
         )
-        table.setStyle(style)
-        paragraph_style = ParagraphStyle("default", fontName=font_name, fontSize=9, leading=11)
-        for row_index in range(1, len(data)):
-            for col_index in range(len(data[row_index])):
-                cell_text = data[row_index][col_index] or ""
-                table._cellvalues[row_index][col_index] = Paragraph(str(cell_text), paragraph_style)
-        doc.build([table])
+
+        styles = getSampleStyleSheet()
+        body = ParagraphStyle(
+            "Body",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=8,
+            leading=10,
+            alignment=TA_LEFT,
+        )
+
+        header = ["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]
+        data = [header]
+
+        MAX_IMG_W = 120
+        MAX_IMG_H = 120
+
+        for item in selected:
+            p_title = Paragraph(item.get("name", ""), body)
+
+            short_link = item.get("link", "")
+            if len(short_link) > 60:
+                short_link = short_link[:60] + "..."
+            p_link = Paragraph(short_link, body)
+
+            is_ad = "Evet" if item.get("is_ad") else "Hayır"
+
+            img_path = item.get("image", "")
+            try:
+                img = Image(img_path)
+                img._restrictSize(MAX_IMG_W, MAX_IMG_H)
+            except Exception:
+                img = Paragraph("-", body)
+
+            row = [
+                p_title,
+                Paragraph(item.get("price", ""), body),
+                p_link,
+                img,
+                Paragraph(is_ad, body),
+            ]
+
+            data.append(row)
+
+        table = Table(
+            data,
+            colWidths=[6 * cm, 2.5 * cm, 6.5 * cm, 4 * cm, 2 * cm],
+        )
+
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.95, 0.45, 0.00)),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("GRID", (0, 0), (-1, -1), 0.2, colors.grey),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+
+        pdf.build([table])
+
         QtWidgets.QMessageBox.information(self, APP_TITLE, "PDF dışa aktarımı tamamlandı.")
+    

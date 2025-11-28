@@ -21,9 +21,12 @@ class ProductTable(QtWidgets.QTableWidget):
         self.setRowCount(0)
 
     def populate(self, products: List[Product]):
-        self.setRowCount(len(products))
+        self.setRowCount(0)
 
-        for row, product in enumerate(products):
+        for product in products:
+            row = self.rowCount()
+            self.insertRow(row)
+
             checkbox_item = QtWidgets.QTableWidgetItem()
             checkbox_item.setFlags(
                 QtCore.Qt.ItemFlag.ItemIsEnabled | QtCore.Qt.ItemFlag.ItemIsUserCheckable
