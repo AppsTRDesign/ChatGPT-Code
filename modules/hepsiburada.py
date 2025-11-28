@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote_plus
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
+from playwright.sync_api import sync_playwright
 
 from include.models import Product
 
@@ -59,30 +59,69 @@ class HepsiburadaScraper:
     def fetch_filters(self, term: str) -> List[Tuple[str, str]]:
         self.logger.info("Filtreler getiriliyor (aranan terim: %s)", term)
         filters: List[Tuple[str, str]] = []
+
         with sync_playwright() as p:
             browser = self._launch_browser(p)
             page = browser.new_page()
-            page.set_default_timeout(60000)
+            page.set_default_timeout(40000)
+
             try:
-                page.goto(
-                    f"{self.BASE_URL}?q={quote_plus(term)}", wait_until="networkidle", timeout=60000
-                )
+                url = f"{self.BASE_URL}?q={quote_plus(term)}"
+                self.logger.info("Sayfa açılıyor: %s", url)
+
+                # networkidle yerine DOMContentLoaded
+                page.goto(url, wait_until="domcontentloaded")
+
+                # Yeni filtre konteyneri (Hepsiburada güncel)
+                FILTER_CONTAINER = "div[id='leftNavContainer']"
+
                 try:
-                    page.wait_for_selector("#VerticalFilter", timeout=20000)
-                except PlaywrightTimeoutError:
-                    self.logger.warning("Filtre alanı zaman aşımına uğradı")
+                    page.wait_for_selector(FILTER_CONTAINER, timeout=10000)
+                except Exception:
+                    self.logger.warning("Filtre konteyneri bulunamadı!")
                     return []
-                elements = page.query_selector_all("#VerticalFilter a")
-                for el in elements:
-                    href = el.get_attribute("href") or ""
-                    text = el.inner_text().strip()
-                    if href and text:
-                        filters.append((text, href.replace("/ara?", "")))
-                self.logger.info("%s filtre bulundu", len(filters))
+
+                # Tüm filtre grupları (accordion)
+                groups = page.query_selector_all(
+                    "div[id='leftNavContainer'] div[class*='accordion']"
+                )
+
+                for g in groups:
+                    try:
+                        # Grup başlığı
+                        header = g.query_selector("div[class*='accordionHeader']")
+                        if not header:
+                            continue
+
+                        group_name = header.inner_text().strip()
+                        if not group_name:
+                            continue
+
+                        # Grubu aç
+                        header.click()
+                        page.wait_for_timeout(200)
+
+                        # Checkbox filtreleri
+                        items = g.query_selector_all("input[type='checkbox']")
+
+                        for item in items:
+                            lbl = item.evaluate("el => el.parentElement?.innerText") or ""
+                            val = item.get_attribute("value") or ""
+
+                            if lbl and val:
+                                filters.append((f"{group_name}: {lbl.strip()}", f"filtreler={val}"))
+
+                    except Exception as e:
+                        self.logger.warning("Grup okunamadı: %s", e)
+
+                self.logger.info("Toplam %s filtre bulundu.", len(filters))
+
             except Exception:
                 self.logger.exception("Filtreler alınırken hata oluştu")
+
             finally:
                 browser.close()
+
         return filters
 
     def fetch_products(
