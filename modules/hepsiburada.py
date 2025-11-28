@@ -15,6 +15,7 @@ def _parse_price(price_raw: str) -> float | None:
     try:
         cleaned = (
             price_raw.replace("TL", "")
+            .replace(" ", "")
             .replace(".", "")
             .replace(",", ".")
             .strip()

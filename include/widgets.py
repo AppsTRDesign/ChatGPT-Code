@@ -21,61 +21,45 @@ class ProductTable(QtWidgets.QTableWidget):
         self.setRowCount(0)
 
     def populate(self, products: List[Product]):
-        self.setRowCount(0)
-        for product in products:
-            row = self.rowCount()
-            self.insertRow(row)
+        self.setRowCount(len(products))
 
+        for row, product in enumerate(products):
             checkbox_item = QtWidgets.QTableWidgetItem()
-            checkbox_item.setFlags(checkbox_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+            checkbox_item.setFlags(
+                QtCore.Qt.ItemFlag.ItemIsEnabled | QtCore.Qt.ItemFlag.ItemIsUserCheckable
+            )
             checkbox_item.setCheckState(QtCore.Qt.CheckState.Unchecked)
-            checkbox_item.setData(QtCore.Qt.ItemDataRole.UserRole, product)
             self.setItem(row, 0, checkbox_item)
 
             self.setItem(row, 1, QtWidgets.QTableWidgetItem(product.name or ""))
-            price_text = "" if product.price is None else str(product.price)
+            price_text = str(product.price) if product.price is not None else ""
             self.setItem(row, 2, QtWidgets.QTableWidgetItem(price_text))
             self.setItem(row, 3, QtWidgets.QTableWidgetItem(product.link or ""))
             self.setItem(row, 4, QtWidgets.QTableWidgetItem(product.image or ""))
-            self.setItem(
-                row,
-                5,
-                QtWidgets.QTableWidgetItem("Evet" if product.is_ad else "Hayır"),
-            )
+            self.setItem(row, 5, QtWidgets.QTableWidgetItem("Evet" if product.is_ad else "Hayır"))
 
-    def checked_products(self) -> List[Product]:
-        products: List[Product] = []
+    def checked_products(self):
+        results = []
         for row in range(self.rowCount()):
-            item = self.item(row, 0)
-            if not item or item.checkState() != QtCore.Qt.CheckState.Checked:
-                continue
+            chk = self.item(row, 0)
+            if chk and chk.checkState() == QtCore.Qt.CheckState.Checked:
+                name = self.item(row, 1).text() if self.item(row, 1) else ""
+                price = self.item(row, 2).text() if self.item(row, 2) else ""
+                link = self.item(row, 3).text() if self.item(row, 3) else ""
+                image = self.item(row, 4).text() if self.item(row, 4) else ""
+                is_ad = self.item(row, 5).text() if self.item(row, 5) else ""
 
-            # Prefer the stored Product object (keeps image/price intact even if cells are empty)
-            stored = item.data(QtCore.Qt.ItemDataRole.UserRole)
-            if isinstance(stored, Product):
-                products.append(stored)
-                continue
-
-            name_item = self.item(row, 1)
-            price_item = self.item(row, 2)
-            link_item = self.item(row, 3)
-            image_item = self.item(row, 4)
-            ad_item = self.item(row, 5)
-
-            if not all([name_item, price_item, link_item, image_item, ad_item]):
-                # Skip incomplete rows to avoid AttributeErrors
-                continue
-
-            products.append(
-                Product(
-                    name=name_item.text(),
-                    price=self._parse_price_cell(price_item.text()),
-                    link=link_item.text(),
-                    image=image_item.text(),
-                    is_ad=ad_item.text() == "Evet",
+                results.append(
+                    {
+                        "name": name,
+                        "price": price,
+                        "link": link,
+                        "image": image,
+                        "is_ad": (is_ad == "Evet"),
+                    }
                 )
-            )
-        return products
+
+        return results
 
     @staticmethod
     def _parse_price_cell(value: str) -> float | None:

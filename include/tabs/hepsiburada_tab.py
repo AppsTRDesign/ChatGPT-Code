@@ -488,7 +488,19 @@ class HepsiburadaTab(QtWidgets.QWidget):
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "JSON Olarak Kaydet", filter="JSON (*.json)")
         if not path:
             return
-        payload = [ProductModel(**vars(p)).model_dump() for p in selected]
+        payload = []
+        for item in selected:
+            price_raw = item.get("price", "")
+            numeric_price = self.table._parse_price_cell(str(price_raw)) if price_raw else None
+            payload.append(
+                ProductModel(
+                    name=item.get("name", ""),
+                    price=numeric_price,
+                    link=item.get("link", ""),
+                    image=item.get("image", ""),
+                    is_ad=item.get("is_ad", False),
+                ).model_dump()
+            )
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
         QtWidgets.QMessageBox.information(self, APP_TITLE, "JSON dışa aktarımı tamamlandı.")
@@ -507,8 +519,18 @@ class HepsiburadaTab(QtWidgets.QWidget):
         headers = ["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]
         ws.append(headers)
         font = Font(name="DejaVu Sans") if os.path.exists(DEJAVU_FONT_PATH) else Font(name="Calibri")
-        for product in selected:
-            ws.append([product.name, product.price, product.link, product.image, "Evet" if product.is_ad else "Hayır"])
+        for item in selected:
+            price_raw = item.get("price", "")
+            numeric_price = self.table._parse_price_cell(str(price_raw)) if price_raw else None
+            ws.append(
+                [
+                    item.get("name", ""),
+                    numeric_price if numeric_price is not None else "",
+                    item.get("link", ""),
+                    item.get("image", ""),
+                    "Evet" if item.get("is_ad", False) else "Hayır",
+                ]
+            )
         for column_cells in ws.columns:
             length = max(len(str(cell.value)) for cell in column_cells)
             ws.column_dimensions[column_cells[0].column_letter].width = length + 2
@@ -533,14 +555,17 @@ class HepsiburadaTab(QtWidgets.QWidget):
             font_name = "Helvetica"
         doc = SimpleDocTemplate(path, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm)
         data = [["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]]
-        for product in selected:
-            data.append([
-                product.name,
-                product.price,
-                product.link,
-                product.image,
-                "Evet" if product.is_ad else "Hayır",
-            ])
+        for item in selected:
+            price_raw = item.get("price", "")
+            numeric_price = self.table._parse_price_cell(str(price_raw)) if price_raw else None
+            row = [
+                item.get("name", "") or "",
+                numeric_price if numeric_price is not None else "",
+                item.get("link", "") or "",
+                item.get("image", "") or "",
+                "Evet" if item.get("is_ad", False) else "Hayır",
+            ]
+            data.append(row)
         table = Table(data, repeatRows=1)
         style = TableStyle(
             [
@@ -555,6 +580,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
         paragraph_style = ParagraphStyle("default", fontName=font_name, fontSize=9, leading=11)
         for row_index in range(1, len(data)):
             for col_index in range(len(data[row_index])):
-                table._cellvalues[row_index][col_index] = Paragraph(str(data[row_index][col_index]), paragraph_style)
+                cell_text = data[row_index][col_index] or ""
+                table._cellvalues[row_index][col_index] = Paragraph(str(cell_text), paragraph_style)
         doc.build([table])
         QtWidgets.QMessageBox.information(self, APP_TITLE, "PDF dışa aktarımı tamamlandı.")
