@@ -449,6 +449,9 @@ class HepsiburadaTab(QtWidgets.QWidget):
         self.threadpool.start(worker)
 
     def add_product_to_table(self, item: dict):
+        # Temporarily disable sorting while inserting rows to avoid reordering issues
+        self.table.setSortingEnabled(False)
+
         product = Product(
             name=item.get("title", ""),
             price=item.get("price"),
@@ -477,6 +480,9 @@ class HepsiburadaTab(QtWidgets.QWidget):
         self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(item.get("image", "")))
         ad_text = "Evet" if item.get("is_ad", False) else "Hayır"
         self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(ad_text))
+
+        # Re-enable sorting after inserting the row
+        self.table.setSortingEnabled(True)
 
     def _disable_listing(self):
         self.list_products_btn.setEnabled(False)
@@ -650,9 +656,12 @@ class HepsiburadaTab(QtWidgets.QWidget):
         story = []
 
         try:
-            logo = Image("assets/logo.svg", width=80, height=80)
-            story.append(logo)
-            story.append(Spacer(1, 10))
+            logo_path = "assets/logo.svg"
+            # ReportLab Image does not handle SVG; skip if SVG to avoid crashes
+            if os.path.exists(logo_path) and not logo_path.lower().endswith(".svg"):
+                logo = Image(logo_path, width=80, height=80)
+                story.append(logo)
+                story.append(Spacer(1, 10))
         except Exception:
             pass
 
@@ -690,7 +699,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
                 [
                     img_obj,
                     Paragraph(
-                        f"<b>{name}</b><br/><br/><b>Fiyat:</b> {price} TL<br/><b>Reklam:</b> {is_ad}<br/><br/>{clickable_link}",
+                        f"<b>{name}</b><br/><br/><b>Fiyat:</b> {price}<br/><b>Reklam:</b> {is_ad}<br/><br/>{clickable_link}",
                         styles["NormalTR"],
                     ),
                     d,
