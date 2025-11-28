@@ -148,8 +148,14 @@ class HepsiburadaScraper:
                 for page_number in range(1, page_limit + 1):
                     url = self._build_url(term, quick_filters, sorting, extra_filters, page_number)
                     self.logger.info("Sayfa açılıyor: %s", url)
-                    page.goto(url, wait_until="networkidle")
-                    page.wait_for_timeout(1500)
+                    page.goto(url, wait_until="domcontentloaded")
+
+                    try:
+                        page.wait_for_selector("ul.productListContent-wrapper", timeout=10000)
+                    except Exception:
+                        page.wait_for_selector("li[class^='productListContent-']", timeout=10000)
+
+                    page.wait_for_timeout(1200)
                     card_selector = "li[class^='productListContent-']"
                     cards = page.query_selector_all(card_selector)
                     if not cards:
