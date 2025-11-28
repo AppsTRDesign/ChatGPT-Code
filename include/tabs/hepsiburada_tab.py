@@ -464,6 +464,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
         checkbox_item = QtWidgets.QTableWidgetItem()
         checkbox_item.setFlags(checkbox_item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
         checkbox_item.setCheckState(QtCore.Qt.CheckState.Unchecked)
+        checkbox_item.setData(QtCore.Qt.ItemDataRole.UserRole, product)
         self.table.setItem(row, 0, checkbox_item)
 
         self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(item.get("title", "")))

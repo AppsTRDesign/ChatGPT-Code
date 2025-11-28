@@ -42,22 +42,47 @@ class ProductTable(QtWidgets.QTableWidget):
         products: List[Product] = []
         for row in range(self.rowCount()):
             item = self.item(row, 0)
-            if item and item.checkState() == QtCore.Qt.CheckState.Checked:
-                products.append(
-                        Product(
-                            name=self.item(row, 1).text(),
-                            price=self._parse_price_cell(self.item(row, 2).text()),
-                            link=self.item(row, 3).text(),
-                            image=self.item(row, 4).text(),
-                            is_ad=self.item(row, 5).text() == "Evet",
-                        )
+            if not item or item.checkState() != QtCore.Qt.CheckState.Checked:
+                continue
+
+            # Prefer the stored Product object (keeps image/price intact even if cells are empty)
+            stored = item.data(QtCore.Qt.ItemDataRole.UserRole)
+            if isinstance(stored, Product):
+                products.append(stored)
+                continue
+
+            name_item = self.item(row, 1)
+            price_item = self.item(row, 2)
+            link_item = self.item(row, 3)
+            image_item = self.item(row, 4)
+            ad_item = self.item(row, 5)
+
+            if not all([name_item, price_item, link_item, image_item, ad_item]):
+                # Skip incomplete rows to avoid AttributeErrors
+                continue
+
+            products.append(
+                Product(
+                    name=name_item.text(),
+                    price=self._parse_price_cell(price_item.text()),
+                    link=link_item.text(),
+                    image=image_item.text(),
+                    is_ad=ad_item.text() == "Evet",
                 )
+            )
         return products
 
     @staticmethod
     def _parse_price_cell(value: str) -> float | None:
         try:
-            return float(value)
+            cleaned = (
+                value.replace("TL", "")
+                .replace("tl", "")
+                .replace(" ", "")
+                .replace(".", "")
+                .replace(",", ".")
+            )
+            return float(cleaned)
         except Exception:
             return None
 
