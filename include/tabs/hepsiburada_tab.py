@@ -614,15 +614,10 @@ class HepsiburadaTab(QtWidgets.QWidget):
             Image,
             Table,
             TableStyle,
-            PageBreak,
         )
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.pagesizes import A4
-        from reportlab.graphics.shapes import Drawing
-        from reportlab.graphics import renderPDF
-        from reportlab.graphics.barcode import qr
         from reportlab.lib import colors
-        from reportlab.lib.units import mm
 
         try:
             pdfmetrics.registerFont(TTFont("DejaVu", DEJAVU_FONT_PATH))
@@ -631,15 +626,6 @@ class HepsiburadaTab(QtWidgets.QWidget):
             font_name = "Helvetica"
 
         styles = getSampleStyleSheet()
-        styles.add(
-            ParagraphStyle(
-                name="ProductTitle",
-                fontName=font_name,
-                fontSize=11,
-                spaceAfter=6,
-                leading=14,
-            )
-        )
         styles.add(
             ParagraphStyle(
                 name="NormalTR",
@@ -654,21 +640,23 @@ class HepsiburadaTab(QtWidgets.QWidget):
             pagesize=A4,
             leftMargin=30,
             rightMargin=30,
-            topMargin=70,
+            topMargin=50,
             bottomMargin=40,
         )
 
         story = []
 
         try:
-            logo_path = "assets/logo.svg"
-            # ReportLab Image does not handle SVG; skip if SVG to avoid crashes
-            if os.path.exists(logo_path) and not logo_path.lower().endswith(".svg"):
-                logo = Image(logo_path, width=80, height=80)
+            logo_path = "assets/logo.png"
+            if os.path.exists(logo_path):
+                logo = Image(logo_path, width=70, height=70)
                 story.append(logo)
-                story.append(Spacer(1, 10))
+                story.append(Spacer(1, 15))
         except Exception:
             pass
+
+        import requests
+        from io import BytesIO
 
         for item in selected:
             name = item.get("name", "")
@@ -677,71 +665,58 @@ class HepsiburadaTab(QtWidgets.QWidget):
             image_url = item.get("image", "")
             is_ad = "Evet" if item.get("is_ad", False) else "Hayır"
 
+            if "/format:webp" in image_url:
+                image_url = image_url.replace("/format:webp", "")
+            if " " in image_url:
+                image_url = image_url.split(" ")[0]
+
             img_obj = ""
             if image_url.startswith("http"):
                 try:
-                    import requests
-                    from io import BytesIO
-
                     response = requests.get(image_url, timeout=5)
                     if response.status_code == 200:
                         bio = BytesIO(response.content)
-                        img_obj = Image(bio, width=120, height=120, preserveAspectRatio=True)
+                        img_obj = Image(bio, width=105, height=105, preserveAspectRatio=True)
                 except Exception:
                     img_obj = ""
-
-            qr_code = qr.QrCodeWidget(link)
-            bounds = qr_code.getBounds()
-            size = 70
-            width = bounds[2] - bounds[0]
-            height = bounds[3] - bounds[1]
-            d = Drawing(size, size)
-            d.add(qr_code, name="QR")
-
-            clickable_link = f"""<link href=\"{link}\">{link}</link>"""
 
             card_data = [
                 [
                     img_obj,
                     Paragraph(
-                        f"<b>{name}</b><br/><br/><b>Fiyat:</b> {price}<br/><b>Reklam:</b> {is_ad}<br/><br/>{clickable_link}",
+                        f"<b>{name}</b><br/><br/>"
+                        f"<b>Fiyat:</b> {price}<br/>"
+                        f"<b>Reklam:</b> {is_ad}<br/><br/>"
+                        f"<link href=\"{link}\">{link}</link>",
                         styles["NormalTR"],
                     ),
-                    d,
                 ]
             ]
 
             card = Table(
                 card_data,
-                colWidths=[130, 290, 80],
-                rowHeights=[140],
+                colWidths=[120, 380],
+                rowHeights=[120],
             )
+
             card.setStyle(
                 TableStyle(
                     [
                         ("BOX", (0, 0), (-1, -1), 1, colors.grey),
                         ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
                         ("LEFTPADDING", (0, 0), (-1, -1), 10),
                         ("RIGHTPADDING", (0, 0), (-1, -1), 10),
                         ("TOPPADDING", (0, 0), (-1, -1), 10),
                         ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-                        ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
-                        ("INNERGRID", (0, 0), (-1, -1), 0.3, colors.lightgrey),
                     ]
                 )
             )
 
             story.append(card)
-            story.append(Spacer(1, 15))
+            story.append(Spacer(1, 20))
 
-        def footer(canvas, doc):
-            canvas.saveState()
-            canvas.setFont(font_name, 8)
-            canvas.drawString(30, 20, "NoaSoft — Hepsiburada Veri Çıktısı")
-            canvas.drawRightString(A4[0] - 30, 20, f"Sayfa {doc.page}")
-            canvas.restoreState()
-
-        doc.build(story, onLaterPages=footer, onFirstPage=footer)
+        doc.build(story)
 
         QtWidgets.QMessageBox.information(self, APP_TITLE, "PDF dışa aktarımı tamamlandı.")
     
