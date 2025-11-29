@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import random
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
@@ -183,132 +182,106 @@ class HepsiburadaScraper:
     ) -> list[dict]:
         products: list[dict] = []
 
-        async def slow_scroll():
-            for _ in range(7):
-                amount = random.randint(600, 1200)
-                await page.mouse.wheel(0, amount)
-                await asyncio.sleep(random.uniform(0.5, 0.8))
-
-        async def load_more_if_exists():
-            try:
-                btn = await page.query_selector("button[data-test-id='load-more-button']")
-                if btn:
-                    await btn.click()
-                    await asyncio.sleep(2)
-                    return True
-                return False
-            except Exception:
-                return False
-
         for page_no in range(1, max_pages + 1):
             page_url = url if page_no == 1 else f"{url}&sayfa={page_no}"
             self.logger.info("Sayfa açılıyor: %s", page_url)
-            await page.goto(page_url, wait_until="networkidle", timeout=60000)
+            await page.goto(page_url, wait_until="domcontentloaded", timeout=60000)
 
-            await slow_scroll()
+            for _ in range(7):
+                await page.mouse.wheel(0, 2500)
+                await asyncio.sleep(0.6)
 
-            while True:
-                selectors = [
-                    "li[data-test-id='product-card']",
-                    "div[data-test-id='product-card']",
-                    "li[class*='productListContent']",
-                ]
+            selectors = [
+                "li[data-test-id='product-card']",
+                "div[data-test-id='product-card']",
+                "li[class*='productListContent']",
+            ]
 
-                items = []
-                for sel in selectors:
-                    found = await page.query_selector_all(sel)
-                    if found:
-                        items.extend(found)
+            items = []
+            for sel in selectors:
+                found = await page.query_selector_all(sel)
+                if found:
+                    items.extend(found)
 
-                self.logger.info(f"Sayfada bulunan ürün bloğu sayısı: {len(items)}")
+            page_collected = 0
 
-                page_collected = 0
+            for item in items:
+                try:
+                    title_el = await item.query_selector(
+                        "h3, h2, [data-test-id='product-card-name']"
+                    )
+                    link_el = await item.query_selector(
+                        "a[data-test-id='product-card-link'], a"
+                    )
 
-                for item in items:
+                    image = ""
+
+                    img_el = await item.query_selector(
+                        "div[class*='hbImageView-module_hbImageViewRoot__'] picture img[class*='hbImageView-module_hbImage__']"
+                    )
+
+                    if not img_el:
+                        img_el = await item.query_selector(
+                            "div[class*='hbImageView-module_hbImageViewRoot__'] picture img"
+                        )
+
+                    srcset_el = await item.query_selector(
+                        "div[class*='hbImageView-module_hbImageViewRoot__'] picture source[type='image/webp']"
+                    )
+
+                    if srcset_el:
+                        srcset_val = await srcset_el.get_attribute("srcset")
+                        if srcset_val:
+                            image = srcset_val.split(" ")[0]
+
+                    if not image and img_el:
+                        image = await img_el.get_attribute("src")
+
+                    if not image or "productimages.hepsiburada.net" not in image:
+                        continue
+
+                    price_el = await item.query_selector(
+                        "span[data-test-id='price-current-price'], div.price-module_finalPrice__LtjvY"
+                    )
+
+                    title = await title_el.inner_text() if title_el else ""
+                    if not title.strip():
+                        continue
+
+                    link = await link_el.get_attribute("href") if link_el else ""
+                    price = await price_el.inner_text() if price_el else ""
+
+                    if link.startswith("/"):
+                        link = "https://www.hepsiburada.com" + link
+
+                    is_ad = "adservice.hepsiburada.com" in link
+                    if is_ad:
+                        try:
+                            parsed = urlparse(link)
+                            qs = parse_qs(parsed.query)
+                            redirect = qs.get("redirect", [None])[0]
+                            if redirect:
+                                link = unquote(redirect)
+                        except Exception:
+                            pass
+
+                    product_payload = {
+                        "title": title.strip(),
+                        "price": price.strip(),
+                        "link": link,
+                        "image": image,
+                        "is_ad": is_ad,
+                    }
+
+                    products.append(product_payload)
+                    self.logger.info("Ürün bulundu: %s", product_payload["title"])
+
+                    page_collected += 1
                     if page_collected >= products_per_page:
                         break
 
-                    try:
-                        title_el = await item.query_selector(
-                            "h3, h2, [data-test-id='product-card-name']"
-                        )
-                        link_el = await item.query_selector(
-                            "a[data-test-id='product-card-link'], a"
-                        )
-
-                        image = ""
-
-                        img_el = await item.query_selector(
-                            "div[class*='hbImageView-module_hbImageViewRoot__'] picture img[class*='hbImageView-module_hbImage__']"
-                        )
-
-                        if not img_el:
-                            img_el = await item.query_selector(
-                                "div[class*='hbImageView-module_hbImageViewRoot__'] picture img"
-                            )
-
-                        srcset_el = await item.query_selector(
-                            "div[class*='hbImageView-module_hbImageViewRoot__'] picture source[type='image/webp']"
-                        )
-
-                        if srcset_el:
-                            srcset_val = await srcset_el.get_attribute('srcset')
-                            if srcset_val:
-                                image = srcset_val.split(' ')[0]
-
-                        if not image and img_el:
-                            image = await img_el.get_attribute('src')
-
-                        if not image or "productimages.hepsiburada.net" not in image:
-                            continue
-
-                        price_el = await item.query_selector(
-                            "span[data-test-id='price-current-price'], div.price-module_finalPrice__LtjvY"
-                        )
-
-                        title = await title_el.inner_text() if title_el else ""
-                        if not title.strip():
-                            continue
-
-                        link = await link_el.get_attribute("href") if link_el else ""
-                        if link.startswith("/"):
-                            link = "https://www.hepsiburada.com" + link
-
-                        price_text = await price_el.inner_text() if price_el else ""
-
-                        is_ad = "adservice.hepsiburada.com" in link
-                        if is_ad:
-                            try:
-                                parsed = urlparse(link)
-                                qs = parse_qs(parsed.query)
-                                redirect = qs.get("redirect", [None])[0]
-                                if redirect:
-                                    link = unquote(redirect)
-                            except Exception:
-                                pass
-
-                        product_payload = {
-                            "title": title.strip(),
-                            "price": price_text.strip(),
-                            "link": link,
-                            "image": image,
-                            "is_ad": is_ad,
-                        }
-
-                        products.append(product_payload)
-                        self.logger.info("Ürün bulundu: %s", product_payload["title"])
-
-                        page_collected += 1
-
-                    except Exception:
-                        continue
-
-                if page_collected >= products_per_page:
-                    break
-
-                loaded = await load_more_if_exists()
-                if not loaded:
-                    break
+                except Exception:
+                    continue
 
         return products
 
