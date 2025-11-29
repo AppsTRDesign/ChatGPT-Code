@@ -11,7 +11,6 @@ from PyQt6.QtGui import QCursor
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
@@ -573,7 +572,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
 
             link_cell = ws.cell(row=row_index, column=3)
             if link_cell.value and link_cell.value.startswith("http"):
-                link_cell.hyperlink = link_cell.value
+                link_cell.value = f'=HYPERLINK("{link_cell.value}", "Link")'
                 link_cell.font = Font(color="0000EE", underline="single")
 
             row_index += 1
@@ -607,17 +606,11 @@ class HepsiburadaTab(QtWidgets.QWidget):
 
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.platypus import (
-            SimpleDocTemplate,
-            Paragraph,
-            Spacer,
-            Image,
-            Table,
-            TableStyle,
-        )
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
+        from reportlab.lib.utils import ImageReader
 
         try:
             pdfmetrics.registerFont(TTFont("DejaVu", DEJAVU_FONT_PATH))
@@ -626,57 +619,41 @@ class HepsiburadaTab(QtWidgets.QWidget):
             font_name = "Helvetica"
 
         styles = getSampleStyleSheet()
-        styles.add(
-            ParagraphStyle(
-                name="NormalTR",
-                fontName=font_name,
-                fontSize=9,
-                leading=12,
-            )
-        )
+        styles.add(ParagraphStyle(name="NormalTR", fontName=font_name, fontSize=10, leading=13))
 
         doc = SimpleDocTemplate(
             path,
             pagesize=A4,
             leftMargin=30,
             rightMargin=30,
-            topMargin=50,
+            topMargin=40,
             bottomMargin=40,
         )
 
         story = []
 
-        try:
-            logo_path = "assets/logo.png"
-            if os.path.exists(logo_path):
-                logo = Image(logo_path, width=70, height=70)
-                story.append(logo)
-                story.append(Spacer(1, 15))
-        except Exception:
-            pass
-
-        import requests
-        from io import BytesIO
+        logo_path = "assets/logo.png"
+        if os.path.exists(logo_path):
+            try:
+                story.append(Image(logo_path, width=80, height=80))
+                story.append(Spacer(1, 20))
+            except Exception:
+                pass
 
         for item in selected:
             name = item.get("name", "")
             price = item.get("price", "")
             link = item.get("link", "")
             image_url = item.get("image", "")
-            is_ad = "Evet" if item.get("is_ad", False) else "Hayır"
-
-            if "/format:webp" in image_url:
-                image_url = image_url.replace("/format:webp", "")
+            image_url = self.scraper.upscale_image(image_url)
             if " " in image_url:
                 image_url = image_url.split(" ")[0]
+            is_ad = "Evet" if item.get("is_ad", False) else "Hayır"
 
             img_obj = ""
             if image_url.startswith("http"):
                 try:
-                    response = requests.get(image_url, timeout=5)
-                    if response.status_code == 200:
-                        bio = BytesIO(response.content)
-                        img_obj = Image(bio, width=105, height=105, preserveAspectRatio=True)
+                    img_obj = Image(ImageReader(image_url), width=110, height=110)
                 except Exception:
                     img_obj = ""
 
@@ -693,22 +670,15 @@ class HepsiburadaTab(QtWidgets.QWidget):
                 ]
             ]
 
-            card = Table(
-                card_data,
-                colWidths=[120, 380],
-                rowHeights=[120],
-            )
-
+            card = Table(card_data, colWidths=[120, 360], rowHeights=[120])
             card.setStyle(
                 TableStyle(
                     [
-                        ("BOX", (0, 0), (-1, -1), 1, colors.grey),
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#CCCCCC")),
                         ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
                         ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
                         ("TOPPADDING", (0, 0), (-1, -1), 10),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
                     ]
                 )
             )

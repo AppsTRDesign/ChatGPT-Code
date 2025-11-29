@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
@@ -37,6 +38,15 @@ class HepsiburadaScraper:
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
+
+    @staticmethod
+    def upscale_image(url: str) -> str:
+        """Normalize Hepsiburada product thumbnails to larger, non-webp variants."""
+        if not url:
+            return url
+        cleaned = url.replace("/format:webp", "")
+        cleaned = re.sub(r"/\d{2,4}-\d{2,4}/", "/1000-1000/", cleaned)
+        return cleaned
 
     def _launch_browser(self, playwright_client):
         try:
@@ -236,6 +246,8 @@ class HepsiburadaScraper:
 
                     if not image and img_el:
                         image = await img_el.get_attribute("src")
+
+                    image = self.upscale_image(image)
 
                     if not image or "productimages.hepsiburada.net" not in image:
                         continue
