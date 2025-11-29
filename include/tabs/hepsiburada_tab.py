@@ -8,13 +8,6 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
 from PyQt6 import QtCore, QtSvgWidgets, QtWidgets
 from PyQt6.QtGui import QCursor
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
-
 from include.models import APP_TITLE, DEJAVU_FONT_PATH, Product
 from include.widgets import ProductTable
 from modules.hepsiburada import HepsiburadaScraper
@@ -81,6 +74,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
         self.products: List[Product] = []
         self.dynamic_filters: List[Tuple[str, str]] = []
         self.threadpool = QtCore.QThreadPool.globalInstance()
+        self._suppress_item_change = False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -132,11 +126,11 @@ class HepsiburadaTab(QtWidgets.QWidget):
 
         action_layout = QtWidgets.QHBoxLayout()
         self.select_all_btn = QtWidgets.QPushButton("Hepsini Seç")
-        self.select_all_btn.clicked.connect(lambda: self.table.set_all_checked(True))
+        self.select_all_btn.clicked.connect(self._select_all)
         self.clear_selection_btn = QtWidgets.QPushButton("Seçimleri Kaldır")
-        self.clear_selection_btn.clicked.connect(lambda: self.table.set_all_checked(False))
+        self.clear_selection_btn.clicked.connect(self._clear_selection)
         self.remove_selected_btn = QtWidgets.QPushButton("Seçilileri Sil")
-        self.remove_selected_btn.clicked.connect(self.table.remove_checked)
+        self.remove_selected_btn.clicked.connect(self._remove_selected)
 
         export_menu = QtWidgets.QMenu()
         export_menu.addAction("JSON", self._export_json)
@@ -151,7 +145,12 @@ class HepsiburadaTab(QtWidgets.QWidget):
         action_layout.addStretch()
         action_layout.addWidget(self.export_btn)
 
+        self.count_label = QtWidgets.QLabel("Toplam: 0 | Seçili: 0")
+        action_layout.addWidget(self.count_label)
+
         layout.addLayout(action_layout)
+
+        self.table.itemChanged.connect(self._on_item_changed)
 
     def _build_header(self) -> QtWidgets.QWidget:
         widget = QtWidgets.QWidget()
@@ -428,6 +427,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
         self.list_products_btn.setEnabled(False)
         self.table.setRowCount(0)
         self.products = []
+        self._update_counts()
 
         worker = ProductWorker(
             self.scraper,
@@ -450,7 +450,7 @@ class HepsiburadaTab(QtWidgets.QWidget):
     def add_product_to_table(self, item: dict):
         # Temporarily disable sorting while inserting rows to avoid reordering issues
         self.table.setSortingEnabled(False)
-
+        self._suppress_item_change = True
         product = Product(
             name=item.get("title", ""),
             price=item.get("price"),
@@ -487,9 +487,39 @@ class HepsiburadaTab(QtWidgets.QWidget):
 
         # Re-enable sorting after inserting the row
         self.table.setSortingEnabled(True)
+        self._suppress_item_change = False
+        self._update_counts()
 
     def _disable_listing(self):
         self.list_products_btn.setEnabled(False)
+
+    def _select_all(self):
+        self.table.set_all_checked(True)
+        self._update_counts()
+
+    def _clear_selection(self):
+        self.table.set_all_checked(False)
+        self._update_counts()
+
+    def _remove_selected(self):
+        self.table.remove_checked()
+        self._update_counts()
+
+    def _on_item_changed(self, item: QtWidgets.QTableWidgetItem):
+        if self._suppress_item_change:
+            return
+        if item.column() != 0:
+            return
+        self._update_counts()
+
+    def _update_counts(self):
+        total_rows = self.table.rowCount()
+        selected_rows = 0
+        for row in range(total_rows):
+            chk = self.table.item(row, 0)
+            if chk and chk.checkState() == QtCore.Qt.CheckState.Checked:
+                selected_rows += 1
+        self.count_label.setText(f"Toplam: {total_rows} | Seçili: {selected_rows}")
 
     def _export_json(self):
         selected = self.table.checked_products()
@@ -522,8 +552,8 @@ class HepsiburadaTab(QtWidgets.QWidget):
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Excel Olarak Kaydet", filter="Excel (*.xlsx)")
         if not path:
             return
+        from openpyxl import Workbook
         from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-        import os
 
         wb = Workbook()
         ws = wb.active
@@ -532,62 +562,35 @@ class HepsiburadaTab(QtWidgets.QWidget):
         headers = ["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]
         ws.append(headers)
 
-        header_fill = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
-        header_font = Font(bold=True, color="000000")
-        for col, title in enumerate(headers, start=1):
-            cell = ws.cell(row=1, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center")
+        header_colors = ["FFCDD2", "C8E6C9", "BBDEFB", "FFE0B2", "E1BEE7"]
 
-        font = Font(name="DejaVu Sans") if os.path.exists(DEJAVU_FONT_PATH) else Font(name="Calibri")
+        for col, text in enumerate(headers, start=1):
+            cell = ws.cell(1, col)
+            cell.fill = PatternFill(start_color=header_colors[col - 1], fill_type="solid")
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center")
 
         thin = Side(border_style="thin", color="AAAAAA")
         border = Border(top=thin, left=thin, right=thin, bottom=thin)
 
-        row_index = 2
+        row = 2
         for item in selected:
-            price_str = item.get("price", "")
             ws.append(
                 [
                     item.get("name", ""),
-                    price_str,
+                    item.get("price", ""),
                     item.get("link", ""),
                     item.get("image", ""),
-                    "Evet" if item.get("is_ad", False) else "Hayır",
+                    "Evet" if item.get("is_ad") else "Hayır",
                 ]
             )
 
             for col in range(1, 6):
-                cell = ws.cell(row=row_index, column=col)
-                cell.font = font
-                cell.alignment = Alignment(vertical="top", wrap_text=True)
-                cell.border = border
+                c = ws.cell(row, col)
+                c.border = border
+                c.alignment = Alignment(wrap_text=True, vertical="top")
 
-            ad_cell = ws.cell(row=row_index, column=5)
-            if ad_cell.value == "Evet":
-                ad_cell.fill = PatternFill(start_color="FF9999", fill_type="solid")
-            else:
-                ad_cell.fill = PatternFill(start_color="CCFFCC", fill_type="solid")
-
-            link_cell = ws.cell(row=row_index, column=3)
-            if link_cell.value and link_cell.value.startswith("http"):
-                link_cell.value = f'=HYPERLINK("{link_cell.value}", "Link")'
-                link_cell.font = Font(color="0000EE", underline="single")
-
-            row_index += 1
-
-        for col in ws.columns:
-            max_len = 0
-            col_letter = col[0].column_letter
-            for cell in col:
-                try:
-                    length = len(str(cell.value))
-                    if length > max_len:
-                        max_len = length
-                except Exception:
-                    pass
-            ws.column_dimensions[col_letter].width = min(max_len + 3, 55)
+            row += 1
 
         wb.save(path)
         QtWidgets.QMessageBox.information(self, APP_TITLE, "XLSX dışa aktarımı tamamlandı.")
@@ -604,13 +607,13 @@ class HepsiburadaTab(QtWidgets.QWidget):
         if not path:
             return
 
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.units import cm
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib import colors
-        from reportlab.lib.utils import ImageReader
+        from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
         try:
             pdfmetrics.registerFont(TTFont("DejaVu", DEJAVU_FONT_PATH))
@@ -618,73 +621,71 @@ class HepsiburadaTab(QtWidgets.QWidget):
         except Exception:
             font_name = "Helvetica"
 
-        styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name="NormalTR", fontName=font_name, fontSize=10, leading=13))
+        header_colors = ["#FFCDD2", "#C8E6C9", "#BBDEFB", "#FFE0B2", "#E1BEE7"]
+        normal_style = ParagraphStyle(name="NormalTR", fontName=font_name, fontSize=10, leading=13)
+        link_style = ParagraphStyle(name="Link", fontName=font_name, fontSize=10, textColor=colors.HexColor("#0D47A1"))
 
         doc = SimpleDocTemplate(
             path,
             pagesize=A4,
-            leftMargin=30,
-            rightMargin=30,
-            topMargin=40,
-            bottomMargin=40,
+            leftMargin=1.5 * cm,
+            rightMargin=1.5 * cm,
+            topMargin=2 * cm,
+            bottomMargin=1.5 * cm,
         )
 
-        story = []
+        story: List = []
 
         logo_path = "assets/logo.png"
         if os.path.exists(logo_path):
             try:
                 story.append(Image(logo_path, width=80, height=80))
-                story.append(Spacer(1, 20))
+                story.append(Spacer(1, 15))
             except Exception:
                 pass
+
+        story.append(Paragraph("<b>Hepsiburada Ürün Kataloğu</b>", ParagraphStyle(name="Header", fontName=font_name, fontSize=18, leading=22)))
+        story.append(Spacer(1, 20))
+
+        table_data = [["Ürün Adı", "Fiyat", "Link", "Resim", "Reklam?"]]
 
         for item in selected:
             name = item.get("name", "")
             price = item.get("price", "")
             link = item.get("link", "")
-            image_url = item.get("image", "")
-            image_url = self.scraper.upscale_image(image_url)
+            image_url = self.scraper.upscale_image(item.get("image", ""))
             if " " in image_url:
                 image_url = image_url.split(" ")[0]
+            image_url = image_url.replace("/format:webp", "")
             is_ad = "Evet" if item.get("is_ad", False) else "Hayır"
 
-            img_obj = ""
-            if image_url.startswith("http"):
-                try:
-                    img_obj = Image(ImageReader(image_url), width=110, height=110)
-                except Exception:
-                    img_obj = ""
+            name_p = Paragraph(name, normal_style)
+            price_p = Paragraph(price, normal_style)
+            link_p = Paragraph(f"<link href='{link}'>Ürün Linki</link>", link_style)
+            image_p = Paragraph(f"<link href='{image_url}'>Görsel Linki</link>", link_style)
+            ad_p = Paragraph(is_ad, normal_style)
 
-            card_data = [
-                [
-                    img_obj,
-                    Paragraph(
-                        f"<b>{name}</b><br/><br/>"
-                        f"<b>Fiyat:</b> {price}<br/>"
-                        f"<b>Reklam:</b> {is_ad}<br/><br/>"
-                        f"<link href=\"{link}\">{link}</link>",
-                        styles["NormalTR"],
-                    ),
-                ]
-            ]
+            table_data.append([name_p, price_p, link_p, image_p, ad_p])
 
-            card = Table(card_data, colWidths=[120, 360], rowHeights=[120])
-            card.setStyle(
-                TableStyle(
-                    [
-                        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#CCCCCC")),
-                        ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
-                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                        ("TOPPADDING", (0, 0), (-1, -1), 10),
-                    ]
-                )
-            )
+        col_widths = [160, 60, 150, 150, 60]
+        product_table = Table(table_data, colWidths=col_widths)
 
-            story.append(card)
-            story.append(Spacer(1, 20))
+        style_commands = [
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke),
+        ]
+
+        for idx, hex_color in enumerate(header_colors):
+            style_commands.append(("BACKGROUND", (idx, 0), (idx, 0), colors.HexColor(hex_color)))
+
+        product_table.setStyle(TableStyle(style_commands))
+
+        story.append(product_table)
 
         doc.build(story)
 
