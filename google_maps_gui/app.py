@@ -1333,6 +1333,7 @@ class GoogleMapsPlaywrightScraper:
 
     def _open_gallery(self, page: Page) -> bool:
         buttons = [
+            "div.YNB9Sd button[jsaction*='wfvdle172']",
             "div.YNB9Sd button[jsaction*='wfvdle66']",
             "div.ZKCDEc button[jsaction*='wfvdle66']",
             "button[jsaction*='wfvdle66']",
@@ -1376,7 +1377,9 @@ class GoogleMapsPlaywrightScraper:
 
         def _press_back(expect_grid: bool = False) -> None:
             with suppress(PlaywrightError):
-                back = page.locator("button.iPpe6d")
+                back = page.locator(
+                    "div.RmaIBf button.iPpe6d, button.iPpe6d"
+                )
                 if back.count():
                     back.first.click()
                 else:
@@ -1414,25 +1417,22 @@ class GoogleMapsPlaywrightScraper:
         if photo_limit > 0:
             self._click_gallery_tab(page, ["tümü", "all", "photos", "fotoğraflar"])
             idx = 0
-            tiles = page.locator("a.OKAoZd")
+            tiles = page.locator("div.m6QErb.XiKgde a.OKAoZd, a.OKAoZd")
             count = tiles.count()
             while idx < count and len(photos) < photo_limit:
                 tile = tiles.nth(idx)
                 with suppress(PlaywrightError):
                     tile.scroll_into_view_if_needed(timeout=3000)
                 image_url = ""
-                inner = tile.locator("div.Uf0tqf, div.ch8jbf").first
-                if inner.count():
-                    image_url = self._background_image_url(inner) or ""
+                container_img = tile.locator("div.U39Pmb").first
+                if container_img.count():
+                    image_url = self._background_image_url(container_img) or ""
+                if not image_url:
+                    inner = tile.locator("div.Uf0tqf, div.ch8jbf").first
+                    if inner.count():
+                        image_url = self._background_image_url(inner) or ""
                 if not image_url:
                     image_url = self._background_image_url(tile) or ""
-                with suppress(PlaywrightError):
-                    tile.click()
-                if not image_url:
-                    with suppress(PlaywrightTimeoutError):
-                        page.wait_for_timeout(300)
-                    overlay_image = page.locator("div.Uf0tqf, div.ch8jbf").first
-                    image_url = self._background_image_url(overlay_image) or image_url
                 if image_url:
                     image_url = upscale_img(image_url)
                     if image_url not in photos:
