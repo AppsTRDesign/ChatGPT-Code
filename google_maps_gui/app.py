@@ -2687,8 +2687,6 @@ class Application(tk.Tk):
                     max_reviews=review_limit,
                     field_selection=selection_payload,
                     city_center=city_center,
-                    photo_limit=photo_limit,
-                    video_limit=video_limit,
                 )
                 results = scraper.search(
                     query,
