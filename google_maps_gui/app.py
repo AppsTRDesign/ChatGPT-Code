@@ -30,6 +30,7 @@ from playwright.sync_api import (
     Page,
     sync_playwright,
 )
+from openpyxl import Workbook
 
 from .license_manager import LicenseError, LicenseManager
 
@@ -104,6 +105,9 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_rating": "Puan",
         "column_category": "Kategori",
         "column_phone_type": "Telefon Tipi",
+        "column_default_image": "Varsayılan Görsel",
+        "column_gallery_images": "İşletme Resimleri",
+        "column_gallery_videos": "İşletme Videoları",
         "column_lat": "Enlem",
         "column_lng": "Boylam",
         "column_website": "Web Sitesi",
@@ -139,6 +143,9 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_media": "Yorum Fotoğrafları",
         "ratings_total": "Toplam Değerlendirme",
         "share_location": "Paylaşım Konumu",
+        "save_xlsx": "XLSX Kaydet",
+        "media_photo_limit": "Fotoğraf Sayısı",
+        "media_video_limit": "Video Sayısı",
         "field_section": "Veri Alanları",
         "field_name": "İsim",
         "field_formatted_address": "Adres",
@@ -148,7 +155,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_rating": "Puan",
         "field_user_ratings_total": "Toplam Değerlendirme",
         "field_share_location": "Paylaşım Konumu",
+        "field_business_default_image": "Varsayılan Görsel",
         "field_business_image": "İşletme Görseli",
+        "field_business_gallery_images": "İşletme Resimleri",
+        "field_business_videos": "İşletme Videoları",
         "field_website": "Web Sitesi",
         "field_reviews": "Müşteri Yorumları",
         "field_review_photo_urls": "Yorum Fotoğrafları",
@@ -208,6 +218,9 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_rating": "Rating",
         "column_category": "Category",
         "column_phone_type": "Phone Type",
+        "column_default_image": "Default Image",
+        "column_gallery_images": "Business Photos",
+        "column_gallery_videos": "Business Videos",
         "column_lat": "Latitude",
         "column_lng": "Longitude",
         "column_website": "Website",
@@ -243,6 +256,9 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_media": "Review Photos",
         "ratings_total": "Total Ratings",
         "share_location": "Share Location",
+        "save_xlsx": "Save XLSX",
+        "media_photo_limit": "Photo Count",
+        "media_video_limit": "Video Count",
         "field_section": "Data Fields",
         "field_name": "Name",
         "field_formatted_address": "Address",
@@ -252,7 +268,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_rating": "Rating",
         "field_user_ratings_total": "Rating Count",
         "field_share_location": "Share Location",
+        "field_business_default_image": "Default Image",
         "field_business_image": "Business Image",
+        "field_business_gallery_images": "Business Photos",
+        "field_business_videos": "Business Videos",
         "field_website": "Website",
         "field_reviews": "Customer Reviews",
         "field_review_photo_urls": "Review Photos",
@@ -326,7 +345,10 @@ class PlaceResult:
     formatted_phone_number: Optional[str]
     telephone_type: str
     business_type: Optional[str]
+    business_default_image: str
     business_image: str
+    business_gallery_images: List[str]
+    business_videos: List[Dict[str, str]]
     latitude: str
     longitude: str
     website: Optional[str]
@@ -343,7 +365,10 @@ class PlaceResult:
             "formatted_phone_number": self.formatted_phone_number,
             "telephone_type": self.telephone_type,
             "business_type": self.business_type,
+            "business_default_image": self.business_default_image,
             "business_image": self.business_image,
+            "business_gallery_images": list(self.business_gallery_images),
+            "business_videos": list(self.business_videos),
             "latitude": self.latitude,
             "longitude": self.longitude,
             "website": self.website,
@@ -361,7 +386,20 @@ class PlaceResult:
             "phone": self.formatted_phone_number or "",
             "telephone_type": self.telephone_type or "",
             "category": self.business_type or "",
+            "business_default_image": self.business_default_image or "",
             "business_image": self.business_image or "",
+            "business_gallery_images": ", ".join(self.business_gallery_images)
+            if self.business_gallery_images
+            else "",
+            "business_videos": ", ".join(
+                filter(
+                    None,
+                    [
+                        f"{video.get('url', '')} (poster: {video.get('poster', '')})"
+                        for video in self.business_videos
+                    ],
+                )
+            ),
             "latitude": self.latitude or "",
             "longitude": self.longitude or "",
             "website": self.website or "",
@@ -405,7 +443,10 @@ FIELD_OPTION_KEYS = [
     "rating",
     "user_ratings_total",
     "share_location",
+    "business_default_image",
     "business_image",
+    "business_gallery_images",
+    "business_videos",
     "website",
     "reviews",
     "review_photo_urls",
@@ -423,7 +464,10 @@ class FieldSelection:
     rating: bool = True
     user_ratings_total: bool = True
     share_location: bool = True
+    business_default_image: bool = False
     business_image: bool = False
+    business_gallery_images: bool = False
+    business_videos: bool = False
     website: bool = False
     reviews: bool = False
     review_photo_urls: bool = False
@@ -450,10 +494,14 @@ class FieldSelection:
             result.user_ratings_total = None
         if not self.share_location:
             result.share_location = None
-            result.latitude = ""
-            result.longitude = ""
+        if not self.business_default_image:
+            result.business_default_image = ""
         if not self.business_image:
             result.business_image = ""
+        if not self.business_gallery_images:
+            result.business_gallery_images = []
+        if not self.business_videos:
+            result.business_videos = []
         if not self.website:
             result.website = None
         if not self.wants_reviews():
@@ -518,8 +566,24 @@ class ResultPdfExporter:
         ]
         if result.website:
             details.append(f"{translate('column_website')}: {result.website}")
+        if result.business_default_image:
+            details.append(f"{translate('column_default_image')}: {result.business_default_image}")
         if result.business_image:
             details.append(f"{translate('column_image')}: {result.business_image}")
+        if result.business_gallery_images:
+            details.append(
+                f"{translate('column_gallery_images')}: {', '.join(result.business_gallery_images)}"
+            )
+        if result.business_videos:
+            video_lines = []
+            for video in result.business_videos:
+                url = video.get("url", "")
+                poster = video.get("poster", "")
+                if poster:
+                    video_lines.append(f"{url} (poster: {poster})")
+                else:
+                    video_lines.append(url)
+            details.append(f"{translate('column_gallery_videos')}: {', '.join(video_lines)}")
         if result.latitude or result.longitude:
             details.append(
                 f"{translate('column_lat')}/{translate('column_lng')}: {result.latitude or '-'}, {result.longitude or '-'}"
@@ -706,7 +770,10 @@ class GoogleMapsClient:
                         formatted_phone_number=result.get("formatted_phone_number"),
                         telephone_type=classify_phone(result.get("formatted_phone_number", "")),
                         business_type=self._format_business_type(result.get("types", [])),
+                        business_default_image="",
                         business_image="",
+                        business_gallery_images=[],
+                        business_videos=[],
                         latitude=str(result.get("geometry", {}).get("location", {}).get("lat", "")),
                         longitude=str(result.get("geometry", {}).get("location", {}).get("lng", "")),
                         website=result.get("website"),
@@ -780,12 +847,16 @@ class GoogleMapsPlaywrightScraper:
         max_reviews: int = 3,
         field_selection: Optional[FieldSelection] = None,
         city_center: Optional[tuple[str, str]] = None,
+        photo_limit: int = 0,
+        video_limit: int = 0,
     ) -> None:
         self.language = language or "tr"
         self.limit = limit
         self.max_reviews = max(0, max_reviews)
         self.field_selection = field_selection or FieldSelection()
         self.city_center = city_center
+        self.photo_limit = max(0, photo_limit)
+        self.video_limit = max(0, video_limit)
 
     def search(
         self,
@@ -797,7 +868,7 @@ class GoogleMapsPlaywrightScraper:
     ) -> List[PlaceResult]:
         LOGGER.info("Starting Playwright scrape for query='%s'", query)
         results: List[PlaceResult] = []
-        seen_names: set[str] = set()
+        seen_locations: set[tuple[str, str, str]] = set()
         self._emit_event(event_callback, "search_started", {"query": query})
 
         try:
@@ -875,13 +946,18 @@ class GoogleMapsPlaywrightScraper:
                     place = self._extract_details(page)
                     if not place.name:
                         place.name = active_name or card_name or ""
-                    normalized = self._normalize_text(place.name)
-                    if normalized in seen_names:
-                        index += 1
-                        continue
+                    dedup_key = (
+                        self._normalize_text(place.formatted_address),
+                        place.latitude,
+                        place.longitude,
+                    )
+                    if all(dedup_key):
+                        if dedup_key in seen_locations:
+                            index += 1
+                            continue
+                        seen_locations.add(dedup_key)
 
                     results.append(place)
-                    seen_names.add(normalized)
                     self._emit_event(event_callback, "result_captured", {"name": place.name})
                     if result_callback:
                         try:
@@ -1128,6 +1204,17 @@ class GoogleMapsPlaywrightScraper:
         latitude, longitude = extract_lat_lng_from_link(page.url)
         website = self._extract_website(page) if selection.website else None
         business_image = self._extract_card_image(page) if selection.business_image else ""
+        business_default_image = (
+            self._extract_default_image(page) if selection.business_default_image else ""
+        )
+        gallery_images: List[str] = []
+        gallery_videos: List[Dict[str, str]] = []
+        if selection.business_gallery_images or selection.business_videos:
+            gallery_images, gallery_videos = self._extract_gallery_media(
+                page,
+                photo_limit=self.photo_limit if selection.business_gallery_images else 0,
+                video_limit=self.video_limit if selection.business_videos else 0,
+            )
         phone_type = classify_phone(phone)
 
         return selection.apply(
@@ -1137,7 +1224,10 @@ class GoogleMapsPlaywrightScraper:
                 formatted_phone_number=phone,
                 telephone_type=phone_type,
                 business_type=business_type or None,
+                business_default_image=business_default_image,
                 business_image=business_image,
+                business_gallery_images=gallery_images,
+                business_videos=gallery_videos,
                 latitude=latitude,
                 longitude=longitude,
                 website=website,
@@ -1226,6 +1316,117 @@ class GoogleMapsPlaywrightScraper:
             src = self._safe_get_attribute(locator.first, "src")
             return upscale_img(src)
         return ""
+
+    def _extract_default_image(self, page: Page) -> str:
+        selectors = [
+            "div.ZKCDEc div.RZ66Rb img",
+            "div.RZ66Rb.FgCUCc img",
+            "button.aoRNLd img",
+        ]
+        for selector in selectors:
+            locator = page.locator(selector)
+            if locator.count():
+                src = self._safe_get_attribute(locator.first, "src")
+                if src:
+                    return upscale_img(src)
+        return ""
+
+    def _open_gallery(self, page: Page) -> bool:
+        buttons = [
+            "div.ZKCDEc button.Dx2nRe",
+            "button.Dx2nRe",
+            "button[aria-label*='Fotoğrafları göster']",
+        ]
+        for selector in buttons:
+            locator = page.locator(selector)
+            if locator.count():
+                with suppress(PlaywrightError):
+                    locator.first.click()
+                with suppress(PlaywrightTimeoutError):
+                    page.wait_for_selector("div.m6QErb.XiKgde, a.OKAoZd", timeout=5000)
+                    return True
+        return False
+
+    def _click_gallery_tab(self, page: Page, labels: List[str]) -> None:
+        tabs = page.locator("div.LRkQ2")
+        count = tabs.count()
+        for idx in range(count):
+            tab = tabs.nth(idx)
+            text = self._normalize_text(self._safe_inner_text(tab))
+            if not text:
+                text = self._normalize_text(self._safe_get_attribute(tab, "aria-label"))
+            if text and any(lbl in text for lbl in labels):
+                with suppress(PlaywrightError):
+                    tab.click()
+                    page.wait_for_timeout(250)
+                return
+
+    def _extract_gallery_media(
+        self, page: Page, photo_limit: int, video_limit: int
+    ) -> tuple[List[str], List[Dict[str, str]]]:
+        photos: List[str] = []
+        videos: List[Dict[str, str]] = []
+        if photo_limit <= 0 and video_limit <= 0:
+            return photos, videos
+        if not self._open_gallery(page):
+            return photos, videos
+
+        if video_limit > 0:
+            self._click_gallery_tab(page, ["videolar", "videos"])
+            anchors = page.locator("a.OKAoZd")
+            for idx in range(anchors.count()):
+                if len(videos) >= video_limit:
+                    break
+                anchor = anchors.nth(idx)
+                aria = (self._safe_get_attribute(anchor, "aria-label") or "").lower()
+                if "video" not in aria:
+                    continue
+                with suppress(PlaywrightError):
+                    anchor.click()
+                with suppress(PlaywrightTimeoutError):
+                    page.wait_for_selector("video[src]", timeout=6000)
+                video_el = page.locator("video[src]").first
+                if video_el.count():
+                    url = self._safe_get_attribute(video_el, "src")
+                    poster = self._safe_get_attribute(video_el, "poster")
+                    if url:
+                        videos.append({"url": url, "poster": poster or ""})
+                with suppress(PlaywrightError):
+                    back = page.locator("button.iPpe6d")
+                    if back.count():
+                        back.first.click()
+                    else:
+                        page.keyboard.press("Escape")
+                page.wait_for_timeout(200)
+
+        if photo_limit > 0:
+            self._click_gallery_tab(page, ["tümü", "all", "photos", "fotoğraflar"])
+            tiles = page.locator("a.OKAoZd")
+            count = tiles.count()
+            idx = 0
+            while idx < count and len(photos) < photo_limit:
+                tile = tiles.nth(idx)
+                with suppress(PlaywrightError):
+                    tile.scroll_into_view_if_needed(timeout=3000)
+                image_url = ""
+                inner = tile.locator("div.Uf0tqf, div.ch8jbf").first
+                if inner.count():
+                    image_url = self._background_image_url(inner) or ""
+                if not image_url:
+                    image_url = self._background_image_url(tile) or ""
+                if image_url:
+                    image_url = upscale_img(image_url)
+                    if image_url not in photos:
+                        photos.append(image_url)
+                idx += 1
+
+        with suppress(PlaywrightError):
+            back = page.locator("button.iPpe6d")
+            if back.count():
+                back.first.click()
+            else:
+                page.keyboard.press("Escape")
+        return photos, videos
 
     def _extract_meta_items(self, page: Page) -> Dict[str, str]:
         script = """
@@ -1772,9 +1973,11 @@ class Application(tk.Tk):
         self.license_machine_var = tk.StringVar(value=self.license_manager.machine_id())
         self.license_status_var = tk.StringVar()
         self.license_days_var = tk.StringVar()
-        self.settings_search_limit_var = tk.IntVar(value=20)
-        self.settings_review_limit_var = tk.IntVar(value=200)
+        self.settings_search_limit_var = tk.IntVar(value=9999)
+        self.settings_review_limit_var = tk.IntVar(value=9999)
         self.settings_message_var = tk.StringVar()
+        self.bot_photo_limit_var = tk.IntVar(value=5)
+        self.bot_video_limit_var = tk.IntVar(value=5)
         self.field_option_vars: Dict[str, tk.BooleanVar] = {}
         self._field_option_checkbuttons: Dict[str, List[ttk.Checkbutton]] = {
             key: [] for key in FIELD_OPTION_KEYS
@@ -1818,6 +2021,7 @@ class Application(tk.Tk):
         self._layout_widgets()
         self._bind_events()
         self._update_translations()
+        self._sync_media_controls()
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
@@ -1898,7 +2102,7 @@ class Application(tk.Tk):
         self.api_limit_spin = ttk.Spinbox(
             self.api_form_frame,
             from_=1,
-            to=20,
+            to=9999,
             width=12,
             justify=tk.CENTER,
         )
@@ -1959,6 +2163,11 @@ class Application(tk.Tk):
             text="",
             command=lambda: self._save_results(self._api_results, "pdf"),
         )
+        self.api_save_xlsx_button = ttk.Button(
+            self.api_button_frame,
+            text="",
+            command=lambda: self._save_results(self._api_results, "xlsx"),
+        )
 
         # Bot tab widgets
         self.bot_tab = ttk.Frame(self.notebook)
@@ -1991,7 +2200,7 @@ class Application(tk.Tk):
         self.bot_limit_spin = ttk.Spinbox(
             self.bot_form_frame,
             from_=1,
-            to=20,
+            to=9999,
             width=12,
             justify=tk.CENTER,
         )
@@ -2001,11 +2210,35 @@ class Application(tk.Tk):
         self.bot_reviews_spin = ttk.Spinbox(
             self.bot_form_frame,
             from_=0,
-            to=200,
+            to=9999,
             width=10,
             justify=tk.CENTER,
         )
         self._set_spin_value(self.bot_reviews_spin, "5")
+
+        self.bot_photos_label = ttk.Label(self.bot_form_frame, text="")
+        self.bot_photos_spin = ttk.Spinbox(
+            self.bot_form_frame,
+            from_=0,
+            to=9999,
+            width=10,
+            justify=tk.CENTER,
+            textvariable=self.bot_photo_limit_var,
+            state=tk.DISABLED,
+        )
+        self._set_spin_value(self.bot_photos_spin, "5")
+
+        self.bot_videos_label = ttk.Label(self.bot_form_frame, text="")
+        self.bot_videos_spin = ttk.Spinbox(
+            self.bot_form_frame,
+            from_=0,
+            to=9999,
+            width=10,
+            justify=tk.CENTER,
+            textvariable=self.bot_video_limit_var,
+            state=tk.DISABLED,
+        )
+        self._set_spin_value(self.bot_videos_spin, "5")
 
         self.bot_field_options_frame = self._build_field_option_section(self.bot_form_frame)
 
@@ -2078,6 +2311,11 @@ class Application(tk.Tk):
             text="",
             command=lambda: self._save_results(self._bot_results, "pdf"),
         )
+        self.bot_save_xlsx_button = ttk.Button(
+            self.bot_button_frame,
+            text="",
+            command=lambda: self._save_results(self._bot_results, "xlsx"),
+        )
 
         self._set_bot_map_placeholder()
 
@@ -2088,7 +2326,7 @@ class Application(tk.Tk):
         self.settings_search_limit_spin = ttk.Spinbox(
             self.settings_frame,
             from_=1,
-            to=200,
+            to=9999,
             width=10,
             justify=tk.CENTER,
             textvariable=self.settings_search_limit_var,
@@ -2097,7 +2335,7 @@ class Application(tk.Tk):
         self.settings_review_limit_spin = ttk.Spinbox(
             self.settings_frame,
             from_=0,
-            to=1000,
+            to=9999,
             width=10,
             justify=tk.CENTER,
             textvariable=self.settings_review_limit_var,
@@ -2194,7 +2432,24 @@ class Application(tk.Tk):
             self.bot_reviews_spin.config(state=state)
             if not reviews_enabled:
                 self._set_spin_value(self.bot_reviews_spin, "0")
+        self._sync_media_controls()
         self._update_field_option_labels()
+
+    def _sync_media_controls(self) -> None:
+        photos_enabled = bool(
+            self.field_option_vars.get("business_gallery_images", tk.BooleanVar(value=False)).get()
+        )
+        videos_enabled = bool(
+            self.field_option_vars.get("business_videos", tk.BooleanVar(value=False)).get()
+        )
+        if hasattr(self, "bot_photos_spin"):
+            self.bot_photos_spin.config(state=tk.NORMAL if photos_enabled else tk.DISABLED)
+            if not photos_enabled:
+                self._set_spin_value(self.bot_photos_spin, "0")
+        if hasattr(self, "bot_videos_spin"):
+            self.bot_videos_spin.config(state=tk.NORMAL if videos_enabled else tk.DISABLED)
+            if not videos_enabled:
+                self._set_spin_value(self.bot_videos_spin, "0")
 
     def _update_field_option_labels(self) -> None:
         label = self._("field_section")
@@ -2251,8 +2506,8 @@ class Application(tk.Tk):
         try:
             value = int(self.settings_search_limit_var.get())
         except (ValueError, tk.TclError):
-            value = 20
-        value = max(1, min(200, value))
+            value = 9999
+        value = max(1, min(9999, value))
         self.settings_search_limit_var.set(value)
         return value
 
@@ -2260,8 +2515,8 @@ class Application(tk.Tk):
         try:
             value = int(self.settings_review_limit_var.get())
         except (ValueError, tk.TclError):
-            value = 200
-        value = max(0, min(1000, value))
+            value = 9999
+        value = max(0, min(9999, value))
         self.settings_review_limit_var.set(value)
         return value
 
@@ -2284,6 +2539,23 @@ class Application(tk.Tk):
             maximum=review_limit,
         )
 
+        if hasattr(self, "bot_photos_spin"):
+            photo_value = self._safe_spin_int(
+                self.bot_photos_spin,
+                default=min(review_limit, self.bot_photo_limit_var.get()),
+                minimum=0,
+                maximum=review_limit,
+            )
+            self.bot_photo_limit_var.set(photo_value)
+        if hasattr(self, "bot_videos_spin"):
+            video_value = self._safe_spin_int(
+                self.bot_videos_spin,
+                default=min(review_limit, self.bot_video_limit_var.get()),
+                minimum=0,
+                maximum=review_limit,
+            )
+            self.bot_video_limit_var.set(video_value)
+
         self._set_spin_value(self.settings_search_limit_spin, str(search_limit))
         self._set_spin_value(self.settings_review_limit_spin, str(review_limit))
 
@@ -2297,13 +2569,13 @@ class Application(tk.Tk):
             self.settings_search_limit_spin,
             default=self._get_settings_search_limit(),
             minimum=1,
-            maximum=200,
+            maximum=9999,
         )
         review_limit = self._safe_spin_int(
             self.settings_review_limit_spin,
             default=self._get_settings_review_limit(),
             minimum=0,
-            maximum=1000,
+            maximum=9999,
         )
         self.settings_search_limit_var.set(search_limit)
         self.settings_review_limit_var.set(review_limit)
@@ -2352,6 +2624,7 @@ class Application(tk.Tk):
         self.api_save_json_button.pack(side=tk.LEFT, padx=5)
         self.api_save_csv_button.pack(side=tk.LEFT, padx=5)
         self.api_save_pdf_button.pack(side=tk.LEFT, padx=5)
+        self.api_save_xlsx_button.pack(side=tk.LEFT, padx=5)
         self.api_status_label.pack(side=tk.RIGHT)
 
         # Bot tab layout
@@ -2378,6 +2651,10 @@ class Application(tk.Tk):
         self.bot_limit_spin.grid(row=1, column=5, sticky=tk.W, **bot_pad)
         self.bot_reviews_label.grid(row=2, column=0, sticky=tk.W, **bot_pad)
         self.bot_reviews_spin.grid(row=2, column=1, sticky=tk.W, **bot_pad)
+        self.bot_photos_label.grid(row=2, column=2, sticky=tk.W, **bot_pad)
+        self.bot_photos_spin.grid(row=2, column=3, sticky=tk.W, **bot_pad)
+        self.bot_videos_label.grid(row=2, column=4, sticky=tk.W, **bot_pad)
+        self.bot_videos_spin.grid(row=2, column=5, sticky=tk.W, **bot_pad)
         self.bot_field_options_frame.grid(row=3, column=0, columnspan=5, sticky=tk.EW, padx=5, pady=(0, 5))
 
         self.bot_map_canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -2393,6 +2670,7 @@ class Application(tk.Tk):
         self.bot_save_json_button.pack(side=tk.LEFT, padx=5)
         self.bot_save_csv_button.pack(side=tk.LEFT, padx=5)
         self.bot_save_pdf_button.pack(side=tk.LEFT, padx=5)
+        self.bot_save_xlsx_button.pack(side=tk.LEFT, padx=5)
         self.bot_status_label.pack(side=tk.RIGHT)
 
         # Settings tab layout
@@ -2584,6 +2862,22 @@ class Application(tk.Tk):
         selection_payload = FieldSelection(**vars(selection))
         if not selection_payload.wants_reviews():
             review_limit = 0
+        photo_limit = 0
+        video_limit = 0
+        if selection_payload.business_gallery_images:
+            photo_limit = self._safe_spin_int(
+                self.bot_photos_spin,
+                default=self.bot_photo_limit_var.get(),
+                minimum=0,
+                maximum=self._get_settings_review_limit(),
+            )
+        if selection_payload.business_videos:
+            video_limit = self._safe_spin_int(
+                self.bot_videos_spin,
+                default=self.bot_video_limit_var.get(),
+                minimum=0,
+                maximum=self._get_settings_review_limit(),
+            )
         self._bot_active_limit = limit
         self._bot_attempted = 0
         self.bot_status_var.set(self._("status_scraping_progress").format(0, limit))
@@ -2604,6 +2898,8 @@ class Application(tk.Tk):
                     max_reviews=review_limit,
                     field_selection=selection_payload,
                     city_center=city_center,
+                    photo_limit=photo_limit,
+                    video_limit=video_limit,
                 )
                 results = scraper.search(
                     query,
@@ -2918,8 +3214,24 @@ class Application(tk.Tk):
         lines.append(f"{self._('address')}: {result.formatted_address or '-'}")
         if result.website:
             lines.append(f"{self._('column_website')}: {result.website}")
+        if result.business_default_image:
+            lines.append(f"{self._('column_default_image')}: {result.business_default_image}")
         if result.business_image:
             lines.append(f"{self._('column_image')}: {result.business_image}")
+        if result.business_gallery_images:
+            lines.append(
+                f"{self._('column_gallery_images')}: {', '.join(result.business_gallery_images)}"
+            )
+        if result.business_videos:
+            video_lines = []
+            for video in result.business_videos:
+                url = video.get("url", "")
+                poster = video.get("poster", "")
+                if poster:
+                    video_lines.append(f"{url} (poster: {poster})")
+                else:
+                    video_lines.append(url)
+            lines.append(f"{self._('column_gallery_videos')}: {', '.join(video_lines)}")
         if result.latitude or result.longitude:
             lines.append(
                 f"{self._('column_lat')}/{self._('column_lng')}: {result.latitude or '-'}, {result.longitude or '-'}"
@@ -3016,6 +3328,26 @@ class Application(tk.Tk):
         if not results:
             messagebox.showinfo(self._("info_title"), self._("error_no_results_to_save"))
             return
+        fieldnames = [
+            "name",
+            "address",
+            "phone",
+            "telephone_type",
+            "category",
+            "business_default_image",
+            "business_image",
+            "business_gallery_images",
+            "business_videos",
+            "latitude",
+            "longitude",
+            "website",
+            "opening_hours",
+            "rating",
+            "rating_count",
+            "reviews",
+            "share_location",
+        ]
+
         if file_format == "json":
             path = filedialog.asksaveasfilename(
                 defaultextension=".json",
@@ -3045,6 +3377,24 @@ class Application(tk.Tk):
             except OSError:
                 messagebox.showerror(self._("error_title"), self._("save_error"))
                 return
+        elif file_format == "xlsx":
+            path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel", "*.xlsx")],
+            )
+            if not path:
+                return
+            try:
+                wb = Workbook()
+                ws = wb.active
+                ws.append(fieldnames)
+                for result in results:
+                    row = result.to_csv_row()
+                    ws.append([row.get(field, "") for field in fieldnames])
+                wb.save(path)
+            except OSError:
+                messagebox.showerror(self._("error_title"), self._("save_error"))
+                return
         else:
             path = filedialog.asksaveasfilename(
                 defaultextension=".csv",
@@ -3054,22 +3404,6 @@ class Application(tk.Tk):
                 return
             try:
                 with open(path, "w", encoding="utf-8-sig", newline="") as output:
-                    fieldnames = [
-                        "name",
-                        "address",
-                        "phone",
-                        "telephone_type",
-                        "category",
-                        "business_image",
-                        "latitude",
-                        "longitude",
-                        "website",
-                        "opening_hours",
-                        "rating",
-                        "rating_count",
-                        "reviews",
-                        "share_location",
-                    ]
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
                     writer.writeheader()
                     for result in results:
@@ -3104,6 +3438,7 @@ class Application(tk.Tk):
         self.api_save_json_button.config(text=self._("save_json"))
         self.api_save_csv_button.config(text=self._("save_csv"))
         self.api_save_pdf_button.config(text=self._("save_pdf"))
+        self.api_save_xlsx_button.config(text=self._("save_xlsx"))
 
         self.bot_form_frame.config(text=self._("search_panel"))
         self.bot_results_frame.config(text=self._("results"))
@@ -3115,6 +3450,8 @@ class Application(tk.Tk):
         self.bot_search_button.config(text=self._("search"))
         self.bot_limit_label.config(text=self._("result_limit"))
         self.bot_reviews_label.config(text=self._("review_limit"))
+        self.bot_photos_label.config(text=self._("media_photo_limit"))
+        self.bot_videos_label.config(text=self._("media_video_limit"))
         if self._map_placeholder_active or self._bot_map_photo is None:
             self._set_bot_map_placeholder()
         self._set_tree_heading(self.bot_results_tree, "name", self._("column_name"))
@@ -3124,6 +3461,7 @@ class Application(tk.Tk):
         self.bot_save_json_button.config(text=self._("save_json"))
         self.bot_save_csv_button.config(text=self._("save_csv"))
         self.bot_save_pdf_button.config(text=self._("save_pdf"))
+        self.bot_save_xlsx_button.config(text=self._("save_xlsx"))
 
         self.settings_frame.config(text=self._("settings_panel"))
         self.settings_search_limit_label.config(text=self._("settings_search_limit"))
