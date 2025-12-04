@@ -30,6 +30,7 @@ from playwright.sync_api import (
     Page,
     sync_playwright,
 )
+from playwright._impl._errors import TargetClosedError
 from openpyxl import Workbook
 
 from .license_manager import LicenseError, LicenseManager
@@ -828,6 +829,8 @@ class GoogleMapsPlaywrightScraper:
         seen_locations: set[tuple[str, str, str]] = set()
         self._emit_event(event_callback, "search_started", {"query": query})
 
+        browser = None
+        context = None
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(
@@ -925,9 +928,25 @@ class GoogleMapsPlaywrightScraper:
                     index += 1
 
                 self._send_progress_screenshot(page, progress_callback)
-                context.close()
-                browser.close()
+                with suppress(PlaywrightError, TargetClosedError):
+                    context.close()
+                with suppress(PlaywrightError, TargetClosedError):
+                    browser.close()
 
+        except TargetClosedError as exc:
+            self._emit_event(
+                event_callback,
+                "search_cancelled",
+                {"message": str(exc) or "browser closed"},
+            )
+            LOGGER.info("Playwright window closed by user; scan aborted")
+            with suppress(PlaywrightError, TargetClosedError):
+                if context:
+                    context.close()
+            with suppress(PlaywrightError, TargetClosedError):
+                if browser:
+                    browser.close()
+            return results
         except PlaywrightError as exc:
             self._emit_event(event_callback, "search_failed", {"message": str(exc) or "unknown"})
             LOGGER.exception("Playwright automation failed")
