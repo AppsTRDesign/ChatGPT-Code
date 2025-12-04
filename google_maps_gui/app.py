@@ -148,9 +148,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_rating": "Puan",
         "field_user_ratings_total": "Toplam Değerlendirme",
         "field_share_location": "Paylaşım Konumu",
+        "field_business_image": "İşletme Görseli",
+        "field_website": "Web Sitesi",
         "field_reviews": "Müşteri Yorumları",
         "field_review_photo_urls": "Yorum Fotoğrafları",
         "field_text_extra": "Yorum Ek Bilgileri",
+        "city": "Şehir",
         "settings_panel": "Genel Ayarlar",
         "settings_search_limit": "Maksimum İşletme Sayısı",
         "settings_review_limit": "Maksimum Yorum Sayısı",
@@ -249,9 +252,12 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_rating": "Rating",
         "field_user_ratings_total": "Rating Count",
         "field_share_location": "Share Location",
+        "field_business_image": "Business Image",
+        "field_website": "Website",
         "field_reviews": "Customer Reviews",
         "field_review_photo_urls": "Review Photos",
         "field_text_extra": "Review Extras",
+        "city": "City",
         "settings_panel": "Global Settings",
         "settings_search_limit": "Max Business Count",
         "settings_review_limit": "Max Review Count",
@@ -399,6 +405,8 @@ FIELD_OPTION_KEYS = [
     "rating",
     "user_ratings_total",
     "share_location",
+    "business_image",
+    "website",
     "reviews",
     "review_photo_urls",
     "text_extra",
@@ -415,6 +423,8 @@ class FieldSelection:
     rating: bool = True
     user_ratings_total: bool = True
     share_location: bool = True
+    business_image: bool = False
+    website: bool = False
     reviews: bool = False
     review_photo_urls: bool = False
     text_extra: bool = False
@@ -442,6 +452,10 @@ class FieldSelection:
             result.share_location = None
             result.latitude = ""
             result.longitude = ""
+        if not self.business_image:
+            result.business_image = ""
+        if not self.website:
+            result.website = None
         if not self.wants_reviews():
             result.reviews = []
         else:
@@ -641,6 +655,8 @@ class GoogleMapsClient:
                 detail_fields.append("rating")
             if selection.user_ratings_total:
                 detail_fields.append("user_ratings_total")
+            if selection.website:
+                detail_fields.append("website")
             if selection.wants_reviews():
                 detail_fields.append("reviews")
             detailed = self._request(
@@ -763,11 +779,13 @@ class GoogleMapsPlaywrightScraper:
         limit: int = 5,
         max_reviews: int = 3,
         field_selection: Optional[FieldSelection] = None,
+        city_center: Optional[tuple[str, str]] = None,
     ) -> None:
         self.language = language or "tr"
         self.limit = limit
         self.max_reviews = max(0, max_reviews)
         self.field_selection = field_selection or FieldSelection()
+        self.city_center = city_center
 
     def search(
         self,
@@ -799,15 +817,13 @@ class GoogleMapsPlaywrightScraper:
                     user_agent=self._user_agent(),
                 )
                 page = context.new_page()
-                page.goto(
-                    f"{self.MAP_URL}?hl={self.language}",
-                    wait_until="load",
-                    timeout=90000,
-                )
+                start_url = self._build_search_url(query)
+                page.goto(start_url, wait_until="load", timeout=90000)
                 self._ensure_fake_cursor(page)
                 self._handle_privacy_dialog(page)
                 self._send_progress_screenshot(page, progress_callback)
-                self._perform_search(page, query)
+                if not self.city_center:
+                    self._perform_search(page, query)
                 self._ensure_fake_cursor(page)
                 self._handle_privacy_dialog(page)
                 self._wait_for_result_list(page)
@@ -893,6 +909,13 @@ class GoogleMapsPlaywrightScraper:
         normalized = (self.language or "en").lower()
         mapping = {"tr": "tr-TR", "en": "en-US"}
         return mapping.get(normalized, "en-US")
+
+    def _build_search_url(self, query: str) -> str:
+        encoded_query = urllib.parse.quote_plus(query)
+        if self.city_center and all(self.city_center):
+            lat, lng = self.city_center
+            return f"{self.MAP_URL}/search/{encoded_query}/@{lat},{lng}?hl={self.language}"
+        return f"{self.MAP_URL}?hl={self.language}"
 
     def _perform_search(self, page: Page, query: str) -> None:
         search_box = page.wait_for_selector("input#searchboxinput", timeout=60000)
@@ -1100,8 +1123,8 @@ class GoogleMapsPlaywrightScraper:
             self._extract_share_location(page) if selection.share_location else None
         )
         latitude, longitude = extract_lat_lng_from_link(share_location or page.url)
-        website = self._extract_website(page)
-        business_image = self._extract_card_image(page)
+        website = self._extract_website(page) if selection.website else None
+        business_image = self._extract_card_image(page) if selection.business_image else ""
         phone_type = classify_phone(phone)
 
         return selection.apply(
@@ -1766,6 +1789,7 @@ class Application(tk.Tk):
         for key in FIELD_OPTION_KEYS:
             default = key in default_selected
             self.field_option_vars[key] = tk.BooleanVar(value=default)
+        self.city_lookup: Dict[str, tuple[str, str]] = self._load_cities()
         self.license_expiry_var = tk.StringVar()
         self.license_duration_var = tk.StringVar()
         self.title(self._("app_title"))
@@ -1951,6 +1975,14 @@ class Application(tk.Tk):
             state="readonly",
         )
         self.bot_language_combo.set("tr")
+
+        self.bot_city_label = ttk.Label(self.bot_form_frame, text="")
+        self.bot_city_combo = ttk.Combobox(
+            self.bot_form_frame,
+            values=[],
+            state="readonly",
+        )
+        self._populate_city_combo()
 
         self.bot_limit_label = ttk.Label(self.bot_form_frame, text="")
         self.bot_limit_spin = ttk.Spinbox(
@@ -2187,6 +2219,31 @@ class Application(tk.Tk):
         self._set_spin_value(spinbox, str(value))
         return value
 
+    def _load_cities(self) -> Dict[str, tuple[str, str]]:
+        if not CITIES_PATH.exists():
+            return {}
+        try:
+            data = json.loads(CITIES_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            LOGGER.warning("Could not read cities.json from %s", CITIES_PATH)
+            return {}
+        lookup: Dict[str, tuple[str, str]] = {}
+        for entry in data:
+            name = str(entry.get("name", "")).strip()
+            lat = str(entry.get("latitude", "")).strip()
+            lng = str(entry.get("longitude", "")).strip()
+            if name and lat and lng:
+                lookup[name.lower()] = (lat, lng)
+        return lookup
+
+    def _populate_city_combo(self) -> None:
+        if not hasattr(self, "bot_city_combo"):
+            return
+        names = sorted({name.title() for name in self.city_lookup.keys()})
+        self.bot_city_combo["values"] = names
+        if names:
+            self.bot_city_combo.set(names[0])
+
     def _get_settings_search_limit(self) -> int:
         try:
             value = int(self.settings_search_limit_var.get())
@@ -2303,17 +2360,19 @@ class Application(tk.Tk):
         self.bot_tab.rowconfigure(3, weight=0)
 
         self.bot_form_frame.grid(row=0, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=(10, 5))
-        for idx in range(5):
+        for idx in range(6):
             weight = 1 if idx in {1, 3} else 0
             self.bot_form_frame.columnconfigure(idx, weight=weight)
         bot_pad = {"padx": 5, "pady": 5}
         self.bot_query_label.grid(row=0, column=0, sticky=tk.W, **bot_pad)
         self.bot_query_entry.grid(row=0, column=1, columnspan=3, sticky=tk.EW, **bot_pad)
-        self.bot_search_button.grid(row=0, column=4, sticky=tk.E, **bot_pad)
+        self.bot_search_button.grid(row=0, column=5, sticky=tk.E, **bot_pad)
         self.bot_language_label.grid(row=1, column=0, sticky=tk.W, **bot_pad)
         self.bot_language_combo.grid(row=1, column=1, sticky=tk.W, **bot_pad)
-        self.bot_limit_label.grid(row=1, column=2, sticky=tk.W, **bot_pad)
-        self.bot_limit_spin.grid(row=1, column=3, sticky=tk.W, **bot_pad)
+        self.bot_city_label.grid(row=1, column=2, sticky=tk.W, **bot_pad)
+        self.bot_city_combo.grid(row=1, column=3, sticky=tk.W, **bot_pad)
+        self.bot_limit_label.grid(row=1, column=4, sticky=tk.W, **bot_pad)
+        self.bot_limit_spin.grid(row=1, column=5, sticky=tk.W, **bot_pad)
         self.bot_reviews_label.grid(row=2, column=0, sticky=tk.W, **bot_pad)
         self.bot_reviews_spin.grid(row=2, column=1, sticky=tk.W, **bot_pad)
         self.bot_field_options_frame.grid(row=3, column=0, columnspan=5, sticky=tk.EW, padx=5, pady=(0, 5))
@@ -2514,6 +2573,10 @@ class Application(tk.Tk):
             minimum=0,
             maximum=settings_review_limit,
         )
+        city_name = (self.bot_city_combo.get() or "").strip()
+        city_center = None
+        if city_name:
+            city_center = self.city_lookup.get(city_name.lower())
         selection = self._current_field_selection()
         selection_payload = FieldSelection(**vars(selection))
         if not selection_payload.wants_reviews():
@@ -2537,6 +2600,7 @@ class Application(tk.Tk):
                     limit=limit,
                     max_reviews=review_limit,
                     field_selection=selection_payload,
+                    city_center=city_center,
                 )
                 results = scraper.search(
                     query,
@@ -3044,6 +3108,7 @@ class Application(tk.Tk):
         self.bot_map_frame.config(text=self._("map_preview"))
         self.bot_query_label.config(text=self._("query"))
         self.bot_language_label.config(text=self._("language"))
+        self.bot_city_label.config(text=self._("city"))
         self.bot_search_button.config(text=self._("search"))
         self.bot_limit_label.config(text=self._("result_limit"))
         self.bot_reviews_label.config(text=self._("review_limit"))
