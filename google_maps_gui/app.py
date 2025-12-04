@@ -10,6 +10,7 @@ import re
 import textwrap
 import threading
 import time
+import urllib.parse
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -42,6 +43,46 @@ logging.basicConfig(
 
 BASE_DIR = Path(__file__).resolve().parent
 PDF_FONT_PATH = BASE_DIR / "assets" / "fonts" / "DejaVuSans.ttf"
+CITIES_PATH = BASE_DIR / "assets" / "cities.json"
+
+
+def classify_phone(tel: str) -> str:
+    if not tel:
+        return "Bilinmiyor"
+    t = re.sub(r"[\s\-()]", "", tel)
+    if t.startswith("05") or (t.startswith("5") and len(t) >= 10):
+        return "Cep"
+    if t.startswith("444"):
+        return "Kurumsal (444)"
+    if t.startswith("850") or t.startswith("0850"):
+        return "Kurumsal (850)"
+    if re.match(r"0[2-9][0-9]{9}", t):
+        return "Sabit Hat"
+    return "Bilinmiyor"
+
+
+def upscale_img(url: str) -> str:
+    if not url:
+        return ""
+
+    def repl(m: re.Match[str]) -> str:
+        w = int(m.group(1))
+        h = int(m.group(2))
+        return f"w{w*10}-h{h*10}"
+
+    return re.sub(r"w(\d+)-h(\d+)", repl, url)
+
+
+def extract_lat_lng_from_link(link: str) -> tuple[str, str]:
+    if not link:
+        return "", ""
+    m = re.search(r"@(-?\d+\.\d+),(-?\d+\.\d+)", link)
+    if m:
+        return m.group(1), m.group(2)
+    m = re.search(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)", link)
+    if m:
+        return m.group(1), m.group(2)
+    return "", ""
 
 
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
@@ -62,6 +103,11 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_phone": "Telefon",
         "column_rating": "Puan",
         "column_category": "Kategori",
+        "column_phone_type": "Telefon Tipi",
+        "column_lat": "Enlem",
+        "column_lng": "Boylam",
+        "column_website": "Web Sitesi",
+        "column_image": "İşletme Görseli",
         "review_limit": "Yorum Sayısı",
         "save_json": "JSON Kaydet",
         "save_csv": "CSV Kaydet",
@@ -158,6 +204,11 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_phone": "Phone",
         "column_rating": "Rating",
         "column_category": "Category",
+        "column_phone_type": "Phone Type",
+        "column_lat": "Latitude",
+        "column_lng": "Longitude",
+        "column_website": "Website",
+        "column_image": "Business Image",
         "review_limit": "Review Count",
         "save_json": "Save JSON",
         "save_csv": "Save CSV",
@@ -267,7 +318,12 @@ class PlaceResult:
     name: str
     formatted_address: str
     formatted_phone_number: Optional[str]
+    telephone_type: str
     business_type: Optional[str]
+    business_image: str
+    latitude: str
+    longitude: str
+    website: Optional[str]
     opening_hours: List[str]
     rating: Optional[float]
     user_ratings_total: Optional[int]
@@ -279,7 +335,12 @@ class PlaceResult:
             "name": self.name,
             "formatted_address": self.formatted_address,
             "formatted_phone_number": self.formatted_phone_number,
+            "telephone_type": self.telephone_type,
             "business_type": self.business_type,
+            "business_image": self.business_image,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "website": self.website,
             "opening_hours": list(self.opening_hours),
             "rating": self.rating,
             "user_ratings_total": self.user_ratings_total,
@@ -292,7 +353,12 @@ class PlaceResult:
             "name": self.name,
             "address": self.formatted_address,
             "phone": self.formatted_phone_number or "",
+            "telephone_type": self.telephone_type or "",
             "category": self.business_type or "",
+            "business_image": self.business_image or "",
+            "latitude": self.latitude or "",
+            "longitude": self.longitude or "",
+            "website": self.website or "",
             "opening_hours": " | ".join(self.opening_hours) if self.opening_hours else "",
             "rating": f"{self.rating:.1f}" if self.rating is not None else "",
             "rating_count": "" if self.user_ratings_total is None else str(self.user_ratings_total),
@@ -363,6 +429,7 @@ class FieldSelection:
             result.formatted_address = ""
         if not self.formatted_phone_number:
             result.formatted_phone_number = None
+            result.telephone_type = ""
         if not self.business_type:
             result.business_type = None
         if not self.opening_hours:
@@ -373,6 +440,8 @@ class FieldSelection:
             result.user_ratings_total = None
         if not self.share_location:
             result.share_location = None
+            result.latitude = ""
+            result.longitude = ""
         if not self.wants_reviews():
             result.reviews = []
         else:
@@ -427,11 +496,20 @@ class ResultPdfExporter:
         pdf.set_font("DejaVu", "", 10)
         details = [
             f"{translate('column_phone')}: {result.formatted_phone_number or '-'}",
+            f"{translate('column_phone_type')}: {result.telephone_type or '-'}",
             f"{translate('column_category')}: {result.business_type or '-'}",
             f"{translate('column_rating')}: {result.rating if result.rating is not None else '-'}",
             f"{translate('ratings_total')}: {result.user_ratings_total if result.user_ratings_total is not None else '-'}",
             f"{translate('address')}: {result.formatted_address or '-'}",
         ]
+        if result.website:
+            details.append(f"{translate('column_website')}: {result.website}")
+        if result.business_image:
+            details.append(f"{translate('column_image')}: {result.business_image}")
+        if result.latitude or result.longitude:
+            details.append(
+                f"{translate('column_lat')}/{translate('column_lng')}: {result.latitude or '-'}, {result.longitude or '-'}"
+            )
         if result.share_location:
             details.append(f"{translate('share_location')}: {result.share_location}")
         for line in details:
@@ -570,7 +648,7 @@ class GoogleMapsClient:
                 {
                     "place_id": place_id,
                     "language": language,
-                    "fields": ",".join(detail_fields),
+                    "fields": ",".join(detail_fields + ["website", "geometry"]),
                 },
             )
             result = detailed.get("result")
@@ -610,7 +688,12 @@ class GoogleMapsClient:
                         name=result.get("name", ""),
                         formatted_address=result.get("formatted_address", ""),
                         formatted_phone_number=result.get("formatted_phone_number"),
+                        telephone_type=classify_phone(result.get("formatted_phone_number", "")),
                         business_type=self._format_business_type(result.get("types", [])),
+                        business_image="",
+                        latitude=str(result.get("geometry", {}).get("location", {}).get("lat", "")),
+                        longitude=str(result.get("geometry", {}).get("location", {}).get("lng", "")),
+                        website=result.get("website"),
                         opening_hours=opening_hours,
                         rating=result.get("rating"),
                         user_ratings_total=result.get("user_ratings_total"),
@@ -1016,13 +1099,22 @@ class GoogleMapsPlaywrightScraper:
         share_location = (
             self._extract_share_location(page) if selection.share_location else None
         )
+        latitude, longitude = extract_lat_lng_from_link(share_location or page.url)
+        website = self._extract_website(page)
+        business_image = self._extract_card_image(page)
+        phone_type = classify_phone(phone)
 
         return selection.apply(
             PlaceResult(
                 name=name,
                 formatted_address=address,
                 formatted_phone_number=phone,
+                telephone_type=phone_type,
                 business_type=business_type or None,
+                business_image=business_image,
+                latitude=latitude,
+                longitude=longitude,
+                website=website,
                 opening_hours=opening_hours,
                 rating=rating,
                 user_ratings_total=rating_count,
@@ -1087,6 +1179,26 @@ class GoogleMapsPlaywrightScraper:
             digits = "".join(ch for ch in text if ch.isdigit())
             if len(digits) >= 8:
                 return text
+        return ""
+
+    def _extract_website(self, page: Page) -> Optional[str]:
+        selectors = [
+            'a.CsEnBe[data-item-id="authority"]',
+            'a.CsEnBe',
+        ]
+        for selector in selectors:
+            locator = page.locator(selector)
+            if locator.count():
+                href = self._safe_get_attribute(locator.first, "href")
+                if href:
+                    return href
+        return None
+
+    def _extract_card_image(self, page: Page) -> str:
+        locator = page.locator("div.FQ2IWe img")
+        if locator.count():
+            src = self._safe_get_attribute(locator.first, "src")
+            return upscale_img(src)
         return ""
 
     def _extract_meta_items(self, page: Page) -> Dict[str, str]:
@@ -2730,12 +2842,21 @@ class Application(tk.Tk):
         lines = [
             f"{self._('column_name')}: {result.name}",
             f"{self._('column_phone')}: {result.formatted_phone_number or '-'}",
+            f"{self._('column_phone_type')}: {result.telephone_type or '-'}",
             f"{self._('column_rating')}: {result.rating or '-'}",
             f"{self._('column_category')}: {result.business_type or '-'}",
         ]
         if result.user_ratings_total is not None:
             lines.append(f"{self._('ratings_total')}: {result.user_ratings_total}")
         lines.append(f"{self._('address')}: {result.formatted_address or '-'}")
+        if result.website:
+            lines.append(f"{self._('column_website')}: {result.website}")
+        if result.business_image:
+            lines.append(f"{self._('column_image')}: {result.business_image}")
+        if result.latitude or result.longitude:
+            lines.append(
+                f"{self._('column_lat')}/{self._('column_lng')}: {result.latitude or '-'}, {result.longitude or '-'}"
+            )
         if result.share_location:
             lines.append(f"{self._('share_location')}: {result.share_location}")
         lines.append("")
@@ -2870,7 +2991,12 @@ class Application(tk.Tk):
                         "name",
                         "address",
                         "phone",
+                        "telephone_type",
                         "category",
+                        "business_image",
+                        "latitude",
+                        "longitude",
+                        "website",
                         "opening_hours",
                         "rating",
                         "rating_count",
