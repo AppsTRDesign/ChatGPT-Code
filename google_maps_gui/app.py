@@ -1333,6 +1333,9 @@ class GoogleMapsPlaywrightScraper:
 
     def _open_gallery(self, page: Page) -> bool:
         buttons = [
+            "div.YNB9Sd button[jsaction*='wfvdle66']",
+            "div.ZKCDEc button[jsaction*='wfvdle66']",
+            "button[jsaction*='wfvdle66']",
             "div.ZKCDEc button.Dx2nRe",
             "button.Dx2nRe",
             "button[aria-label*='Fotoğrafları göster']",
@@ -1371,39 +1374,48 @@ class GoogleMapsPlaywrightScraper:
         if not self._open_gallery(page):
             return photos, videos
 
+        def _press_back(expect_grid: bool = False) -> None:
+            with suppress(PlaywrightError):
+                back = page.locator("button.iPpe6d")
+                if back.count():
+                    back.first.click()
+                else:
+                    page.keyboard.press("Escape")
+            if expect_grid:
+                with suppress(PlaywrightTimeoutError):
+                    page.wait_for_selector("a.OKAoZd", timeout=4000)
+            page.wait_for_timeout(200)
+
         if video_limit > 0:
             self._click_gallery_tab(page, ["videolar", "videos"])
             anchors = page.locator("a.OKAoZd")
-            for idx in range(anchors.count()):
-                if len(videos) >= video_limit:
-                    break
+            total = anchors.count()
+            idx = 0
+            while idx < total and len(videos) < video_limit:
                 anchor = anchors.nth(idx)
                 aria = (self._safe_get_attribute(anchor, "aria-label") or "").lower()
                 if "video" not in aria:
+                    idx += 1
                     continue
                 with suppress(PlaywrightError):
+                    anchor.scroll_into_view_if_needed(timeout=3000)
                     anchor.click()
                 with suppress(PlaywrightTimeoutError):
-                    page.wait_for_selector("video[src]", timeout=6000)
+                    page.wait_for_selector("video[src]", timeout=7000)
                 video_el = page.locator("video[src]").first
                 if video_el.count():
-                    url = self._safe_get_attribute(video_el, "src")
-                    poster = self._safe_get_attribute(video_el, "poster")
+                    url = self._safe_get_attribute(video_el, "src") or ""
+                    poster = self._safe_get_attribute(video_el, "poster") or ""
                     if url:
-                        videos.append({"url": url, "poster": poster or ""})
-                with suppress(PlaywrightError):
-                    back = page.locator("button.iPpe6d")
-                    if back.count():
-                        back.first.click()
-                    else:
-                        page.keyboard.press("Escape")
-                page.wait_for_timeout(200)
+                        videos.append({"url": url, "poster": poster})
+                _press_back(expect_grid=True)
+                idx += 1
 
         if photo_limit > 0:
             self._click_gallery_tab(page, ["tümü", "all", "photos", "fotoğraflar"])
+            idx = 0
             tiles = page.locator("a.OKAoZd")
             count = tiles.count()
-            idx = 0
             while idx < count and len(photos) < photo_limit:
                 tile = tiles.nth(idx)
                 with suppress(PlaywrightError):
@@ -1414,18 +1426,20 @@ class GoogleMapsPlaywrightScraper:
                     image_url = self._background_image_url(inner) or ""
                 if not image_url:
                     image_url = self._background_image_url(tile) or ""
+                with suppress(PlaywrightError):
+                    tile.click()
+                if not image_url:
+                    with suppress(PlaywrightTimeoutError):
+                        page.wait_for_timeout(300)
+                    overlay_image = page.locator("div.Uf0tqf, div.ch8jbf").first
+                    image_url = self._background_image_url(overlay_image) or image_url
                 if image_url:
                     image_url = upscale_img(image_url)
                     if image_url not in photos:
                         photos.append(image_url)
                 idx += 1
-
-        with suppress(PlaywrightError):
-            back = page.locator("button.iPpe6d")
-            if back.count():
-                back.first.click()
-            else:
-                page.keyboard.press("Escape")
+            # return to the place details after collecting images/videos
+        _press_back()
         return photos, videos
 
     def _extract_meta_items(self, page: Page) -> Dict[str, str]:
