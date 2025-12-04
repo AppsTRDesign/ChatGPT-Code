@@ -66,12 +66,25 @@ def upscale_img(url: str) -> str:
     if not url:
         return ""
 
-    def repl(m: re.Match[str]) -> str:
+    # Normalize protocol-less images
+    if url.startswith("//"):
+        url = f"https:{url}"
+
+    def repl_dash(m: re.Match[str]) -> str:
         w = int(m.group(1))
         h = int(m.group(2))
         return f"w{w*10}-h{h*10}"
 
-    return re.sub(r"w(\d+)-h(\d+)", repl, url)
+    def repl_query(m: re.Match[str]) -> str:
+        w = int(m.group(1))
+        h = int(m.group(2))
+        return f"w={w*10}&h={h*10}"
+
+    url = re.sub(r"w=(\d+)&h=(\d+)", repl_query, url)
+
+    url = re.sub(r"w(\d+)-h(\d+)", repl_dash, url)
+
+    return url
 
 
 def extract_lat_lng_from_link(link: str) -> tuple[str, str]:
@@ -1023,7 +1036,9 @@ class GoogleMapsPlaywrightScraper:
         return page.locator('div[role="feed"] div.Nv2PK, div.Nv2PK')
 
     def _click_article_card(self, locator: Locator) -> None:
-        target = locator.locator('a[href]').first
+        target = locator.locator("a.hfpxzc[aria-label]").first
+        if not target.count():
+            target = locator.locator('a[href]').first
         try:
             if target.count():
                 with suppress(PlaywrightError):
