@@ -914,7 +914,10 @@ class GoogleMapsPlaywrightScraper:
         encoded_query = urllib.parse.quote_plus(query)
         if self.city_center and all(self.city_center):
             lat, lng = self.city_center
-            return f"{self.MAP_URL}/search/{encoded_query}/@{lat},{lng}?hl={self.language}"
+            return (
+                f"{self.MAP_URL}/search/{encoded_query}/@{lat},{lng},13z"
+                f"/data=!3m1!4b1?hl={self.language}&tentry=ttu"
+            )
         return f"{self.MAP_URL}?hl={self.language}"
 
     def _perform_search(self, page: Page, query: str) -> None:
@@ -1122,7 +1125,7 @@ class GoogleMapsPlaywrightScraper:
         share_location = (
             self._extract_share_location(page) if selection.share_location else None
         )
-        latitude, longitude = extract_lat_lng_from_link(share_location or page.url)
+        latitude, longitude = extract_lat_lng_from_link(page.url)
         website = self._extract_website(page) if selection.website else None
         business_image = self._extract_card_image(page) if selection.business_image else ""
         phone_type = classify_phone(phone)
