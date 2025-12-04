@@ -48,7 +48,7 @@ PDF_FONT_PATH = BASE_DIR / "assets" / "fonts" / "DejaVuSans.ttf"
 CITIES_PATH = BASE_DIR / "assets" / "cities.json"
 
 
-def classify_phone(tel: str) -> str:
+def classify_phone(tel: Optional[str]) -> str:
     if not tel:
         return "Bilinmiyor"
     t = re.sub(r"[\s\-()]", "", tel)
@@ -71,21 +71,35 @@ def upscale_img(url: str) -> str:
     if url.startswith("//"):
         url = f"https:{url}"
 
-    def repl_dash(m: re.Match[str]) -> str:
-        w = int(m.group(1))
-        h = int(m.group(2))
-        return f"w{w*10}-h{h*10}"
-
+    # Normalize query-based dimensions (e.g., w=408&h=240)
     def repl_query(m: re.Match[str]) -> str:
         w = int(m.group(1))
         h = int(m.group(2))
         return f"w={w*10}&h={h*10}"
+
+    def repl_dash(m: re.Match[str]) -> str:
+        w = int(m.group(1))
+        h = int(m.group(2))
+        return f"w{w*10}-h{h*10}"
 
     url = re.sub(r"w=(\d+)&h=(\d+)", repl_query, url)
 
     url = re.sub(r"w(\d+)-h(\d+)", repl_dash, url)
 
     return url
+
+
+def sanitize_phone(phone: Optional[str], address: str) -> Optional[str]:
+    if not phone:
+        return None
+    trimmed = phone.strip()
+    if not trimmed:
+        return None
+    normalized_phone = " ".join(trimmed.split()).lower()
+    normalized_address = " ".join((address or "").split()).lower()
+    if not trimmed[0].isdigit() and normalized_phone == normalized_address:
+        return None
+    return trimmed
 
 
 def extract_lat_lng_from_link(link: str) -> tuple[str, str]:
@@ -155,6 +169,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_media": "Yorum Fotoğrafları",
         "ratings_total": "Toplam Değerlendirme",
         "share_location": "Paylaşım Konumu",
+        "busy_hours": "Yoğun Saatler",
         "save_xlsx": "XLSX Kaydet",
         "field_section": "Veri Alanları",
         "field_name": "İsim",
@@ -171,6 +186,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_reviews": "Müşteri Yorumları",
         "field_review_photo_urls": "Yorum Fotoğrafları",
         "field_text_extra": "Yorum Ek Bilgileri",
+        "field_busy_hours": "Yoğun Saatler",
         "city": "Şehir",
         "settings_panel": "Genel Ayarlar",
         "settings_search_limit": "Maksimum İşletme Sayısı",
@@ -262,6 +278,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_media": "Review Photos",
         "ratings_total": "Total Ratings",
         "share_location": "Share Location",
+        "busy_hours": "Popular Times",
         "save_xlsx": "Save XLSX",
         "field_section": "Data Fields",
         "field_name": "Name",
@@ -278,6 +295,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_reviews": "Customer Reviews",
         "field_review_photo_urls": "Review Photos",
         "field_text_extra": "Review Extras",
+        "field_busy_hours": "Popular Times",
         "city": "City",
         "settings_panel": "Global Settings",
         "settings_search_limit": "Max Business Count",
@@ -357,6 +375,7 @@ class PlaceResult:
     user_ratings_total: Optional[int]
     reviews: List[PlaceReview]
     share_location: Optional[str] = None
+    busy_hours: Dict[str, List[Dict[str, str]]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -375,6 +394,7 @@ class PlaceResult:
             "user_ratings_total": self.user_ratings_total,
             "reviews": [review.to_dict() for review in self.reviews],
             "share_location": self.share_location,
+            "busy_hours": self.busy_hours,
         }
 
     def to_csv_row(self) -> Dict[str, Optional[str]]:
@@ -411,6 +431,7 @@ class PlaceResult:
                 for review in self.reviews
             ),
             "share_location": self.share_location or "",
+            "busy_hours": json.dumps(self.busy_hours, ensure_ascii=False) if self.busy_hours else "",
         }
 
 
@@ -435,6 +456,7 @@ FIELD_OPTION_KEYS = [
     "reviews",
     "review_photo_urls",
     "text_extra",
+    "busy_hours",
 ]
 
 
@@ -454,6 +476,7 @@ class FieldSelection:
     reviews: bool = False
     review_photo_urls: bool = False
     text_extra: bool = False
+    busy_hours: bool = False
 
     def wants_reviews(self) -> bool:
         return self.reviews
@@ -482,6 +505,8 @@ class FieldSelection:
             result.business_image = ""
         if not self.website:
             result.website = None
+        if not self.busy_hours:
+            result.busy_hours = {}
         if not self.wants_reviews():
             result.reviews = []
         else:
@@ -563,6 +588,19 @@ class ResultPdfExporter:
             pdf.set_font("DejaVu", "", 10)
             for row in result.opening_hours:
                 self._write_wrapped(pdf, f"  • {row}", line_height=5)
+        if result.busy_hours:
+            pdf.ln(1)
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(0, 6, translate("busy_hours"), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.set_font("DejaVu", "", 10)
+            for day, slots in result.busy_hours.items():
+                self._write_wrapped(pdf, f"  {day}:", line_height=5)
+                for slot in slots:
+                    self._write_wrapped(
+                        pdf,
+                        f"    {slot.get('time', '')}: {slot.get('busy', '')}",
+                        line_height=5,
+                    )
         if result.reviews:
             pdf.ln(1)
             pdf.set_font("DejaVu", "B", 10)
@@ -719,7 +757,7 @@ class GoogleMapsClient:
                             rating=review.get("rating"),
                             relative_time=review.get("relative_time_description"),
                             text=content,
-                            profile_photo_url=review.get("profile_photo_url"),
+                            profile_photo_url=upscale_img(review.get("profile_photo_url")),
                             text_extra=extras,
                             review_photo_urls=[],
                         )
@@ -731,8 +769,17 @@ class GoogleMapsClient:
                     PlaceResult(
                         name=result.get("name", ""),
                         formatted_address=result.get("formatted_address", ""),
-                        formatted_phone_number=result.get("formatted_phone_number"),
-                        telephone_type=classify_phone(result.get("formatted_phone_number", "")),
+                        formatted_phone_number=sanitize_phone(
+                            result.get("formatted_phone_number"),
+                            result.get("formatted_address", ""),
+                        ),
+                        telephone_type=classify_phone(
+                            sanitize_phone(
+                                result.get("formatted_phone_number"),
+                                result.get("formatted_address", ""),
+                            )
+                            or "",
+                        ),
                         business_type=self._format_business_type(result.get("types", [])),
                         business_default_image="",
                         business_image="",
@@ -744,6 +791,7 @@ class GoogleMapsClient:
                         user_ratings_total=result.get("user_ratings_total"),
                         reviews=reviews,
                         share_location=None,
+                        busy_hours={},
                     )
                 )
             )
@@ -1157,6 +1205,7 @@ class GoogleMapsPlaywrightScraper:
 
         address = self._extract_address(page) if selection.formatted_address else ""
         phone = self._extract_phone(page) if selection.formatted_phone_number else None
+        phone = sanitize_phone(phone, address)
         rating: Optional[float] = None
         rating_count: Optional[int] = None
         if selection.rating or selection.user_ratings_total:
@@ -1185,6 +1234,9 @@ class GoogleMapsPlaywrightScraper:
         business_default_image = (
             self._extract_default_image(page) if selection.business_default_image else ""
         )
+        busy_hours: Dict[str, List[Dict[str, str]]] = {}
+        if selection.busy_hours:
+            busy_hours = self._extract_busy_hours(page)
         phone_type = classify_phone(phone)
 
         return selection.apply(
@@ -1204,6 +1256,7 @@ class GoogleMapsPlaywrightScraper:
                 user_ratings_total=rating_count,
                 reviews=reviews,
                 share_location=share_location or None,
+                busy_hours=busy_hours,
             )
         )
 
@@ -1388,6 +1441,40 @@ class GoogleMapsPlaywrightScraper:
                 opening_hours.append(f"{day}: {value}")
         return opening_hours
 
+    def _extract_busy_hours(self, page: Page) -> Dict[str, List[Dict[str, str]]]:
+        container = page.locator('div.C7xf8b').first
+        if not container.count():
+            return {}
+        day_blocks = container.locator('div.g2BVhd')
+        day_order = [
+            "Pazar",
+            "Pazartesi",
+            "Salı",
+            "Çarşamba",
+            "Perşembe",
+            "Cuma",
+            "Cumartesi",
+        ]
+        busy_hours: Dict[str, List[Dict[str, str]]] = {}
+        total_days = min(day_blocks.count(), len(day_order))
+        for idx in range(total_days):
+            day_label = day_order[idx]
+            block = day_blocks.nth(idx)
+            slots: List[Dict[str, str]] = []
+            slots_locator = block.locator('div[role="img"][aria-label*="saatinde"]')
+            for slot_idx in range(slots_locator.count()):
+                slot = slots_locator.nth(slot_idx)
+                aria = self._safe_get_attribute(slot, "aria-label")
+                if not aria:
+                    continue
+                match = re.search(r"(\d{2}:\d{2}).*?(%\d+)", aria)
+                if not match:
+                    continue
+                slots.append({"time": match.group(1), "busy": match.group(2)})
+            if slots:
+                busy_hours[day_label] = slots
+        return busy_hours
+
     def _extract_reviews(self, page: Page, rating_count: Optional[int] = None) -> List[PlaceReview]:
         if not self.field_selection.wants_reviews():
             return []
@@ -1398,6 +1485,8 @@ class GoogleMapsPlaywrightScraper:
             return []
 
         reviews_locator = page.locator('div[data-review-id]')
+        if reviews_locator.count() == 0:
+            return []
         self._ensure_reviews_loaded(page, reviews_locator, target)
         reviews: List[PlaceReview] = []
         seen_ids: set[str] = set()
@@ -1433,6 +1522,8 @@ class GoogleMapsPlaywrightScraper:
                     rating = float(digits)
             relative = self._safe_inner_text(review.locator('span.rsqaWe').first)
             photo = self._safe_get_attribute(review.locator('img.NBa7we').first, "src") or None
+            photo = upscale_img(photo)
+            photo = photo or None
             signature_source = self._safe_get_attribute(review, "data-review-id")
             if not signature_source:
                 signature_source = self._normalize_text("||".join(filter(None, [author, relative or "", content])))
@@ -1448,7 +1539,7 @@ class GoogleMapsPlaywrightScraper:
                     text=content,
                     profile_photo_url=photo or None,
                     text_extra=extras,
-                    review_photo_urls=media_urls,
+                    review_photo_urls=[upscale_img(u) for u in media_urls],
                 )
             )
             idx += 1
@@ -1522,8 +1613,10 @@ class GoogleMapsPlaywrightScraper:
         for idx in range(count):
             button = buttons.nth(idx)
             url = self._background_image_url(button)
-            if url and url not in media_urls:
-                media_urls.append(url)
+            if url:
+                cleaned = upscale_img(url)
+                if cleaned not in media_urls:
+                    media_urls.append(cleaned)
         return media_urls
 
     def _background_image_url(self, locator: Locator) -> Optional[str]:
@@ -3017,6 +3110,13 @@ class Application(tk.Tk):
             lines.extend(f"  - {item}" for item in result.opening_hours)
         else:
             lines.append("  - -")
+        if result.busy_hours:
+            lines.append("")
+            lines.append(f"{self._('busy_hours')}:")
+            for day, slots in result.busy_hours.items():
+                lines.append(f"  {day}:")
+                for slot in slots:
+                    lines.append(f"    {slot.get('time','')}: {slot.get('busy','')}")
         lines.append("")
         lines.append(f"{self._('reviews')}:")
         if result.reviews:
@@ -3117,6 +3217,7 @@ class Application(tk.Tk):
             "rating_count",
             "reviews",
             "share_location",
+            "busy_hours",
         ]
 
         if file_format == "json":

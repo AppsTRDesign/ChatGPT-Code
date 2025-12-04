@@ -12,11 +12,13 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Bot taraması sırasında Google Haritalar üzerindeki sonuç kartlarını taklit edilmiş fare hareketleriyle seçme
 - Bot taramasında sol menüdeki işletme kartlarını seçerek puan, adres, telefon, çalışma saatleri ve müşteri yorumlarını toplama
 - API ve bot sekmelerinde "Veri Alanları" kutucukları ile isim, adres, telefon, kategori, çalışma saatleri, puan, toplam değerlendirme, paylaşım bağlantısı, web sitesi ve görsel alanlarını isteğe bağlı olarak açıp kapatma (varsayılan olarak yalnızca temel kimlik bilgileri seçilidir)
+- Telefonu adresle aynı gelen satırlarda numara alanını otomatik boş bırakarak hatalı veriyi önleme ve telefon tipi sınıflandırması
+- "Yoğun Saatler" kutucuğu ile uygun kartlardan popüler zaman çizelgelerini (06:00–23:00 arası saat/saatlik yoğunluk) JSON/CSV/XLSX/PDF çıktılarına ekleme
 - "Yorum Fotoğrafları" ve "Yorum Ek Bilgileri" seçeneklerinin yalnızca müşteri yorumları aktifken kullanılabilmesi sayesinde gereksiz verilerin otomatik olarak devre dışı bırakılması
 - Ayarlar sekmesinden azami işletme sayısı (varsayılan 9999) ve yorum limiti (varsayılan 9999) değerlerini global olarak değiştirme; API ve bot sekmeleri bu üst değerleri otomatik olarak uygular
 - API ve bot sonuçlarında yinelenen müşteri yorumlarını otomatik olarak temizleme
 - Yorum kartlarının içindeki "PBK6be" bloklarından gelen "Yiyecek / Hizmet / Atmosfer", "Kişi başı fiyat", "Grup büyüklüğü", "Rezervasyon", "Gürültü seviyesi", "Park yeri" vb. satırları JSON çıktısında `text_extra` alanında ayrı saklama
-- Yorum kartlarında yer alan küçük fotoğraf/video kutucuklarının `review_photo_urls` alanında JSON'a eklenmesi
+- Yorum kartlarında yer alan küçük fotoğraf kutucuklarının `review_photo_urls` alanında JSON'a eklenmesi ve profil/yorum fotoğraflarını otomatik olarak yüksek çözünürlüklü sürüme dönüştürme
 - Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
 - Dil seçiminin yanında `assets/cities.json` dosyasından gelen "Şehir" açılır menüsü ile arama merkezini belirleme; seçilen şehirden alınan enlem/boylam Playwright URL'sine otomatik olarak uygulanır
