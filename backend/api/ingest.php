@@ -77,7 +77,7 @@ try {
         }
 
         $businessType = $row['business_type'] ?? '';
-        $categorySlug = $row['category_slug'] ?? slugify($businessType);
+        $categorySlug = $row['category_slug'] ?? permalink($businessType);
 
         $stmt->execute([
             ':source' => $source,
