@@ -1189,6 +1189,18 @@ class GoogleMapsPlaywrightScraper:
         raise PlaywrightTimeoutError("Place details did not load in time")
 
     def _extract_details(self, page: Page) -> PlaceResult:
+        selection = self.field_selection
+
+        # 1) İşletme kartı görseli
+        business_image = self._extract_card_image(page) if selection.business_image else ""
+
+        # 2) Detaylar (belirtilen sıraya göre)
+        self._select_tab(page, "overview")
+
+        business_default_image = (
+            self._extract_default_image(page) if selection.business_default_image else ""
+        )
+
         name = self._first_text(
             page,
             [
@@ -1199,17 +1211,14 @@ class GoogleMapsPlaywrightScraper:
             ],
         )
 
-        selection = self.field_selection
-        business_type = self._extract_business_type(page) if selection.business_type else ""
-        self._select_tab(page, "overview")
-
-        address = self._extract_address(page) if selection.formatted_address else ""
-        phone = self._extract_phone(page) if selection.formatted_phone_number else None
-        phone = sanitize_phone(phone, address)
         rating: Optional[float] = None
         rating_count: Optional[int] = None
         if selection.rating or selection.user_ratings_total:
             rating, rating_count = self._extract_rating_info(page)
+
+        business_type = self._extract_business_type(page) if selection.business_type else ""
+
+        address = self._extract_address(page) if selection.formatted_address else ""
 
         opening_hours: List[str] = []
         if selection.opening_hours:
@@ -1218,26 +1227,28 @@ class GoogleMapsPlaywrightScraper:
             if not opening_hours:
                 opening_hours = self._extract_hours(page)
 
+        website = self._extract_website(page) if selection.website else None
+
+        phone = self._extract_phone(page) if selection.formatted_phone_number else None
+        phone = sanitize_phone(phone, address)
+        phone_type = classify_phone(phone)
+
+        busy_hours: Dict[str, List[Dict[str, str]]] = {}
+        if selection.busy_hours:
+            busy_hours = self._extract_busy_hours(page)
+
+        share_location = (
+            self._extract_share_location(page) if selection.share_location else None
+        )
+        latitude, longitude = extract_lat_lng_from_link(page.url)
+
+        # 3) Müşteri yorumları (önceki adımlar tamamlandıktan sonra)
         reviews: List[PlaceReview] = []
         if selection.wants_reviews():
             if self._select_tab(page, "reviews"):
                 reviews = self._extract_reviews(page, rating_count)
             if not reviews:
                 reviews = self._extract_reviews(page, rating_count)
-
-        share_location = (
-            self._extract_share_location(page) if selection.share_location else None
-        )
-        latitude, longitude = extract_lat_lng_from_link(page.url)
-        website = self._extract_website(page) if selection.website else None
-        business_image = self._extract_card_image(page) if selection.business_image else ""
-        business_default_image = (
-            self._extract_default_image(page) if selection.business_default_image else ""
-        )
-        busy_hours: Dict[str, List[Dict[str, str]]] = {}
-        if selection.busy_hours:
-            busy_hours = self._extract_busy_hours(page)
-        phone_type = classify_phone(phone)
 
         return selection.apply(
             PlaceResult(
