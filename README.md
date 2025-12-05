@@ -38,16 +38,16 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 
 ## Frontend (OpenStreetMap)
 
-Plesk/AlmaLinux 8 üzerinde PHP 8 + PDO ile çalışan, MySQL’deki `places` verilerini gösteren bir ziyaretçi uygulaması (`frontend/` klasörü) eklendi.
+Plesk/AlmaLinux 8 üzerinde PHP 8 + PDO ile çalışan, MySQL’deki `places` verilerini gösteren bir ziyaretçi uygulaması (web köküne kurulacak `frontend` içeriği) eklendi.
 
 - Harita: OpenStreetMap + Leaflet MarkerCluster ile varsayılan 200 işletme; isim/adres, kategori ve şehir filtreleri.
-- SEO: `.htaccess` ile `/kategoriler`, `/isletme/{id}-{slug}`, `/populer` gibi URL’ler yönlendirilir.
+- SEO: kök dizindeki `.htaccess` ile `/kategoriler`, `/isletme/{id}-{slug}`, `/populer` gibi URL’ler yönlendirilir.
 - Sayfalar: Ana sayfa (harita + son/popüler listeler), kategori listesi ve detay sayfası (puanlar, saatler, yoğun saatler, yorumlar, ziyaretçi formu).
-- API uçları: `frontend/includes/places.php` (harita verisi), `frontend/includes/categories.php` (kategoriler), `frontend/includes/submit_review.php` (ziyaretçi yorumları).
+- API uçları: `/includes/places.php` (harita verisi), `/includes/categories.php` (kategoriler), `/includes/submit_review.php` (ziyaretçi yorumları).
 - Bağımlılıklar: CDN üzerinden Bootstrap 5, Leaflet, MarkerCluster, SweetAlert2, Chart.js.
 
 Kurulum özeti:
-1. `frontend/` klasörünü web köküne (örn. `https://maps.noasoft.org/frontend`) yerleştirin ve `.htaccess` yeniden yazmayı açın.
+1. `frontend/` içeriğini web köküne (örn. `https://maps.noasoft.org`) yerleştirin ve `.htaccess` yeniden yazmayı açın.
 2. `frontend/config.php` içinde `DB_DSN/DB_USER/DB_PASS` değerlerini MySQL için ayarlayın (varsayılan env: `MAPS_API_*`).
 3. Harita limiti ve sayfalama `DEFAULT_MAP_LIMIT` (varsayılan 200) ve `DEFAULT_PAGE_LIMIT` (varsayılan 20) sabitleriyle yapılandırılır.
 4. Ziyaretçi yorumları `user_reviews` tablosuna kaydedilir; tablo tanımı `backend/api/schema.sql` içinde yer alır.

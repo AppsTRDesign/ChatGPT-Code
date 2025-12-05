@@ -107,7 +107,7 @@
       if(payload.text_extra){
         payload.text_extra = payload.text_extra.split(',').map(s=>s.trim()).filter(Boolean);
       }
-      const res = await fetch('/frontend/includes/submit_review.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+      const res = await fetch('/includes/submit_review.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       if(res.ok){
         Swal.fire({ icon:'success', title:'Teşekkürler', text:'Yorumunuz kaydedildi' });
         form.reset();
