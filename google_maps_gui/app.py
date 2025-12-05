@@ -1375,10 +1375,16 @@ class GoogleMapsPlaywrightScraper:
         return None
 
     def _extract_card_image(self, page: Page) -> str:
-        locator = page.locator("div.FQ2IWe img")
-        if locator.count():
-            src = self._safe_get_attribute(locator.first, "src")
-            return upscale_img(src)
+        candidates = [
+            "div.SpFAAb div.FQ2IWe img",
+            "div.FQ2IWe img",
+        ]
+        for selector in candidates:
+            locator = page.locator(selector)
+            if locator.count():
+                src = self._safe_get_attribute(locator.first, "src")
+                if src:
+                    return upscale_img(src)
         return ""
 
     def _extract_default_image(self, page: Page) -> str:

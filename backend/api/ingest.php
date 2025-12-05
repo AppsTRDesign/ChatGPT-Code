@@ -42,6 +42,15 @@ try {
         )'
     );
 
+    $existsStmt = $db->prepare(
+        'SELECT id FROM places WHERE (
+            (latitude = :latitude AND longitude = :longitude AND latitude <> "" AND longitude <> "")
+            OR (formatted_address = :formatted_address AND formatted_address <> "")
+        ) LIMIT 1'
+    );
+
+    $inserted = 0;
+
     foreach ($results as $row) {
         $rowCity = $cityName;
         if (!$rowCity && isset($row['city_name'])) {
@@ -60,6 +69,16 @@ try {
         $reviews = [];
         if (isset($row['reviews']) && is_array($row['reviews'])) {
             $reviews = $row['reviews'];
+        }
+
+        $existsStmt->execute([
+            ':latitude' => $row['latitude'] ?? '',
+            ':longitude' => $row['longitude'] ?? '',
+            ':formatted_address' => $row['formatted_address'] ?? '',
+        ]);
+
+        if ($existsStmt->fetchColumn()) {
+            continue;
         }
 
         $stmt->execute([
@@ -81,6 +100,7 @@ try {
             ':business_default_image' => $row['business_default_image'] ?? '',
             ':reviews' => json_encode($reviews, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
+        $inserted++;
     }
 
     $db->commit();
@@ -91,4 +111,4 @@ try {
     json_response(['error' => 'db_error', 'detail' => $e->getMessage()], 500);
 }
 
-json_response(['status' => 'ok', 'inserted' => count($results)]);
+json_response(['status' => 'ok', 'inserted' => $inserted]);
