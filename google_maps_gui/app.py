@@ -1237,10 +1237,12 @@ class GoogleMapsPlaywrightScraper:
         if selection.busy_hours:
             busy_hours = self._extract_busy_hours(page)
 
-        share_location = (
-            self._extract_share_location(page) if selection.share_location else None
-        )
         latitude, longitude = extract_lat_lng_from_link(page.url)
+        share_location = (
+            f"{latitude},{longitude}"
+            if selection.share_location and latitude and longitude
+            else None
+        )
 
         # 3) Müşteri yorumları (önceki adımlar tamamlandıktan sonra)
         reviews: List[PlaceReview] = []
@@ -1527,9 +1529,6 @@ class GoogleMapsPlaywrightScraper:
                 review.scroll_into_view_if_needed(timeout=1500)
             self._expand_review_content(review)
             content, extras = self._review_text_and_extras(review)
-            if not content and not extras:
-                idx += 1
-                continue
             media_urls = self._extract_review_media(review)
             author = self._safe_inner_text(review.locator('div.d4r55, button.al6Kxe div.d4r55').first)
             rating_text = self._safe_get_attribute(review.locator('span.kvMYJc').first, "aria-label")
@@ -1721,71 +1720,6 @@ class GoogleMapsPlaywrightScraper:
         if not value:
             return ""
         return value.strip().rstrip(":").strip()
-
-    def _extract_share_location(self, page: Page) -> Optional[str]:
-        selectors = [
-            'button[aria-label*="Paylaş"]',
-            'button[aria-label*="paylaş" i]',
-            'button[aria-label*="Share"]',
-            'button[jsaction*="pane.share" i]',
-            'button:has-text("Paylaş")',
-            'button:has-text("Share")',
-        ]
-        for selector in selectors:
-            locator = page.locator(selector)
-            if not locator.count():
-                continue
-            try:
-                locator.first.click(delay=70)
-                page.wait_for_selector('div.WVlZT input.vrsrZe', timeout=5000)
-                page.wait_for_selector('div.WVlZT button.oucrtf, button.oucrtf', timeout=2000)
-            except PlaywrightError:
-                self._close_share_dialog(page, prefer_close_button=True)
-                continue
-            share_input = page.locator('div.WVlZT input.vrsrZe').first
-            share_value = ""
-            if share_input.count():
-                with suppress(PlaywrightError):
-                    share_input.click()
-                    page.wait_for_timeout(150)
-                share_value = self._safe_get_attribute(share_input, "value")
-                if not share_value:
-                    with suppress(PlaywrightError):
-                        share_value = share_input.input_value(timeout=2500).strip()
-            share_value = (share_value or "").strip()
-            if not share_value:
-                share_value = self._safe_inner_text(page.locator('div.qxmtj span.htP7Y').first, timeout=2500)
-            if share_value:
-                copy_btn = page.locator('div.WVlZT button.oucrtf, button.oucrtf').first
-                if copy_btn.count():
-                    with suppress(PlaywrightError):
-                        copy_btn.click()
-                        page.wait_for_timeout(150)
-                self._close_share_dialog(page, prefer_close_button=True)
-                return share_value
-            self._close_share_dialog(page, prefer_close_button=True)
-        self._close_share_dialog(page, prefer_close_button=True)
-        return None
-
-    def _close_share_dialog(self, page: Page, prefer_close_button: bool = False) -> None:
-        selectors = [
-            'button.OyzoZb',
-            'button[aria-label*="Kapat"]',
-            'button[aria-label*="Close"]',
-            'button[jsname="tWT92d"]',
-        ]
-        ordered = selectors if prefer_close_button else selectors[1:] + selectors[:1]
-        for selector in ordered:
-            locator = page.locator(selector)
-            if not locator.count():
-                continue
-            with suppress(PlaywrightError):
-                locator.first.click()
-                page.wait_for_timeout(200)
-                return
-        with suppress(PlaywrightError):
-            page.keyboard.press("Escape")
-        page.wait_for_timeout(150)
 
     def _select_tab(self, page: Page, key: str) -> bool:
         candidates = self._tab_label_candidates(key)
