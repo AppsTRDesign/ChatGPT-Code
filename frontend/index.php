@@ -15,12 +15,12 @@ $idFromSlug = function(string $slug): int {
 };
 
 function fetch_categories(PDO $pdo): array {
-    $stmt = $pdo->query('SELECT business_type AS name, category_slug AS slug, COUNT(*) AS total FROM places WHERE business_type IS NOT NULL AND business_type != "" GROUP BY category_slug, business_type ORDER BY total DESC');
+    $stmt = $pdo->query("SELECT business_type AS name, category_slug AS slug, COUNT(*) AS total FROM places WHERE business_type IS NOT NULL AND business_type != '' GROUP BY category_slug, business_type ORDER BY total DESC");
     return $stmt->fetchAll();
 }
 
 function fetch_cities(PDO $pdo): array {
-    $stmt = $pdo->query('SELECT DISTINCT city_name FROM places WHERE city_name IS NOT NULL AND city_name != "" ORDER BY city_name');
+    $stmt = $pdo->query("SELECT DISTINCT city_name FROM places WHERE city_name IS NOT NULL AND city_name != '' ORDER BY city_name");
     return array_column($stmt->fetchAll(), 'city_name');
 }
 
