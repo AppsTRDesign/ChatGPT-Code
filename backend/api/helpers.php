@@ -16,3 +16,15 @@ function require_token(string $provided): void
         json_response(['error' => 'unauthorized'], 401);
     }
 }
+
+function slugify(string $text): string
+{
+    $text = strtolower(trim($text));
+    if ($text === '') {
+        return '';
+    }
+    $text = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text) ?: $text;
+    $text = preg_replace('/[^a-z0-9çğıöşü\s-]/', '', $text);
+    $text = preg_replace('/[\s_]+/', '-', $text);
+    return trim($text, '-');
+}

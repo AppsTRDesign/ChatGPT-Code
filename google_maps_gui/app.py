@@ -8,6 +8,7 @@ import io
 import json
 import logging
 import re
+import unicodedata
 import textwrap
 import threading
 import time
@@ -88,6 +89,19 @@ def upscale_img(url: str) -> str:
     url = re.sub(r"w(\d+)-h(\d+)", repl_dash, url)
 
     return url
+
+
+def slugify_category(text: str) -> str:
+    text = (text or "").strip().lower()
+    if not text:
+        return ""
+    normalized = unicodedata.normalize("NFKD", text)
+    # Keep common Turkish characters while stripping other accents
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = re.sub(r"[^a-z0-9çğıöşü\s-]", "", normalized)
+    normalized = re.sub(r"[\s_]+", "-", normalized)
+    normalized = normalized.strip("-")
+    return normalized
 
 
 def sanitize_phone(phone: Optional[str], address: str) -> Optional[str]:
@@ -378,6 +392,7 @@ class PlaceResult:
     formatted_phone_number: Optional[str]
     telephone_type: str
     business_type: Optional[str]
+    category_slug: str
     business_image: str
     latitude: str
     longitude: str
@@ -397,6 +412,7 @@ class PlaceResult:
             "formatted_phone_number": self.formatted_phone_number,
             "telephone_type": self.telephone_type,
             "business_type": self.business_type,
+            "category_slug": self.category_slug,
             "business_image": self.business_image,
             "latitude": self.latitude,
             "longitude": self.longitude,
@@ -416,6 +432,7 @@ class PlaceResult:
             "phone": self.formatted_phone_number or "",
             "telephone_type": self.telephone_type or "",
             "category": self.business_type or "",
+            "category_slug": self.category_slug or "",
             "business_image": self.business_image or "",
             "latitude": self.latitude or "",
             "longitude": self.longitude or "",
@@ -485,6 +502,7 @@ class FieldSelection:
     review_photo_urls: bool = False
     text_extra: bool = False
     busy_hours: bool = False
+    category_slug: bool = True
 
     def wants_reviews(self) -> bool:
         return self.reviews
@@ -499,6 +517,9 @@ class FieldSelection:
             result.telephone_type = ""
         if not self.business_type:
             result.business_type = None
+            result.category_slug = ""
+        if not self.category_slug:
+            result.category_slug = ""
         if not self.opening_hours:
             result.opening_hours = []
         if not self.rating:
@@ -767,6 +788,8 @@ class GoogleMapsClient:
                     )
                     if len(reviews) >= review_cap:
                         break
+            business_type = self._format_business_type(result.get("types", []))
+            category_slug = slugify_category(business_type) if business_type else ""
             detailed_results.append(
                 selection.apply(
                     PlaceResult(
@@ -783,7 +806,8 @@ class GoogleMapsClient:
                             )
                             or "",
                         ),
-                        business_type=self._format_business_type(result.get("types", [])),
+                        business_type=business_type,
+                        category_slug=category_slug,
                         business_image="",
                         latitude=str(result.get("geometry", {}).get("location", {}).get("lat", "")),
                         longitude=str(result.get("geometry", {}).get("location", {}).get("lng", "")),
@@ -1264,6 +1288,7 @@ class GoogleMapsPlaywrightScraper:
             if not reviews:
                 reviews = self._extract_reviews(page, rating_count)
 
+        category_slug = slugify_category(business_type) if business_type else ""
         return selection.apply(
             PlaceResult(
                 city_name=self.city_name,
@@ -1272,6 +1297,7 @@ class GoogleMapsPlaywrightScraper:
                 formatted_phone_number=phone,
                 telephone_type=phone_type,
                 business_type=business_type or None,
+                category_slug=category_slug,
                 business_image=business_image,
                 latitude=latitude,
                 longitude=longitude,
@@ -1599,7 +1625,7 @@ class GoogleMapsPlaywrightScraper:
     ) -> None:
         if target <= 0:
             return
-        deadline = time.time() + (14 if fast else 25)
+        deadline = time.time() + (8 if fast else 16)
         attempts = 0
         while time.time() < deadline:
             count = reviews_locator.count()

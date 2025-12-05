@@ -11,7 +11,7 @@ try {
     $city = trim($_GET['city'] ?? '');
     $limit = min(DEFAULT_MAP_LIMIT, max(1, (int)($_GET['limit'] ?? DEFAULT_MAP_LIMIT)));
 
-    $sql = "SELECT id, name, formatted_address, latitude, longitude, business_type, rating, user_ratings_total, business_image, city_name FROM places";
+    $sql = "SELECT id, name, formatted_address, latitude, longitude, business_type, category_slug, rating, user_ratings_total, business_image, city_name FROM places";
     $where = [];
     $params = [];
     if ($q !== '') {
@@ -19,7 +19,7 @@ try {
         $params[':q'] = "%{$q}%";
     }
     if ($category !== '') {
-        $where[] = 'business_type = :cat';
+        $where[] = '(category_slug = :cat OR business_type = :cat)';
         $params[':cat'] = $category;
     }
     if ($city !== '') {

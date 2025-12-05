@@ -2,7 +2,7 @@
 <div class="row g-3">
 <?php foreach ($cats as $cat): ?>
   <div class="col-12 col-md-4 col-lg-3">
-    <a class="card card-hover h-100 text-decoration-none" href="/kategoriler/<?= urlencode(slugify($cat['name'])) ?>">
+    <a class="card card-hover h-100 text-decoration-none" href="/kategoriler/<?= urlencode($cat['slug'] ?? slugify($cat['name'])) ?>">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center">
           <div>

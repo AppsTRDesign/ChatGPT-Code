@@ -32,12 +32,12 @@ try {
         'INSERT INTO places (
             source, city_name, name, formatted_address, latitude, longitude,
             rating, user_ratings_total, formatted_phone_number, telephone_type,
-            website, business_type, opening_hours, busy_hours,
+            website, business_type, category_slug, opening_hours, busy_hours,
             business_image, reviews
         ) VALUES (
             :source, :city_name, :name, :formatted_address, :latitude, :longitude,
             :rating, :user_ratings_total, :formatted_phone_number, :telephone_type,
-            :website, :business_type, :opening_hours, :busy_hours,
+            :website, :business_type, :category_slug, :opening_hours, :busy_hours,
             :business_image, :reviews
         )'
     );
@@ -81,6 +81,9 @@ try {
             continue;
         }
 
+        $businessType = $row['business_type'] ?? '';
+        $categorySlug = $row['category_slug'] ?? slugify($businessType);
+
         $stmt->execute([
             ':source' => $source,
             ':city_name' => $rowCity,
@@ -93,7 +96,8 @@ try {
             ':formatted_phone_number' => $row['formatted_phone_number'] ?? '',
             ':telephone_type' => $row['telephone_type'] ?? '',
             ':website' => $row['website'] ?? '',
-            ':business_type' => $row['business_type'] ?? '',
+            ':business_type' => $businessType,
+            ':category_slug' => $categorySlug,
             ':opening_hours' => json_encode($openingHours, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ':busy_hours' => json_encode($busyHours, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ':business_image' => $row['business_image'] ?? '',

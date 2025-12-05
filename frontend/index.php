@@ -15,7 +15,7 @@ $idFromSlug = function(string $slug): int {
 };
 
 function fetch_categories(PDO $pdo): array {
-    $stmt = $pdo->query('SELECT business_type AS name, COUNT(*) AS total FROM places WHERE business_type IS NOT NULL AND business_type != "" GROUP BY business_type ORDER BY total DESC');
+    $stmt = $pdo->query('SELECT business_type AS name, category_slug AS slug, COUNT(*) AS total FROM places WHERE business_type IS NOT NULL AND business_type != "" GROUP BY category_slug, business_type ORDER BY total DESC');
     return $stmt->fetchAll();
 }
 
@@ -61,16 +61,23 @@ switch ($route) {
             $catSlug = urldecode($segments[1]);
             $page = (int)($_GET['s'] ?? 1);
             [$offset, $limit] = paginate($page, DEFAULT_PAGE_LIMIT);
-            $stmt = $pdo->prepare('SELECT * FROM places WHERE business_type = :cat ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
-            $stmt->bindValue(':cat', str_replace('-', ' ', $catSlug));
+            $stmt = $pdo->prepare('SELECT * FROM places WHERE category_slug = :cat ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+            $stmt->bindValue(':cat', $catSlug);
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
             $items = $stmt->fetchAll();
+            $categoryTitle = $catSlug;
+            foreach ($cats as $cat) {
+                if (($cat['slug'] ?? '') === $catSlug) {
+                    $categoryTitle = $cat['name'];
+                    break;
+                }
+            }
             render(__DIR__ . '/templates/category.php', [
-                'meta' => render_meta('Kategori: ' . $catSlug),
+                'meta' => render_meta('Kategori: ' . $categoryTitle),
                 'cats' => $cats,
-                'categoryTitle' => $catSlug,
+                'categoryTitle' => $categoryTitle,
                 'items' => $items,
                 'page' => $page
             ]);

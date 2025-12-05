@@ -13,7 +13,7 @@
           <select name="category" class="form-select">
             <option value="">Kategori (tümü)</option>
             <?php foreach ($categories as $cat): ?>
-              <option value="<?= htmlspecialchars($cat['name']) ?>"><?= htmlspecialchars($cat['name']) ?></option>
+              <option value="<?= htmlspecialchars($cat['slug'] ?? $cat['name']) ?>"><?= htmlspecialchars($cat['name']) ?></option>
             <?php endforeach; ?>
           </select>
         </div>

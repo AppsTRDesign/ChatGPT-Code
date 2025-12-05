@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS places (
     telephone_type VARCHAR(32),
     website TEXT,
     business_type VARCHAR(255),
+    category_slug VARCHAR(255),
     opening_hours JSON,
     busy_hours JSON,
     business_image TEXT,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS places (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     KEY idx_source (source),
     KEY idx_city_name (city_name),
+    KEY idx_category_slug (category_slug),
     KEY idx_name (name(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
