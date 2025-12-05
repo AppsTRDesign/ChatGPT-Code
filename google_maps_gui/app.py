@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import html
 import io
 import json
@@ -1921,7 +1922,7 @@ class Application(tk.Tk):
         self.settings_review_limit_var = tk.IntVar(value=9999)
         self.settings_message_var = tk.StringVar()
         self.settings_api_url_var = tk.StringVar(value="https://maps.noasoft.org/api/ingest.php")
-        self.settings_api_token_var = tk.StringVar()
+        self.settings_api_token_var = tk.StringVar(value=os.getenv("MAPS_API_TOKEN", "maps-default-token"))
         self.field_option_vars: Dict[str, tk.BooleanVar] = {}
         self._field_option_checkbuttons: Dict[str, List[ttk.Checkbutton]] = {
             key: [] for key in FIELD_OPTION_KEYS

@@ -2,7 +2,7 @@
 // Basic configuration for the JSON ingestion API.
 // Adjust API_TOKEN and DB credentials for your environment.
 
-define('API_TOKEN', getenv('MAPS_API_TOKEN') ?: 'change-me');
+define('API_TOKEN', getenv('MAPS_API_TOKEN') ?: 'maps-default-token');
 
 // MySQL DSN example (default): 'mysql:host=localhost;dbname=maps;charset=utf8mb4'
 // Set MAPS_API_DSN / MAPS_API_DB_USER / MAPS_API_DB_PASS as environment variables or
