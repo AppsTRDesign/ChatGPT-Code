@@ -141,15 +141,15 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 ### Verileri API'ye aktarma ve backend
 
-- `backend/api` klasörü, AlmaLinux 8/Plesk üzerinde PHP 8 + PDO ile çalışacak hafif bir API köprüsü içerir. Varsayılan olarak SQLite DSN kullanır; `backend/api/config.php` içindeki `DB_DSN` değerini MySQL DSN'i ile değiştirebilir ve `API_TOKEN` değerini güçlü bir anahtar ile güncelleyebilirsiniz.
-- Sunucu tarafında `backend/data` klasörünün yazılabilir olduğundan emin olun. API uç noktasını (örn. `https://maps.noasoft.org/api/ingest.php`) Plesk paneline yükleyin.
+- `backend/api` klasörü, AlmaLinux 8/Plesk üzerinde PHP 8 + PDO-MySQL ile çalışacak hafif bir API köprüsü içerir. `backend/api/schema.sql` dosyasını kullanarak MySQL veritabanınızı oluşturun ve `backend/api/config.php` içindeki `DB_DSN`/`DB_USER`/`DB_PASS` ve `API_TOKEN` alanlarını sunucunuza göre güncelleyin (env değişkenleri ile de ayarlanabilir).
+- API uç noktasını (örn. `https://maps.noasoft.org/api/ingest.php`) Plesk paneline yükleyin. DB erişim bilgilerinin doğru olduğundan emin olun.
 - Uygulama içindeki **Ayarlar** sekmesinde "API Uç Noktası" ve "API Anahtarı" alanlarını doldurun. Bu bilgiler, **Verileri Aktar** düğmelerine tıklandığında JSON yükünü güvenli bir POST isteğiyle sunucuya iletmek için kullanılır.
 - API uç noktası `token` alanı ya da `X-API-Key` başlığı ile gelen anahtarı doğrular, yükü `submissions` tablosuna kaydeder ve dış erişime kapalı olacak şekilde arka uçta saklar.
 
 ## Çıktı Biçimleri
 
-- **JSON:** Her işletme için telefon, telefon tipi, adres, kategori, çalışma saatleri, puan, "Paylaş" konum bağlantısı, (isteğe bağlı) web sitesi ve işletme görseli ile müşteri yorumları (yorumcunun adı, puanı, zaman damgası, profil fotoğrafı URL'si, varsa `review_photo_urls` listesi ve `text_extra` alanı; örn. "Kişi başı fiyat", "Grup büyüklüğü", "Rezervasyon", "Park yeri" vb.) ayrıntılı şekilde saklanır.
-- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler, kategori, paylaşım bağlantısı ve yorumların özet hâli saklanır. Dosyalar `UTF-8-SIG` kodlamasıyla oluşturulduğu için Excel gibi programlarda Türkçe karakterler bozulmadan görüntülenir.
+- **JSON:** Her işletme için telefon, telefon tipi, adres, kategori, çalışma saatleri, puan, (isteğe bağlı) web sitesi ve işletme görseli ile müşteri yorumları (yorumcunun adı, puanı, zaman damgası, profil fotoğrafı URL'si, varsa `review_photo_urls` listesi ve `text_extra` alanı; örn. "Kişi başı fiyat", "Grup büyüklüğü", "Rezervasyon", "Park yeri" vb.) ayrıntılı şekilde saklanır.
+- **CSV:** İşletme başına tek satır olacak şekilde temel bilgiler ve yorumların özet hâli saklanır. Dosyalar `UTF-8-SIG` kodlamasıyla oluşturulduğu için Excel gibi programlarda Türkçe karakterler bozulmadan görüntülenir.
 - **PDF:** "PDF Kaydet" düğmesi `assets/fonts/DejaVuSans.ttf` yazı tipini kullanarak Türkçe karakter destekli rapor üretir; her işletme için özet bilgiler, çalışma saatleri ve en fazla 5 müşteri yorumu sayfaya eklenir.
 
 > Not: Lisans kısıtları nedeniyle `DejaVuSans.ttf` dosyası depoya dahil edilmez. PDF oluşturmak için [DejaVu Sans](https://dejavu-fonts.github.io/) yazı tipini indirip `google_maps_gui/assets/fonts/DejaVuSans.ttf` yoluna yerleştirin.
