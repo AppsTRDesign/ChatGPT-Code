@@ -168,7 +168,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_profile": "Profil Fotoğrafı",
         "review_media": "Yorum Fotoğrafları",
         "ratings_total": "Toplam Değerlendirme",
-        "share_location": "Paylaşım Konumu",
         "busy_hours": "Yoğun Saatler",
         "save_xlsx": "XLSX Kaydet",
         "field_section": "Veri Alanları",
@@ -179,7 +178,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_opening_hours": "Çalışma Saatleri",
         "field_rating": "Puan",
         "field_user_ratings_total": "Toplam Değerlendirme",
-        "field_share_location": "Paylaşım Konumu",
         "field_business_default_image": "Varsayılan Görsel",
         "field_business_image": "İşletme Görseli",
         "field_website": "Web Sitesi",
@@ -277,7 +275,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "review_profile": "Profile Photo",
         "review_media": "Review Photos",
         "ratings_total": "Total Ratings",
-        "share_location": "Share Location",
         "busy_hours": "Popular Times",
         "save_xlsx": "Save XLSX",
         "field_section": "Data Fields",
@@ -288,7 +285,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_opening_hours": "Opening Hours",
         "field_rating": "Rating",
         "field_user_ratings_total": "Rating Count",
-        "field_share_location": "Share Location",
         "field_business_default_image": "Default Image",
         "field_business_image": "Business Image",
         "field_website": "Website",
@@ -374,7 +370,6 @@ class PlaceResult:
     rating: Optional[float]
     user_ratings_total: Optional[int]
     reviews: List[PlaceReview]
-    share_location: Optional[str] = None
     busy_hours: Dict[str, List[Dict[str, str]]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, object]:
@@ -393,7 +388,6 @@ class PlaceResult:
             "rating": self.rating,
             "user_ratings_total": self.user_ratings_total,
             "reviews": [review.to_dict() for review in self.reviews],
-            "share_location": self.share_location,
             "busy_hours": self.busy_hours,
         }
 
@@ -430,7 +424,6 @@ class PlaceResult:
                 ).strip()
                 for review in self.reviews
             ),
-            "share_location": self.share_location or "",
             "busy_hours": json.dumps(self.busy_hours, ensure_ascii=False) if self.busy_hours else "",
         }
 
@@ -449,7 +442,6 @@ FIELD_OPTION_KEYS = [
     "opening_hours",
     "rating",
     "user_ratings_total",
-    "share_location",
     "business_default_image",
     "business_image",
     "website",
@@ -469,7 +461,6 @@ class FieldSelection:
     opening_hours: bool = False
     rating: bool = True
     user_ratings_total: bool = True
-    share_location: bool = True
     business_default_image: bool = False
     business_image: bool = False
     website: bool = False
@@ -497,8 +488,6 @@ class FieldSelection:
             result.rating = None
         if not self.user_ratings_total:
             result.user_ratings_total = None
-        if not self.share_location:
-            result.share_location = None
         if not self.business_default_image:
             result.business_default_image = ""
         if not self.business_image:
@@ -577,8 +566,6 @@ class ResultPdfExporter:
             details.append(
                 f"{translate('column_lat')}/{translate('column_lng')}: {result.latitude or '-'}, {result.longitude or '-'}"
             )
-        if result.share_location:
-            details.append(f"{translate('share_location')}: {result.share_location}")
         for line in details:
             self._write_wrapped(pdf, line)
         if result.opening_hours:
@@ -790,7 +777,6 @@ class GoogleMapsClient:
                         rating=result.get("rating"),
                         user_ratings_total=result.get("user_ratings_total"),
                         reviews=reviews,
-                        share_location=None,
                         busy_hours={},
                     )
                 )
@@ -1151,6 +1137,21 @@ class GoogleMapsPlaywrightScraper:
             return True
         return False
 
+    def _wait_for_review_loader(self, page: Page) -> None:
+        loaders = [
+            "div.qjESne",
+            "div[jscontroller*='lV5qQe']",
+            "div[jscontroller*='NXZ1r']",
+            "div[role='progressbar']",
+        ]
+        for selector in loaders:
+            locator = page.locator(selector)
+            if locator.count():
+                with suppress(PlaywrightError):
+                    locator.first.wait_for(state="hidden", timeout=2500)
+                break
+        page.wait_for_timeout(150)
+
     def _extract_article_name(self, locator: Locator) -> str:
         candidates = [
             "div.Nv2PK span",
@@ -1238,11 +1239,6 @@ class GoogleMapsPlaywrightScraper:
             busy_hours = self._extract_busy_hours(page)
 
         latitude, longitude = extract_lat_lng_from_link(page.url)
-        share_location = (
-            f"{latitude},{longitude}"
-            if selection.share_location and latitude and longitude
-            else None
-        )
 
         # 3) Müşteri yorumları (önceki adımlar tamamlandıktan sonra)
         reviews: List[PlaceReview] = []
@@ -1268,7 +1264,6 @@ class GoogleMapsPlaywrightScraper:
                 rating=rating,
                 user_ratings_total=rating_count,
                 reviews=reviews,
-                share_location=share_location or None,
                 busy_hours=busy_hours,
             )
         )
@@ -1589,6 +1584,7 @@ class GoogleMapsPlaywrightScraper:
                 with suppress(PlaywrightError):
                     last.scroll_into_view_if_needed(timeout=1200)
             scrolled = self._scroll_reviews_pane(page)
+            self._wait_for_review_loader(page)
             attempts += 1
             if not scrolled and attempts > 6:
                 break
@@ -1903,7 +1899,6 @@ class Application(tk.Tk):
             "business_type",
             "rating",
             "user_ratings_total",
-            "share_location",
         }
         for key in FIELD_OPTION_KEYS:
             default = key in default_selected
@@ -3054,8 +3049,6 @@ class Application(tk.Tk):
             lines.append(
                 f"{self._('column_lat')}/{self._('column_lng')}: {result.latitude or '-'}, {result.longitude or '-'}"
             )
-        if result.share_location:
-            lines.append(f"{self._('share_location')}: {result.share_location}")
         lines.append("")
         lines.append(f"{self._('opening_hours')}:")
         if result.opening_hours:
@@ -3168,7 +3161,6 @@ class Application(tk.Tk):
             "rating",
             "rating_count",
             "reviews",
-            "share_location",
             "busy_hours",
         ]
 
