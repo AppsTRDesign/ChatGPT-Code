@@ -1495,6 +1495,11 @@ class GoogleMapsPlaywrightScraper:
         if target == 0:
             return []
 
+        try:
+            page.wait_for_selector('div[data-review-id]', timeout=4000)
+        except PlaywrightError:
+            self._scroll_reviews_pane(page)
+
         reviews_locator = page.locator('div[data-review-id]')
         if reviews_locator.count() == 0:
             return []
@@ -1522,6 +1527,9 @@ class GoogleMapsPlaywrightScraper:
                 review.scroll_into_view_if_needed(timeout=1500)
             self._expand_review_content(review)
             content, extras = self._review_text_and_extras(review)
+            if not content and not extras:
+                idx += 1
+                continue
             media_urls = self._extract_review_media(review)
             author = self._safe_inner_text(review.locator('div.d4r55, button.al6Kxe div.d4r55').first)
             rating_text = self._safe_get_attribute(review.locator('span.kvMYJc').first, "aria-label")
@@ -1562,13 +1570,11 @@ class GoogleMapsPlaywrightScraper:
         container = review.locator('div.MyEned').first
         if not container.count():
             container = review
-        text = self._safe_inner_text(container.locator('span.wiI7pd').first)
-        if not text:
-            text = self._safe_inner_text(container)
+        text = self._safe_inner_text(container.locator('span.wiI7pd').first).strip()
         extras: Dict[str, str] = {}
         if self.field_selection.text_extra:
             extras = self._extract_review_metadata(container)
-        return text.strip(), extras
+        return text, extras
 
     def _ensure_reviews_loaded(self, page: Page, reviews_locator: Locator, target: int) -> None:
         if target <= 0:
