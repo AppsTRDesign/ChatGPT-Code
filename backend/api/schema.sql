@@ -22,3 +22,16 @@ CREATE TABLE IF NOT EXISTS places (
     KEY idx_city_name (city_name),
     KEY idx_name (name(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_reviews (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    place_id BIGINT UNSIGNED NOT NULL,
+    author_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) DEFAULT NULL,
+    rating TINYINT UNSIGNED NOT NULL,
+    review_text TEXT,
+    text_extra JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_place_id (place_id),
+    CONSTRAINT fk_reviews_place FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
