@@ -1359,14 +1359,26 @@ class GoogleMapsPlaywrightScraper:
         selectors = [
             "div.ZKCDEc div.RZ66Rb img",
             "div.RZ66Rb.FgCUCc img",
+            "div.SpFAAb div.FQ2IWe img",
             "button.aoRNLd img",
         ]
-        for selector in selectors:
-            locator = page.locator(selector)
-            if locator.count():
+
+        end_time = time.time() + 6
+        while time.time() < end_time:
+            for selector in selectors:
+                locator = page.locator(selector)
+                if not locator.count():
+                    continue
+
                 src = self._safe_get_attribute(locator.first, "src")
+                if not src:
+                    with suppress(PlaywrightError):
+                        src = locator.first.evaluate("el => el.currentSrc || el.src || ''")
                 if src:
                     return upscale_img(src)
+
+            page.wait_for_timeout(200)
+
         return ""
     def _extract_meta_items(self, page: Page) -> Dict[str, str]:
         script = """
