@@ -1928,6 +1928,7 @@ class Application(tk.Tk):
             "rating",
             "user_ratings_total",
             "location",
+            "business_image",
         }
         for key in FIELD_OPTION_KEYS:
             default = key in default_selected
