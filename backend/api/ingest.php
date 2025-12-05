@@ -43,10 +43,7 @@ try {
     );
 
     $existsStmt = $db->prepare(
-        'SELECT id FROM places WHERE (
-            (latitude = :latitude AND longitude = :longitude AND latitude <> "" AND longitude <> "")
-            OR (formatted_address = :formatted_address AND formatted_address <> "")
-        ) LIMIT 1'
+        'SELECT id FROM places WHERE formatted_address = :formatted_address AND formatted_address <> "" LIMIT 1'
     );
 
     $inserted = 0;
@@ -72,8 +69,6 @@ try {
         }
 
         $existsStmt->execute([
-            ':latitude' => $row['latitude'] ?? '',
-            ':longitude' => $row['longitude'] ?? '',
             ':formatted_address' => $row['formatted_address'] ?? '',
         ]);
 
