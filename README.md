@@ -43,7 +43,7 @@ Plesk/AlmaLinux 8 üzerinde PHP 8 + PDO ile çalışan, MySQL’deki `places` ve
 - Harita: OpenStreetMap + Leaflet MarkerCluster ile varsayılan 200 işletme; isim/adres, kategori ve şehir filtreleri.
 - SEO: `.htaccess` ile `/kategoriler`, `/isletme/{id}-{slug}`, `/populer` gibi URL’ler yönlendirilir.
 - Sayfalar: Ana sayfa (harita + son/popüler listeler), kategori listesi ve detay sayfası (puanlar, saatler, yoğun saatler, yorumlar, ziyaretçi formu).
-- API uçları: `frontend/api/places.php` (harita verisi), `frontend/api/categories.php` (kategoriler), `frontend/api/submit_review.php` (ziyaretçi yorumları).
+- API uçları: `frontend/includes/places.php` (harita verisi), `frontend/includes/categories.php` (kategoriler), `frontend/includes/submit_review.php` (ziyaretçi yorumları).
 - Bağımlılıklar: CDN üzerinden Bootstrap 5, Leaflet, MarkerCluster, SweetAlert2, Chart.js.
 
 Kurulum özeti:

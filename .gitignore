@@ -2,6 +2,7 @@ __pycache__/
 venv/
 google_maps_gui.log
 google_maps_gui/license.json
+google_maps_gui/settings.json
 license.json
 licence/license.json
 google_maps_gui/assets/fonts/DejaVuSans.ttf

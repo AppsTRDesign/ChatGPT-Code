@@ -48,6 +48,7 @@ logging.basicConfig(
 BASE_DIR = Path(__file__).resolve().parent
 PDF_FONT_PATH = BASE_DIR / "assets" / "fonts" / "DejaVuSans.ttf"
 CITIES_PATH = BASE_DIR / "assets" / "cities.json"
+SETTINGS_PATH = BASE_DIR / "settings.json"
 
 
 def classify_phone(tel: Optional[str]) -> str:
@@ -1959,6 +1960,7 @@ class Application(tk.Tk):
         for key in FIELD_OPTION_KEYS:
             default = key in default_selected
             self.field_option_vars[key] = tk.BooleanVar(value=default)
+        self._load_persisted_settings()
         self.city_lookup: Dict[str, tuple[str, str]] = self._load_cities()
         self.license_expiry_var = tk.StringVar()
         self.license_duration_var = tk.StringVar()
@@ -2395,6 +2397,7 @@ class Application(tk.Tk):
             if not reviews_enabled:
                 self._set_spin_value(self.bot_reviews_spin, "0")
         self._update_field_option_labels()
+        self._persist_settings()
 
     def _update_field_option_labels(self) -> None:
         label = self._("field_section")
@@ -2421,6 +2424,50 @@ class Application(tk.Tk):
         value = max(minimum, value)
         self._set_spin_value(spinbox, str(value))
         return value
+
+    def _load_persisted_settings(self) -> None:
+        if not SETTINGS_PATH.exists():
+            return
+        try:
+            data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            LOGGER.warning("Could not read settings from %s", SETTINGS_PATH)
+            return
+
+        self.selected_language.set(data.get("language", self.selected_language.get()))
+        for key, target in (
+            ("search_limit", self.settings_search_limit_var),
+            ("review_limit", self.settings_review_limit_var),
+        ):
+            with suppress(Exception):
+                target.set(int(data.get(key, target.get())))
+
+        if "api_url" in data:
+            self.settings_api_url_var.set(str(data.get("api_url") or ""))
+        if "api_token" in data:
+            self.settings_api_token_var.set(str(data.get("api_token") or ""))
+
+        saved_fields = data.get("field_selection", {})
+        if isinstance(saved_fields, dict):
+            for key, var in self.field_option_vars.items():
+                if key in saved_fields:
+                    var.set(bool(saved_fields.get(key)))
+
+    def _persist_settings(self) -> None:
+        payload = {
+            "language": self.selected_language.get(),
+            "search_limit": self._get_settings_search_limit(),
+            "review_limit": self._get_settings_review_limit(),
+            "api_url": self.settings_api_url_var.get(),
+            "api_token": self.settings_api_token_var.get(),
+            "field_selection": {k: bool(v.get()) for k, v in self.field_option_vars.items()},
+        }
+        try:
+            SETTINGS_PATH.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except OSError as exc:
+            LOGGER.warning("Unable to persist settings to %s: %s", SETTINGS_PATH, exc)
 
     def _load_cities(self) -> Dict[str, tuple[str, str]]:
         if not CITIES_PATH.exists():
@@ -2508,6 +2555,7 @@ class Application(tk.Tk):
         self.settings_search_limit_var.set(search_limit)
         self.settings_review_limit_var.set(review_limit)
         self._apply_settings_limits()
+        self._persist_settings()
         self.settings_message_var.set(self._("settings_saved"))
         self.after(3500, lambda: self.settings_message_var.set(""))
 
@@ -2706,9 +2754,13 @@ class Application(tk.Tk):
         return False
 
     def _bind_events(self) -> None:
-        self.language_combo.bind("<<ComboboxSelected>>", lambda _: self._update_translations())
+        self.language_combo.bind("<<ComboboxSelected>>", self._on_language_change)
         self.api_results_tree.bind("<<TreeviewSelect>>", lambda _: self._on_select_api_result())
         self.bot_results_tree.bind("<<TreeviewSelect>>", lambda _: self._on_select_bot_result())
+
+    def _on_language_change(self, _event=None) -> None:
+        self._update_translations()
+        self._persist_settings()
 
     def _on_api_search(self) -> None:
         if not self._ensure_license_valid():

@@ -37,7 +37,7 @@
 
   async function fetchPlaces(){
     const params = new URLSearchParams(new FormData(queryForm));
-    const res = await fetch(`/frontend/api/places.php?${params.toString()}`);
+    const res = await fetch(`/frontend/includes/places.php?${params.toString()}`);
     if(!res.ok) return;
     const json = await res.json();
     renderMarkers(json.data || []);
