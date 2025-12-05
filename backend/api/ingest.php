@@ -43,6 +43,10 @@ try {
     );
 
     foreach ($results as $row) {
+        $rowCity = $cityName;
+        if (!$rowCity && isset($row['city_name'])) {
+            $rowCity = $row['city_name'];
+        }
         $openingHours = [];
         if (isset($row['opening_hours']) && is_array($row['opening_hours'])) {
             $openingHours = $row['opening_hours'];
@@ -60,7 +64,7 @@ try {
 
         $stmt->execute([
             ':source' => $source,
-            ':city_name' => $cityName,
+            ':city_name' => $rowCity,
             ':name' => $row['name'] ?? '',
             ':formatted_address' => $row['formatted_address'] ?? '',
             ':latitude' => $row['latitude'] ?? '',

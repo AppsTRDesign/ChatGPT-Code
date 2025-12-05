@@ -392,9 +392,11 @@ class PlaceResult:
     user_ratings_total: Optional[int]
     reviews: List[PlaceReview]
     busy_hours: Dict[str, List[Dict[str, str]]] = field(default_factory=dict)
+    city_name: str = ""
 
     def to_dict(self) -> Dict[str, object]:
         return {
+            "city_name": self.city_name,
             "name": self.name,
             "formatted_address": self.formatted_address,
             "formatted_phone_number": self.formatted_phone_number,
@@ -414,6 +416,7 @@ class PlaceResult:
 
     def to_csv_row(self) -> Dict[str, Optional[str]]:
         return {
+            "city_name": self.city_name,
             "name": self.name,
             "address": self.formatted_address,
             "phone": self.formatted_phone_number or "",
@@ -869,12 +872,14 @@ class GoogleMapsPlaywrightScraper:
         max_reviews: int = 3,
         field_selection: Optional[FieldSelection] = None,
         city_center: Optional[tuple[str, str]] = None,
+        city_name: str = "",
     ) -> None:
         self.language = language or "tr"
         self.limit = limit
         self.max_reviews = max(0, max_reviews)
         self.field_selection = field_selection or FieldSelection()
         self.city_center = city_center
+        self.city_name = city_name or ""
 
     def search(
         self,
@@ -1279,6 +1284,7 @@ class GoogleMapsPlaywrightScraper:
 
         return selection.apply(
             PlaceResult(
+                city_name=self.city_name,
                 name=name,
                 formatted_address=address,
                 formatted_phone_number=phone,
@@ -2793,6 +2799,7 @@ class Application(tk.Tk):
                     max_reviews=review_limit,
                     field_selection=selection_payload,
                     city_center=city_center,
+                    city_name=city_name,
                 )
                 results = scraper.search(
                     query,
@@ -3304,9 +3311,16 @@ class Application(tk.Tk):
             messagebox.showerror(self._("error_title"), self._("error_missing_api_url"))
             return
         token = (self.settings_api_token_var.get() or "").strip()
+        city_name = ""
+        if source == "bot":
+            city_name = (self.bot_city_combo.get() or "").strip()
+        if not city_name and results:
+            city_name = results[0].city_name or ""
         payload = {
             "source": source,
             "generated_at": datetime.utcnow().isoformat() + "Z",
+            "city_name": city_name,
+            "city": city_name,
             "results": [result.to_dict() for result in results],
         }
         try:
