@@ -33,12 +33,12 @@ try {
             source, city_name, name, formatted_address, latitude, longitude,
             rating, user_ratings_total, formatted_phone_number, telephone_type,
             website, business_type, opening_hours, busy_hours,
-            business_image, business_default_image, reviews
+            business_image, reviews
         ) VALUES (
             :source, :city_name, :name, :formatted_address, :latitude, :longitude,
             :rating, :user_ratings_total, :formatted_phone_number, :telephone_type,
             :website, :business_type, :opening_hours, :busy_hours,
-            :business_image, :business_default_image, :reviews
+            :business_image, :reviews
         )'
     );
 
@@ -97,7 +97,6 @@ try {
             ':opening_hours' => json_encode($openingHours, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ':busy_hours' => json_encode($busyHours, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             ':business_image' => $row['business_image'] ?? '',
-            ':business_default_image' => $row['business_default_image'] ?? '',
             ':reviews' => json_encode($reviews, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
         $inserted++;

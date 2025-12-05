@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS places (
     opening_hours JSON,
     busy_hours JSON,
     business_image TEXT,
-    business_default_image TEXT,
     reviews JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     KEY idx_source (source),

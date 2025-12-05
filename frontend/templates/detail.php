@@ -78,7 +78,7 @@
     </div>
   </div>
   <div class="col-12 col-lg-4">
-    <?php if (!empty($place['business_default_image'])): ?><img class="hero-img mb-3" src="<?= htmlspecialchars($place['business_default_image']) ?>" alt="Varsayılan görsel"><?php endif; ?>
+    <?php if (!empty($place['business_image'])): ?><img class="hero-img mb-3" src="<?= htmlspecialchars($place['business_image']) ?>" alt="İşletme görseli"><?php endif; ?>
     <div class="table-card">
       <h6>Özet</h6>
       <p class="mb-1"><strong>Kategori:</strong> <?= htmlspecialchars($place['business_type'] ?? '-') ?></p>

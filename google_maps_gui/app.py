@@ -135,7 +135,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_rating": "Puan",
         "column_category": "Kategori",
         "column_phone_type": "Telefon Tipi",
-        "column_default_image": "Varsayılan Görsel",
         "column_lat": "Enlem",
         "column_lng": "Boylam",
         "column_website": "Web Sitesi",
@@ -182,7 +181,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_rating": "Puan",
         "field_user_ratings_total": "Toplam Değerlendirme",
         "field_location": "İşletme Konumu",
-        "field_business_default_image": "Varsayılan Görsel",
         "field_business_image": "İşletme Görseli",
         "field_website": "Web Sitesi",
         "field_reviews": "Müşteri Yorumları",
@@ -252,7 +250,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "column_rating": "Rating",
         "column_category": "Category",
         "column_phone_type": "Phone Type",
-        "column_default_image": "Default Image",
         "column_lat": "Latitude",
         "column_lng": "Longitude",
         "column_website": "Website",
@@ -299,7 +296,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_rating": "Rating",
         "field_user_ratings_total": "Rating Count",
         "field_location": "Business Location",
-        "field_business_default_image": "Default Image",
         "field_business_image": "Business Image",
         "field_website": "Website",
         "field_reviews": "Customer Reviews",
@@ -382,7 +378,6 @@ class PlaceResult:
     formatted_phone_number: Optional[str]
     telephone_type: str
     business_type: Optional[str]
-    business_default_image: str
     business_image: str
     latitude: str
     longitude: str
@@ -402,7 +397,6 @@ class PlaceResult:
             "formatted_phone_number": self.formatted_phone_number,
             "telephone_type": self.telephone_type,
             "business_type": self.business_type,
-            "business_default_image": self.business_default_image,
             "business_image": self.business_image,
             "latitude": self.latitude,
             "longitude": self.longitude,
@@ -422,7 +416,6 @@ class PlaceResult:
             "phone": self.formatted_phone_number or "",
             "telephone_type": self.telephone_type or "",
             "category": self.business_type or "",
-            "business_default_image": self.business_default_image or "",
             "business_image": self.business_image or "",
             "latitude": self.latitude or "",
             "longitude": self.longitude or "",
@@ -467,7 +460,6 @@ FIELD_OPTION_KEYS = [
     "rating",
     "user_ratings_total",
     "location",
-    "business_default_image",
     "business_image",
     "website",
     "reviews",
@@ -487,8 +479,7 @@ class FieldSelection:
     rating: bool = True
     user_ratings_total: bool = True
     location: bool = True
-    business_default_image: bool = False
-    business_image: bool = False
+    business_image: bool = True
     website: bool = False
     reviews: bool = False
     review_photo_urls: bool = False
@@ -517,8 +508,6 @@ class FieldSelection:
         if not self.location:
             result.latitude = ""
             result.longitude = ""
-        if not self.business_default_image:
-            result.business_default_image = ""
         if not self.business_image:
             result.business_image = ""
         if not self.website:
@@ -587,8 +576,6 @@ class ResultPdfExporter:
         ]
         if result.website:
             details.append(f"{translate('column_website')}: {result.website}")
-        if result.business_default_image:
-            details.append(f"{translate('column_default_image')}: {result.business_default_image}")
         if result.business_image:
             details.append(f"{translate('column_image')}: {result.business_image}")
         if result.latitude or result.longitude:
@@ -797,7 +784,6 @@ class GoogleMapsClient:
                             or "",
                         ),
                         business_type=self._format_business_type(result.get("types", [])),
-                        business_default_image="",
                         business_image="",
                         latitude=str(result.get("geometry", {}).get("location", {}).get("lat", "")),
                         longitude=str(result.get("geometry", {}).get("location", {}).get("lng", "")),
@@ -1223,15 +1209,11 @@ class GoogleMapsPlaywrightScraper:
     def _extract_details(self, page: Page) -> PlaceResult:
         selection = self.field_selection
 
-        # 1) İşletme kartı görseli
-        business_image = self._extract_card_image(page) if selection.business_image else ""
+        # 1) İşletme görseli
+        business_image = self._extract_default_image(page) if selection.business_image else ""
 
         # 2) Detaylar (belirtilen sıraya göre)
         self._select_tab(page, "overview")
-
-        business_default_image = (
-            self._extract_default_image(page) if selection.business_default_image else ""
-        )
 
         name = self._first_text(
             page,
@@ -1290,7 +1272,6 @@ class GoogleMapsPlaywrightScraper:
                 formatted_phone_number=phone,
                 telephone_type=phone_type,
                 business_type=business_type or None,
-                business_default_image=business_default_image,
                 business_image=business_image,
                 latitude=latitude,
                 longitude=longitude,
@@ -1373,19 +1354,6 @@ class GoogleMapsPlaywrightScraper:
                 if href:
                     return href
         return None
-
-    def _extract_card_image(self, page: Page) -> str:
-        candidates = [
-            "div.SpFAAb div.FQ2IWe img",
-            "div.FQ2IWe img",
-        ]
-        for selector in candidates:
-            locator = page.locator(selector)
-            if locator.count():
-                src = self._safe_get_attribute(locator.first, "src")
-                if src:
-                    return upscale_img(src)
-        return ""
 
     def _extract_default_image(self, page: Page) -> str:
         selectors = [
@@ -3120,8 +3088,6 @@ class Application(tk.Tk):
         lines.append(f"{self._('address')}: {result.formatted_address or '-'}")
         if result.website:
             lines.append(f"{self._('column_website')}: {result.website}")
-        if result.business_default_image:
-            lines.append(f"{self._('column_default_image')}: {result.business_default_image}")
         if result.business_image:
             lines.append(f"{self._('column_image')}: {result.business_image}")
         if result.latitude or result.longitude:
@@ -3231,7 +3197,6 @@ class Application(tk.Tk):
             "phone",
             "telephone_type",
             "category",
-            "business_default_image",
             "business_image",
             "latitude",
             "longitude",
