@@ -20,15 +20,71 @@ if (!$payload || !isset($payload['results']) || !is_array($payload['results'])) 
     json_response(['error' => 'missing_payload'], 400);
 }
 
+$source = $payload['source'] ?? 'unknown';
+$cityName = $payload['city'] ?? ($payload['city_name'] ?? '');
+$results = $payload['results'];
+
 try {
     $db = Database::instance();
-    $stmt = $db->prepare('INSERT INTO submissions (source, payload) VALUES (:source, :payload)');
-    $stmt->execute([
-        ':source' => $payload['source'] ?? 'unknown',
-        ':payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-    ]);
+    $db->beginTransaction();
+
+    $stmt = $db->prepare(
+        'INSERT INTO places (
+            source, city_name, name, formatted_address, latitude, longitude,
+            rating, user_ratings_total, formatted_phone_number, telephone_type,
+            website, business_type, opening_hours, busy_hours,
+            business_image, business_default_image, reviews
+        ) VALUES (
+            :source, :city_name, :name, :formatted_address, :latitude, :longitude,
+            :rating, :user_ratings_total, :formatted_phone_number, :telephone_type,
+            :website, :business_type, :opening_hours, :busy_hours,
+            :business_image, :business_default_image, :reviews
+        )'
+    );
+
+    foreach ($results as $row) {
+        $openingHours = [];
+        if (isset($row['opening_hours']) && is_array($row['opening_hours'])) {
+            $openingHours = $row['opening_hours'];
+        }
+
+        $busyHours = [];
+        if (isset($row['busy_hours']) && is_array($row['busy_hours'])) {
+            $busyHours = $row['busy_hours'];
+        }
+
+        $reviews = [];
+        if (isset($row['reviews']) && is_array($row['reviews'])) {
+            $reviews = $row['reviews'];
+        }
+
+        $stmt->execute([
+            ':source' => $source,
+            ':city_name' => $cityName,
+            ':name' => $row['name'] ?? '',
+            ':formatted_address' => $row['formatted_address'] ?? '',
+            ':latitude' => $row['latitude'] ?? '',
+            ':longitude' => $row['longitude'] ?? '',
+            ':rating' => $row['rating'] ?? null,
+            ':user_ratings_total' => $row['user_ratings_total'] ?? null,
+            ':formatted_phone_number' => $row['formatted_phone_number'] ?? '',
+            ':telephone_type' => $row['telephone_type'] ?? '',
+            ':website' => $row['website'] ?? '',
+            ':business_type' => $row['business_type'] ?? '',
+            ':opening_hours' => json_encode($openingHours, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ':busy_hours' => json_encode($busyHours, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ':business_image' => $row['business_image'] ?? '',
+            ':business_default_image' => $row['business_default_image'] ?? '',
+            ':reviews' => json_encode($reviews, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+
+    $db->commit();
 } catch (Throwable $e) {
+    if (isset($db)) {
+        $db->rollBack();
+    }
     json_response(['error' => 'db_error', 'detail' => $e->getMessage()], 500);
 }
 
-json_response(['status' => 'ok']);
+json_response(['status' => 'ok', 'inserted' => count($results)]);
