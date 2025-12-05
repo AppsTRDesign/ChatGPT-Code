@@ -22,8 +22,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
 - Dil seçiminin yanında `assets/cities.json` dosyasından gelen "Şehir" açılır menüsü ile arama merkezini belirleme; seçilen şehirden alınan enlem/boylam Playwright URL'sine otomatik olarak uygulanır
-- "Paylaş" penceresindeki kısa konum bağlantısını sonuçlara ekleme (bilgi mevcutsa)
-- "Paylaş" penceresini açıp URL girişini tıklayan, bağlantıyı kopyalayan ve modalı sağ üstteki çarpıdan kapatan otomatik kopyalama rutini
+- İşletme konumu (lat/lng) alanını isteğe bağlı açıp kapama; koordinatlar sonuç URL'sinden çekilir
 - Harita ekran görüntülerini canlı olarak gösteren ve Playwright tarafından güncellenen yerleşik önizleme paneli
 - Her imleç hareketi ve tıklamada harita önizlemesini yenileyen canlı ilerleme akışı
 - İşletmelerin adı, adresi, telefonu, çalışma saatleri ve müşteri yorumlarını görüntüleme
@@ -109,7 +108,7 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 5. "Veri Alanları" bölümündeki kutucuklarla yalnızca ihtiyaç duyduğunuz alanları seçin. Örneğin sadece isim/adres/telefon yeterliyse puan veya yorum kutularını pasif bırakabilirsiniz. Yorum verisini kapatırsanız ilgili ek seçenekler (fotoğraflar ve ek bilgiler) otomatik olarak devre dışı kalır.
 6. "Ara" butonuna tıklayın. Sonuçlar sol taraftaki listede görüntülenecektir. Sütun başlıklarına tıklayarak adı, telefon numarası, puan veya kategoriye göre sıralama yapabilirsiniz.
 7. Listeden bir işletme seçtiğinizde, sağ tarafta işletmeye ait ayrıntılar (adres, telefon, çalışma saatleri ve müşteri yorumları) gösterilir.
-8. Sonuçları kaydetmek için "JSON Kaydet", "CSV Kaydet", "XLSX Kaydet" veya "PDF Kaydet" butonlarından birine basın. CSV dosyaları Excel ile uyumlu olacak şekilde `UTF-8-SIG` kodlamasıyla, XLSX dosyaları ise `openpyxl` ile oluşturulur; PDF raporları gömülü DejaVu Sans yazı tipi sayesinde Türkçe karakterleri sorunsuz gösterir.
+8. Sonuçları kaydetmek için "JSON Kaydet", "CSV Kaydet", "XLSX Kaydet" veya "PDF Kaydet" butonlarından birine basın. CSV dosyaları Excel ile uyumlu olacak şekilde `UTF-8-SIG` kodlamasıyla, XLSX dosyaları ise `openpyxl` ile oluşturulur; PDF raporları gömülü DejaVu Sans yazı tipi sayesinde Türkçe karakterleri sorunsuz gösterir. Aynı satırdaki **Verileri Aktar** düğmesi, ayarladığınız API uç noktasına toplu JSON gönderimi yapar.
 
 ### Bot ile Tara
 
@@ -139,6 +138,13 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 - **Maksimum Yorum Sayısı:** Bot sekmesindeki "Yorum Sayısı" alanının üst limitidir. Yorum veri alanını devre dışı bırakırsanız bu değer otomatik olarak sıfırlanır.
 
 "Ayarları Uygula" düğmesi yeni sınırları kaydeder, spinbox'ların `to` değerlerini günceller ve kısa süreli bilgilendirme mesajı gösterir.
+
+### Verileri API'ye aktarma ve backend
+
+- `backend/api` klasörü, AlmaLinux 8/Plesk üzerinde PHP 8 + PDO ile çalışacak hafif bir API köprüsü içerir. Varsayılan olarak SQLite DSN kullanır; `backend/api/config.php` içindeki `DB_DSN` değerini MySQL DSN'i ile değiştirebilir ve `API_TOKEN` değerini güçlü bir anahtar ile güncelleyebilirsiniz.
+- Sunucu tarafında `backend/data` klasörünün yazılabilir olduğundan emin olun. API uç noktasını (örn. `https://maps.noasoft.org/api/ingest.php`) Plesk paneline yükleyin.
+- Uygulama içindeki **Ayarlar** sekmesinde "API Uç Noktası" ve "API Anahtarı" alanlarını doldurun. Bu bilgiler, **Verileri Aktar** düğmelerine tıklandığında JSON yükünü güvenli bir POST isteğiyle sunucuya iletmek için kullanılır.
+- API uç noktası `token` alanı ya da `X-API-Key` başlığı ile gelen anahtarı doğrular, yükü `submissions` tablosuna kaydeder ve dış erişime kapalı olacak şekilde arka uçta saklar.
 
 ## Çıktı Biçimleri
 

@@ -120,6 +120,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "tab_api": "API ile Tara",
         "tab_bot": "Bot ile Tara",
         "tab_settings": "Ayarlar",
+        "tab_api_settings": "API Ayarları",
         "api_key": "API Anahtarı",
         "query": "Arama",
         "language": "Dil",
@@ -142,6 +143,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "save_json": "JSON Kaydet",
         "save_csv": "CSV Kaydet",
         "save_pdf": "PDF Kaydet",
+        "transfer_data": "Verileri Aktar",
         "status_ready": "Hazır",
         "status_searching": "Arama sürüyor...",
         "status_scraping_progress": "{}/{} işletme tarandı",
@@ -190,7 +192,14 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "settings_panel": "Genel Ayarlar",
         "settings_search_limit": "Maksimum İşletme Sayısı",
         "settings_review_limit": "Maksimum Yorum Sayısı",
+        "settings_api_url": "API Uç Noktası",
+        "settings_api_token": "API Anahtarı",
         "settings_apply": "Ayarları Uygula",
+        "settings_api_panel": "API Köprüsü",
+        "settings_api_hint": "Sonuçları aktarırken kullanılacak uç nokta ve anahtar",
+        "error_missing_api_url": "Lütfen API uç noktasını girin.",
+        "transfer_success": "Veriler API'ye aktarıldı.",
+        "transfer_failed": "Veri aktarımı başarısız oldu.",
         "settings_saved": "Ayarlar güncellendi.",
         "log_search_started": "Bot araması başlatıldı: {query}",
         "log_click_card": "Liste öğesine tıklanıyor: {name}",
@@ -228,6 +237,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "tab_api": "Scan via API",
         "tab_bot": "Scan via Bot",
         "tab_settings": "Settings",
+        "tab_api_settings": "API Bridge",
         "api_key": "API Key",
         "query": "Query",
         "language": "Language",
@@ -250,6 +260,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "save_json": "Save JSON",
         "save_csv": "Save CSV",
         "save_pdf": "Save PDF",
+        "transfer_data": "Transfer Data",
         "status_ready": "Ready",
         "status_searching": "Searching...",
         "status_scraping_progress": "Scanned {}/{} businesses",
@@ -298,7 +309,14 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "settings_panel": "Global Settings",
         "settings_search_limit": "Max Business Count",
         "settings_review_limit": "Max Review Count",
+        "settings_api_url": "API Endpoint",
+        "settings_api_token": "API Token",
         "settings_apply": "Apply Settings",
+        "settings_api_panel": "API Bridge",
+        "settings_api_hint": "Endpoint and token used when transferring results",
+        "error_missing_api_url": "Please enter an API endpoint.",
+        "transfer_success": "Data transferred successfully.",
+        "transfer_failed": "Data transfer failed.",
         "settings_saved": "Settings updated.",
         "log_search_started": "Bot scan started: {query}",
         "log_click_card": "Clicking result card: {name}",
@@ -1902,6 +1920,8 @@ class Application(tk.Tk):
         self.settings_search_limit_var = tk.IntVar(value=9999)
         self.settings_review_limit_var = tk.IntVar(value=9999)
         self.settings_message_var = tk.StringVar()
+        self.settings_api_url_var = tk.StringVar(value="https://maps.noasoft.org/api/ingest.php")
+        self.settings_api_token_var = tk.StringVar()
         self.field_option_vars: Dict[str, tk.BooleanVar] = {}
         self._field_option_checkbuttons: Dict[str, List[ttk.Checkbutton]] = {
             key: [] for key in FIELD_OPTION_KEYS
@@ -2091,6 +2111,12 @@ class Application(tk.Tk):
             text="",
             command=lambda: self._save_results(self._api_results, "xlsx"),
         )
+        self.api_transfer_button = ttk.Button(
+            self.api_button_frame,
+            text="",
+            command=lambda: self._transfer_results(self._api_results, "api"),
+            style="Accent.TButton",
+        )
 
         # Bot tab widgets
         self.bot_tab = ttk.Frame(self.notebook)
@@ -2215,6 +2241,12 @@ class Application(tk.Tk):
             text="",
             command=lambda: self._save_results(self._bot_results, "xlsx"),
         )
+        self.bot_transfer_button = ttk.Button(
+            self.bot_button_frame,
+            text="",
+            command=lambda: self._transfer_results(self._bot_results, "bot"),
+            style="Accent.TButton",
+        )
 
         self._set_bot_map_placeholder()
 
@@ -2238,6 +2270,17 @@ class Application(tk.Tk):
             width=10,
             justify=tk.CENTER,
             textvariable=self.settings_review_limit_var,
+        )
+        self.settings_api_url_label = ttk.Label(self.settings_frame, text="")
+        self.settings_api_url_entry = ttk.Entry(
+            self.settings_frame,
+            textvariable=self.settings_api_url_var,
+        )
+        self.settings_api_token_label = ttk.Label(self.settings_frame, text="")
+        self.settings_api_token_entry = ttk.Entry(
+            self.settings_frame,
+            textvariable=self.settings_api_token_var,
+            show="*",
         )
         self.settings_apply_button = ttk.Button(
             self.settings_frame, text="", style="Accent.TButton", command=self._on_settings_apply
@@ -2490,6 +2533,7 @@ class Application(tk.Tk):
         self.api_save_csv_button.pack(side=tk.LEFT, padx=5)
         self.api_save_pdf_button.pack(side=tk.LEFT, padx=5)
         self.api_save_xlsx_button.pack(side=tk.LEFT, padx=5)
+        self.api_transfer_button.pack(side=tk.LEFT, padx=5)
         self.api_status_label.pack(side=tk.RIGHT)
 
         # Bot tab layout
@@ -2532,6 +2576,7 @@ class Application(tk.Tk):
         self.bot_save_csv_button.pack(side=tk.LEFT, padx=5)
         self.bot_save_pdf_button.pack(side=tk.LEFT, padx=5)
         self.bot_save_xlsx_button.pack(side=tk.LEFT, padx=5)
+        self.bot_transfer_button.pack(side=tk.LEFT, padx=5)
         self.bot_status_label.pack(side=tk.RIGHT)
 
         # Settings tab layout
@@ -2543,8 +2588,12 @@ class Application(tk.Tk):
         self.settings_search_limit_spin.grid(row=0, column=1, sticky=tk.W, **settings_pad)
         self.settings_review_limit_label.grid(row=1, column=0, sticky=tk.W, **settings_pad)
         self.settings_review_limit_spin.grid(row=1, column=1, sticky=tk.W, **settings_pad)
-        self.settings_apply_button.grid(row=2, column=0, columnspan=2, sticky=tk.E, **settings_pad)
-        self.settings_message_label.grid(row=3, column=0, columnspan=2, sticky=tk.W, **settings_pad)
+        self.settings_api_url_label.grid(row=2, column=0, sticky=tk.W, **settings_pad)
+        self.settings_api_url_entry.grid(row=2, column=1, sticky=tk.EW, **settings_pad)
+        self.settings_api_token_label.grid(row=3, column=0, sticky=tk.W, **settings_pad)
+        self.settings_api_token_entry.grid(row=3, column=1, sticky=tk.EW, **settings_pad)
+        self.settings_apply_button.grid(row=4, column=0, columnspan=2, sticky=tk.E, **settings_pad)
+        self.settings_message_label.grid(row=5, column=0, columnspan=2, sticky=tk.W, **settings_pad)
 
         # License tab layout
         self.license_tab.columnconfigure(0, weight=1)
@@ -3245,6 +3294,33 @@ class Application(tk.Tk):
                 return
         messagebox.showinfo(self._("info_title"), self._("save_success"))
 
+    def _transfer_results(self, results: List[PlaceResult], source: str) -> None:
+        if not results:
+            messagebox.showinfo(self._("info_title"), self._("error_no_results_to_save"))
+            return
+        endpoint = (self.settings_api_url_var.get() or "").strip()
+        if not endpoint:
+            messagebox.showerror(self._("error_title"), self._("error_missing_api_url"))
+            return
+        token = (self.settings_api_token_var.get() or "").strip()
+        payload = {
+            "source": source,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "results": [result.to_dict() for result in results],
+        }
+        try:
+            response = requests.post(
+                endpoint,
+                json={"token": token, "payload": payload},
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            LOGGER.exception("API transfer failed: %s", exc)
+            messagebox.showerror(self._("error_title"), self._("transfer_failed"))
+            return
+        messagebox.showinfo(self._("info_title"), self._("transfer_success"))
+
     def _update_translations(self) -> None:
         self.title(self._("app_title"))
         self.notebook.tab(self.api_tab, text=self._("tab_api"))
@@ -3271,6 +3347,7 @@ class Application(tk.Tk):
         self.api_save_csv_button.config(text=self._("save_csv"))
         self.api_save_pdf_button.config(text=self._("save_pdf"))
         self.api_save_xlsx_button.config(text=self._("save_xlsx"))
+        self.api_transfer_button.config(text=self._("transfer_data"))
 
         self.bot_form_frame.config(text=self._("search_panel"))
         self.bot_results_frame.config(text=self._("results"))
@@ -3292,10 +3369,13 @@ class Application(tk.Tk):
         self.bot_save_csv_button.config(text=self._("save_csv"))
         self.bot_save_pdf_button.config(text=self._("save_pdf"))
         self.bot_save_xlsx_button.config(text=self._("save_xlsx"))
+        self.bot_transfer_button.config(text=self._("transfer_data"))
 
         self.settings_frame.config(text=self._("settings_panel"))
         self.settings_search_limit_label.config(text=self._("settings_search_limit"))
         self.settings_review_limit_label.config(text=self._("settings_review_limit"))
+        self.settings_api_url_label.config(text=self._("settings_api_url"))
+        self.settings_api_token_label.config(text=self._("settings_api_token"))
         self.settings_apply_button.config(text=self._("settings_apply"))
 
         self.license_info_frame.config(text=self._("license_info_group"))
