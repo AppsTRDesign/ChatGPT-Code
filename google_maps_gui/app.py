@@ -178,6 +178,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_opening_hours": "Çalışma Saatleri",
         "field_rating": "Puan",
         "field_user_ratings_total": "Toplam Değerlendirme",
+        "field_location": "İşletme Konumu",
         "field_business_default_image": "Varsayılan Görsel",
         "field_business_image": "İşletme Görseli",
         "field_website": "Web Sitesi",
@@ -285,6 +286,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_opening_hours": "Opening Hours",
         "field_rating": "Rating",
         "field_user_ratings_total": "Rating Count",
+        "field_location": "Business Location",
         "field_business_default_image": "Default Image",
         "field_business_image": "Business Image",
         "field_website": "Website",
@@ -442,6 +444,7 @@ FIELD_OPTION_KEYS = [
     "opening_hours",
     "rating",
     "user_ratings_total",
+    "location",
     "business_default_image",
     "business_image",
     "website",
@@ -461,6 +464,7 @@ class FieldSelection:
     opening_hours: bool = False
     rating: bool = True
     user_ratings_total: bool = True
+    location: bool = True
     business_default_image: bool = False
     business_image: bool = False
     website: bool = False
@@ -488,6 +492,9 @@ class FieldSelection:
             result.rating = None
         if not self.user_ratings_total:
             result.user_ratings_total = None
+        if not self.location:
+            result.latitude = ""
+            result.longitude = ""
         if not self.business_default_image:
             result.business_default_image = ""
         if not self.business_image:
@@ -1238,7 +1245,10 @@ class GoogleMapsPlaywrightScraper:
         if selection.busy_hours:
             busy_hours = self._extract_busy_hours(page)
 
-        latitude, longitude = extract_lat_lng_from_link(page.url)
+        latitude = ""
+        longitude = ""
+        if selection.location:
+            latitude, longitude = extract_lat_lng_from_link(page.url)
 
         # 3) Müşteri yorumları (önceki adımlar tamamlandıktan sonra)
         reviews: List[PlaceReview] = []
@@ -1487,7 +1497,10 @@ class GoogleMapsPlaywrightScraper:
         if not self.field_selection.wants_reviews():
             return []
         target = max(0, self.max_reviews)
+        fast_target = False
         if rating_count is not None:
+            if target > rating_count:
+                fast_target = True
             target = min(target, rating_count)
         if target == 0:
             return []
@@ -1500,7 +1513,7 @@ class GoogleMapsPlaywrightScraper:
         reviews_locator = page.locator('div[data-review-id]')
         if reviews_locator.count() == 0:
             return []
-        self._ensure_reviews_loaded(page, reviews_locator, target)
+        self._ensure_reviews_loaded(page, reviews_locator, target, fast=fast_target)
         reviews: List[PlaceReview] = []
         seen_ids: set[str] = set()
         idx = 0
@@ -1570,10 +1583,12 @@ class GoogleMapsPlaywrightScraper:
             extras = self._extract_review_metadata(container)
         return text, extras
 
-    def _ensure_reviews_loaded(self, page: Page, reviews_locator: Locator, target: int) -> None:
+    def _ensure_reviews_loaded(
+        self, page: Page, reviews_locator: Locator, target: int, fast: bool = False
+    ) -> None:
         if target <= 0:
             return
-        deadline = time.time() + 25
+        deadline = time.time() + (14 if fast else 25)
         attempts = 0
         while time.time() < deadline:
             count = reviews_locator.count()
@@ -1588,7 +1603,7 @@ class GoogleMapsPlaywrightScraper:
             attempts += 1
             if not scrolled and attempts > 6:
                 break
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(220 if fast else 400)
         # allow best-effort even if we exit the loop
 
     def _expand_review_content(self, review: Locator) -> None:
@@ -1899,6 +1914,7 @@ class Application(tk.Tk):
             "business_type",
             "rating",
             "user_ratings_total",
+            "location",
         }
         for key in FIELD_OPTION_KEYS:
             default = key in default_selected
