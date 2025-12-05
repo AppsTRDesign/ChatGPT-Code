@@ -1630,8 +1630,11 @@ class GoogleMapsPlaywrightScraper:
         for idx in range(count):
             button = buttons.nth(idx)
             url = self._background_image_url(button)
-            if url and url not in media_urls:
-                media_urls.append(upscale_img(url))
+            if not url:
+                continue
+            scaled_url = upscale_img(url)
+            if scaled_url and scaled_url not in media_urls:
+                media_urls.append(scaled_url)
         return media_urls
 
     def _background_image_url(self, locator: Locator) -> Optional[str]:
