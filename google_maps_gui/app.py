@@ -1560,11 +1560,11 @@ class GoogleMapsPlaywrightScraper:
             total = reviews_locator.count()
             if idx >= total:
                 previous_total = total
-                self._ensure_reviews_loaded(page, reviews_locator, target)
+                self._ensure_reviews_loaded(page, reviews_locator, target, fast=fast_target)
                 total = reviews_locator.count()
                 if total <= previous_total:
                     stalled += 1
-                    if stalled > 2:
+                    if stalled > (1 if fast_target else 2):
                         break
                 else:
                     stalled = 0
@@ -1626,7 +1626,7 @@ class GoogleMapsPlaywrightScraper:
     ) -> None:
         if target <= 0:
             return
-        deadline = time.time() + (8 if fast else 16)
+        deadline = time.time() + (5 if fast else 16)
         attempts = 0
         while time.time() < deadline:
             count = reviews_locator.count()
@@ -1635,13 +1635,13 @@ class GoogleMapsPlaywrightScraper:
             if count > 0:
                 last = reviews_locator.nth(count - 1)
                 with suppress(PlaywrightError):
-                    last.scroll_into_view_if_needed(timeout=1200)
+                    last.scroll_into_view_if_needed(timeout=900 if fast else 1200)
             scrolled = self._scroll_reviews_pane(page)
             self._wait_for_review_loader(page)
             attempts += 1
-            if not scrolled and attempts > 6:
+            if not scrolled and attempts > (3 if fast else 6):
                 break
-            page.wait_for_timeout(220 if fast else 400)
+            page.wait_for_timeout(180 if fast else 400)
         # allow best-effort even if we exit the loop
 
     def _expand_review_content(self, review: Locator) -> None:

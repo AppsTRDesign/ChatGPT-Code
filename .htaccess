@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Serve existing files/directories normally
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Allow assets/includes/backend tools to bypass front controller
+RewriteRule ^(assets|includes|backend|licence|google_maps_gui|frontend/assets|frontend/includes)($|/) - [L]
+
+# Front controller
+RewriteRule ^.*$ /frontend/index.php [L,QSA]

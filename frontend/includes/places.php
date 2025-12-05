@@ -11,7 +11,18 @@ try {
     $city = trim($_GET['city'] ?? '');
     $limit = min(DEFAULT_MAP_LIMIT, max(1, (int)($_GET['limit'] ?? DEFAULT_MAP_LIMIT)));
 
-    $sql = "SELECT id, name, formatted_address, latitude, longitude, business_type, category_slug, rating, user_ratings_total, business_image, city_name FROM places";
+    $sql = "SELECT p.id, p.name, p.formatted_address, p.latitude, p.longitude, p.business_type, p.category_slug, p.city_name,
+            COALESCE(NULLIF(p.view_total,0), pv.visit_count, 0) AS views,
+            COALESCE(p.rating,0) AS rating,
+            COALESCE(p.user_ratings_total,0) + COALESCE(ur.user_review_count,0) AS user_ratings_total,
+            (COALESCE(JSON_LENGTH(p.reviews),0)+COALESCE(ur.user_review_count,0)) AS total_reviews,
+            CASE WHEN (COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0))>0
+              THEN (COALESCE(p.rating,0)*COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_sum,0))/(COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0))
+              ELSE COALESCE(p.rating,0) END AS combined_rating,
+            p.business_image
+            FROM places p
+            LEFT JOIN (SELECT place_id, COUNT(*) AS visit_count FROM place_visits GROUP BY place_id) pv ON pv.place_id = p.id
+            LEFT JOIN (SELECT place_id, COUNT(*) AS user_review_count, SUM(rating) AS user_review_sum FROM user_reviews GROUP BY place_id) ur ON ur.place_id = p.id";
     $where = [];
     $params = [];
     if ($q !== '') {
@@ -29,7 +40,7 @@ try {
     if ($where) {
         $sql .= ' WHERE ' . implode(' AND ', $where);
     }
-    $sql .= ' ORDER BY created_at DESC LIMIT :limit';
+    $sql .= ' ORDER BY p.created_at DESC LIMIT :limit';
     $stmt = $pdo->prepare($sql);
     foreach ($params as $k => $v) {
         $stmt->bindValue($k, $v);

@@ -25,7 +25,18 @@ function fetch_cities(PDO $pdo): array {
 }
 
 function fetch_place(PDO $pdo, int $id): ?array {
-    $stmt = $pdo->prepare('SELECT * FROM places WHERE id = :id');
+    $stmt = $pdo->prepare('SELECT p.*, COALESCE(NULLIF(p.view_total,0), pv.visit_count, 0) AS views,
+        COALESCE(ur.user_review_count,0) AS user_review_count,
+        COALESCE(ur.user_review_sum,0) AS user_review_sum,
+        (COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0)) AS total_votes,
+        CASE WHEN (COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0))>0
+          THEN (COALESCE(p.rating,0)*COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_sum,0)) /(COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0))
+          ELSE 0 END AS combined_rating,
+        (COALESCE(JSON_LENGTH(p.reviews),0)+COALESCE(ur.user_review_count,0)) AS total_reviews
+        FROM places p
+        LEFT JOIN (SELECT place_id, COUNT(*) AS user_review_count, SUM(rating) AS user_review_sum FROM user_reviews GROUP BY place_id) ur ON ur.place_id = p.id
+        LEFT JOIN (SELECT place_id, COUNT(*) AS visit_count FROM place_visits GROUP BY place_id) pv ON pv.place_id = p.id
+        WHERE p.id = :id');
     $stmt->execute([':id' => $id]);
     $place = $stmt->fetch();
     if ($place) {
@@ -36,8 +47,22 @@ function fetch_place(PDO $pdo, int $id): ?array {
     return $place ?: null;
 }
 
+function base_metrics_sql(): string {
+    return "SELECT p.*, COALESCE(NULLIF(p.view_total,0), pv.visit_count, 0) AS views,
+        COALESCE(ur.user_review_count,0) AS user_review_count,
+        COALESCE(ur.user_review_sum,0) AS user_review_sum,
+        (COALESCE(JSON_LENGTH(p.reviews),0)+COALESCE(ur.user_review_count,0)) AS total_reviews,
+        (COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0)) AS total_votes,
+        CASE WHEN (COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0))>0
+          THEN (COALESCE(p.rating,0)*COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_sum,0)) /(COALESCE(p.user_ratings_total,0)+COALESCE(ur.user_review_count,0))
+          ELSE 0 END AS combined_rating
+        FROM places p
+        LEFT JOIN (SELECT place_id, COUNT(*) AS user_review_count, SUM(rating) AS user_review_sum FROM user_reviews GROUP BY place_id) ur ON ur.place_id = p.id
+        LEFT JOIN (SELECT place_id, COUNT(*) AS visit_count FROM place_visits GROUP BY place_id) pv ON pv.place_id = p.id";
+}
+
 function fetch_user_reviews(PDO $pdo, int $placeId): array {
-    $stmt = $pdo->prepare('SELECT author_name AS author, rating, review_text AS text, text_extra, created_at FROM user_reviews WHERE place_id = :pid ORDER BY created_at DESC');
+    $stmt = $pdo->prepare('SELECT author_name AS author, email, rating, review_text AS text, text_extra, created_at FROM user_reviews WHERE place_id = :pid ORDER BY created_at DESC');
     $stmt->execute([':pid' => $placeId]);
     $rows = $stmt->fetchAll();
     foreach ($rows as &$row) {
@@ -61,7 +86,7 @@ switch ($route) {
             $catSlug = urldecode($segments[1]);
             $page = (int)($_GET['s'] ?? 1);
             [$offset, $limit] = paginate($page, DEFAULT_PAGE_LIMIT);
-            $stmt = $pdo->prepare('SELECT * FROM places WHERE category_slug = :cat ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+            $stmt = $pdo->prepare(base_metrics_sql() . ' WHERE p.category_slug = :cat ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset');
             $stmt->bindValue(':cat', $catSlug);
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -88,7 +113,7 @@ switch ($route) {
         ]);
         break;
     case 'populer':
-        $stmt = $pdo->query('SELECT * FROM places ORDER BY rating DESC, user_ratings_total DESC LIMIT 100');
+        $stmt = $pdo->query(base_metrics_sql() . ' ORDER BY combined_rating DESC, total_votes DESC LIMIT 100');
         render(__DIR__ . '/templates/listing.php', [
             'meta' => render_meta('Popüler İşletmeler'),
             'title' => 'Popüler İşletmeler',
@@ -96,7 +121,7 @@ switch ($route) {
         ]);
         break;
     case 'en-cok-ziyaret-edilen':
-        $stmt = $pdo->query('SELECT * FROM places ORDER BY user_ratings_total DESC LIMIT 100');
+        $stmt = $pdo->query(base_metrics_sql() . ' ORDER BY views DESC, combined_rating DESC LIMIT 100');
         render(__DIR__ . '/templates/listing.php', [
             'meta' => render_meta('En Çok Görüntülenen'),
             'title' => 'En Çok Görüntülenen',
@@ -104,7 +129,7 @@ switch ($route) {
         ]);
         break;
     case 'en-cok-yorum-alan':
-        $stmt = $pdo->query('SELECT * FROM places ORDER BY JSON_LENGTH(reviews) DESC, user_ratings_total DESC LIMIT 100');
+        $stmt = $pdo->query(base_metrics_sql() . ' ORDER BY total_reviews DESC, combined_rating DESC LIMIT 100');
         render(__DIR__ . '/templates/listing.php', [
             'meta' => render_meta('En Çok Yorum Alan'),
             'title' => 'En Çok Yorum Alan',
@@ -129,9 +154,9 @@ switch ($route) {
     default:
         $categories = fetch_categories($pdo);
         $cities = fetch_cities($pdo);
-        $recent = $pdo->query('SELECT * FROM places ORDER BY created_at DESC LIMIT 6')->fetchAll();
-        $topRated = $pdo->query('SELECT * FROM places ORDER BY rating DESC, user_ratings_total DESC LIMIT 6')->fetchAll();
-        $mostViewed = $pdo->query('SELECT * FROM places ORDER BY user_ratings_total DESC LIMIT 6')->fetchAll();
+        $recent = $pdo->query(base_metrics_sql() . ' ORDER BY p.created_at DESC LIMIT 6')->fetchAll();
+        $topRated = $pdo->query(base_metrics_sql() . ' ORDER BY combined_rating DESC, total_votes DESC LIMIT 6')->fetchAll();
+        $mostViewed = $pdo->query(base_metrics_sql() . ' ORDER BY views DESC, combined_rating DESC LIMIT 6')->fetchAll();
         render(__DIR__ . '/templates/home.php', [
             'meta' => render_meta('Harita Portalı'),
             'categories' => $categories,

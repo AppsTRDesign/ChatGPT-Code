@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS places (
     category_slug VARCHAR(255),
     opening_hours JSON,
     busy_hours JSON,
+    view_total INT UNSIGNED NOT NULL DEFAULT 0,
     business_image TEXT,
     reviews JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -35,4 +36,15 @@ CREATE TABLE IF NOT EXISTS user_reviews (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     KEY idx_place_id (place_id),
     CONSTRAINT fk_reviews_place FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS place_visits (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    place_id BIGINT UNSIGNED NOT NULL,
+    visitor_hash CHAR(64) NOT NULL,
+    visit_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_visit (place_id, visitor_hash, visit_date),
+    KEY idx_visit_place (place_id),
+    CONSTRAINT fk_visits_place FOREIGN KEY (place_id) REFERENCES places(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

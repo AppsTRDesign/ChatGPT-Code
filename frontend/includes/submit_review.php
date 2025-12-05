@@ -14,6 +14,12 @@ $email = trim($data['email'] ?? '');
 $rating = (int)($data['rating'] ?? 0);
 $text = trim($data['text'] ?? '');
 $textExtra = $data['text_extra'] ?? [];
+if (is_string($textExtra) && $textExtra !== '') {
+    $textExtra = array_map('trim', explode(',', $textExtra));
+}
+if (!is_array($textExtra)) {
+    $textExtra = [];
+}
 $placeId = (int)($data['place_id'] ?? 0);
 
 if (!$placeId || $name === '' || $rating < 1 || $rating > 5) {

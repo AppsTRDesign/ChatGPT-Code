@@ -92,6 +92,20 @@ function build_place_slug(array $place): string
     return "isletme/{$id}-{$slug}";
 }
 
+function category_url(?string $slug): string
+{
+    return $slug ? '/kategoriler/' . urlencode($slug) : '/kategoriler';
+}
+
+function gravatar_url(?string $email, int $size = 64): string
+{
+    if (!$email) {
+        return "https://www.gravatar.com/avatar/?d=mp&s={$size}";
+    }
+    $hash = md5(strtolower(trim($email)));
+    return "https://www.gravatar.com/avatar/{$hash}?d=identicon&s={$size}";
+}
+
 function format_rating($value): string
 {
     return $value !== null ? number_format((float) $value, 1) : '-';

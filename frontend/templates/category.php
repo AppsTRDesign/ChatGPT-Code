@@ -6,10 +6,14 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <a class="fw-bold text-decoration-none" href="/<?= build_place_slug($place) ?>"><?= htmlspecialchars($place['name']) ?></a>
-            <span class="badge bg-warning text-dark">⭐ <?= format_rating($place['rating']) ?></span>
+            <span class="badge bg-warning text-dark">⭐ <?= format_rating($place['combined_rating'] ?? $place['rating'] ?? null) ?></span>
           </div>
           <div class="text-muted small mb-2"><?= htmlspecialchars($place['formatted_address']) ?></div>
-          <div class="small text-muted">Değerlendirme: <?= (int)$place['user_ratings_total'] ?></div>
+          <div class="small text-muted d-flex gap-2 flex-wrap">
+            <span>Oy: <?= (int)($place['total_votes'] ?? $place['user_ratings_total'] ?? 0) ?></span>
+            <span>💬 <?= (int)($place['total_reviews'] ?? 0) ?></span>
+            <span>👁 <?= (int)($place['views'] ?? 0) ?></span>
+          </div>
         </div>
       </div>
     </div>
