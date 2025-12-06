@@ -38,7 +38,8 @@ body {
 .badge-pill { border-radius: 50rem; }
 .review-card { background: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.05); margin-bottom: 10px; }
 .meta-chip { background: #e7f1ff; color: #0d6efd; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; margin-right: 6px; }
-.busy-chart { max-width: 960px; }
+.busy-chart { width: 100%; max-width: 100%; min-height: 260px; }
+.extra-badge { font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 999px; }
 .hero-img { border-radius: 12px; max-height: 240px; object-fit: cover; width: 100%; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.05); }
 .hero-img.minimal { max-height: 200px; width: 220px; object-fit: cover; }
 .table-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.05); }

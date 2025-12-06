@@ -1,14 +1,22 @@
 <?php
 $reviews = $place['reviews'] ?? [];
 $suggestedExtras = [];
-$collectExtras = function($source) use (&$suggestedExtras){
-    if (empty($source['text_extra'])) return;
-    $extras = $source['text_extra'];
-    if (is_array($extras)) {
-        foreach ($extras as $extra) {
-            if (is_string($extra)) { $suggestedExtras[] = $extra; }
-            elseif (is_array($extra)) { $suggestedExtras = array_merge($suggestedExtras, array_values($extra)); }
+$normalizeExtras = function($extras) {
+    if (!is_array($extras)) return [];
+    $out = [];
+    foreach ($extras as $k => $v) {
+        if (is_int($k)) {
+            $out[] = ['label' => is_array($v) ? implode(' ', $v) : $v, 'value' => ''];
+        } else {
+            $out[] = ['label' => $k, 'value' => is_array($v) ? implode(' ', $v) : $v];
         }
+    }
+    return $out;
+};
+$collectExtras = function($source) use (&$suggestedExtras, $normalizeExtras){
+    if (empty($source['text_extra'])) return;
+    foreach ($normalizeExtras($source['text_extra']) as $extra) {
+        if (!empty($extra['label'])) { $suggestedExtras[] = $extra['label']; }
     }
 };
 foreach ($reviews as $rev) { $collectExtras($rev); }
@@ -81,12 +89,14 @@ $suggestedExtras = array_values(array_unique(array_filter($suggestedExtras)));
             </div>
           </div>
           <?php if (!empty($rev['text'])): ?><p class="mb-1"><?= nl2br(htmlspecialchars($rev['text'])) ?></p><?php endif; ?>
-          <?php if (!empty($rev['text_extra'])): ?>
-            <ul class="list-unstyled small text-muted mb-2">
-              <?php foreach ((array)$rev['text_extra'] as $extra): ?>
-                <li>• <?= htmlspecialchars(is_array($extra) ? implode(' ', $extra) : $extra) ?></li>
+          <?php $extras = $normalizeExtras($rev['text_extra'] ?? []); if ($extras): ?>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <?php $colors = ['primary','success','info','warning','danger','secondary']; $i=0; foreach ($extras as $extra): ?>
+                <span class="badge extra-badge bg-<?= $colors[$i++ % count($colors)] ?>">
+                  <?= htmlspecialchars($extra['label']) ?><?= $extra['value'] !== '' ? ': ' . htmlspecialchars($extra['value']) : '' ?>
+                </span>
               <?php endforeach; ?>
-            </ul>
+            </div>
           <?php endif; ?>
           <?php if (!empty($rev['review_photo_urls'])): ?>
             <div class="d-flex flex-wrap gap-2">
@@ -110,10 +120,14 @@ $suggestedExtras = array_values(array_unique(array_filter($suggestedExtras)));
               </div>
             </div>
             <?php if (!empty($rev['text'])): ?><p class="mb-1"><?= nl2br(htmlspecialchars($rev['text'])) ?></p><?php endif; ?>
-            <?php if (!empty($rev['text_extra'])): ?>
-              <ul class="list-unstyled small text-muted mb-2">
-                <?php foreach ((array)$rev['text_extra'] as $extra): ?><li>• <?= htmlspecialchars($extra) ?></li><?php endforeach; ?>
-              </ul>
+            <?php $userExtras = $normalizeExtras($rev['text_extra'] ?? []); if ($userExtras): ?>
+              <div class="d-flex flex-wrap gap-2 mb-2">
+                <?php $colors = ['primary','success','info','warning','danger','secondary']; $k=0; foreach ($userExtras as $ue): ?>
+                  <span class="badge extra-badge bg-<?= $colors[$k++ % count($colors)] ?>">
+                    <?= htmlspecialchars($ue['label']) ?><?= $ue['value'] !== '' ? ': ' . htmlspecialchars($ue['value']) : '' ?>
+                  </span>
+                <?php endforeach; ?>
+              </div>
             <?php endif; ?>
           </div>
         <?php endforeach; ?>
@@ -136,13 +150,15 @@ $suggestedExtras = array_values(array_unique(array_filter($suggestedExtras)));
           </div>
           <?php if (!empty($suggestedExtras)): ?>
             <div class="mb-2 small">Opsiyonel etiketler:</div>
-            <div class="d-flex flex-wrap gap-2 mb-2" id="extraTags">
-              <?php foreach ($suggestedExtras as $extra): ?>
-                <label class="badge bg-light text-dark selectable-tag"><input type="checkbox" class="d-none" value="<?= htmlspecialchars($extra) ?>"> <?= htmlspecialchars($extra) ?></label>
+            <div class="row g-2 mb-2" id="extraInputs">
+              <?php foreach ($suggestedExtras as $extra): $key = slugify($extra); ?>
+                <div class="col-md-4">
+                  <label class="form-label small mb-1"><?= htmlspecialchars($extra) ?></label>
+                  <input type="text" class="form-control" data-extra-key="<?= htmlspecialchars($extra) ?>" name="extra_<?= htmlspecialchars($key) ?>" placeholder="<?= htmlspecialchars($extra) ?> (opsiyonel)">
+                </div>
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
-          <div class="mb-2"><input name="text_extra" class="form-control" placeholder="Ek bilgiler (virgülle ayrılabilir)"></div>
           <div class="mb-3"><textarea name="text" class="form-control" rows="3" placeholder="Yorum"></textarea></div>
           <div class="d-grid"><button class="btn btn-primary" type="submit">Gönder</button></div>
         </form>

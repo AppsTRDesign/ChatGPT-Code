@@ -17,7 +17,7 @@ function renderBusyChart(){
     });
     datasets.push({ label: day, data: values, backgroundColor: palette[idx%palette.length], borderColor: palette[idx%palette.length], fill:false, tension:0.3 });
   });
-  new Chart(chartEl, { type:'line', data:{ labels, datasets }, options:{ plugins:{legend:{position:'bottom'}}, responsive:true, scales:{y:{beginAtZero:true, title:{display:true,text:'Yoğunluk %'}}} } });
+  new Chart(chartEl, { type:'line', data:{ labels, datasets }, options:{ plugins:{legend:{position:'bottom'}}, responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true, title:{display:true,text:'Yoğunluk %'}}} } });
 }
 
 function initDetailInteractions(){
@@ -43,30 +43,22 @@ function initDetailInteractions(){
 
   const form = document.getElementById('userReviewForm');
   if(form){
-    const tagLabels = Array.from(document.querySelectorAll('#extraTags label'));
-    tagLabels.forEach(label => {
-      const input = label.querySelector('input');
-      if(!input) return;
-      label.addEventListener('click', ()=>{
-        input.checked = !input.checked;
-        label.classList.toggle('active', input.checked);
-      });
-    });
+    const extraInputs = Array.from(document.querySelectorAll('#extraInputs [data-extra-key]'));
     form.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const payload = Object.fromEntries(new FormData(form).entries());
       payload.place_id = form.dataset.place;
-      const extras = [];
-      tagLabels.forEach(label=>{ const input = label.querySelector('input'); if(input && input.checked) extras.push(input.value); });
-      if(payload.text_extra){
-        payload.text_extra.split(',').map(s=>s.trim()).filter(Boolean).forEach(v=>extras.push(v));
-      }
+      const extras = {};
+      extraInputs.forEach(inp=>{
+        const key = inp.dataset.extraKey;
+        const val = (inp.value || '').trim();
+        if(key && val){ extras[key] = val; }
+      });
       payload.text_extra = extras;
       const res = await fetch('/includes/submit_review.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       if(res.ok){
         Swal.fire({ icon:'success', title:'Teşekkürler', text:'Yorumunuz kaydedildi' });
         form.reset();
-        tagLabels.forEach(l=>l.classList.remove('active'));
       } else {
         Swal.fire({ icon:'error', title:'Hata', text:'Yorum kaydedilemedi' });
       }
