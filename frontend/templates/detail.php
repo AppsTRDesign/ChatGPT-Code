@@ -90,16 +90,17 @@ $suggestedExtras = array_values(array_unique(array_filter($suggestedExtras)));
           </div>
           <?php if (!empty($rev['text'])): ?><p class="mb-1"><?= nl2br(htmlspecialchars($rev['text'])) ?></p><?php endif; ?>
           <?php $extras = $normalizeExtras($rev['text_extra'] ?? []); if ($extras): ?>
-            <div class="d-flex flex-wrap gap-2 mb-2">
-              <?php $colors = ['primary','success','info','warning','danger','secondary']; $i=0; foreach ($extras as $extra): ?>
-                <span class="badge extra-badge bg-<?= $colors[$i++ % count($colors)] ?>">
-                  <?= htmlspecialchars($extra['label']) ?><?= $extra['value'] !== '' ? ': ' . htmlspecialchars($extra['value']) : '' ?>
-                </span>
+            <div class="extra-panel mb-2">
+              <?php foreach ($extras as $extra): ?>
+                <div class="extra-row">
+                  <span class="extra-label"><?= htmlspecialchars($extra['label']) ?></span>
+                  <?php if ($extra['value'] !== ''): ?><span class="extra-value"><?= htmlspecialchars($extra['value']) ?></span><?php endif; ?>
+                </div>
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
           <?php if (!empty($rev['review_photo_urls'])): ?>
-            <div class="d-flex flex-wrap gap-2">
+            <div class="photo-frame d-flex flex-wrap gap-2">
               <?php foreach ($rev['review_photo_urls'] as $photoUrl): ?>
                 <img src="<?= htmlspecialchars($photoUrl) ?>" class="review-thumb" data-full="<?= htmlspecialchars($photoUrl) ?>" alt="yorum görseli">
               <?php endforeach; ?>
@@ -121,11 +122,12 @@ $suggestedExtras = array_values(array_unique(array_filter($suggestedExtras)));
             </div>
             <?php if (!empty($rev['text'])): ?><p class="mb-1"><?= nl2br(htmlspecialchars($rev['text'])) ?></p><?php endif; ?>
             <?php $userExtras = $normalizeExtras($rev['text_extra'] ?? []); if ($userExtras): ?>
-              <div class="d-flex flex-wrap gap-2 mb-2">
-                <?php $colors = ['primary','success','info','warning','danger','secondary']; $k=0; foreach ($userExtras as $ue): ?>
-                  <span class="badge extra-badge bg-<?= $colors[$k++ % count($colors)] ?>">
-                    <?= htmlspecialchars($ue['label']) ?><?= $ue['value'] !== '' ? ': ' . htmlspecialchars($ue['value']) : '' ?>
-                  </span>
+              <div class="extra-panel mb-2">
+                <?php foreach ($userExtras as $ue): ?>
+                  <div class="extra-row">
+                    <span class="extra-label"><?= htmlspecialchars($ue['label']) ?></span>
+                    <?php if ($ue['value'] !== ''): ?><span class="extra-value"><?= htmlspecialchars($ue['value']) ?></span><?php endif; ?>
+                  </div>
                 <?php endforeach; ?>
               </div>
             <?php endif; ?>

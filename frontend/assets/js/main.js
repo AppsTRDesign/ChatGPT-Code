@@ -17,7 +17,8 @@ function renderBusyChart(){
     });
     datasets.push({ label: day, data: values, backgroundColor: palette[idx%palette.length], borderColor: palette[idx%palette.length], fill:false, tension:0.3 });
   });
-  new Chart(chartEl, { type:'line', data:{ labels, datasets }, options:{ plugins:{legend:{position:'bottom'}}, responsive:true, maintainAspectRatio:false, scales:{y:{beginAtZero:true, title:{display:true,text:'Yoğunluk %'}}} } });
+  if(chartEl._chart){ chartEl._chart.destroy(); }
+  chartEl._chart = new Chart(chartEl, { type:'line', data:{ labels, datasets }, options:{ plugins:{legend:{position:'bottom'}}, responsive:true, maintainAspectRatio:true, aspectRatio: 2.4, scales:{y:{beginAtZero:true, max:100, title:{display:true,text:'Yoğunluk %'}}} } });
 }
 
 function initDetailInteractions(){
