@@ -1330,53 +1330,7 @@ class GoogleMapsPlaywrightScraper:
         return self._first_text(page, selectors)
 
     def _extract_coordinates(self, page: Page) -> tuple[str, str]:
-        latitude = ""
-        longitude = ""
-        try:
-            map_selectors = [
-                "canvas.widget-scene-canvas",
-                "canvas[role='presentation']",
-                "canvas",
-            ]
-            target: Optional[Locator] = None
-            for selector in map_selectors:
-                candidate = page.locator(selector)
-                if candidate.count():
-                    target = candidate.first
-                    break
-
-            if target:
-                box = target.bounding_box()
-                position = None
-                if box:
-                    position = {"x": box.get("width", 0) / 2, "y": box.get("height", 0) / 2}
-                with suppress(PlaywrightError):
-                    target.click(button="right", position=position, timeout=4000)
-                    page.wait_for_timeout(400)
-                    coord_item = page.locator(
-                        'div[role="menuitem"]',
-                        has=re.compile(r"-?\d+\.\d+.*,-?\d+\.\d+"),
-                    ).first
-                    if not coord_item.count():
-                        coord_item = page.locator('div[role="menuitem"]').first
-                    if coord_item.count():
-                        text = self._safe_inner_text(coord_item, timeout=2000)
-                        with suppress(PlaywrightError):
-                            coord_item.click(timeout=1500)
-                        if text:
-                            match = re.search(r"(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)", text)
-                            if match:
-                                latitude, longitude = match.group(1), match.group(2)
-                    with suppress(PlaywrightError):
-                        page.keyboard.press("Escape")
-        except TargetClosedError:
-            return latitude or "", longitude or ""
-        except PlaywrightError:
-            pass
-
-        if not latitude or not longitude:
-            latitude, longitude = extract_lat_lng_from_link(page.url)
-
+        latitude, longitude = extract_lat_lng_from_link(page.url)
         return latitude or "", longitude or ""
 
     def _first_text(self, page: Page, selectors: List[str]) -> str:
