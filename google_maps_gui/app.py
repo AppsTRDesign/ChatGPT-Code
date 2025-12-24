@@ -47,7 +47,8 @@ logging.basicConfig(
 
 BASE_DIR = Path(__file__).resolve().parent
 PDF_FONT_PATH = BASE_DIR / "assets" / "fonts" / "DejaVuSans.ttf"
-CITIES_PATH = BASE_DIR / "assets" / "cities.json"
+CITIES_DIR = BASE_DIR / "assets" / "cities"
+DEFAULT_CITY_SOURCE = "turkey.json"
 SETTINGS_PATH = BASE_DIR / "settings.json"
 
 
@@ -207,6 +208,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_text_extra": "Yorum Ek Bilgileri",
         "field_busy_hours": "Yoğun Saatler",
         "city": "Şehir",
+        "city_source": "Şehir listesi",
         "settings_panel": "Genel Ayarlar",
         "settings_search_limit": "Maksimum İşletme Sayısı",
         "settings_review_limit": "Maksimum Yorum Sayısı",
@@ -322,6 +324,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "field_text_extra": "Review Extras",
         "field_busy_hours": "Popular Times",
         "city": "City",
+        "city_source": "City list",
         "settings_panel": "Global Settings",
         "settings_search_limit": "Max Business Count",
         "settings_review_limit": "Max Review Count",
@@ -1056,6 +1059,14 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "pdf_unknown": "غير معروف",
     },
 }
+
+# Fill missing translation keys from English defaults
+_en_catalog = TRANSLATIONS.get("en", {})
+for _lang, _catalog in TRANSLATIONS.items():
+    if _lang == "en":
+        continue
+    for _key, _value in _en_catalog.items():
+        _catalog.setdefault(_key, _value)
 
 
 @dataclass
@@ -2646,6 +2657,9 @@ class Application(tk.Tk):
         self.settings_message_var = tk.StringVar()
         self.settings_api_url_var = tk.StringVar(value="https://maps.noasoft.org/api/ingest.php")
         self.settings_api_token_var = tk.StringVar(value=os.getenv("MAPS_API_TOKEN", "maps-default-token"))
+        self.city_sources: Dict[str, Path] = self._discover_city_sources()
+        self.selected_city_source = tk.StringVar(value=self._default_city_source())
+        self.city_lookup: Dict[str, tuple[str, str]] = {}
         self.field_option_vars: Dict[str, tk.BooleanVar] = {}
         self._field_option_checkbuttons: Dict[str, List[ttk.Checkbutton]] = {
             key: [] for key in FIELD_OPTION_KEYS
@@ -2665,7 +2679,7 @@ class Application(tk.Tk):
             default = key in default_selected
             self.field_option_vars[key] = tk.BooleanVar(value=default)
         self._load_persisted_settings()
-        self.city_lookup: Dict[str, tuple[str, str]] = self._load_cities()
+        self.city_lookup = self._load_cities(self.selected_city_source.get())
         self.license_expiry_var = tk.StringVar()
         self.license_duration_var = tk.StringVar()
         self.title(self._("app_title"))
@@ -2863,13 +2877,22 @@ class Application(tk.Tk):
         )
         self.bot_language_combo.set("tr")
 
+        self.bot_city_source_label = ttk.Label(self.bot_form_frame, text="")
+        self.bot_city_source_combo = ttk.Combobox(
+            self.bot_form_frame,
+            values=[],
+            state="readonly",
+        )
+
         self.bot_city_label = ttk.Label(self.bot_form_frame, text="")
         self.bot_city_combo = ttk.Combobox(
             self.bot_form_frame,
             values=[],
             state="readonly",
         )
-        self._populate_city_combo()
+        self._populate_city_source_combo()
+        self.bot_city_source_combo.bind("<<ComboboxSelected>>", self._on_city_source_change)
+        self._set_city_source(self.selected_city_source.get())
 
         self.bot_limit_label = ttk.Label(self.bot_form_frame, text="")
         self.bot_limit_spin = ttk.Spinbox(
@@ -3156,6 +3179,9 @@ class Application(tk.Tk):
             for key, var in self.field_option_vars.items():
                 if key in saved_fields:
                     var.set(bool(saved_fields.get(key)))
+        source = data.get("city_source")
+        if source and source in self.city_sources:
+            self.selected_city_source.set(source)
 
     def _persist_settings(self) -> None:
         payload = {
@@ -3164,6 +3190,7 @@ class Application(tk.Tk):
             "review_limit": self._get_settings_review_limit(),
             "api_url": self.settings_api_url_var.get(),
             "api_token": self.settings_api_token_var.get(),
+            "city_source": self.selected_city_source.get(),
             "field_selection": {k: bool(v.get()) for k, v in self.field_option_vars.items()},
         }
         try:
@@ -3173,13 +3200,29 @@ class Application(tk.Tk):
         except OSError as exc:
             LOGGER.warning("Unable to persist settings to %s: %s", SETTINGS_PATH, exc)
 
-    def _load_cities(self) -> Dict[str, tuple[str, str]]:
-        if not CITIES_PATH.exists():
+    def _discover_city_sources(self) -> Dict[str, Path]:
+        sources: Dict[str, Path] = {}
+        if not CITIES_DIR.exists():
+            return sources
+        for path in sorted(CITIES_DIR.glob("*.json")):
+            sources[path.name] = path
+        return sources
+
+    def _default_city_source(self) -> str:
+        if DEFAULT_CITY_SOURCE in self.city_sources:
+            return DEFAULT_CITY_SOURCE
+        return next(iter(self.city_sources.keys()), "")
+
+    def _load_cities(self, source_name: Optional[str]) -> Dict[str, tuple[str, str]]:
+        if not source_name:
+            return {}
+        path = self.city_sources.get(source_name)
+        if not path or not path.exists():
             return {}
         try:
-            data = json.loads(CITIES_PATH.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            LOGGER.warning("Could not read cities.json from %s", CITIES_PATH)
+            LOGGER.warning("Could not read cities from %s", path)
             return {}
         lookup: Dict[str, tuple[str, str]] = {}
         for entry in data:
@@ -3190,6 +3233,23 @@ class Application(tk.Tk):
                 lookup[name.lower()] = (lat, lng)
         return lookup
 
+    @staticmethod
+    def _city_source_display(source_name: str) -> str:
+        stem = Path(source_name).stem.replace("_", " ")
+        return stem.title()
+
+    def _populate_city_source_combo(self) -> None:
+        if not hasattr(self, "bot_city_source_combo"):
+            return
+        display = [self._city_source_display(name) for name in self.city_sources]
+        if display:
+            self.bot_city_source_combo["values"] = sorted(display)
+            current_label = self._city_source_display(self.selected_city_source.get())
+            if current_label:
+                self.bot_city_source_combo.set(current_label)
+            else:
+                self.bot_city_source_combo.current(0)
+
     def _populate_city_combo(self) -> None:
         if not hasattr(self, "bot_city_combo"):
             return
@@ -3197,6 +3257,33 @@ class Application(tk.Tk):
         self.bot_city_combo["values"] = names
         if names:
             self.bot_city_combo.set(names[0])
+
+    def _resolve_city_source(self, label: str) -> Optional[str]:
+        for name in self.city_sources:
+            if self._city_source_display(name) == label:
+                return name
+        return None
+
+    def _set_city_source(self, source_name: Optional[str]) -> None:
+        if not source_name or source_name not in self.city_sources:
+            source_name = self._default_city_source()
+        if not source_name:
+            self.city_lookup = {}
+            self._populate_city_combo()
+            return
+        self.selected_city_source.set(source_name)
+        if hasattr(self, "bot_city_source_combo"):
+            self.bot_city_source_combo.set(self._city_source_display(source_name))
+        self.city_lookup = self._load_cities(source_name)
+        self._populate_city_combo()
+
+    def _on_city_source_change(self, _event=None) -> None:
+        label = ""
+        if hasattr(self, "bot_city_source_combo"):
+            label = self.bot_city_source_combo.get()
+        resolved = self._resolve_city_source(label)
+        self._set_city_source(resolved)
+        self._persist_settings()
 
     def _get_settings_search_limit(self) -> int:
         try:
@@ -3317,22 +3404,24 @@ class Application(tk.Tk):
         self.bot_tab.rowconfigure(3, weight=0)
 
         self.bot_form_frame.grid(row=0, column=0, columnspan=2, sticky=tk.NSEW, padx=10, pady=(10, 5))
-        for idx in range(6):
-            weight = 1 if idx in {1, 3} else 0
+        for idx in range(8):
+            weight = 1 if idx in {1, 3, 5} else 0
             self.bot_form_frame.columnconfigure(idx, weight=weight)
         bot_pad = {"padx": 5, "pady": 5}
         self.bot_query_label.grid(row=0, column=0, sticky=tk.W, **bot_pad)
-        self.bot_query_entry.grid(row=0, column=1, columnspan=3, sticky=tk.EW, **bot_pad)
-        self.bot_search_button.grid(row=0, column=5, sticky=tk.E, **bot_pad)
+        self.bot_query_entry.grid(row=0, column=1, columnspan=4, sticky=tk.EW, **bot_pad)
+        self.bot_search_button.grid(row=0, column=7, sticky=tk.E, **bot_pad)
         self.bot_language_label.grid(row=1, column=0, sticky=tk.W, **bot_pad)
         self.bot_language_combo.grid(row=1, column=1, sticky=tk.W, **bot_pad)
-        self.bot_city_label.grid(row=1, column=2, sticky=tk.W, **bot_pad)
-        self.bot_city_combo.grid(row=1, column=3, sticky=tk.W, **bot_pad)
-        self.bot_limit_label.grid(row=1, column=4, sticky=tk.W, **bot_pad)
-        self.bot_limit_spin.grid(row=1, column=5, sticky=tk.W, **bot_pad)
+        self.bot_city_source_label.grid(row=1, column=2, sticky=tk.W, **bot_pad)
+        self.bot_city_source_combo.grid(row=1, column=3, sticky=tk.W, **bot_pad)
+        self.bot_city_label.grid(row=1, column=4, sticky=tk.W, **bot_pad)
+        self.bot_city_combo.grid(row=1, column=5, sticky=tk.W, **bot_pad)
+        self.bot_limit_label.grid(row=1, column=6, sticky=tk.W, **bot_pad)
+        self.bot_limit_spin.grid(row=1, column=7, sticky=tk.W, **bot_pad)
         self.bot_reviews_label.grid(row=2, column=0, sticky=tk.W, **bot_pad)
         self.bot_reviews_spin.grid(row=2, column=1, sticky=tk.W, **bot_pad)
-        self.bot_field_options_frame.grid(row=3, column=0, columnspan=5, sticky=tk.EW, padx=5, pady=(0, 5))
+        self.bot_field_options_frame.grid(row=3, column=0, columnspan=8, sticky=tk.EW, padx=5, pady=(0, 5))
 
         self.bot_map_canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
@@ -4136,6 +4225,7 @@ class Application(tk.Tk):
         self.bot_map_frame.config(text=self._("map_preview"))
         self.bot_query_label.config(text=self._("query"))
         self.bot_language_label.config(text=self._("language"))
+        self.bot_city_source_label.config(text=self._("city_source"))
         self.bot_city_label.config(text=self._("city"))
         self.bot_search_button.config(text=self._("search"))
         self.bot_limit_label.config(text=self._("result_limit"))

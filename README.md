@@ -21,7 +21,7 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Yorum kartlarında yer alan küçük fotoğraf kutucuklarının `review_photo_urls` alanında JSON'a eklenmesi ve profil/yorum fotoğraflarını otomatik olarak yüksek çözünürlüklü sürüme dönüştürme
 - Bot sekmesinde toplanacak yorum sayısını belirleyip (örn. 10 yorum) Google Haritalar'daki kaydırma alanından otomatik olarak ilgili sayıda yorumu profilleriyle birlikte indirme
 - Karttaki kategori bilgisini (ör. "Güzellik Salonu") de dahil ederek her işletmeyi sınıflandırma
-- Dil seçiminin yanında `assets/cities.json` dosyasından gelen "Şehir" açılır menüsü ile arama merkezini belirleme; seçilen şehirden alınan enlem/boylam Playwright URL'sine otomatik olarak uygulanır
+- Dil seçiminin yanında ülke dosyası seçip ona ait "Şehir" açılır menüsünden arama merkezini belirleme; `google_maps_gui/assets/cities/` altındaki JSON dosyaları (ör. `turkey.json`, `germany.json`, `france.json`, `italy.json`, `portugal.json`, `spain.json`) listelenir, seçilen dosyadaki şehirlerin enlem/boylamı Playwright URL'sine otomatik olarak uygulanır
 - İşletme konumu (lat/lng) alanını isteğe bağlı açıp kapama; koordinatlar sonuç URL'sinden çekilir
 - Harita ekran görüntülerini canlı olarak gösteren ve Playwright tarafından güncellenen yerleşik önizleme paneli
 - Her imleç hareketi ve tıklamada harita önizlemesini yenileyen canlı ilerleme akışı
@@ -130,7 +130,7 @@ Uygulama iki sekmeden oluşur: **API ile Tara** ve **Bot ile Tara**.
 
 1. "Arama Sorgusu" alanına taramak istediğiniz anahtar kelimeyi yazın (örn. "kuaför" veya "restoran").
 2. "Dil" açılır menüsünden botun açacağı Google Haritalar sayfasının dilini seçin (varsayılan Türkçe).
-3. Dil seçiminin yanındaki "Şehir" açılır menüsünden `google_maps_gui/assets/cities.json` dosyasına eklediğiniz şehirlerden birini seçin. Şehir seçerseniz Playwright doğrudan `https://www.google.com/maps/search/<sorgu>/@<lat>,<lng>` adresine gider; seçim yapılmazsa standart arama kutusu kullanılır. Dosya yoksa menü boş kalır.
+3. Dil seçiminin yanındaki ülke/şehir açılır menüsünden önce bir JSON dosyası seçin (ör. `turkey.json`, `germany.json`, `france.json`, `italy.json`, `portugal.json`, `spain.json`), ardından o dosyadaki şehirlerden birini seçin. Şehir seçerseniz Playwright doğrudan `https://www.google.com/maps/search/<sorgu>/@<lat>,<lng>` adresine gider; seçim yapılmazsa standart arama kutusu kullanılır. Dosya yoksa menüler boş kalır.
 4. "İşletme Sayısı" alanından kaç sonuç alınacağını belirleyin. Ayarlar sekmesinde belirlediğiniz üst limit, bu değerin maksimumunu belirler.
 5. "Yorum Sayısı" alanına her işletme için toplanacak maksimum yorum adedini yazın. Bot, Google Haritalar'daki toplam değerlendirme sayısını aşmadan otomatik olarak kaydırma yapıp bu kadar yorumu çeker. (0 değeri yorum toplamayı devre dışı bırakır.) Yorum veri alanı pasif bırakılırsa bu alan otomatik olarak devre dışı kalır.
 6. Veri alanı kutucuklarından (ör. web sitesi, işletme görseli) ihtiyacınız olanları açık bırakın; kapalı olan alanlar hem taranmaz hem de çıktı dosyalarına eklenmez.
