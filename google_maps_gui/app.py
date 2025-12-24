@@ -1576,14 +1576,50 @@ class GoogleMapsPlaywrightScraper:
     MAP_URL = "https://www.google.com/maps"
 
     TAB_LABELS = {
-        "overview": {"tr": ["genel bakış", "genel"], "en": ["overview"], "_default": ["overview"]},
+        "overview": {
+            "tr": ["genel bakış", "genel"],
+            "en": ["overview"],
+            "es": ["descripción", "resumen"],
+            "it": ["panoramica"],
+            "fr": ["aperçu", "présentation"],
+            "ar": ["نظرة عامة"],
+            "pt": ["visão geral", "resumo"],
+            "de": ["übersicht"],
+            "_default": ["overview"],
+        },
         "hours": {
             "tr": ["çalışma saatleri", "saatler"],
             "en": ["hours", "opening hours"],
+            "es": ["horario", "horarios"],
+            "it": ["orari", "orari di apertura"],
+            "fr": ["horaires", "heures d'ouverture"],
+            "ar": ["ساعات العمل"],
+            "pt": ["horários", "horário"],
+            "de": ["öffnungszeiten", "zeiten"],
             "_default": ["hours"],
         },
-        "reviews": {"tr": ["yorumlar", "değerlendirmeler"], "en": ["reviews"], "_default": ["reviews"]},
-        "about": {"tr": ["hakkında"], "en": ["about"], "_default": ["about"]},
+        "reviews": {
+            "tr": ["yorumlar", "değerlendirmeler"],
+            "en": ["reviews"],
+            "es": ["reseñas", "opiniones"],
+            "it": ["recensioni"],
+            "fr": ["avis", "critiques"],
+            "ar": ["المراجعات", "التقييمات"],
+            "pt": ["avaliações", "comentários"],
+            "de": ["bewertungen", "rezensionen"],
+            "_default": ["reviews"],
+        },
+        "about": {
+            "tr": ["hakkında"],
+            "en": ["about"],
+            "es": ["acerca de", "información"],
+            "it": ["informazioni", "chi siamo"],
+            "fr": ["à propos", "infos"],
+            "ar": ["حول", "معلومات"],
+            "pt": ["sobre", "informações"],
+            "de": ["über", "informationen"],
+            "_default": ["about"],
+        },
     }
 
     def __init__(
@@ -1745,7 +1781,16 @@ class GoogleMapsPlaywrightScraper:
 
     def _locale(self) -> str:
         normalized = (self.language or "en").lower()
-        mapping = {"tr": "tr-TR", "en": "en-US"}
+        mapping = {
+            "tr": "tr-TR",
+            "en": "en-US",
+            "es": "es-ES",
+            "it": "it-IT",
+            "fr": "fr-FR",
+            "ar": "ar-SA",
+            "pt": "pt-PT",
+            "de": "de-DE",
+        }
         return mapping.get(normalized, "en-US")
 
     def _build_search_url(self, query: str) -> str:
@@ -4111,7 +4156,16 @@ class Application(tk.Tk):
                 return
             try:
                 with open(path, "w", encoding="utf-8") as output:
-                    json.dump([result.to_dict() for result in results], output, ensure_ascii=False, indent=2)
+                    json.dump(
+                        {
+                            "language": self.language,
+                            "locale": self._locale(),
+                            "results": [result.to_dict() for result in results],
+                        },
+                        output,
+                        ensure_ascii=False,
+                        indent=2,
+                    )
             except OSError:
                 messagebox.showerror(self._("error_title"), self._("save_error"))
                 return
@@ -4186,6 +4240,8 @@ class Application(tk.Tk):
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "city_name": city_name,
             "city": city_name,
+            "language": self.language,
+            "locale": self._locale(),
             "results": [result.to_dict() for result in results],
         }
         try:
