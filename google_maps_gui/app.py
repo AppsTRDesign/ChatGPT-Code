@@ -1880,12 +1880,14 @@ class GoogleMapsPlaywrightScraper:
             if not handle:
                 continue
             try:
-                handle.evaluate("el => { el.scrollTop = el.scrollTop + (el.clientHeight || 600); }")
+                handle.evaluate(
+                    "el => { el.scrollBy({top: Math.max(el.clientHeight || 0, 700), behavior: 'instant'}); }"
+                )
                 return True
             except PlaywrightError:
                 continue
         with suppress(PlaywrightError):
-            page.mouse.wheel(0, 800)
+            page.mouse.wheel(0, 1200)
             return True
         return False
 
@@ -1978,7 +1980,7 @@ class GoogleMapsPlaywrightScraper:
 
         website = self._extract_website(page) if selection.website else None
 
-        phone = self._extract_phone(page) if selection.formatted_phone_number else None
+        phone = self._extract_phone(page, address) if selection.formatted_phone_number else None
         phone = sanitize_phone(phone, address)
         phone_type = classify_phone(phone)
 
@@ -2061,26 +2063,32 @@ class GoogleMapsPlaywrightScraper:
                 return value
         return ""
 
-    def _extract_phone(self, page: Page) -> str:
+    def _extract_phone(self, page: Page, address: str) -> str:
+        def _matches_address(value: str) -> bool:
+            normalized_phone = " ".join((value or "").split()).lower()
+            normalized_address = " ".join((address or "").split()).lower()
+            return bool(normalized_phone and normalized_address and normalized_phone == normalized_address)
+
         selectors = [
             'button[data-item-id*="phone"] div.Io6YTe',
             'div[data-item-id*="phone"] div.Io6YTe',
             'div.AeaXub div.Io6YTe',
         ]
         phone = self._first_text(page, selectors)
-        if phone:
+        if phone and not _matches_address(phone):
             return phone
         meta_items = self._extract_meta_items(page)
         for key, value in meta_items.items():
             if "phone" in key.lower():
-                return value
+                if value and not _matches_address(value):
+                    return value
         # As a last resort, pick the first Io6YTe block that looks like a phone number
         locator = page.locator('div.AeaXub div.Io6YTe, div.Io6YTe')
         count = locator.count()
         for idx in range(count):
             text = self._safe_inner_text(locator.nth(idx))
             digits = "".join(ch for ch in text if ch.isdigit())
-            if len(digits) >= 8:
+            if len(digits) >= 8 and not _matches_address(text):
                 return text
         return ""
 
@@ -2341,6 +2349,8 @@ class GoogleMapsPlaywrightScraper:
     ) -> None:
         if target <= 0:
             return
+        if fast and reviews_locator.count() >= target:
+            return
         deadline = time.time() + (5 if fast else 16)
         attempts = 0
         while time.time() < deadline:
@@ -2356,7 +2366,7 @@ class GoogleMapsPlaywrightScraper:
             attempts += 1
             if not scrolled and attempts > (3 if fast else 6):
                 break
-            page.wait_for_timeout(180 if fast else 400)
+            page.wait_for_timeout(140 if fast else 320)
         # allow best-effort even if we exit the loop
 
     def _expand_review_content(self, review: Locator) -> None:
