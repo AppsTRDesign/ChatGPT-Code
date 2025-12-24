@@ -2746,7 +2746,9 @@ class Application(tk.Tk):
         self._tree_sort_states: Dict[ttk.Treeview, Dict[str, bool]] = {}
 
         self._api_results: List[PlaceResult] = []
+        self._api_export_payload: List[Dict[str, object]] = []
         self._bot_results: List[PlaceResult] = []
+        self._bot_export_payload: List[Dict[str, object]] = []
         self._bot_map_photo: Optional[ImageTk.PhotoImage] = None
         self._bot_active_limit: int = 0
         self._bot_attempted: int = 0
@@ -2889,22 +2891,22 @@ class Application(tk.Tk):
         self.api_save_json_button = ttk.Button(
             self.api_button_frame,
             text="",
-            command=lambda: self._save_results(self._api_results, "json"),
+            command=lambda: self._save_results(self._api_results, "json", "api"),
         )
         self.api_save_csv_button = ttk.Button(
             self.api_button_frame,
             text="",
-            command=lambda: self._save_results(self._api_results, "csv"),
+            command=lambda: self._save_results(self._api_results, "csv", "api"),
         )
         self.api_save_pdf_button = ttk.Button(
             self.api_button_frame,
             text="",
-            command=lambda: self._save_results(self._api_results, "pdf"),
+            command=lambda: self._save_results(self._api_results, "pdf", "api"),
         )
         self.api_save_xlsx_button = ttk.Button(
             self.api_button_frame,
             text="",
-            command=lambda: self._save_results(self._api_results, "xlsx"),
+            command=lambda: self._save_results(self._api_results, "xlsx", "api"),
         )
         self.api_transfer_button = ttk.Button(
             self.api_button_frame,
@@ -3028,22 +3030,22 @@ class Application(tk.Tk):
         self.bot_save_json_button = ttk.Button(
             self.bot_button_frame,
             text="",
-            command=lambda: self._save_results(self._bot_results, "json"),
+            command=lambda: self._save_results(self._bot_results, "json", "bot"),
         )
         self.bot_save_csv_button = ttk.Button(
             self.bot_button_frame,
             text="",
-            command=lambda: self._save_results(self._bot_results, "csv"),
+            command=lambda: self._save_results(self._bot_results, "csv", "bot"),
         )
         self.bot_save_pdf_button = ttk.Button(
             self.bot_button_frame,
             text="",
-            command=lambda: self._save_results(self._bot_results, "pdf"),
+            command=lambda: self._save_results(self._bot_results, "pdf", "bot"),
         )
         self.bot_save_xlsx_button = ttk.Button(
             self.bot_button_frame,
             text="",
-            command=lambda: self._save_results(self._bot_results, "xlsx"),
+            command=lambda: self._save_results(self._bot_results, "xlsx", "bot"),
         )
         self.bot_transfer_button = ttk.Button(
             self.bot_button_frame,
@@ -3636,6 +3638,8 @@ class Application(tk.Tk):
         selection_payload = FieldSelection(**vars(selection))
         review_limit_setting = self._get_settings_review_limit()
         review_limit = review_limit_setting if selection_payload.wants_reviews() else 0
+        self._api_results.clear()
+        self._api_export_payload.clear()
 
         def worker() -> None:
             try:
@@ -3703,6 +3707,7 @@ class Application(tk.Tk):
         for item in self.bot_results_tree.get_children():
             self.bot_results_tree.delete(item)
         self._bot_results.clear()
+        self._bot_export_payload.clear()
 
         def worker() -> None:
             try:
@@ -3763,6 +3768,7 @@ class Application(tk.Tk):
 
     def _update_api_results(self, results: List[PlaceResult]) -> None:
         self._api_results = results
+        self._api_export_payload = [result.to_dict() for result in results]
         for item in self.api_results_tree.get_children():
             self.api_results_tree.delete(item)
         if not results:
@@ -3793,6 +3799,7 @@ class Application(tk.Tk):
     def _update_bot_results(self, results: List[PlaceResult]) -> None:
         existing_items = self.bot_results_tree.get_children()
         self._bot_results = results
+        self._bot_export_payload = [result.to_dict() for result in results]
         if not results:
             for item in existing_items:
                 self.bot_results_tree.delete(item)
@@ -3863,6 +3870,7 @@ class Application(tk.Tk):
     def _append_bot_result(self, result: PlaceResult) -> None:
         index = len(self._bot_results)
         self._bot_results.append(result)
+        self._bot_export_payload.append(result.to_dict())
         phone = result.formatted_phone_number or "-"
         category = result.business_type or "-"
         rating_display = "-"
@@ -4126,8 +4134,19 @@ class Application(tk.Tk):
             if original_state == "disabled":
                 spinbox.config(state=tk.DISABLED)
 
-    def _save_results(self, results: List[PlaceResult], file_format: str) -> None:
-        if not results:
+    def _save_results(
+        self, results: List[PlaceResult], file_format: str, source: str = "api"
+    ) -> None:
+        payload_cache: List[Dict[str, object]]
+        if source == "bot":
+            payload_cache = self._bot_export_payload
+        else:
+            payload_cache = self._api_export_payload
+
+        export_results = results or []
+        export_payload = payload_cache or [r.to_dict() for r in export_results]
+
+        if not export_results and not export_payload:
             messagebox.showinfo(self._("info_title"), self._("error_no_results_to_save"))
             return
         fieldnames = [
@@ -4147,6 +4166,10 @@ class Application(tk.Tk):
             "busy_hours",
         ]
 
+        if file_format != "json" and not export_results:
+            messagebox.showinfo(self._("info_title"), self._("error_no_results_to_save"))
+            return
+
         if file_format == "json":
             path = filedialog.asksaveasfilename(
                 defaultextension=".json",
@@ -4160,7 +4183,7 @@ class Application(tk.Tk):
                         {
                             "language": self.language,
                             "locale": self._locale(),
-                            "results": [result.to_dict() for result in results],
+                            "results": export_payload,
                         },
                         output,
                         ensure_ascii=False,
@@ -4178,7 +4201,7 @@ class Application(tk.Tk):
                 return
             try:
                 exporter = ResultPdfExporter(PDF_FONT_PATH)
-                exporter.export(results, path, self._)
+                exporter.export(export_results, path, self._)
             except FileNotFoundError:
                 messagebox.showerror(self._("error_title"), self._("save_error"))
                 return
@@ -4196,7 +4219,7 @@ class Application(tk.Tk):
                 wb = Workbook()
                 ws = wb.active
                 ws.append(fieldnames)
-                for result in results:
+                for result in export_results:
                     row = result.to_csv_row()
                     ws.append([row.get(field, "") for field in fieldnames])
                 wb.save(path)
@@ -4214,7 +4237,7 @@ class Application(tk.Tk):
                 with open(path, "w", encoding="utf-8-sig", newline="") as output:
                     writer = csv.DictWriter(output, fieldnames=fieldnames)
                     writer.writeheader()
-                    for result in results:
+                    for result in export_results:
                         writer.writerow(result.to_csv_row())
             except OSError:
                 messagebox.showerror(self._("error_title"), self._("save_error"))
@@ -4222,7 +4245,14 @@ class Application(tk.Tk):
         messagebox.showinfo(self._("info_title"), self._("save_success"))
 
     def _transfer_results(self, results: List[PlaceResult], source: str) -> None:
-        if not results:
+        payload_cache: List[Dict[str, object]]
+        if source == "bot":
+            payload_cache = self._bot_export_payload
+        else:
+            payload_cache = self._api_export_payload
+
+        export_payload = payload_cache or [r.to_dict() for r in results]
+        if not export_payload:
             messagebox.showinfo(self._("info_title"), self._("error_no_results_to_save"))
             return
         endpoint = (self.settings_api_url_var.get() or "").strip()
@@ -4242,7 +4272,7 @@ class Application(tk.Tk):
             "city": city_name,
             "language": self.language,
             "locale": self._locale(),
-            "results": [result.to_dict() for result in results],
+            "results": export_payload,
         }
         try:
             response = requests.post(
