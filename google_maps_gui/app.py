@@ -1780,7 +1780,15 @@ class GoogleMapsPlaywrightScraper:
         return results
 
     def _locale(self, lang: Optional[str] = None) -> str:
-        normalized = (lang or self.selected_language.get() or "en").lower()
+        """Resolve locale code based on the scraper's configured language.
+
+        The Playwright scraper is not bound to the Tkinter StringVar used by
+        the GUI, so we rely solely on the language value provided at
+        construction time (or an explicit override) to avoid attribute errors
+        during headless/headful runs.
+        """
+
+        normalized = (lang or self.language or "en").lower()
         mapping = {
             "tr": "tr-TR",
             "en": "en-US",
