@@ -1779,8 +1779,8 @@ class GoogleMapsPlaywrightScraper:
         LOGGER.info("Playwright scrape finished with %d results", len(results))
         return results
 
-    def _locale(self) -> str:
-        normalized = (self.language or "en").lower()
+    def _locale(self, lang: Optional[str] = None) -> str:
+        normalized = (lang or self.selected_language.get() or "en").lower()
         mapping = {
             "tr": "tr-TR",
             "en": "en-US",
@@ -4146,15 +4146,21 @@ class Application(tk.Tk):
         export_results = results or []
         export_payload = payload_cache or [r.to_dict() for r in export_results]
 
+        language = (
+            self.bot_language_combo.get() if source == "bot" else self.selected_language.get()
+        ) or "en"
+
         if not export_results and not export_payload:
             messagebox.showinfo(self._("info_title"), self._("error_no_results_to_save"))
             return
         fieldnames = [
+            "city_name",
             "name",
             "address",
             "phone",
             "telephone_type",
             "category",
+            "category_slug",
             "business_image",
             "latitude",
             "longitude",
@@ -4164,6 +4170,7 @@ class Application(tk.Tk):
             "rating_count",
             "reviews",
             "busy_hours",
+            "city_slug",
         ]
 
         if file_format != "json" and not export_results:
@@ -4181,8 +4188,8 @@ class Application(tk.Tk):
                 with open(path, "w", encoding="utf-8") as output:
                     json.dump(
                         {
-                            "language": self.language,
-                            "locale": self._locale(),
+                            "language": language,
+                            "locale": self._locale(language),
                             "results": export_payload,
                         },
                         output,
@@ -4265,13 +4272,17 @@ class Application(tk.Tk):
             city_name = (self.bot_city_combo.get() or "").strip()
         if not city_name and results:
             city_name = results[0].city_name or ""
+        language = (
+            self.bot_language_combo.get() if source == "bot" else self.selected_language.get()
+        ) or "en"
+
         payload = {
             "source": source,
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "city_name": city_name,
             "city": city_name,
-            "language": self.language,
-            "locale": self._locale(),
+            "language": language,
+            "locale": self._locale(language),
             "results": export_payload,
         }
         try:
