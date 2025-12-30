@@ -34,9 +34,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     admin_json(['message' => 'Geçersiz işlem'], 400);
 }
 
-$stmt = $pdo->query('SELECT pcr.*, places.name AS place_name, users.name AS user_name FROM place_claim_requests pcr JOIN places ON places.id=pcr.place_id JOIN users ON users.id=pcr.user_id ORDER BY pcr.created_at DESC');
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = (int)($_GET['per_page'] ?? 10);
+$perPage = min(100, max(5, $perPage));
+$q = trim($_GET['q'] ?? '');
+$status = trim($_GET['status'] ?? '');
+
+$where = [];
+$params = [];
+if ($status !== '' && in_array($status, ['pending','approved','rejected'], true)) {
+    $where[] = 'pcr.status = :status';
+    $params[':status'] = $status;
+}
+if ($q !== '') {
+    $where[] = '(places.name LIKE :q OR users.name LIKE :q OR users.email LIKE :q)';
+    $params[':q'] = '%' . $q . '%';
+}
+$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM place_claim_requests pcr JOIN places ON places.id = pcr.place_id JOIN users ON users.id = pcr.user_id {$whereSql}");
+$countStmt->execute($params);
+$total = (int)$countStmt->fetchColumn();
+
+$offset = ($page - 1) * $perPage;
+$dataSql = "SELECT pcr.*, places.name AS place_name, users.name AS user_name FROM place_claim_requests pcr JOIN places ON places.id=pcr.place_id JOIN users ON users.id=pcr.user_id {$whereSql} ORDER BY pcr.created_at DESC LIMIT :limit OFFSET :offset";
+$dataStmt = $pdo->prepare($dataSql);
+foreach ($params as $k => $v) {
+    $dataStmt->bindValue($k, $v);
+}
+$dataStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$dataStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$dataStmt->execute();
+
 $items = [];
-foreach ($stmt as $row) {
+foreach ($dataStmt as $row) {
     $items[] = [
         'id' => (int)$row['id'],
         'place' => $row['place_name'],
@@ -46,4 +77,14 @@ foreach ($stmt as $row) {
         'created_at' => $row['created_at'],
     ];
 }
-admin_json(['items' => $items]);
+
+$pages = max(1, (int)ceil($total / $perPage));
+admin_json([
+    'items' => $items,
+    'meta' => [
+        'page' => $page,
+        'pages' => $pages,
+        'total' => $total,
+        'per_page' => $perPage,
+    ],
+]);

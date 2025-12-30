@@ -1,3 +1,6 @@
 body { background: #f5f7fb; }
 #stats-row .card { min-height: 110px; }
 .table td { vertical-align: middle; }
+.table-responsive { max-height: 70vh; }
+.search-pill { background:#eef2f7; border-radius:8px; padding:12px; }
+.pagination { flex-wrap: wrap; }

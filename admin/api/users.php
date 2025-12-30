@@ -15,6 +15,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     admin_json(['message' => 'Kullanıcı güncellendi']);
 }
 
-$stmt = $pdo->query('SELECT id,name,email,role,status FROM users ORDER BY created_at DESC LIMIT 200');
-$items = $stmt->fetchAll();
-admin_json(['items' => $items]);
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = (int)($_GET['per_page'] ?? 10);
+$perPage = min(100, max(5, $perPage));
+$q = trim($_GET['q'] ?? '');
+
+$where = [];
+$params = [];
+if ($q !== '') {
+    $where[] = '(name LIKE :q OR email LIKE :q)';
+    $params[':q'] = '%' . $q . '%';
+}
+$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM users {$whereSql}");
+$countStmt->execute($params);
+$total = (int)$countStmt->fetchColumn();
+
+$offset = ($page - 1) * $perPage;
+$dataSql = "SELECT id,name,email,role,status FROM users {$whereSql} ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+$dataStmt = $pdo->prepare($dataSql);
+foreach ($params as $k => $v) {
+    $dataStmt->bindValue($k, $v);
+}
+$dataStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$dataStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$dataStmt->execute();
+$items = $dataStmt->fetchAll();
+
+$pages = max(1, (int)ceil($total / $perPage));
+admin_json([
+    'items' => $items,
+    'meta' => [
+        'page' => $page,
+        'pages' => $pages,
+        'total' => $total,
+        'per_page' => $perPage,
+    ],
+]);

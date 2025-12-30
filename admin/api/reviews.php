@@ -15,9 +15,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     admin_json(['message' => 'Güncellendi']);
 }
 
-$stmt = $pdo->query("SELECT ur.*, p.name AS place_name FROM user_reviews ur JOIN places p ON p.id = ur.place_id ORDER BY ur.created_at DESC LIMIT 200");
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = (int)($_GET['per_page'] ?? 10);
+$perPage = min(100, max(5, $perPage));
+$q = trim($_GET['q'] ?? '');
+$status = trim($_GET['status'] ?? '');
+
+$where = [];
+$params = [];
+if ($status !== '' && in_array($status, ['pending','approved','rejected'], true)) {
+    $where[] = 'ur.status = :status';
+    $params[':status'] = $status;
+}
+if ($q !== '') {
+    $where[] = '(p.name LIKE :q OR ur.author_name LIKE :q OR ur.email LIKE :q)';
+    $params[':q'] = '%' . $q . '%';
+}
+$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM user_reviews ur JOIN places p ON p.id = ur.place_id {$whereSql}");
+$countStmt->execute($params);
+$total = (int)$countStmt->fetchColumn();
+
+$offset = ($page - 1) * $perPage;
+$dataSql = "SELECT ur.*, p.name AS place_name FROM user_reviews ur JOIN places p ON p.id = ur.place_id {$whereSql} ORDER BY ur.created_at DESC LIMIT :limit OFFSET :offset";
+$dataStmt = $pdo->prepare($dataSql);
+foreach ($params as $k => $v) {
+    $dataStmt->bindValue($k, $v);
+}
+$dataStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$dataStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$dataStmt->execute();
+
 $items = [];
-foreach ($stmt as $row) {
+foreach ($dataStmt as $row) {
     $items[] = [
         'id' => (int)$row['id'],
         'place' => $row['place_name'],
@@ -27,4 +58,14 @@ foreach ($stmt as $row) {
         'status' => $row['status'],
     ];
 }
-admin_json(['items' => $items]);
+
+$pages = max(1, (int)ceil($total / $perPage));
+admin_json([
+    'items' => $items,
+    'meta' => [
+        'page' => $page,
+        'pages' => $pages,
+        'total' => $total,
+        'per_page' => $perPage,
+    ],
+]);
