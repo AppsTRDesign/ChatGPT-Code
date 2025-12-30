@@ -36,6 +36,16 @@ tasarlandı ve hem Google Places API'yi hem de Playwright tabanlı yerleşik bir
 - Olası hataları `google_maps_gui.log` dosyasına kaydetme
 - Makine kimliğine bağlı esnek gün/ay/yıl lisans planlarını yöneten yerleşik Lisans sekmesi ve kalan gün göstergesi
 
+### Yönetim Paneli (admin/)
+`admin/` klasörü yalnızca `role=admin` kullanıcılarla erişilebilen mobil uyumlu bir kontrol paneli sağlar. Giriş için veritabanındaki admin kullanıcısının e-posta/şifresini ya da ortam değişkeni `ADMIN_OVERRIDE_PASSWORD` değerini kullanabilirsiniz. Panel yolu: `https://maps.noasoft.org/admin/login.php` (kendi kurulumunuza göre güncelleyin).
+
+Öne çıkanlar:
+- İstatistikler: toplam işletme, bekleyen claim ve yorum, kullanıcı sayıları
+- Claim yönetimi: Onay/red → `places.claimed_at/claimed_by` güncellenir ve başvuran üyenin rolü `business_owner` yapılır
+- Yorum yönetimi: `user_reviews` kayıtlarını onayla/red et
+- Kullanıcı yönetimi: rol ve durum güncelleme
+- Tüm işlemler AJAX + Toastr bildirimleriyle ilerler
+
 ## Frontend (OpenStreetMap)
 
 Plesk/AlmaLinux 8 üzerinde PHP 8 + PDO ile çalışan, MySQL’deki `places` verilerini gösteren bir ziyaretçi uygulaması (web köküne kurulacak `frontend` içeriği) eklendi.
