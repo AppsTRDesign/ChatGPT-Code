@@ -4,6 +4,43 @@
 
     const page = $('body').data('page');
 
+    // Places
+    const placeState = {page:1, per_page:10, q:'', status:''};
+    function placeBadge(status){
+        if(status==='1') return '<span class="badge bg-success">Onaylı</span>';
+        if(status==='2') return '<span class="badge bg-danger">Reddedildi</span>';
+        return '<span class="badge bg-warning text-dark">Beklemede</span>';
+    }
+
+    function loadPlaces(){
+        const params = Object.assign({}, placeState);
+        ajax('api/places.php','GET',params).done(res=>{
+            const tbody = $('#places-table tbody');
+            if(!tbody.length) return;
+            tbody.empty();
+            (res.items||[]).forEach(item=>{
+                const actions = item.status==='0'
+                    ? `<div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-success" data-place-status="1" data-id="${item.id}">Onayla</button>
+                        <button class="btn btn-danger" data-place-status="2" data-id="${item.id}">Reddet</button>
+                       </div>`
+                    : `<button class="btn btn-outline-secondary btn-sm" data-place-status="0" data-id="${item.id}">Beklemeye Al</button>`;
+
+                tbody.append(`<tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.city||''}</td>
+                    <td>${item.category||''}</td>
+                    <td>${placeBadge(item.status)}</td>
+                    <td class="text-truncate" style="max-width:180px;">${item.status_note||''}</td>
+                    <td>${item.created_at||''}</td>
+                    <td>${actions}</td>
+                </tr>`);
+            });
+            renderPagination(res.meta || {page:1,pages:1}, '#places-pagination', (p)=>{placeState.page=p;loadPlaces();});
+        });
+    }
+
     function renderPagination(meta, target, onClick){
         const $el = $(target);
         $el.empty();
@@ -126,6 +163,22 @@
         ajax('api/reviews.php','POST',{action,id}).done(res=>{toast(res.message);reviewState.page=1;loadReviews();loadStats();});
     });
 
+    $(document).on('click','[data-place-status]',function(){
+        const id=$(this).data('id');
+        const status=$(this).data('place-status').toString();
+        let note='';
+        if(status==='2'){
+            note = prompt('Reddetme nedeni');
+            if(note===null) return;
+        }
+        ajax('api/places.php','POST',{id,status,note}).done(res=>{
+            toast(res.message);
+            placeState.page=1;
+            loadPlaces();
+            loadStats();
+        });
+    });
+
     $(document).on('click','[data-user-update]',function(){
         const id=$(this).data('user-update');
         const role=$(`select.user-role[data-id=${id}]`).val();
@@ -151,6 +204,15 @@
         loadReviews();
     });
 
+    $('#place-filters').on('submit',function(e){
+        e.preventDefault();
+        placeState.q = $(this).find('[name=q]').val();
+        placeState.status = $(this).find('[name=status]').val();
+        placeState.per_page = $(this).find('[name=per_page]').val();
+        placeState.page = 1;
+        loadPlaces();
+    });
+
     $('#user-filters').on('submit',function(e){
         e.preventDefault();
         userState.q = $(this).find('[name=q]').val();
@@ -163,4 +225,5 @@
     if(page==='claims'){ loadClaims(); loadStats(); }
     if(page==='reviews'){ loadReviews(); loadStats(); }
     if(page==='users'){ loadUsers(); loadStats(); }
+    if(page==='places'){ loadPlaces(); loadStats(); }
 })(jQuery);

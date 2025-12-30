@@ -19,13 +19,21 @@ CREATE TABLE IF NOT EXISTS places (
     view_total INT UNSIGNED NOT NULL DEFAULT 0,
     business_image TEXT,
     reviews JSON,
+    status VARCHAR(10) DEFAULT '0',
+    status_note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_source (source),
     KEY idx_city_name (city_name),
     KEY idx_city_slug (city_slug),
     KEY idx_category_slug (category_slug),
     KEY idx_name (name(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Backfill new moderation fields on existing installs
+ALTER TABLE places ADD COLUMN IF NOT EXISTS status VARCHAR(10) DEFAULT '0' AFTER reviews;
+ALTER TABLE places ADD COLUMN IF NOT EXISTS status_note TEXT NULL AFTER status;
+ALTER TABLE places ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
 
 CREATE TABLE IF NOT EXISTS user_reviews (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

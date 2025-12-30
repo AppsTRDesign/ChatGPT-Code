@@ -25,6 +25,7 @@ $activeNav = $activeNav ?? '';
         <div class="collapse navbar-collapse" id="adminNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item"><a class="nav-link <?php echo $activeNav==='dashboard'?'active':''; ?>" href="index.php">Gösterge Paneli</a></li>
+                <li class="nav-item"><a class="nav-link <?php echo $activeNav==='places'?'active':''; ?>" href="places.php">İşletmeler</a></li>
                 <li class="nav-item"><a class="nav-link <?php echo $activeNav==='claims'?'active':''; ?>" href="claims.php">Doğrulama Talepleri</a></li>
                 <li class="nav-item"><a class="nav-link <?php echo $activeNav==='reviews'?'active':''; ?>" href="reviews.php">Yorumlar</a></li>
                 <li class="nav-item"><a class="nav-link <?php echo $activeNav==='users'?'active':''; ?>" href="users.php">Kullanıcılar</a></li>
