@@ -68,12 +68,16 @@ $dataStmt->execute();
 
 $items = [];
 foreach ($dataStmt as $row) {
+    $payload = $row['approval_payload'] ?? '';
+    $decodedPayload = $payload ? json_decode($payload, true) : null;
     $items[] = [
         'id' => (int)$row['id'],
         'place' => $row['place_name'],
         'user' => $row['user_name'],
         'status' => $row['status'],
         'approval_method' => $row['approval_method'],
+        'approval_payload' => $decodedPayload ?: $payload,
+        'verified_at' => $row['verified_at'],
         'created_at' => $row['created_at'],
     ];
 }

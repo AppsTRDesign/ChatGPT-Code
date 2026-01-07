@@ -6,8 +6,20 @@ $pdo = admin_db();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = (int)($_POST['id'] ?? 0);
     $action = $_POST['action'] ?? '';
-    if (!in_array($action, ['approve','reject'], true)) {
+    if (!in_array($action, ['approve','reject','delete'], true)) {
         admin_json(['message' => 'Geçersiz işlem'], 400);
+    }
+    if ($action === 'delete') {
+        $stmt = $pdo->prepare('SELECT review_photo_urls FROM user_reviews WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            admin_json(['message' => 'Kayıt bulunamadı'], 404);
+        }
+        $photos = decode_json($row['review_photo_urls'] ?? '');
+        admin_remove_files($photos);
+        $pdo->prepare('DELETE FROM user_reviews WHERE id = :id')->execute([':id' => $id]);
+        admin_json(['message' => 'Yorum silindi']);
     }
     $newStatus = $action === 'approve' ? 'approved' : 'rejected';
     $stmt = $pdo->prepare('UPDATE user_reviews SET status = :st WHERE id = :id');
@@ -55,6 +67,9 @@ foreach ($dataStmt as $row) {
         'author' => $row['author_name'],
         'rating' => (int)$row['rating'],
         'text' => $row['review_text'],
+        'text_extra' => decode_json($row['text_extra'] ?? ''),
+        'review_photo_urls' => decode_json($row['review_photo_urls'] ?? ''),
+        'created_at' => $row['created_at'],
         'status' => $row['status'],
     ];
 }

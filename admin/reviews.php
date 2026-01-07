@@ -37,4 +37,42 @@ require_once __DIR__ . '/partials/header.php';
         <nav><ul class="pagination pagination-sm" id="reviews-pagination"></ul></nav>
     </div>
 </div>
+<div class="modal fade" id="reviewDetailModal" tabindex="-1" aria-labelledby="reviewDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reviewDetailModalLabel">Yorum Detayı</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div><strong>İşletme:</strong> <span id="review-detail-place"></span></div>
+                        <div><strong>Yazar:</strong> <span id="review-detail-author"></span></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div><strong>Puan:</strong> <span id="review-detail-rating"></span></div>
+                        <div><strong>Durum:</strong> <span id="review-detail-status"></span></div>
+                        <div><strong>Tarih:</strong> <span id="review-detail-date"></span></div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <h6>Yorum</h6>
+                    <p id="review-detail-text" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <h6>Text Extra</h6>
+                    <div id="review-detail-extra" class="review-extra-list"></div>
+                </div>
+                <div>
+                    <h6>Fotoğraflar</h6>
+                    <div id="review-detail-photos" class="review-photo-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

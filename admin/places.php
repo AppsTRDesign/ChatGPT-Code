@@ -62,5 +62,34 @@ require_once __DIR__ . '/partials/header.php';
         </nav>
     </div>
 </div>
+<div class="modal fade" id="placeDetailModal" tabindex="-1" aria-labelledby="placeDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="placeDetailModalLabel">İşletme Detayı</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <img id="place-detail-image" class="img-fluid rounded border d-none" alt="İşletme görseli">
+                    </div>
+                    <div class="col-md-8">
+                        <div><strong>İsim:</strong> <span id="place-detail-name"></span></div>
+                        <div><strong>Telefon:</strong> <span id="place-detail-phone"></span></div>
+                        <div><strong>Şehir:</strong> <span id="place-detail-city"></span></div>
+                        <div><strong>Kategori:</strong> <span id="place-detail-category"></span></div>
+                    </div>
+                </div>
+                <hr>
+                <h6>Kısa Açıklama</h6>
+                <p id="place-detail-description" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php require_once __DIR__ . '/partials/footer.php'; ?>

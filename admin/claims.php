@@ -37,4 +37,33 @@ require_once __DIR__ . '/partials/header.php';
         <nav><ul class="pagination pagination-sm" id="claims-pagination"></ul></nav>
     </div>
 </div>
+<div class="modal fade" id="claimDetailModal" tabindex="-1" aria-labelledby="claimDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="claimDetailModalLabel">Talep Detayı</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div><strong>İşletme:</strong> <span id="claim-detail-place"></span></div>
+                        <div><strong>Kullanıcı:</strong> <span id="claim-detail-user"></span></div>
+                        <div><strong>Metod:</strong> <span id="claim-detail-method"></span></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div><strong>Durum:</strong> <span id="claim-detail-status"></span></div>
+                        <div><strong>Doğrulama Tarihi:</strong> <span id="claim-detail-verified"></span></div>
+                    </div>
+                </div>
+                <hr>
+                <h6>Detaylar</h6>
+                <div id="claim-detail-payload" class="small text-muted"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Kapat</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?php require_once __DIR__ . '/partials/footer.php'; ?>
