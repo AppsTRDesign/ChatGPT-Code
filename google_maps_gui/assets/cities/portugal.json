@@ -1,0 +1,12 @@
+[
+  {"name": "lisboa", "latitude": "38.7223", "longitude": "-9.1393"},
+  {"name": "porto", "latitude": "41.1579", "longitude": "-8.6291"},
+  {"name": "braga", "latitude": "41.5454", "longitude": "-8.4265"},
+  {"name": "coimbra", "latitude": "40.2033", "longitude": "-8.4103"},
+  {"name": "faro", "latitude": "37.0194", "longitude": "-7.9304"},
+  {"name": "aveiro", "latitude": "40.6405", "longitude": "-8.6538"},
+  {"name": "funchal", "latitude": "32.6669", "longitude": "-16.9241"},
+  {"name": "setúbal", "latitude": "38.5244", "longitude": "-8.8882"},
+  {"name": "évora", "latitude": "38.5714", "longitude": "-7.9135"},
+  {"name": "viseu", "latitude": "40.6566", "longitude": "-7.9125"}
+]
