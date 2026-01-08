@@ -1,0 +1,10 @@
+body { background: #f5f7fb; }
+#stats-row .card { min-height: 110px; }
+.table td { vertical-align: middle; }
+.table-responsive { max-height: 70vh; }
+.search-pill { background:#eef2f7; border-radius:8px; padding:12px; }
+.pagination { flex-wrap: wrap; }
+.review-extra-list { display: grid; gap: 8px; }
+.review-extra-item { padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; }
+.review-photo-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.review-photo-thumb { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
