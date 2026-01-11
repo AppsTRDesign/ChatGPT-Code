@@ -214,10 +214,18 @@ fun PlaceDetailScreen(placeId: Long, onBack: () -> Unit) {
     }
     val galleryDialogState = remember { mutableStateOf<GalleryDialogState?>(null) }
     val scope = rememberCoroutineScope()
-    val showStickyTabs = remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 180
-        }
+    val showStickyTabs = remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .distinctUntilChanged()
+            .collect { (index, offset) ->
+                val showThresholdReached = index > 0 || offset > 420
+                val hideThresholdReached = index == 0 && offset < 120
+                when {
+                    showThresholdReached -> showStickyTabs.value = true
+                    hideThresholdReached -> showStickyTabs.value = false
+                }
+            }
     }
 
     LaunchedEffect(reviewPage.value, reviewSort.value) {
