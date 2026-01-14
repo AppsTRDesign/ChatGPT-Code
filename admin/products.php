@@ -10,10 +10,18 @@ $products = $pdo->query('SELECT * FROM products ORDER BY created_at DESC')->fetc
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
 $editId = (int) ($_GET['edit'] ?? 0);
 $productData = null;
+$featureText = '';
 if ($editId) {
     $stmt = $pdo->prepare('SELECT * FROM products WHERE id = :id');
     $stmt->execute(['id' => $editId]);
     $productData = $stmt->fetch(PDO::FETCH_ASSOC);
+    $featureStmt = $pdo->prepare('SELECT feature_name, feature_value FROM product_features WHERE product_id = :product_id');
+    $featureStmt->execute(['product_id' => $editId]);
+    $features = $featureStmt->fetchAll(PDO::FETCH_ASSOC);
+    $featureText = implode("\n", array_map(
+        fn($feature) => $feature['feature_name'] . ': ' . $feature['feature_value'],
+        $features
+    ));
 }
 
 admin_header('Ürün Yönetimi');
@@ -33,10 +41,11 @@ admin_header('Ürün Yönetimi');
                 <?php endforeach; ?>
             </select>
         </label>
-        <label>Açıklama<textarea name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
+        <label>Açıklama<textarea class="tinymce" name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
         <label>Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
         <label>Ürün Görseli<input type="file" name="main_image"></label>
         <label>Galeri Görselleri<input type="file" name="gallery[]" multiple></label>
+        <label>Özellikler (Ör: Renk: Kırmızı)<textarea name="features" rows="4"><?= htmlspecialchars($featureText) ?></textarea></label>
         <label>Sipariş Kanalı
             <select name="order_channel">
                 <option value="whatsapp" <?= ($productData && $productData['order_channel'] === 'whatsapp') ? 'selected' : '' ?>>WhatsApp</option>
@@ -76,3 +85,7 @@ admin_header('Ürün Yönetimi');
 <?php
 admin_footer();
 ?>
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js"></script>
+<script>
+    tinymce.init({ selector: '.tinymce', height: 240, menubar: false });
+</script>

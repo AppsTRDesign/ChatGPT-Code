@@ -19,11 +19,11 @@ $orders = $pdo->query('SELECT * FROM orders ORDER BY created_at DESC LIMIT 10')-
 admin_header('Sipariş Dashboard');
 ?>
 <section class="admin-cards">
-    <div class="card"><h3>Bekleyen</h3><p><?= $summary['pending'] ?></p></div>
-    <div class="card"><h3>Onaylandı</h3><p><?= $summary['approved'] ?></p></div>
-    <div class="card"><h3>Hazırlanıyor</h3><p><?= $summary['preparing'] ?></p></div>
-    <div class="card"><h3>Yola Çıktı</h3><p><?= $summary['shipping'] ?></p></div>
-    <div class="card"><h3>Teslim Edildi</h3><p><?= $summary['delivered'] ?></p></div>
+    <div class="card"><h3>Bekleyen</h3><p data-summary="pending"><?= $summary['pending'] ?></p></div>
+    <div class="card"><h3>Onaylandı</h3><p data-summary="approved"><?= $summary['approved'] ?></p></div>
+    <div class="card"><h3>Hazırlanıyor</h3><p data-summary="preparing"><?= $summary['preparing'] ?></p></div>
+    <div class="card"><h3>Yola Çıktı</h3><p data-summary="shipping"><?= $summary['shipping'] ?></p></div>
+    <div class="card"><h3>Teslim Edildi</h3><p data-summary="delivered"><?= $summary['delivered'] ?></p></div>
 </section>
 
 <section class="chart-section">

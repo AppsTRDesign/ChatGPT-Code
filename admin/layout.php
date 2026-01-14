@@ -20,6 +20,7 @@ function admin_header(string $title): void
     echo "<a href=\"/admin/settings.php\">Ayarlar</a>\n";
     echo "<a href=\"/admin/products.php\">Ürünler</a>\n";
     echo "<a href=\"/admin/categories.php\">Kategoriler</a>\n";
+    echo "<a href=\"/admin/sliders.php\">Slider</a>\n";
     echo "<a href=\"/admin/orders.php\">Siparişler</a>\n";
     echo "<a href=\"/admin/users.php\">Kullanıcılar</a>\n";
     echo "<a href=\"/admin/pages.php\">Dinamik Sayfalar</a>\n";

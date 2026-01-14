@@ -1,32 +1,54 @@
 const chartCanvas = document.getElementById('orderChart');
+let orderChart;
 if (chartCanvas) {
-  const chartData = {
-    labels: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
-    datasets: [
-      {
-        label: 'Sipariş Sayısı',
-        data: [3, 6, 4, 8, 5, 9, 7],
-        backgroundColor: 'rgba(232, 93, 117, 0.2)',
-        borderColor: '#E85D75',
-        borderWidth: 2,
-        fill: true,
-      },
-    ],
-  };
-
-  new Chart(chartCanvas, {
+  orderChart = new Chart(chartCanvas, {
     type: 'line',
-    data: chartData,
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Sipariş Sayısı',
+          data: [],
+          backgroundColor: 'rgba(232, 93, 117, 0.2)',
+          borderColor: '#E85D75',
+          borderWidth: 2,
+          fill: true,
+        },
+      ],
+    },
     options: {
       responsive: true,
       plugins: {
-        legend: {
-          display: false,
-        },
+        legend: { display: false },
       },
     },
   });
 }
+
+const refreshDashboard = async () => {
+  if (!orderChart) {
+    return;
+  }
+  const formData = new FormData();
+  formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+  const response = await fetch('/api/handler.php?action=stats', {
+    method: 'POST',
+    body: formData,
+  });
+  const data = await response.json();
+  if (response.ok) {
+    orderChart.data.labels = data.labels || [];
+    orderChart.data.datasets[0].data = data.counts || [];
+    orderChart.update();
+    document.querySelector('[data-summary="pending"]')?.textContent = data.summary?.pending ?? 0;
+    document.querySelector('[data-summary="approved"]')?.textContent = data.summary?.approved ?? 0;
+    document.querySelector('[data-summary="preparing"]')?.textContent = data.summary?.preparing ?? 0;
+    document.querySelector('[data-summary="shipping"]')?.textContent = data.summary?.shipping ?? 0;
+    document.querySelector('[data-summary="delivered"]')?.textContent = data.summary?.delivered ?? 0;
+  }
+};
+
+refreshDashboard();
 
 document.querySelectorAll('[data-order-status]').forEach((select) => {
   select.addEventListener('change', async (event) => {
@@ -117,8 +139,12 @@ document.querySelectorAll('[data-delete-category]').forEach((button) => {
 document.querySelectorAll('[data-delete-faq]').forEach((button) => {
   button.dataset.deleteId = button.dataset.deleteFaq;
 });
+document.querySelectorAll('[data-delete-slider]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteSlider;
+});
 
 bindDeleteButtons('[data-delete-product]', 'delete-product');
 bindDeleteButtons('[data-delete-page]', 'delete-page');
 bindDeleteButtons('[data-delete-category]', 'delete-category');
 bindDeleteButtons('[data-delete-faq]', 'delete-faq');
+bindDeleteButtons('[data-delete-slider]', 'delete-slider');

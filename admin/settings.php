@@ -27,6 +27,12 @@ admin_header('Site Ayarları');
                 <option value="lightbox2" <?= settings('lightbox_provider') === 'lightbox2' ? 'selected' : '' ?>>Lightbox2</option>
             </select>
         </label>
+        <label>Ana Sayfa Görünümü
+            <select name="homepage_layout">
+                <option value="grid" <?= settings('homepage_layout') === 'grid' ? 'selected' : '' ?>>Grid</option>
+                <option value="list" <?= settings('homepage_layout') === 'list' ? 'selected' : '' ?>>Liste</option>
+            </select>
+        </label>
         <label>Renk Teması<input type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>

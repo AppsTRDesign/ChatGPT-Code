@@ -29,6 +29,18 @@ $images = $pdo->prepare('SELECT * FROM product_images WHERE product_id = :id');
 $images->execute(['id' => $product['id']]);
 $gallery = $images->fetchAll(PDO::FETCH_ASSOC);
 
+$featureStmt = $pdo->prepare('SELECT * FROM product_features WHERE product_id = :product_id');
+$featureStmt->execute(['product_id' => $product['id']]);
+$features = $featureStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$reviewStmt = $pdo->prepare('SELECT * FROM reviews WHERE product_id = :product_id ORDER BY created_at DESC');
+$reviewStmt->execute(['product_id' => $product['id']]);
+$reviews = $reviewStmt->fetchAll(PDO::FETCH_ASSOC);
+$ratingAvg = 0;
+if ($reviews) {
+    $ratingAvg = array_sum(array_column($reviews, 'rating')) / count($reviews);
+}
+
 $similarProducts = [];
 if ($product['category_id']) {
     $similarStmt = $pdo->prepare('SELECT * FROM products WHERE category_id = :category_id AND id != :id ORDER BY RAND() LIMIT 6');
@@ -61,13 +73,17 @@ render_header($product['name']);
     </div>
     <div class="product-info">
         <h1><?= htmlspecialchars($product['name']) ?></h1>
-        <p><?= nl2br(htmlspecialchars($product['description'])) ?></p>
+        <p><?= $product['description'] ?></p>
         <p class="price"><?= currency((float) $product['price']) ?></p>
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <div class="button-row">
             <button class="btn" type="button" data-favorite="<?= (int) $product['id'] ?>">Favoriye Ekle</button>
             <button class="btn" type="button" data-cart-add="<?= (int) $product['id'] ?>">Sepete Ekle</button>
             <a class="btn primary" href="/checkout.php?slug=<?= urlencode($product['slug']) ?>">Siparişe Devam Et</a>
+        </div>
+        <div class="rating-row">
+            <span class="stars"><?= str_repeat('★', (int) round($ratingAvg)) ?></span>
+            <span><?= count($reviews) ?> değerlendirme</span>
         </div>
         <p class="order-note">WhatsApp siparişleri beklemede düşer, PayTR siparişleri ödeme onayı sonrası onaylanır.</p>
         <?php if ($product['order_channel'] === 'whatsapp'): ?>
@@ -110,14 +126,75 @@ render_header($product['name']);
         </div>
     </section>
 <?php endif; ?>
+<section class="section">
+    <div class="container">
+        <h2>Ürün Özellikleri</h2>
+        <ul class="feature-list">
+            <?php foreach ($features as $feature): ?>
+                <li><strong><?= htmlspecialchars($feature['feature_name']) ?>:</strong> <?= htmlspecialchars($feature['feature_value']) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+</section>
+<section class="section alt">
+    <div class="container">
+        <h2>Yorumlar (<?= count($reviews) ?>)</h2>
+        <div class="reviews">
+            <?php foreach ($reviews as $review): ?>
+                <div class="review-card">
+                    <div class="review-header">
+                        <strong><?= htmlspecialchars($review['reviewer_name']) ?></strong>
+                        <span class="stars"><?= str_repeat('★', (int) $review['rating']) ?></span>
+                    </div>
+                    <p><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <form class="review-form" data-ajax="review" method="post">
+            <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+            <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+            <input type="text" name="reviewer_name" placeholder="Ad Soyad" required>
+            <select name="rating">
+                <option value="5">5 Yıldız</option>
+                <option value="4">4 Yıldız</option>
+                <option value="3">3 Yıldız</option>
+                <option value="2">2 Yıldız</option>
+                <option value="1">1 Yıldız</option>
+            </select>
+            <textarea name="comment" rows="4" placeholder="Yorumunuz"></textarea>
+            <button class="btn primary" type="submit">Yorum Gönder</button>
+        </form>
+    </div>
+</section>
 <script type="application/ld+json">
+<?php
+$reviewSchema = array_map(static function ($review) {
+    return [
+        '@type' => 'Review',
+        'author' => $review['reviewer_name'],
+        'reviewBody' => $review['comment'],
+        'reviewRating' => [
+            '@type' => 'Rating',
+            'ratingValue' => (int) $review['rating'],
+        ],
+        'datePublished' => $review['created_at'],
+    ];
+}, $reviews);
+$imageSchema = array_merge([$product['main_image']], array_column($gallery, 'image_path'));
+?>
 <?= json_encode([
     '@context' => 'https://schema.org',
     '@type' => 'Product',
     'name' => $product['name'],
     'description' => $product['description'],
-    'image' => [$product['main_image']],
+    'image' => $imageSchema,
     'url' => base_url('urun/' . $product['slug']),
+    'review' => $reviewSchema,
+    'aggregateRating' => [
+        '@type' => 'AggregateRating',
+        'ratingValue' => $ratingAvg ?: 5,
+        'reviewCount' => count($reviews),
+    ],
     'offers' => [
         '@type' => 'Offer',
         'priceCurrency' => 'TRY',

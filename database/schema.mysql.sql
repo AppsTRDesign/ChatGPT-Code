@@ -9,6 +9,7 @@ CREATE TABLE users (
     name VARCHAR(190) NOT NULL,
     email VARCHAR(190) NOT NULL UNIQUE,
     phone VARCHAR(50),
+    address VARCHAR(255),
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'customer',
     created_at DATETIME NOT NULL
@@ -45,6 +46,26 @@ CREATE TABLE product_images (
     product_id INT NOT NULL,
     image_path VARCHAR(255) NOT NULL,
     CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE product_features (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    feature_name VARCHAR(190) NOT NULL,
+    feature_value VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_product_features_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE reviews (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    user_id INT NULL,
+    reviewer_name VARCHAR(190) NOT NULL,
+    rating INT NOT NULL DEFAULT 5,
+    comment TEXT,
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE orders (
@@ -97,6 +118,17 @@ CREATE TABLE favorites (
     CONSTRAINT fk_favorites_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE sliders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(190) NOT NULL,
+    description TEXT,
+    button_text VARCHAR(100),
+    button_url VARCHAR(255),
+    image VARCHAR(255),
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),
@@ -110,6 +142,7 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('paytr_active', '0'),
 ('whatsapp_number', '+905550000000'),
 ('lightbox_provider', 'glightbox'),
+('homepage_layout', 'grid'),
 ('paytr_merchant_id', ''),
 ('paytr_merchant_key', ''),
 ('paytr_merchant_salt', ''),

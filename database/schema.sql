@@ -11,6 +11,7 @@ CREATE TABLE users (
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     phone TEXT,
+    address TEXT,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'customer',
     created_at TEXT NOT NULL
@@ -47,6 +48,26 @@ CREATE TABLE product_images (
     product_id INTEGER NOT NULL,
     image_path TEXT NOT NULL,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE product_features (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    feature_name TEXT NOT NULL,
+    feature_value TEXT NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    user_id INTEGER,
+    reviewer_name TEXT NOT NULL,
+    rating INTEGER NOT NULL DEFAULT 5,
+    comment TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE orders (
@@ -99,6 +120,17 @@ CREATE TABLE favorites (
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
+CREATE TABLE sliders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    button_text TEXT,
+    button_url TEXT,
+    image TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),
@@ -112,6 +144,7 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('paytr_active', '0'),
 ('whatsapp_number', '+905550000000'),
 ('lightbox_provider', 'glightbox'),
+('homepage_layout', 'grid'),
 ('paytr_merchant_id', ''),
 ('paytr_merchant_key', ''),
 ('paytr_merchant_salt', ''),

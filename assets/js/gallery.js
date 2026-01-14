@@ -27,4 +27,17 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.GLightbox) {
     GLightbox({ selector: '.lightbox' });
   }
+
+  const homeSlider = document.getElementById('homeSlider');
+  if (homeSlider && window.Splide) {
+    new Splide(homeSlider, {
+      type: 'loop',
+      perPage: 1,
+      autoplay: true,
+      interval: 4000,
+      gap: '1rem',
+      arrows: true,
+      pagination: true,
+    }).mount();
+  }
 });

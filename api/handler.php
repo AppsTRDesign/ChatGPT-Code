@@ -115,6 +115,20 @@ switch ($action) {
         ]);
         echo json_encode(['success' => true, 'message' => 'Bilgiler güncellendi.']);
         break;
+    case 'address':
+        $user = current_user();
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Önce giriş yapın.']);
+            break;
+        }
+        $stmt = db()->prepare('UPDATE users SET address = :address WHERE id = :id');
+        $stmt->execute([
+            'address' => trim($_POST['address'] ?? ''),
+            'id' => $user['id'],
+        ]);
+        echo json_encode(['success' => true, 'message' => 'Adres kaydedildi.']);
+        break;
     case 'order':
         $productId = (int) ($_POST['product_id'] ?? 0);
         $productStmt = db()->prepare('SELECT * FROM products WHERE id = :id');
@@ -201,6 +215,24 @@ switch ($action) {
             echo json_encode(['success' => true, 'message' => 'Sipariş oluşturuldu.', 'html' => $html]);
         }
         break;
+    case 'review':
+        $productId = (int) ($_POST['product_id'] ?? 0);
+        if (!$productId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Ürün seçilmedi.']);
+            break;
+        }
+        $stmt = db()->prepare('INSERT INTO reviews (product_id, user_id, reviewer_name, rating, comment, created_at) VALUES (:product_id, :user_id, :reviewer_name, :rating, :comment, :created_at)');
+        $stmt->execute([
+            'product_id' => $productId,
+            'user_id' => $_SESSION['user_id'] ?? null,
+            'reviewer_name' => trim($_POST['reviewer_name'] ?? 'Misafir'),
+            'rating' => (int) ($_POST['rating'] ?? 5),
+            'comment' => trim($_POST['comment'] ?? ''),
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+        echo json_encode(['success' => true, 'message' => 'Yorumunuz alındı.']);
+        break;
     case 'contact':
         echo json_encode(['success' => true, 'message' => 'Mesajınız alındı.']);
         break;
@@ -222,6 +254,7 @@ switch ($action) {
             'meta_description',
             'theme_color',
             'lightbox_provider',
+            'homepage_layout',
         ];
         foreach ($fields as $field) {
             update_setting($field, trim($_POST[$field] ?? ''));
@@ -253,6 +286,14 @@ switch ($action) {
         }
         $mainImage = handle_upload('main_image');
         if ($productId) {
+            if ($mainImage) {
+                $oldStmt = db()->prepare('SELECT main_image FROM products WHERE id = :id');
+                $oldStmt->execute(['id' => $productId]);
+                $oldPath = $oldStmt->fetchColumn();
+                if ($oldPath && is_file(__DIR__ . '/..' . $oldPath)) {
+                    unlink(__DIR__ . '/..' . $oldPath);
+                }
+            }
             $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, description = :description, price = :price, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
             $stmt->execute([
                 'name' => trim($_POST['name'] ?? ''),
@@ -288,6 +329,21 @@ switch ($action) {
                 $path = store_upload($_FILES['gallery']['tmp_name'][$index], $name);
                 $imageStmt = db()->prepare('INSERT INTO product_images (product_id, image_path) VALUES (:product_id, :image_path)');
                 $imageStmt->execute(['product_id' => $productId, 'image_path' => $path]);
+            }
+        }
+        $featuresRaw = trim($_POST['features'] ?? '');
+        if ($featuresRaw !== '') {
+            db()->prepare('DELETE FROM product_features WHERE product_id = :product_id')->execute(['product_id' => $productId]);
+            foreach (explode("\n", $featuresRaw) as $line) {
+                $line = trim($line);
+                if ($line === '' || !str_contains($line, ':')) {
+                    continue;
+                }
+                [$name, $value] = array_map('trim', explode(':', $line, 2));
+                if ($name && $value) {
+                    db()->prepare('INSERT INTO product_features (product_id, feature_name, feature_value) VALUES (:product_id, :feature_name, :feature_value)')
+                        ->execute(['product_id' => $productId, 'feature_name' => $name, 'feature_value' => $value]);
+                }
             }
         }
 
@@ -384,6 +440,40 @@ switch ($action) {
         }
         echo json_encode(['success' => true, 'message' => 'SSS kaydedildi.']);
         break;
+    case 'slider':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $sliderId = (int) ($_POST['id'] ?? 0);
+        $image = handle_upload('image');
+        $isActive = isset($_POST['is_active']) ? (int) $_POST['is_active'] : 1;
+        if ($sliderId) {
+            $stmt = db()->prepare('UPDATE sliders SET title = :title, description = :description, button_text = :button_text, button_url = :button_url, image = COALESCE(:image, image), is_active = :is_active WHERE id = :id');
+            $stmt->execute([
+                'title' => trim($_POST['title'] ?? ''),
+                'description' => trim($_POST['description'] ?? ''),
+                'button_text' => trim($_POST['button_text'] ?? ''),
+                'button_url' => trim($_POST['button_url'] ?? ''),
+                'image' => $image,
+                'is_active' => $isActive,
+                'id' => $sliderId,
+            ]);
+        } else {
+            $stmt = db()->prepare('INSERT INTO sliders (title, description, button_text, button_url, image, is_active, created_at) VALUES (:title, :description, :button_text, :button_url, :image, :is_active, :created_at)');
+            $stmt->execute([
+                'title' => trim($_POST['title'] ?? ''),
+                'description' => trim($_POST['description'] ?? ''),
+                'button_text' => trim($_POST['button_text'] ?? ''),
+                'button_url' => trim($_POST['button_url'] ?? ''),
+                'image' => $image,
+                'is_active' => $isActive,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Slider kaydedildi.']);
+        break;
     case 'delete-product':
         if (!is_admin()) {
             http_response_code(401);
@@ -423,6 +513,16 @@ switch ($action) {
         $faqId = (int) ($_POST['id'] ?? 0);
         db()->prepare('DELETE FROM faqs WHERE id = :id')->execute(['id' => $faqId]);
         echo json_encode(['success' => true, 'message' => 'SSS silindi.']);
+        break;
+    case 'delete-slider':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $sliderId = (int) ($_POST['id'] ?? 0);
+        db()->prepare('DELETE FROM sliders WHERE id = :id')->execute(['id' => $sliderId]);
+        echo json_encode(['success' => true, 'message' => 'Slider silindi.']);
         break;
     case 'favorite':
         $user = current_user();
@@ -492,6 +592,25 @@ switch ($action) {
             send_order_status_email($order['email'], $order['full_name'], $status, $orderId);
         }
         echo json_encode(['success' => true, 'message' => 'Durum güncellendi.']);
+        break;
+    case 'stats':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $stmt = db()->query("SELECT DATE(created_at) as day, COUNT(*) as count FROM orders GROUP BY day ORDER BY day DESC LIMIT 7");
+        $rows = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
+        $labels = array_map(fn($row) => $row['day'], $rows);
+        $counts = array_map(fn($row) => (int) $row['count'], $rows);
+        $summary = [
+            'pending' => (int) db()->query("SELECT COUNT(*) FROM orders WHERE status = 'pending'")->fetchColumn(),
+            'approved' => (int) db()->query("SELECT COUNT(*) FROM orders WHERE status = 'approved'")->fetchColumn(),
+            'preparing' => (int) db()->query("SELECT COUNT(*) FROM orders WHERE status = 'preparing'")->fetchColumn(),
+            'shipping' => (int) db()->query("SELECT COUNT(*) FROM orders WHERE status = 'shipping'")->fetchColumn(),
+            'delivered' => (int) db()->query("SELECT COUNT(*) FROM orders WHERE status = 'delivered'")->fetchColumn(),
+        ];
+        echo json_encode(['success' => true, 'labels' => $labels, 'counts' => $counts, 'summary' => $summary]);
         break;
     default:
         http_response_code(404);
