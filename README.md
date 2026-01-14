@@ -10,8 +10,8 @@ Bu proje, PHP 8 + PDO uyumlu, AlmaLinux 8 ve Plesk üzerinde çalışacak şekil
 
 ## Kurulum
 1. Dosyaları web sunucusunun kök dizinine kopyalayın.
-2. `includes/config.php` içinden veritabanı ayarlarını güncelleyin.
-3. MySQL kullanıyorsanız `database/schema.mysql.sql` dosyasını çalıştırın. SQLite için `database/schema.sql` kullanılır.
+2. `includes/config.php` içinden MariaDB bağlantı ayarlarını güncelleyin.
+3. MariaDB/MySQL için `database/schema.mysql.sql` dosyasını çalıştırın.
 4. Tarayıcıda ana sayfayı açın.
 
 > Varsayılan admin hesabı: `admin@noasoft.org` / `admin123`

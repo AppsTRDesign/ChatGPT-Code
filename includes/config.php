@@ -2,12 +2,11 @@
 
 return [
     'db' => [
-        'driver' => getenv('DB_DRIVER') ?: 'sqlite',
-        'sqlite_path' => __DIR__ . '/../storage/app.db',
+        'driver' => getenv('DB_DRIVER') ?: 'mysql',
         'host' => getenv('DB_HOST') ?: '127.0.0.1',
         'port' => getenv('DB_PORT') ?: '3306',
         'database' => getenv('DB_NAME') ?: 'cicek',
-        'username' => getenv('DB_USER') ?: 'root',
+        'username' => getenv('DB_USER') ?: 'cicek_user',
         'password' => getenv('DB_PASS') ?: '',
         'charset' => 'utf8mb4',
     ],
