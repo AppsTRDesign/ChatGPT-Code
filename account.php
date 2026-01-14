@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/bootstrap.php';
-require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/footer.php';
 require_once __DIR__ . '/includes/auth.php';
 
 $user = current_user();

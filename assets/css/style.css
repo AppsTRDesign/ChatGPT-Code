@@ -87,6 +87,12 @@ a {
   color: var(--theme-color);
 }
 
+.logo img {
+  max-height: 42px;
+  width: auto;
+  display: block;
+}
+
 .main-nav {
   display: flex;
   gap: 20px;
@@ -113,6 +119,14 @@ a {
   margin-bottom: 16px;
 }
 
+.hero p {
+  font-size: 1.1rem;
+}
+
+.hero .btn {
+  margin-top: 16px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -129,6 +143,10 @@ a {
 
 .card-body {
   padding: 20px;
+}
+
+.card p {
+  color: #5b5b5b;
 }
 
 .card h3 {
@@ -164,6 +182,12 @@ a {
   margin-top: 20px;
 }
 
+.auth {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 40px 0;
+}
+
 .form-grid {
   display: grid;
   gap: 12px;
@@ -189,6 +213,10 @@ select {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.site-footer strong {
+  font-size: 1.1rem;
 }
 
 .faq details {
@@ -235,6 +263,11 @@ select {
   background: #1f1f1f;
   color: #fff;
   padding: 24px;
+}
+
+.admin-sidebar h2 {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
 }
 
 .admin-sidebar nav {

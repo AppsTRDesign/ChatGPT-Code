@@ -8,6 +8,9 @@ function render_header(string $title = ''): void
     $metaDescription = settings('meta_description', '');
     $themeColor = settings('theme_color', '#E85D75');
     $pageTitle = $title ? $title . ' | ' . $siteTitle : $metaTitle;
+    $logo = settings('logo');
+    $favicon = settings('favicon');
+
     echo "<!DOCTYPE html>\n";
     echo "<html lang=\"tr\">\n<head>\n";
     echo "<meta charset=\"UTF-8\">\n";
@@ -20,8 +23,6 @@ function render_header(string $title = ''): void
     echo "<meta property=\"og:description\" content=\"{$metaDescription}\">\n";
     echo "<meta property=\"og:type\" content=\"website\">\n";
     echo "<meta property=\"twitter:card\" content=\"summary_large_image\">\n";
-    $logo = settings('logo');
-    $favicon = settings('favicon');
     if ($favicon) {
         echo "<link rel=\"icon\" href=\"{$favicon}\">\n";
     }
@@ -29,7 +30,12 @@ function render_header(string $title = ''): void
     echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css\">\n";
     echo "</head>\n<body>\n";
     echo "<header class=\"site-header\">\n<div class=\"container\">\n";
-    echo "<div class=\"logo\"><a href=\"/\">\" . ($logo ? \"<img src=\\\"{$logo}\\\" alt=\\\"{$siteTitle}\\\">\" : $siteTitle) . \"</a></div>\n";
+    if ($logo) {
+        $logoTag = "<img src=\"{$logo}\" alt=\"{$siteTitle}\">";
+        echo "<div class=\"logo\"><a href=\"/\">{$logoTag}</a></div>\n";
+    } else {
+        echo "<div class=\"logo\"><a href=\"/\">{$siteTitle}</a></div>\n";
+    }
     echo "<nav class=\"main-nav\" id=\"mainNav\">\n";
     echo "<a href=\"/\">Ana Sayfa</a>\n";
     echo "<a href=\"/content.php\">İçerikler</a>\n";
@@ -39,20 +45,4 @@ function render_header(string $title = ''): void
     echo "</nav>\n";
     echo "<button class=\"nav-toggle\" id=\"navToggle\" aria-label=\"Menüyü Aç\">☰</button>\n";
     echo "</div>\n</header>\n";
-}
-
-function render_footer(): void
-{
-    $siteName = settings('site_name', 'Çiçek');
-    $phone = settings('contact_phone');
-    $email = settings('contact_email');
-    $address = settings('site_address');
-    echo "<footer class=\"site-footer\">\n<div class=\"container\">\n";
-    echo "<div><strong>{$siteName}</strong><p>{$address}</p></div>\n";
-    echo "<div><p>Telefon: {$phone}</p><p>E-posta: {$email}</p></div>\n";
-    echo "<div><p>© " . date('Y') . " {$siteName}.</p></div>\n";
-    echo "</div>\n</footer>\n";
-    echo "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js\"></script>\n";
-    echo "<script src=\"/assets/js/app.js\"></script>\n";
-    echo "</body>\n</html>";
 }

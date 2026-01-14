@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/bootstrap.php';
-require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/footer.php';
 
 $pdo = db();
 $pages = $pdo->query('SELECT * FROM pages ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);

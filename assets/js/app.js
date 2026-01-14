@@ -6,6 +6,20 @@ if (navToggle && mainNav) {
   });
 }
 
+const notifySuccess = (message) => {
+  if (window.toastr) {
+    toastr.success(message);
+  }
+};
+
+const notifyError = (message) => {
+  if (window.toastr) {
+    toastr.error(message);
+  } else {
+    console.error(message);
+  }
+};
+
 document.querySelectorAll('[data-ajax]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -20,19 +34,19 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
       const data = await response.json();
 
       if (!response.ok) {
-        toastr.error(data.message || 'İşlem başarısız.');
+        notifyError(data.message || 'İşlem başarısız.');
         return;
       }
 
       if (data.message) {
-        toastr.success(data.message);
+        notifySuccess(data.message);
       }
 
       if (data.redirect) {
         window.location.href = data.redirect;
       }
     } catch (error) {
-      toastr.error('Sunucuya ulaşılamadı.');
+      notifyError('Sunucuya ulaşılamadı.');
     }
   });
 });

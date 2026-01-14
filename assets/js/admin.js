@@ -43,8 +43,10 @@ document.querySelectorAll('[data-order-status]').forEach((select) => {
     });
     const data = await response.json();
     if (response.ok) {
-      toastr.success(data.message || 'Güncellendi.');
-    } else {
+      if (window.toastr) {
+        toastr.success(data.message || 'Güncellendi.');
+      }
+    } else if (window.toastr) {
       toastr.error(data.message || 'Güncellenemedi.');
     }
   });
@@ -62,8 +64,10 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
     });
     const data = await response.json();
     if (response.ok) {
-      toastr.success(data.message || 'Kaydedildi.');
-    } else {
+      if (window.toastr) {
+        toastr.success(data.message || 'Kaydedildi.');
+      }
+    } else if (window.toastr) {
       toastr.error(data.message || 'İşlem başarısız.');
     }
   });
@@ -71,6 +75,8 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
 
 document.querySelectorAll('[data-export]').forEach((button) => {
   button.addEventListener('click', () => {
-    toastr.info('Dışa aktarım dosyaları hazırlanıyor.');
+    if (window.toastr) {
+      toastr.info('Dışa aktarım dosyaları hazırlanıyor.');
+    }
   });
 });
