@@ -34,6 +34,23 @@ function base_url(string $path = ''): string
     return $base . '/' . ltrim($path, '/');
 }
 
+function slugify(string $value): string
+{
+    $value = mb_strtolower($value, 'UTF-8');
+    $value = preg_replace('/[^\\pL\\pN]+/u', '-', $value);
+    return trim($value, '-') ?: 'urun';
+}
+
+function product_url(array $product): string
+{
+    return '/urun/' . urlencode($product['slug']);
+}
+
+function category_url(array $category): string
+{
+    return '/kategori/' . urlencode($category['slug']);
+}
+
 function is_admin(): bool
 {
     return isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';

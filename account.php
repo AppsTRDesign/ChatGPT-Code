@@ -6,10 +6,14 @@ require_once __DIR__ . '/includes/auth.php';
 
 $user = current_user();
 $orders = [];
+ $favorites = [];
 if ($user) {
     $stmt = db()->prepare('SELECT * FROM orders WHERE user_id = :id OR email = :email ORDER BY created_at DESC');
     $stmt->execute(['id' => $user['id'], 'email' => $user['email']]);
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $favStmt = db()->prepare('SELECT products.* FROM favorites INNER JOIN products ON products.id = favorites.product_id WHERE favorites.user_id = :id ORDER BY favorites.created_at DESC');
+    $favStmt->execute(['id' => $user['id']]);
+    $favorites = $favStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 render_header('Üyelik');
@@ -52,6 +56,20 @@ render_header('Üyelik');
                     <?php endforeach; ?>
                 </tbody>
             </table>
+        </section>
+        <section class="section">
+            <h2>Favorilerim</h2>
+            <div class="grid">
+                <?php foreach ($favorites as $product): ?>
+                    <article class="card">
+                        <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                        <div class="card-body">
+                            <h3><?= htmlspecialchars($product['name']) ?></h3>
+                            <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
         </section>
         <form class="profile-form" data-ajax="profile" method="post">
             <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">

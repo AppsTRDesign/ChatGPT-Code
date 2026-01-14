@@ -80,3 +80,45 @@ document.querySelectorAll('[data-export]').forEach((button) => {
     }
   });
 });
+
+const bindDeleteButtons = (selector, action) => {
+  document.querySelectorAll(selector).forEach((button) => {
+    button.addEventListener('click', async () => {
+      const id = button.dataset.deleteId;
+      const formData = new FormData();
+      formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+      formData.append('id', id);
+      const response = await fetch(`/api/handler.php?action=${action}`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (window.toastr) {
+        if (response.ok) {
+          toastr.success(data.message || 'Silindi.');
+          button.closest('tr')?.remove();
+        } else {
+          toastr.error(data.message || 'Silinemedi.');
+        }
+      }
+    });
+  });
+};
+
+document.querySelectorAll('[data-delete-product]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteProduct;
+});
+document.querySelectorAll('[data-delete-page]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deletePage;
+});
+document.querySelectorAll('[data-delete-category]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteCategory;
+});
+document.querySelectorAll('[data-delete-faq]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteFaq;
+});
+
+bindDeleteButtons('[data-delete-product]', 'delete-product');
+bindDeleteButtons('[data-delete-page]', 'delete-page');
+bindDeleteButtons('[data-delete-category]', 'delete-category');
+bindDeleteButtons('[data-delete-faq]', 'delete-faq');

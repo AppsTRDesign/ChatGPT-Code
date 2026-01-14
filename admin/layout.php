@@ -19,9 +19,11 @@ function admin_header(string $title): void
     echo "<a href=\"/admin/index.php\">Dashboard</a>\n";
     echo "<a href=\"/admin/settings.php\">Ayarlar</a>\n";
     echo "<a href=\"/admin/products.php\">Ürünler</a>\n";
+    echo "<a href=\"/admin/categories.php\">Kategoriler</a>\n";
     echo "<a href=\"/admin/orders.php\">Siparişler</a>\n";
     echo "<a href=\"/admin/users.php\">Kullanıcılar</a>\n";
     echo "<a href=\"/admin/pages.php\">Dinamik Sayfalar</a>\n";
+    echo "<a href=\"/admin/faqs.php\">SSS</a>\n";
     echo "<a href=\"/admin/paytr.php\">PayTR Ayarları</a>\n";
     echo "<a href=\"/logout.php\">Çıkış</a>\n";
     echo "</nav>\n";

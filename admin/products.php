@@ -5,26 +5,45 @@ require_once __DIR__ . '/layout.php';
 
 require_admin();
 
-$products = db()->query('SELECT * FROM products ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+$pdo = db();
+$products = $pdo->query('SELECT * FROM products ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+$categories = $pdo->query('SELECT * FROM categories ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
+$editId = (int) ($_GET['edit'] ?? 0);
+$productData = null;
+if ($editId) {
+    $stmt = $pdo->prepare('SELECT * FROM products WHERE id = :id');
+    $stmt->execute(['id' => $editId]);
+    $productData = $stmt->fetch(PDO::FETCH_ASSOC);
+}
 
 admin_header('Ürün Yönetimi');
 ?>
 <section class="panel">
-    <h2>Yeni Ürün Ekle</h2>
+    <h2><?= $productData ? 'Ürün Düzenle' : 'Yeni Ürün Ekle' ?></h2>
     <form class="admin-form" data-ajax="product" enctype="multipart/form-data" method="post">
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-        <label>Ürün Adı<input type="text" name="name" required></label>
-        <label>Açıklama<textarea name="description" rows="4"></textarea></label>
-        <label>Fiyat<input type="number" step="0.01" name="price" required></label>
+        <input type="hidden" name="id" value="<?= (int) ($productData['id'] ?? 0) ?>">
+        <label>Ürün Adı<input type="text" name="name" value="<?= htmlspecialchars($productData['name'] ?? '') ?>" required></label>
+        <label>Slug<input type="text" name="slug" value="<?= htmlspecialchars($productData['slug'] ?? '') ?>" required></label>
+        <label>Kategori
+            <select name="category_id">
+                <option value="">Kategori Seçin</option>
+                <?php foreach ($categories as $category): ?>
+                    <option value="<?= (int) $category['id'] ?>" <?= ($productData && (int) $productData['category_id'] === (int) $category['id']) ? 'selected' : '' ?>><?= htmlspecialchars($category['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label>Açıklama<textarea name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
+        <label>Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
         <label>Ürün Görseli<input type="file" name="main_image"></label>
         <label>Galeri Görselleri<input type="file" name="gallery[]" multiple></label>
         <label>Sipariş Kanalı
             <select name="order_channel">
-                <option value="whatsapp">WhatsApp</option>
-                <option value="paytr">PayTR</option>
+                <option value="whatsapp" <?= ($productData && $productData['order_channel'] === 'whatsapp') ? 'selected' : '' ?>>WhatsApp</option>
+                <option value="paytr" <?= ($productData && $productData['order_channel'] === 'paytr') ? 'selected' : '' ?>>PayTR</option>
             </select>
         </label>
-        <label>WhatsApp / PayTR Link<input type="text" name="order_link"></label>
+        <label>WhatsApp Link<input type="text" name="order_link" value="<?= htmlspecialchars($productData['order_link'] ?? '') ?>"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>
 </section>
@@ -46,7 +65,7 @@ admin_header('Ürün Yönetimi');
                     <td><?= currency((float) $product['price']) ?></td>
                     <td><?= htmlspecialchars($product['order_channel']) ?></td>
                     <td>
-                        <button class="btn" data-edit-product="<?= (int) $product['id'] ?>">Düzenle</button>
+                        <a class="btn" href="/admin/products.php?edit=<?= (int) $product['id'] ?>">Düzenle</a>
                         <button class="btn danger" data-delete-product="<?= (int) $product['id'] ?>">Sil</button>
                     </td>
                 </tr>

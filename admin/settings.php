@@ -21,6 +21,12 @@ admin_header('Site Ayarları');
         <label>Meta Açıklama<textarea name="meta_description" rows="3"><?= htmlspecialchars(settings('meta_description')) ?></textarea></label>
         <label>Logo<input type="file" name="logo"></label>
         <label>Favicon<input type="file" name="favicon"></label>
+        <label>Galeri Lightbox
+            <select name="lightbox_provider">
+                <option value="glightbox" <?= settings('lightbox_provider') === 'glightbox' ? 'selected' : '' ?>>GLightbox</option>
+                <option value="lightbox2" <?= settings('lightbox_provider') === 'lightbox2' ? 'selected' : '' ?>>Lightbox2</option>
+            </select>
+        </label>
         <label>Renk Teması<input type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>

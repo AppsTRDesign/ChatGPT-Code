@@ -14,16 +14,30 @@ CREATE TABLE users (
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    parent_id INT NULL,
+    name VARCHAR(190) NOT NULL,
+    slug VARCHAR(190) NOT NULL UNIQUE,
+    icon VARCHAR(255),
+    image VARCHAR(255),
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(190) NOT NULL,
+    slug VARCHAR(190) NOT NULL UNIQUE,
     description TEXT,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
     main_image VARCHAR(255),
+    category_id INT NULL,
     order_channel VARCHAR(50) NOT NULL DEFAULT 'whatsapp',
     order_link VARCHAR(255),
     visit_count INT NOT NULL DEFAULT 0,
-    created_at DATETIME NOT NULL
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE product_images (
@@ -66,6 +80,23 @@ CREATE TABLE pages (
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE faqs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    question VARCHAR(255) NOT NULL,
+    answer TEXT NOT NULL,
+    created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE favorites (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    created_at DATETIME NOT NULL,
+    UNIQUE KEY uniq_favorite (user_id, product_id),
+    CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_favorites_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),
@@ -78,6 +109,7 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('theme_color', '#E85D75'),
 ('paytr_active', '0'),
 ('whatsapp_number', '+905550000000'),
+('lightbox_provider', 'glightbox'),
 ('paytr_merchant_id', ''),
 ('paytr_merchant_key', ''),
 ('paytr_merchant_salt', ''),

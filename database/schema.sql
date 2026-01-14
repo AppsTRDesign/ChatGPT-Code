@@ -16,16 +16,30 @@ CREATE TABLE users (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_id INTEGER,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    icon TEXT,
+    image TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
+);
+
 CREATE TABLE products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
     description TEXT,
     price REAL NOT NULL DEFAULT 0,
     main_image TEXT,
+    category_id INTEGER,
     order_channel TEXT NOT NULL DEFAULT 'whatsapp',
     order_link TEXT,
     visit_count INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 );
 
 CREATE TABLE product_images (
@@ -68,6 +82,23 @@ CREATE TABLE pages (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE faqs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (user_id, product_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),
@@ -80,6 +111,7 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('theme_color', '#E85D75'),
 ('paytr_active', '0'),
 ('whatsapp_number', '+905550000000'),
+('lightbox_provider', 'glightbox'),
 ('paytr_merchant_id', ''),
 ('paytr_merchant_key', ''),
 ('paytr_merchant_salt', ''),

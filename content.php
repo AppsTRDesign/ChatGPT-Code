@@ -16,7 +16,7 @@ render_header('İçerikler');
                 <div class="card-body">
                     <h3><?= htmlspecialchars($page['title']) ?></h3>
                     <p><?= htmlspecialchars($page['summary']) ?></p>
-                    <a class="btn" href="/page.php?slug=<?= urlencode($page['slug']) ?>">Detayları Gör</a>
+                    <a class="btn" href="/sayfa/<?= urlencode($page['slug']) ?>">Detayları Gör</a>
                 </div>
             </article>
         <?php endforeach; ?>

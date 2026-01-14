@@ -23,7 +23,7 @@ render_header($page['title']);
     <h1><?= htmlspecialchars($page['title']) ?></h1>
     <p class="summary"><?= htmlspecialchars($page['summary']) ?></p>
     <article class="content-body">
-        <?= nl2br(htmlspecialchars($page['content'])) ?>
+        <?= $page['content'] ?>
     </article>
 </main>
 <script type="application/ld+json">
@@ -35,7 +35,7 @@ render_header($page['title']);
     'datePublished' => $page['created_at'],
     'mainEntityOfPage' => [
         '@type' => 'WebPage',
-        '@id' => base_url('page.php?slug=' . $page['slug']),
+        '@id' => base_url('sayfa/' . $page['slug']),
     ],
 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 ?>

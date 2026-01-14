@@ -1,0 +1,46 @@
+const goToStep = (step) => {
+  document.querySelectorAll('.checkout .step').forEach((item) => {
+    item.classList.toggle('active', item.dataset.step === String(step));
+  });
+};
+
+document.querySelectorAll('.checkout [data-ajax="login-inline"], .checkout [data-ajax="register-inline"]').forEach((form) => {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const action = form.dataset.ajax;
+    const formData = new FormData(form);
+
+    const response = await fetch(`/api/handler.php?action=${action}`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      goToStep(2);
+    }
+    if (window.toastr) {
+      response.ok ? toastr.success(data.message || 'Devam edebilirsiniz.') : toastr.error(data.message || 'İşlem başarısız.');
+    }
+  });
+});
+
+document.querySelectorAll('.checkout [data-ajax="checkout"]').forEach((form) => {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+
+    const response = await fetch('/api/handler.php?action=checkout', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    const result = document.getElementById('checkoutResult');
+    if (response.ok && result) {
+      result.innerHTML = data.html || '';
+      goToStep(3);
+    }
+    if (window.toastr) {
+      response.ok ? toastr.success(data.message || 'Sipariş hazır.') : toastr.error(data.message || 'İşlem başarısız.');
+    }
+  });
+});

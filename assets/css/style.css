@@ -98,6 +98,38 @@ a {
   gap: 20px;
 }
 
+.nav-dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.nav-dropdown span::after {
+  content: "▾";
+  margin-left: 6px;
+  font-size: 0.8rem;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+  display: none;
+  min-width: 180px;
+  z-index: 10;
+}
+
+.nav-dropdown:hover .dropdown-menu {
+  display: grid;
+  gap: 8px;
+}
+
 .nav-toggle {
   display: none;
   background: none;
@@ -252,6 +284,30 @@ select {
   gap: 12px;
 }
 
+.pagination {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 32px 0;
+}
+
+.checkout .step {
+  display: none;
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+}
+
+.checkout .step.active {
+  display: block;
+}
+
+.checkout-steps h2 {
+  margin-bottom: 16px;
+}
+
 .admin-body {
   display: flex;
   min-height: 100vh;
@@ -333,6 +389,17 @@ td {
     border-radius: 16px;
     box-shadow: var(--shadow);
     display: none;
+  }
+
+  .nav-dropdown {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dropdown-menu {
+    position: static;
+    box-shadow: none;
+    padding: 8px 0 0;
   }
 
   .main-nav.open {
