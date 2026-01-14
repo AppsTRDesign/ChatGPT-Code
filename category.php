@@ -72,7 +72,7 @@ render_header($category['name']);
         <?php foreach ($products as $product): ?>
             <article class="card">
                 <div class="card-media">
-                    <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                    <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                     <span class="card-badge">Ücretsiz Teslimat</span>
                 </div>
                 <div class="card-body">

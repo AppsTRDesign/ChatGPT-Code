@@ -33,12 +33,33 @@ $featureStmt = $pdo->prepare('SELECT * FROM product_features WHERE product_id = 
 $featureStmt->execute(['product_id' => $product['id']]);
 $features = $featureStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$reviewStmt = $pdo->prepare('SELECT * FROM reviews WHERE product_id = :product_id ORDER BY created_at DESC');
-$reviewStmt->execute(['product_id' => $product['id']]);
+$sort = $_GET['review_sort'] ?? 'top';
+$sortSql = $sort === 'new' ? 'created_at DESC' : 'likes DESC, created_at DESC';
+$perPage = (int) settings('reviews_per_page', '5');
+$page = max(1, (int) ($_GET['review_page'] ?? 1));
+$offset = ($page - 1) * $perPage;
+
+$reviewCountStmt = $pdo->prepare('SELECT COUNT(*) FROM reviews WHERE product_id = :product_id');
+$reviewCountStmt->execute(['product_id' => $product['id']]);
+$reviewTotal = (int) $reviewCountStmt->fetchColumn();
+$reviewTotalPages = max(1, (int) ceil($reviewTotal / $perPage));
+
+$reviewStmt = $pdo->prepare("SELECT reviews.*, users.avatar FROM reviews LEFT JOIN users ON users.id = reviews.user_id WHERE reviews.product_id = :product_id ORDER BY {$sortSql} LIMIT :limit OFFSET :offset");
+$reviewStmt->bindValue(':product_id', $product['id'], PDO::PARAM_INT);
+$reviewStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$reviewStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$reviewStmt->execute();
 $reviews = $reviewStmt->fetchAll(PDO::FETCH_ASSOC);
 $ratingAvg = 0;
 if ($reviews) {
     $ratingAvg = array_sum(array_column($reviews, 'rating')) / count($reviews);
+}
+
+$ratingCounts = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+$ratingStmt = $pdo->prepare('SELECT rating, COUNT(*) as count FROM reviews WHERE product_id = :product_id GROUP BY rating');
+$ratingStmt->execute(['product_id' => $product['id']]);
+foreach ($ratingStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $ratingCounts[(int) $row['rating']] = (int) $row['count'];
 }
 
 $similarProducts = [];
@@ -57,13 +78,13 @@ render_header($product['name']);
                 <ul class="splide__list">
                     <li class="splide__slide">
                         <a class="lightbox" href="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" data-lightbox="product">
-                            <img loading="lazy" class="main-image" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                            <img loading="lazy" class="main-image product-image" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                         </a>
                     </li>
                     <?php foreach ($gallery as $image): ?>
                         <li class="splide__slide">
                             <a class="lightbox" href="<?= htmlspecialchars($image['image_path']) ?>" data-lightbox="product">
-                                <img loading="lazy" src="<?= htmlspecialchars($image['image_path']) ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                                <img loading="lazy" class="product-image" src="<?= htmlspecialchars($image['image_path']) ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                             </a>
                         </li>
                     <?php endforeach; ?>
@@ -112,7 +133,7 @@ render_header($product['name']);
                         <?php foreach ($similarProducts as $similar): ?>
                             <li class="splide__slide">
                                 <article class="card">
-                                    <img loading="lazy" src="<?= htmlspecialchars($similar['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($similar['name']) ?>">
+                                    <img class="product-image" loading="lazy" src="<?= htmlspecialchars($similar['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($similar['name']) ?>">
                                     <div class="card-body">
                                         <h3><?= htmlspecialchars($similar['name']) ?></h3>
                                         <a class="btn" href="<?= product_url($similar) ?>">Ürünü İncele</a>
@@ -138,22 +159,67 @@ render_header($product['name']);
 </section>
 <section class="section alt">
     <div class="container">
-        <h2>Yorumlar (<?= count($reviews) ?>)</h2>
+        <div class="review-summary">
+            <div>
+                <h2>Yorumlar (<?= $reviewTotal ?>)</h2>
+                <p class="rating-big"><?= number_format($ratingAvg, 1, ',', '.') ?></p>
+                <div class="stars"><?= str_repeat('★', (int) round($ratingAvg)) ?></div>
+            </div>
+            <div class="rating-bars">
+                <?php for ($i = 5; $i >= 1; $i--): ?>
+                    <?php
+                    $count = $ratingCounts[$i] ?? 0;
+                    $percentage = $reviewTotal ? ($count / $reviewTotal) * 100 : 0;
+                    ?>
+                    <div class="rating-bar">
+                        <span><?= $i ?></span>
+                        <div class="bar"><span style="width: <?= $percentage ?>%"></span></div>
+                        <span><?= $count ?></span>
+                    </div>
+                <?php endfor; ?>
+            </div>
+        </div>
+        <div class="review-filter">
+            <form method="get">
+                <input type="hidden" name="slug" value="<?= htmlspecialchars($product['slug']) ?>">
+                <select name="review_sort" onchange="this.form.submit()">
+                    <option value="top" <?= $sort === 'top' ? 'selected' : '' ?>>En Faydalı</option>
+                    <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>En Yeni</option>
+                </select>
+            </form>
+        </div>
         <div class="reviews">
             <?php foreach ($reviews as $review): ?>
                 <div class="review-card">
                     <div class="review-header">
-                        <strong><?= htmlspecialchars($review['reviewer_name']) ?></strong>
+                        <div class="review-user">
+                            <div class="avatar">
+                                <?php if (!empty($review['avatar'])): ?>
+                                    <img src="<?= htmlspecialchars($review['avatar']) ?>" alt="<?= htmlspecialchars($review['reviewer_name']) ?>">
+                                <?php else: ?>
+                                    <?= strtoupper(mb_substr($review['reviewer_name'], 0, 1)) ?>
+                                <?php endif; ?>
+                            </div>
+                            <div>
+                                <strong><?= htmlspecialchars($review['reviewer_name']) ?></strong>
+                                <span class="review-date"><?= htmlspecialchars($review['created_at']) ?></span>
+                            </div>
+                        </div>
                         <span class="stars"><?= str_repeat('★', (int) $review['rating']) ?></span>
                     </div>
                     <p><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
+                    <button class="btn" type="button" data-review-like="<?= (int) $review['id'] ?>">Faydalı (<?= (int) $review['likes'] ?>)</button>
                 </div>
             <?php endforeach; ?>
+        </div>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $reviewTotalPages; $i++): ?>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="<?= product_url($product) ?>?review_page=<?= $i ?>&review_sort=<?= urlencode($sort) ?>"><?= $i ?></a>
+            <?php endfor; ?>
         </div>
         <form class="review-form" data-ajax="review" method="post">
             <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
             <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-            <input type="text" name="reviewer_name" placeholder="Ad Soyad" required>
             <select name="rating">
                 <option value="5">5 Yıldız</option>
                 <option value="4">4 Yıldız</option>

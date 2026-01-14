@@ -129,3 +129,28 @@ document.querySelectorAll('[data-cart-remove]').forEach((button) => {
     }
   });
 });
+
+document.querySelectorAll('[data-review-like]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const reviewId = button.dataset.reviewLike;
+    const formData = new FormData();
+    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    formData.append('csrf_token', csrf);
+    formData.append('review_id', reviewId);
+
+    try {
+      const response = await fetch('/api/handler.php?action=review-like', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (response.ok) {
+        notifySuccess(data.message || 'Beğeni kaydedildi.');
+      } else {
+        notifyError(data.message || 'Beğeni kaydedilemedi.');
+      }
+    } catch (error) {
+      notifyError('Sunucuya ulaşılamadı.');
+    }
+  });
+});

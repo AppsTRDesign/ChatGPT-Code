@@ -19,7 +19,7 @@ function settings(string $key, string $default = ''): string
 
 function update_setting(string $key, string $value): void
 {
-    $stmt = db()->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (:key, :value) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value');
+    $stmt = db()->prepare('INSERT INTO settings (setting_key, setting_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)');
     $stmt->execute(['key' => $key, 'value' => $value]);
 }
 
@@ -74,6 +74,18 @@ function product_url(array $product): string
 function category_url(array $category): string
 {
     return '/kategori/' . urlencode($category['slug']);
+}
+
+function order_status_label(string $status): string
+{
+    $labels = [
+        'pending' => 'Bekleniyor',
+        'approved' => 'Onaylandı',
+        'preparing' => 'Hazırlanıyor',
+        'shipping' => 'Yola Çıktı',
+        'delivered' => 'Teslim Edildi',
+    ];
+    return $labels[$status] ?? $status;
 }
 
 function is_admin(): bool

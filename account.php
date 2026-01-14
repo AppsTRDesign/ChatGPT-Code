@@ -59,7 +59,7 @@ render_header('Üyelik');
                     <?php foreach ($orders as $order): ?>
                         <tr>
                             <td>#<?= (int) $order['id'] ?></td>
-                            <td><?= htmlspecialchars($order['status']) ?></td>
+                            <td><span class="badge badge-<?= htmlspecialchars($order['status']) ?>"><?= order_status_label($order['status']) ?></span></td>
                             <td><?= htmlspecialchars($order['channel']) ?></td>
                             <td><?= currency((float) $order['total_amount']) ?></td>
                             <td><?= htmlspecialchars($order['created_at']) ?></td>
@@ -93,7 +93,7 @@ render_header('Üyelik');
                     <?php foreach ($orders as $order): ?>
                         <tr>
                             <td>#<?= (int) $order['id'] ?></td>
-                            <td><?= htmlspecialchars($order['status']) ?></td>
+                            <td><span class="badge badge-<?= htmlspecialchars($order['status']) ?>"><?= order_status_label($order['status']) ?></span></td>
                             <td><?= htmlspecialchars($order['channel']) ?></td>
                             <td><?= currency((float) $order['total_amount']) ?></td>
                             <td><?= htmlspecialchars($order['created_at']) ?></td>

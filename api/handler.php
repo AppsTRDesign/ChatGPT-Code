@@ -106,11 +106,21 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Önce giriş yapın.']);
             break;
         }
-        $stmt = db()->prepare('UPDATE users SET name = :name, email = :email, phone = :phone WHERE id = :id');
+        $avatar = handle_upload('avatar');
+        if ($avatar) {
+            $oldStmt = db()->prepare('SELECT avatar FROM users WHERE id = :id');
+            $oldStmt->execute(['id' => $user['id']]);
+            $oldPath = $oldStmt->fetchColumn();
+            if ($oldPath && is_file(__DIR__ . '/..' . $oldPath)) {
+                unlink(__DIR__ . '/..' . $oldPath);
+            }
+        }
+        $stmt = db()->prepare('UPDATE users SET name = :name, email = :email, phone = :phone, avatar = COALESCE(:avatar, avatar) WHERE id = :id');
         $stmt->execute([
             'name' => trim($_POST['name'] ?? ''),
             'email' => trim($_POST['email'] ?? ''),
             'phone' => trim($_POST['phone'] ?? ''),
+            'avatar' => $avatar,
             'id' => $user['id'],
         ]);
         echo json_encode(['success' => true, 'message' => 'Bilgiler güncellendi.']);
@@ -182,13 +192,14 @@ switch ($action) {
         $total = $quantity * (float) $product['price'];
         $channel = $_POST['channel'] ?? $product['order_channel'];
 
-        $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :status, :channel, :total_amount, :created_at)');
+        $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, order_note, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :order_note, :status, :channel, :total_amount, :created_at)');
         $stmt->execute([
             'user_id' => $_SESSION['user_id'] ?? null,
             'full_name' => trim($_POST['full_name'] ?? ''),
             'email' => trim($_POST['email'] ?? ''),
             'phone' => trim($_POST['phone'] ?? ''),
             'address' => trim($_POST['address'] ?? ''),
+            'order_note' => trim($_POST['order_note'] ?? ''),
             'status' => 'pending',
             'channel' => $channel,
             'total_amount' => $total,
@@ -222,16 +233,39 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Ürün seçilmedi.']);
             break;
         }
+        $user = current_user();
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yorum için giriş yapın.']);
+            break;
+        }
+        $orderCheck = db()->prepare('SELECT COUNT(*) FROM order_items INNER JOIN orders ON orders.id = order_items.order_id WHERE orders.user_id = :user_id AND order_items.product_id = :product_id');
+        $orderCheck->execute(['user_id' => $user['id'], 'product_id' => $productId]);
+        if (!$orderCheck->fetchColumn()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Bu ürün için sadece sipariş veren kullanıcılar yorum yapabilir.']);
+            break;
+        }
         $stmt = db()->prepare('INSERT INTO reviews (product_id, user_id, reviewer_name, rating, comment, created_at) VALUES (:product_id, :user_id, :reviewer_name, :rating, :comment, :created_at)');
         $stmt->execute([
             'product_id' => $productId,
-            'user_id' => $_SESSION['user_id'] ?? null,
-            'reviewer_name' => trim($_POST['reviewer_name'] ?? 'Misafir'),
+            'user_id' => $user['id'],
+            'reviewer_name' => $user['name'],
             'rating' => (int) ($_POST['rating'] ?? 5),
             'comment' => trim($_POST['comment'] ?? ''),
             'created_at' => date('Y-m-d H:i:s'),
         ]);
         echo json_encode(['success' => true, 'message' => 'Yorumunuz alındı.']);
+        break;
+    case 'review-like':
+        $reviewId = (int) ($_POST['review_id'] ?? 0);
+        if (!$reviewId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Yorum bulunamadı.']);
+            break;
+        }
+        db()->prepare('UPDATE reviews SET likes = likes + 1 WHERE id = :id')->execute(['id' => $reviewId]);
+        echo json_encode(['success' => true, 'message' => 'Yorum beğenildi.']);
         break;
     case 'contact':
         echo json_encode(['success' => true, 'message' => 'Mesajınız alındı.']);
@@ -255,6 +289,11 @@ switch ($action) {
             'theme_color',
             'lightbox_provider',
             'homepage_layout',
+            'homepage_latest_limit',
+            'homepage_ordered_limit',
+            'homepage_visited_limit',
+            'homepage_favorited_limit',
+            'reviews_per_page',
         ];
         foreach ($fields as $field) {
             update_setting($field, trim($_POST[$field] ?? ''));

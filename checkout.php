@@ -49,10 +49,11 @@ render_header('Sipariş Adımları');
                 <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
                 <input type="hidden" name="channel" value="<?= htmlspecialchars($product['order_channel']) ?>">
                 <div class="form-grid">
-                    <input type="text" name="full_name" placeholder="Ad Soyad" required>
-                    <input type="email" name="email" placeholder="E-posta" required>
-                    <input type="tel" name="phone" placeholder="Telefon" required>
-                    <textarea name="address" placeholder="Teslimat Adresi" rows="3"></textarea>
+                    <input type="text" name="full_name" placeholder="Ad Soyad" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
+                    <input type="email" name="email" placeholder="E-posta" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
+                    <input type="tel" name="phone" placeholder="Telefon" value="<?= htmlspecialchars($user['phone'] ?? '') ?>" required>
+                    <textarea name="address" placeholder="Teslimat Adresi" rows="3"><?= htmlspecialchars($user['address'] ?? '') ?></textarea>
+                    <textarea name="order_note" placeholder="Sipariş Notu (Opsiyonel)" rows="2"></textarea>
                     <input type="number" name="quantity" min="1" value="1" required>
                 </div>
                 <button class="btn primary" type="submit">Siparişi Onayla</button>

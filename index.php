@@ -14,10 +14,14 @@ $sortMap = [
     'new' => 'created_at DESC',
 ];
 $orderBy = $sortMap[$sort] ?? 'created_at DESC';
-$latestProducts = $pdo->query("SELECT products.*, (SELECT AVG(rating) FROM reviews WHERE reviews.product_id = products.id) AS avg_rating, (SELECT COUNT(*) FROM reviews WHERE reviews.product_id = products.id) AS review_count FROM products ORDER BY {$orderBy} LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
-$topOrdered = $pdo->query('SELECT products.*, COUNT(order_items.id) as order_count FROM products LEFT JOIN order_items ON order_items.product_id = products.id GROUP BY products.id ORDER BY order_count DESC LIMIT 8')->fetchAll(PDO::FETCH_ASSOC);
-$topVisited = $pdo->query('SELECT products.*, (SELECT AVG(rating) FROM reviews WHERE reviews.product_id = products.id) AS avg_rating, (SELECT COUNT(*) FROM reviews WHERE reviews.product_id = products.id) AS review_count FROM products ORDER BY visit_count DESC LIMIT 8')->fetchAll(PDO::FETCH_ASSOC);
-$topFavorited = $pdo->query('SELECT products.*, COUNT(favorites.id) as favorite_count FROM products LEFT JOIN favorites ON favorites.product_id = products.id GROUP BY products.id ORDER BY favorite_count DESC LIMIT 8')->fetchAll(PDO::FETCH_ASSOC);
+$latestLimit = (int) settings('homepage_latest_limit', '8');
+$orderedLimit = (int) settings('homepage_ordered_limit', '8');
+$visitedLimit = (int) settings('homepage_visited_limit', '8');
+$favoritedLimit = (int) settings('homepage_favorited_limit', '8');
+$latestProducts = $pdo->query("SELECT products.*, (SELECT AVG(rating) FROM reviews WHERE reviews.product_id = products.id) AS avg_rating, (SELECT COUNT(*) FROM reviews WHERE reviews.product_id = products.id) AS review_count FROM products ORDER BY {$orderBy} LIMIT {$latestLimit}")->fetchAll(PDO::FETCH_ASSOC);
+$topOrdered = $pdo->query("SELECT products.*, COUNT(order_items.id) as order_count FROM products LEFT JOIN order_items ON order_items.product_id = products.id GROUP BY products.id ORDER BY order_count DESC LIMIT {$orderedLimit}")->fetchAll(PDO::FETCH_ASSOC);
+$topVisited = $pdo->query("SELECT products.*, (SELECT AVG(rating) FROM reviews WHERE reviews.product_id = products.id) AS avg_rating, (SELECT COUNT(*) FROM reviews WHERE reviews.product_id = products.id) AS review_count FROM products ORDER BY visit_count DESC LIMIT {$visitedLimit}")->fetchAll(PDO::FETCH_ASSOC);
+$topFavorited = $pdo->query("SELECT products.*, COUNT(favorites.id) as favorite_count FROM products LEFT JOIN favorites ON favorites.product_id = products.id GROUP BY products.id ORDER BY favorite_count DESC LIMIT {$favoritedLimit}")->fetchAll(PDO::FETCH_ASSOC);
 $sliders = $pdo->query('SELECT * FROM sliders WHERE is_active = 1 ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
 
 render_header('Ana Sayfa');
@@ -69,7 +73,7 @@ render_header('Ana Sayfa');
                 <?php foreach ($latestProducts as $product): ?>
                     <article class="card">
                         <div class="card-media">
-                            <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                            <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                             <span class="card-badge">Ücretsiz Teslimat</span>
                             <button class="card-fav" type="button" data-favorite="<?= (int) $product['id'] ?>">♥</button>
                         </div>
@@ -96,7 +100,7 @@ render_header('Ana Sayfa');
                 <?php foreach ($topOrdered as $product): ?>
                     <article class="card">
                         <div class="card-media">
-                            <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                            <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                             <span class="card-badge">Çok Satan</span>
                         </div>
                         <div class="card-body">
@@ -118,7 +122,7 @@ render_header('Ana Sayfa');
                 <?php foreach ($topVisited as $product): ?>
                     <article class="card">
                         <div class="card-media">
-                            <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                            <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                             <span class="card-badge">Popüler</span>
                         </div>
                         <div class="card-body">
@@ -140,7 +144,7 @@ render_header('Ana Sayfa');
             <?php foreach ($topFavorited as $product): ?>
                 <article class="card">
                     <div class="card-media">
-                        <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                        <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                         <span class="card-badge">Favori</span>
                     </div>
                     <div class="card-body">

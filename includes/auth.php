@@ -25,7 +25,7 @@ function current_user(): ?array
         return null;
     }
 
-    $stmt = db()->prepare('SELECT id, name, email, phone, address, role FROM users WHERE id = :id');
+    $stmt = db()->prepare('SELECT id, name, email, phone, address, avatar, role FROM users WHERE id = :id');
     $stmt->execute(['id' => $_SESSION['user_id']]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 

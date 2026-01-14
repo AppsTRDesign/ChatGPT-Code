@@ -33,6 +33,14 @@ admin_header('Site Ayarları');
                 <option value="list" <?= settings('homepage_layout') === 'list' ? 'selected' : '' ?>>Liste</option>
             </select>
         </label>
+        <label>Ana Sayfa Ürün Limitleri</label>
+        <div class="form-grid">
+            <input type="number" name="homepage_latest_limit" value="<?= htmlspecialchars(settings('homepage_latest_limit', '8')) ?>" placeholder="En Yeni">
+            <input type="number" name="homepage_ordered_limit" value="<?= htmlspecialchars(settings('homepage_ordered_limit', '8')) ?>" placeholder="En Çok Sipariş">
+            <input type="number" name="homepage_visited_limit" value="<?= htmlspecialchars(settings('homepage_visited_limit', '8')) ?>" placeholder="En Çok Ziyaret">
+            <input type="number" name="homepage_favorited_limit" value="<?= htmlspecialchars(settings('homepage_favorited_limit', '8')) ?>" placeholder="En Çok Favori">
+            <input type="number" name="reviews_per_page" value="<?= htmlspecialchars(settings('reviews_per_page', '5')) ?>" placeholder="Yorum Sayısı">
+        </div>
         <label>Renk Teması<input type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>
