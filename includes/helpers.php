@@ -34,11 +34,36 @@ function base_url(string $path = ''): string
     return $base . '/' . ltrim($path, '/');
 }
 
-function slugify(string $value): string
+function permalink(string $text): string
 {
-    $value = mb_strtolower($value, 'UTF-8');
-    $value = preg_replace('/[^\\pL\\pN]+/u', '-', $value);
-    return trim($value, '-') ?: 'urun';
+    $text = trim($text);
+    if ($text === '') {
+        return '';
+    }
+
+    $tr = [
+        'Ç' => 'C', 'Ş' => 'S', 'Ğ' => 'G', 'Ü' => 'U', 'İ' => 'I', 'Ö' => 'O',
+        'ç' => 'c', 'ş' => 's', 'ğ' => 'g', 'ü' => 'u', 'ı' => 'i', 'ö' => 'o',
+    ];
+    $text = strtr($text, $tr);
+
+    if (class_exists('Transliterator')) {
+        $tr = Transliterator::create('Any-Latin; Latin-ASCII');
+        if ($tr) {
+            $text = $tr->transliterate($text);
+        }
+    } else {
+        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+        if ($converted !== false) {
+            $text = $converted;
+        }
+    }
+
+    $text = strtolower($text);
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
+    $text = preg_replace('/-+/', '-', $text);
+
+    return trim($text, '-');
 }
 
 function product_url(array $product): string

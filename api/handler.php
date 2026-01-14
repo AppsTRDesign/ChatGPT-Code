@@ -247,9 +247,9 @@ switch ($action) {
         $productId = (int) ($_POST['id'] ?? 0);
         $orderChannel = $_POST['order_channel'] ?? 'whatsapp';
         $orderLink = $orderChannel === 'whatsapp' ? trim($_POST['order_link'] ?? '') : '';
-        $slug = trim($_POST['slug'] ?? '');
+        $slug = permalink($_POST['slug'] ?? '');
         if (!$slug) {
-            $slug = slugify($_POST['name'] ?? '');
+            $slug = permalink($_POST['name'] ?? '');
         }
         $mainImage = handle_upload('main_image');
         if ($productId) {
@@ -300,9 +300,9 @@ switch ($action) {
             break;
         }
         $pageId = (int) ($_POST['id'] ?? 0);
-        $slug = trim($_POST['slug'] ?? '');
+        $slug = permalink($_POST['slug'] ?? '');
         if (!$slug) {
-            $slug = slugify($_POST['title'] ?? '');
+            $slug = permalink($_POST['title'] ?? '');
         }
         if ($pageId) {
             $stmt = db()->prepare('UPDATE pages SET title = :title, slug = :slug, summary = :summary, content = :content WHERE id = :id');
@@ -332,9 +332,9 @@ switch ($action) {
             break;
         }
         $categoryId = (int) ($_POST['id'] ?? 0);
-        $slug = trim($_POST['slug'] ?? '');
+        $slug = permalink($_POST['slug'] ?? '');
         if (!$slug) {
-            $slug = slugify($_POST['name'] ?? '');
+            $slug = permalink($_POST['name'] ?? '');
         }
         $image = handle_upload('image');
         if ($categoryId) {
