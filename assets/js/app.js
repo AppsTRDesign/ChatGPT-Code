@@ -20,6 +20,12 @@ const notifyError = (message) => {
   }
 };
 
+const getCsrfToken = () => (
+  document.querySelector('input[name="csrf_token"]')?.value
+  || document.querySelector('meta[name="csrf-token"]')?.content
+  || ''
+);
+
 document.querySelectorAll('[data-ajax]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
     if (form.closest('.checkout')) {
@@ -60,29 +66,50 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
   });
 });
 
-document.querySelectorAll('[data-favorite]').forEach((button) => {
-  button.addEventListener('click', async () => {
-    const productId = button.dataset.favorite;
-    const formData = new FormData();
-    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
-    formData.append('csrf_token', csrf);
-    formData.append('product_id', productId);
+const updateFavoriteButton = (button, favorited) => {
+  button.classList.toggle('is-active', favorited);
+  button.setAttribute('aria-pressed', favorited ? 'true' : 'false');
+  const filledIcon = button.dataset.favoriteFilled || '♥';
+  const emptyIcon = button.dataset.favoriteEmpty || '♡';
+  if (button.dataset.favoriteLabelAdd || button.dataset.favoriteLabelRemove) {
+    button.textContent = favorited
+      ? (button.dataset.favoriteLabelRemove || 'Favorilerden Çıkar')
+      : (button.dataset.favoriteLabelAdd || 'Favoriye Ekle');
+    button.classList.toggle('primary', favorited);
+  } else {
+    button.textContent = favorited ? filledIcon : emptyIcon;
+  }
+};
 
-    try {
-      const response = await fetch('/api/handler.php?action=favorite', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      if (response.ok) {
-        notifySuccess(data.message || 'Favori güncellendi.');
-      } else {
-        notifyError(data.message || 'Favori güncellenemedi.');
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-favorite]');
+  if (!button) return;
+  const productId = button.dataset.favorite;
+  const formData = new FormData();
+  formData.append('csrf_token', getCsrfToken());
+  formData.append('product_id', productId);
+
+  try {
+    const response = await fetch('/api/handler.php?action=favorite', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      notifySuccess(data.message || 'Favori güncellendi.');
+      updateFavoriteButton(button, data.favorited === true);
+      if (data.favorited === false) {
+        const favoriteItem = button.closest('[data-favorite-item]');
+        if (favoriteItem) {
+          favoriteItem.remove();
+        }
       }
-    } catch (error) {
-      notifyError('Sunucuya ulaşılamadı.');
+    } else {
+      notifyError(data.message || 'Favori güncellenemedi.');
     }
-  });
+  } catch (error) {
+    notifyError('Sunucuya ulaşılamadı.');
+  }
 });
 
 document.addEventListener('click', async (event) => {
@@ -90,8 +117,7 @@ document.addEventListener('click', async (event) => {
   if (!button) return;
   const reviewId = button.dataset.reviewDelete;
   const formData = new FormData();
-  const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
-  formData.append('csrf_token', csrf);
+  formData.append('csrf_token', getCsrfToken());
   formData.append('review_id', reviewId);
 
   try {
@@ -115,8 +141,7 @@ document.querySelectorAll('[data-cart-add]').forEach((button) => {
   button.addEventListener('click', async () => {
     const productId = button.dataset.cartAdd;
     const formData = new FormData();
-    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
-    formData.append('csrf_token', csrf);
+    formData.append('csrf_token', getCsrfToken());
     formData.append('product_id', productId);
 
     try {
@@ -140,8 +165,7 @@ document.querySelectorAll('[data-cart-remove]').forEach((button) => {
   button.addEventListener('click', async () => {
     const productId = button.dataset.cartRemove;
     const formData = new FormData();
-    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
-    formData.append('csrf_token', csrf);
+    formData.append('csrf_token', getCsrfToken());
     formData.append('product_id', productId);
 
     try {
@@ -170,8 +194,7 @@ document.addEventListener('click', async (event) => {
   }
   const reviewId = button.dataset.reviewLike;
   const formData = new FormData();
-  const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
-  formData.append('csrf_token', csrf);
+  formData.append('csrf_token', getCsrfToken());
   formData.append('review_id', reviewId);
   button.dataset.reviewLikePending = 'true';
 
@@ -210,8 +233,7 @@ if (reviewsContainer && reviewsPagination) {
     const productId = reviewsContainer.dataset.productId;
     const sort = reviewsContainer.dataset.reviewSort || 'top';
     const formData = new FormData();
-    const csrf = document.querySelector('input[name=\"csrf_token\"]')?.value || '';
-    formData.append('csrf_token', csrf);
+    formData.append('csrf_token', getCsrfToken());
     formData.append('product_id', productId);
     formData.append('page', page);
     formData.append('sort', sort);
@@ -235,3 +257,26 @@ if (reviewsContainer && reviewsPagination) {
     }
   });
 }
+
+document.querySelectorAll('[data-tabs]').forEach((tabs) => {
+  const buttons = tabs.querySelectorAll('[data-tab-target]');
+  const panels = tabs.querySelectorAll('.tab-panel');
+  const activateTab = (button) => {
+    const targetSelector = button.dataset.tabTarget;
+    const targetPanel = tabs.querySelector(targetSelector);
+    buttons.forEach((tabButton) => {
+      const isActive = tabButton === button;
+      tabButton.classList.toggle('is-active', isActive);
+      tabButton.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    panels.forEach((panel) => {
+      panel.classList.toggle('is-active', panel === targetPanel);
+    });
+  };
+  buttons.forEach((button, index) => {
+    button.addEventListener('click', () => activateTab(button));
+    if (index === 0 && button.classList.contains('is-active')) {
+      activateTab(button);
+    }
+  });
+});

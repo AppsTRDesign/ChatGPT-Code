@@ -21,6 +21,7 @@ function render_header(string $title = '', array $meta = []): void
     echo "<style>:root{--theme-color: {$themeColor};}</style>\n";
     echo "<title>{$pageTitle}</title>\n";
     echo "<meta name=\"description\" content=\"{$metaDescription}\">\n";
+    echo "<meta name=\"csrf-token\" content=\"" . csrf_token() . "\">\n";
     echo "<meta property=\"og:title\" content=\"{$pageTitle}\">\n";
     echo "<meta property=\"og:description\" content=\"{$metaDescription}\">\n";
     echo "<meta property=\"og:type\" content=\"website\">\n";

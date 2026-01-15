@@ -61,6 +61,14 @@ foreach ($ratingStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $ratingCounts[(int) $row['rating']] = (int) $row['count'];
 }
 
+$user = current_user();
+$isFavorited = false;
+if ($user) {
+    $favStmt = $pdo->prepare('SELECT id FROM favorites WHERE user_id = :user_id AND product_id = :product_id');
+    $favStmt->execute(['user_id' => $user['id'], 'product_id' => $product['id']]);
+    $isFavorited = (bool) $favStmt->fetchColumn();
+}
+
 $similarProducts = [];
 if ($product['category_id']) {
     $similarStmt = $pdo->prepare('SELECT * FROM products WHERE category_id = :category_id AND id != :id ORDER BY RAND() LIMIT 6');
@@ -95,11 +103,21 @@ render_header($product['name'], ['image' => $metaImage]);
     </div>
     <div class="product-info">
         <h1><?= htmlspecialchars($product['name']) ?></h1>
-        <p><?= $product['description'] ?></p>
         <p class="price"><?= currency((float) $product['price']) ?></p>
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <div class="button-row">
-            <button class="btn" type="button" data-favorite="<?= (int) $product['id'] ?>">Favoriye Ekle</button>
+            <?php if ($user): ?>
+                <button
+                    class="btn<?= $isFavorited ? ' primary' : '' ?>"
+                    type="button"
+                    data-favorite="<?= (int) $product['id'] ?>"
+                    data-favorite-label-add="Favoriye Ekle"
+                    data-favorite-label-remove="Favorilerden Çıkar"
+                    aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
+                >
+                    <?= $isFavorited ? 'Favorilerden Çıkar' : 'Favoriye Ekle' ?>
+                </button>
+            <?php endif; ?>
             <button class="btn" type="button" data-cart-add="<?= (int) $product['id'] ?>">Sepete Ekle</button>
             <a class="btn primary" href="/checkout.php?slug=<?= urlencode($product['slug']) ?>">Siparişe Devam Et</a>
         </div>
@@ -124,6 +142,100 @@ render_header($product['name'], ['image' => $metaImage]);
         <?php endif; ?>
     </div>
 </main>
+<section class="section">
+    <div class="container">
+        <div class="product-tabs" data-tabs>
+            <div class="tab-list" role="tablist">
+                <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="#tab-description">Açıklama</button>
+                <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="#tab-features">Ürün Özellikleri</button>
+                <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="#tab-reviews">Yorumlar</button>
+            </div>
+            <div class="tab-panel is-active" id="tab-description" role="tabpanel">
+                <?= $product['description'] ?>
+            </div>
+            <div class="tab-panel" id="tab-features" role="tabpanel">
+                <ul class="feature-list">
+                    <?php foreach ($features as $feature): ?>
+                        <li><strong><?= htmlspecialchars($feature['feature_name']) ?>:</strong> <?= htmlspecialchars($feature['feature_value']) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <div class="tab-panel" id="tab-reviews" role="tabpanel">
+                <div class="review-summary">
+                    <div>
+                        <h2>Yorumlar (<?= $reviewTotal ?>)</h2>
+                        <p class="rating-big"><?= number_format($ratingAvg, 1, ',', '.') ?></p>
+                        <div class="stars"><?= render_stars((int) round($ratingAvg)) ?></div>
+                    </div>
+                    <div class="rating-bars">
+                        <?php for ($i = 5; $i >= 1; $i--): ?>
+                            <?php
+                            $count = $ratingCounts[$i] ?? 0;
+                            $percentage = $reviewTotal ? ($count / $reviewTotal) * 100 : 0;
+                            ?>
+                            <div class="rating-bar">
+                                <span><?= $i ?></span>
+                                <div class="bar"><span style="width: <?= $percentage ?>%"></span></div>
+                                <span><?= $count ?></span>
+                            </div>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+                <div class="review-filter">
+                    <form method="get">
+                        <input type="hidden" name="slug" value="<?= htmlspecialchars($product['slug']) ?>">
+                        <select name="review_sort" onchange="this.form.submit()">
+                            <option value="top" <?= $sort === 'top' ? 'selected' : '' ?>>En Faydalı</option>
+                            <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>En Yeni</option>
+                        </select>
+                    </form>
+                </div>
+                <div class="reviews" id="reviewsContainer" data-product-id="<?= (int) $product['id'] ?>" data-review-sort="<?= htmlspecialchars($sort) ?>">
+                    <?php foreach ($reviews as $review): ?>
+                        <div class="review-card">
+                            <div class="review-header">
+                                <div class="review-user">
+                                    <div class="avatar">
+                                        <?php if (!empty($review['avatar'])): ?>
+                                            <img src="<?= htmlspecialchars($review['avatar']) ?>" alt="<?= htmlspecialchars($review['reviewer_name']) ?>">
+                                        <?php else: ?>
+                                            <?= strtoupper(mb_substr($review['reviewer_name'], 0, 1)) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div>
+                                        <strong><?= htmlspecialchars($review['reviewer_name']) ?></strong>
+                                        <span class="review-date"><?= htmlspecialchars($review['created_at']) ?></span>
+                                    </div>
+                                </div>
+                                <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
+                            </div>
+                            <p><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
+                            <button class="btn" type="button" data-review-like="<?= (int) $review['id'] ?>" data-review-likes="<?= (int) $review['likes'] ?>">Faydalı (<?= (int) $review['likes'] ?>)</button>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="pagination" id="reviewsPagination">
+                    <?php for ($i = 1; $i <= $reviewTotalPages; $i++): ?>
+                        <button class="btn <?= $i === $page ? 'primary' : '' ?>" type="button" data-review-page="<?= $i ?>"><?= $i ?></button>
+                    <?php endfor; ?>
+                </div>
+                <form class="review-form" data-ajax="review" method="post">
+                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                    <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+                    <select name="rating">
+                        <option value="5">5 Yıldız</option>
+                        <option value="4">4 Yıldız</option>
+                        <option value="3">3 Yıldız</option>
+                        <option value="2">2 Yıldız</option>
+                        <option value="1">1 Yıldız</option>
+                    </select>
+                    <textarea name="comment" rows="4" placeholder="Yorumunuz"></textarea>
+                    <button class="btn primary" type="submit">Yorum Gönder</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
 <?php if ($similarProducts): ?>
     <section class="section alt">
         <div class="container">
@@ -148,91 +260,6 @@ render_header($product['name'], ['image' => $metaImage]);
         </div>
     </section>
 <?php endif; ?>
-<section class="section">
-    <div class="container">
-        <h2>Ürün Özellikleri</h2>
-        <ul class="feature-list">
-            <?php foreach ($features as $feature): ?>
-                <li><strong><?= htmlspecialchars($feature['feature_name']) ?>:</strong> <?= htmlspecialchars($feature['feature_value']) ?></li>
-            <?php endforeach; ?>
-        </ul>
-    </div>
-</section>
-<section class="section alt">
-    <div class="container">
-        <div class="review-summary">
-            <div>
-                <h2>Yorumlar (<?= $reviewTotal ?>)</h2>
-                <p class="rating-big"><?= number_format($ratingAvg, 1, ',', '.') ?></p>
-                <div class="stars"><?= render_stars((int) round($ratingAvg)) ?></div>
-            </div>
-            <div class="rating-bars">
-                <?php for ($i = 5; $i >= 1; $i--): ?>
-                    <?php
-                    $count = $ratingCounts[$i] ?? 0;
-                    $percentage = $reviewTotal ? ($count / $reviewTotal) * 100 : 0;
-                    ?>
-                    <div class="rating-bar">
-                        <span><?= $i ?></span>
-                        <div class="bar"><span style="width: <?= $percentage ?>%"></span></div>
-                        <span><?= $count ?></span>
-                    </div>
-                <?php endfor; ?>
-            </div>
-        </div>
-        <div class="review-filter">
-            <form method="get">
-                <input type="hidden" name="slug" value="<?= htmlspecialchars($product['slug']) ?>">
-                <select name="review_sort" onchange="this.form.submit()">
-                    <option value="top" <?= $sort === 'top' ? 'selected' : '' ?>>En Faydalı</option>
-                    <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>En Yeni</option>
-                </select>
-            </form>
-        </div>
-        <div class="reviews" id="reviewsContainer" data-product-id="<?= (int) $product['id'] ?>" data-review-sort="<?= htmlspecialchars($sort) ?>">
-            <?php foreach ($reviews as $review): ?>
-                <div class="review-card">
-                    <div class="review-header">
-                        <div class="review-user">
-                            <div class="avatar">
-                                <?php if (!empty($review['avatar'])): ?>
-                                    <img src="<?= htmlspecialchars($review['avatar']) ?>" alt="<?= htmlspecialchars($review['reviewer_name']) ?>">
-                                <?php else: ?>
-                                    <?= strtoupper(mb_substr($review['reviewer_name'], 0, 1)) ?>
-                                <?php endif; ?>
-                            </div>
-                            <div>
-                                <strong><?= htmlspecialchars($review['reviewer_name']) ?></strong>
-                                <span class="review-date"><?= htmlspecialchars($review['created_at']) ?></span>
-                            </div>
-                        </div>
-                    <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
-                    </div>
-                    <p><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
-                    <button class="btn" type="button" data-review-like="<?= (int) $review['id'] ?>" data-review-likes="<?= (int) $review['likes'] ?>">Faydalı (<?= (int) $review['likes'] ?>)</button>
-                </div>
-            <?php endforeach; ?>
-        </div>
-        <div class="pagination" id="reviewsPagination">
-            <?php for ($i = 1; $i <= $reviewTotalPages; $i++): ?>
-                <button class="btn <?= $i === $page ? 'primary' : '' ?>" type="button" data-review-page="<?= $i ?>"><?= $i ?></button>
-            <?php endfor; ?>
-        </div>
-        <form class="review-form" data-ajax="review" method="post">
-            <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-            <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-            <select name="rating">
-                <option value="5">5 Yıldız</option>
-                <option value="4">4 Yıldız</option>
-                <option value="3">3 Yıldız</option>
-                <option value="2">2 Yıldız</option>
-                <option value="1">1 Yıldız</option>
-            </select>
-            <textarea name="comment" rows="4" placeholder="Yorumunuz"></textarea>
-            <button class="btn primary" type="submit">Yorum Gönder</button>
-        </form>
-    </div>
-</section>
 <script type="application/ld+json">
 <?php
 $reviewSchema = array_map(static function ($review) {

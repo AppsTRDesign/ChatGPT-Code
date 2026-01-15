@@ -48,6 +48,15 @@ $productsStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
 $productsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $productsStmt->execute();
 $products = $productsStmt->fetchAll(PDO::FETCH_ASSOC);
+$user = current_user();
+$favoriteMap = [];
+if ($user && $products) {
+    $productIds = array_column($products, 'id');
+    $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+    $favStmt = $pdo->prepare("SELECT product_id FROM favorites WHERE user_id = ? AND product_id IN ({$placeholders})");
+    $favStmt->execute(array_merge([$user['id']], $productIds));
+    $favoriteMap = array_fill_keys($favStmt->fetchAll(PDO::FETCH_COLUMN), true);
+}
 
 render_header($category['name']);
 ?>
@@ -70,14 +79,27 @@ render_header($category['name']);
     </form>
     <div class="grid">
         <?php foreach ($products as $product): ?>
+            <?php $isFavorited = isset($favoriteMap[$product['id']]); ?>
             <article class="card">
                 <div class="card-media">
                     <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                     <span class="card-badge">Ücretsiz Teslimat</span>
+                    <?php if ($user): ?>
+                        <button
+                            class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
+                            type="button"
+                            data-favorite="<?= (int) $product['id'] ?>"
+                            data-favorite-filled="♥"
+                            data-favorite-empty="♡"
+                            aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
+                        >
+                            <?= $isFavorited ? '♥' : '♡' ?>
+                        </button>
+                    <?php endif; ?>
                 </div>
                 <div class="card-body">
                     <h3><?= htmlspecialchars($product['name']) ?></h3>
-                    <p><?= htmlspecialchars($product['description']) ?></p>
+                    <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
                     <p class="price"><?= currency((float) $product['price']) ?></p>
                     <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                 </div>

@@ -6,14 +6,7 @@ require_once __DIR__ . '/includes/footer.php';
 $pdo = db();
 
 $layout = settings('homepage_layout', 'grid');
-$sort = $_GET['sort'] ?? 'recommended';
-$sortMap = [
-    'price_asc' => 'price ASC',
-    'price_desc' => 'price DESC',
-    'popular' => 'visit_count DESC',
-    'new' => 'created_at DESC',
-];
-$orderBy = $sortMap[$sort] ?? 'created_at DESC';
+$orderBy = 'created_at DESC';
 $latestLimit = (int) settings('homepage_latest_limit', '8');
 $orderedLimit = (int) settings('homepage_ordered_limit', '8');
 $visitedLimit = (int) settings('homepage_visited_limit', '8');
@@ -23,6 +16,22 @@ $topOrdered = $pdo->query("SELECT products.*, COUNT(order_items.id) as order_cou
 $topVisited = $pdo->query("SELECT products.*, (SELECT AVG(rating) FROM reviews WHERE reviews.product_id = products.id) AS avg_rating, (SELECT COUNT(*) FROM reviews WHERE reviews.product_id = products.id) AS review_count FROM products ORDER BY visit_count DESC LIMIT {$visitedLimit}")->fetchAll(PDO::FETCH_ASSOC);
 $topFavorited = $pdo->query("SELECT products.*, COUNT(favorites.id) as favorite_count FROM products LEFT JOIN favorites ON favorites.product_id = products.id GROUP BY products.id ORDER BY favorite_count DESC LIMIT {$favoritedLimit}")->fetchAll(PDO::FETCH_ASSOC);
 $sliders = $pdo->query('SELECT * FROM sliders WHERE is_active = 1 ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+$user = current_user();
+$favoriteMap = [];
+if ($user) {
+    $favoriteIds = array_unique(array_merge(
+        array_column($latestProducts, 'id'),
+        array_column($topOrdered, 'id'),
+        array_column($topVisited, 'id'),
+        array_column($topFavorited, 'id')
+    ));
+    if ($favoriteIds) {
+        $placeholders = implode(',', array_fill(0, count($favoriteIds), '?'));
+        $favStmt = $pdo->prepare("SELECT product_id FROM favorites WHERE user_id = ? AND product_id IN ({$placeholders})");
+        $favStmt->execute(array_merge([$user['id']], $favoriteIds));
+        $favoriteMap = array_fill_keys($favStmt->fetchAll(PDO::FETCH_COLUMN), true);
+    }
+}
 
 render_header('Ana Sayfa');
 ?>
@@ -58,28 +67,30 @@ render_header('Ana Sayfa');
         <div class="container">
             <div class="section-header">
                 <h2>Öne Çıkan Ürünler</h2>
-                <form class="filter-bar" method="get">
-                    <select name="sort">
-                        <option value="recommended" <?= $sort === 'recommended' ? 'selected' : '' ?>>Önerilen</option>
-                        <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>Ucuzdan Pahalıya</option>
-                        <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : '' ?>>Pahalıdan Ucuza</option>
-                        <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>En Yeni</option>
-                        <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>En Popüler</option>
-                    </select>
-                    <button class="btn" type="submit">Sırala</button>
-                </form>
             </div>
             <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
                 <?php foreach ($latestProducts as $product): ?>
+                    <?php $isFavorited = isset($favoriteMap[$product['id']]); ?>
                     <article class="card">
                         <div class="card-media">
                             <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                             <span class="card-badge">Ücretsiz Teslimat</span>
-                            <button class="card-fav" type="button" data-favorite="<?= (int) $product['id'] ?>">♥</button>
+                            <?php if ($user): ?>
+                                <button
+                                    class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
+                                    type="button"
+                                    data-favorite="<?= (int) $product['id'] ?>"
+                                    data-favorite-filled="♥"
+                                    data-favorite-empty="♡"
+                                    aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
+                                >
+                                    <?= $isFavorited ? '♥' : '♡' ?>
+                                </button>
+                            <?php endif; ?>
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars($product['description']) ?></p>
+                            <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
                             <div class="rating-row">
                                 <span class="stars"><?= str_repeat('★', (int) round($product['avg_rating'] ?? 0)) ?></span>
                                 <span>(<?= (int) ($product['review_count'] ?? 0) ?>)</span>
@@ -98,14 +109,27 @@ render_header('Ana Sayfa');
             <h2>En Çok Sipariş Edilenler</h2>
             <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
                 <?php foreach ($topOrdered as $product): ?>
+                    <?php $isFavorited = isset($favoriteMap[$product['id']]); ?>
                     <article class="card">
                         <div class="card-media">
                             <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                             <span class="card-badge">Çok Satan</span>
+                            <?php if ($user): ?>
+                                <button
+                                    class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
+                                    type="button"
+                                    data-favorite="<?= (int) $product['id'] ?>"
+                                    data-favorite-filled="♥"
+                                    data-favorite-empty="♡"
+                                    aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
+                                >
+                                    <?= $isFavorited ? '♥' : '♡' ?>
+                                </button>
+                            <?php endif; ?>
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars($product['description']) ?></p>
+                            <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
                             <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                         </div>
@@ -120,14 +144,27 @@ render_header('Ana Sayfa');
             <h2>En Çok Ziyaret Edilenler</h2>
             <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
                 <?php foreach ($topVisited as $product): ?>
+                    <?php $isFavorited = isset($favoriteMap[$product['id']]); ?>
                     <article class="card">
                         <div class="card-media">
                             <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                             <span class="card-badge">Popüler</span>
+                            <?php if ($user): ?>
+                                <button
+                                    class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
+                                    type="button"
+                                    data-favorite="<?= (int) $product['id'] ?>"
+                                    data-favorite-filled="♥"
+                                    data-favorite-empty="♡"
+                                    aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
+                                >
+                                    <?= $isFavorited ? '♥' : '♡' ?>
+                                </button>
+                            <?php endif; ?>
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars($product['description']) ?></p>
+                            <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
                             <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                         </div>
@@ -142,14 +179,27 @@ render_header('Ana Sayfa');
         <h2>En Çok Favoriye Eklenenler</h2>
         <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
             <?php foreach ($topFavorited as $product): ?>
+                <?php $isFavorited = isset($favoriteMap[$product['id']]); ?>
                 <article class="card">
                     <div class="card-media">
                         <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                         <span class="card-badge">Favori</span>
+                        <?php if ($user): ?>
+                            <button
+                                class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
+                                type="button"
+                                data-favorite="<?= (int) $product['id'] ?>"
+                                data-favorite-filled="♥"
+                                data-favorite-empty="♡"
+                                aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
+                            >
+                                <?= $isFavorited ? '♥' : '♡' ?>
+                            </button>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body">
                         <h3><?= htmlspecialchars($product['name']) ?></h3>
-                        <p><?= htmlspecialchars($product['description']) ?></p>
+                        <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
                         <p class="price"><?= currency((float) $product['price']) ?></p>
                         <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                     </div>

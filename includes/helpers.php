@@ -77,6 +77,20 @@ function permalink(string $text): string
     return trim($text, '-');
 }
 
+function excerpt_words(string $text, int $limit = 120): string
+{
+    $plain = trim(strip_tags(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    if ($plain === '') {
+        return '';
+    }
+    $words = preg_split('/\s+/u', $plain, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if (count($words) <= $limit) {
+        return $plain;
+    }
+    $excerpt = implode(' ', array_slice($words, 0, $limit));
+    return $excerpt . '...';
+}
+
 function product_url(array $product): string
 {
     return '/urun/' . urlencode($product['slug']);
