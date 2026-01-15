@@ -280,3 +280,31 @@ document.querySelectorAll('[data-tabs]').forEach((tabs) => {
     }
   });
 });
+
+document.querySelectorAll('[data-price-range]').forEach((range) => {
+  const minRange = range.querySelector('[data-range="min"]');
+  const maxRange = range.querySelector('[data-range="max"]');
+  const minValue = range.querySelector('[data-range-value="min"]');
+  const maxValue = range.querySelector('[data-range-value="max"]');
+  const minInput = range.querySelector('input[name="price_min"]');
+  const maxInput = range.querySelector('input[name="price_max"]');
+  if (!minRange || !maxRange || !minValue || !maxValue || !minInput || !maxInput) return;
+
+  const syncValues = () => {
+    let min = Number(minRange.value);
+    let max = Number(maxRange.value);
+    if (min > max) {
+      [min, max] = [max, min];
+    }
+    minRange.value = String(min);
+    maxRange.value = String(max);
+    minValue.textContent = String(min);
+    maxValue.textContent = String(max);
+    minInput.value = String(min);
+    maxInput.value = String(max);
+  };
+
+  minRange.addEventListener('input', syncValues);
+  maxRange.addEventListener('input', syncValues);
+  syncValues();
+});

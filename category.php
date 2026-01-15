@@ -31,6 +31,14 @@ $orderBy = $sortMap[$sort] ?? 'created_at DESC';
 $perPage = 9;
 $offset = ($page - 1) * $perPage;
 
+$avgStmt = $pdo->prepare('SELECT AVG(price) FROM products WHERE category_id = :category_id');
+$avgStmt->execute(['category_id' => $category['id']]);
+$avgPrice = (float) $avgStmt->fetchColumn();
+$maxPrice = $avgPrice > 0 ? (int) ceil($avgPrice) : 1;
+
+$priceMax = $priceMax > 0 ? $priceMax : $maxPrice;
+$priceMin = max(0, min($priceMin, $priceMax));
+
 $countStmt = $pdo->prepare('SELECT COUNT(*) FROM products WHERE category_id = :category_id AND (:price_min = 0 OR price >= :price_min) AND (:price_max = 0 OR price <= :price_max)');
 $countStmt->execute([
     'category_id' => $category['id'],
@@ -50,6 +58,9 @@ $productsStmt->execute();
 $products = $productsStmt->fetchAll(PDO::FETCH_ASSOC);
 $categoryDescription = excerpt_words($category['description'] ?? '', 160);
 $metaImage = $category['image'] ? absolute_url($category['image']) : '';
+$childStmt = $pdo->prepare('SELECT categories.*, COUNT(products.id) AS product_count FROM categories LEFT JOIN products ON products.category_id = categories.id WHERE categories.parent_id = :parent_id GROUP BY categories.id ORDER BY categories.name ASC');
+$childStmt->execute(['parent_id' => $category['id']]);
+$childCategories = $childStmt->fetchAll(PDO::FETCH_ASSOC);
 $user = current_user();
 $favoriteMap = [];
 if ($user && $products) {
@@ -80,6 +91,29 @@ render_header($category['name'], [
             <?= nl2br(htmlspecialchars($category['description'])) ?>
         </div>
     <?php endif; ?>
+    <?php if ($childCategories): ?>
+        <div class="subcategory-slider splide" id="subcategorySlider">
+            <div class="splide__track">
+                <ul class="splide__list">
+                    <?php foreach ($childCategories as $child): ?>
+                        <li class="splide__slide">
+                            <a class="subcategory-card" href="<?= category_url($child) ?>">
+                                <?php if (!empty($child['image'])): ?>
+                                    <img loading="lazy" src="<?= htmlspecialchars($child['image']) ?>" alt="<?= htmlspecialchars($child['name']) ?>">
+                                <?php elseif (!empty($child['icon'])): ?>
+                                    <span class="category-icon"><i class="<?= htmlspecialchars($child['icon']) ?>"></i></span>
+                                <?php else: ?>
+                                    <span class="category-icon"><i class="fa-regular fa-circle"></i></span>
+                                <?php endif; ?>
+                                <span><?= htmlspecialchars($child['name']) ?></span>
+                                <small class="category-count"><?= (int) $child['product_count'] ?> ürün</small>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
+    <?php endif; ?>
     <form class="filter-bar" method="get">
         <input type="hidden" name="slug" value="<?= htmlspecialchars($category['slug']) ?>">
         <div class="filter-row">
@@ -90,8 +124,14 @@ render_header($category['name'], [
                 <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>En Yeni</option>
                 <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>En Popüler</option>
             </select>
-            <input type="number" name="price_min" placeholder="Min ₺" value="<?= htmlspecialchars((string) $priceMin) ?>">
-            <input type="number" name="price_max" placeholder="Max ₺" value="<?= htmlspecialchars((string) $priceMax) ?>">
+            <div class="price-range" data-price-range data-max="<?= $maxPrice ?>">
+                <label>Min ₺: <span data-range-value="min"><?= htmlspecialchars((string) $priceMin) ?></span></label>
+                <input type="range" min="0" max="<?= $maxPrice ?>" value="<?= htmlspecialchars((string) $priceMin) ?>" data-range="min">
+                <label>Max ₺: <span data-range-value="max"><?= htmlspecialchars((string) $priceMax) ?></span></label>
+                <input type="range" min="0" max="<?= $maxPrice ?>" value="<?= htmlspecialchars((string) $priceMax) ?>" data-range="max">
+                <input type="hidden" name="price_min" value="<?= htmlspecialchars((string) $priceMin) ?>">
+                <input type="hidden" name="price_max" value="<?= htmlspecialchars((string) $priceMax) ?>">
+            </div>
             <button class="btn" type="submit">Uygula</button>
         </div>
     </form>

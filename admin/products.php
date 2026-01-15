@@ -7,6 +7,13 @@ require_admin();
 
 $pdo = db();
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
+$categoryMap = [];
+$categoryChildren = [];
+foreach ($categories as $category) {
+    $categoryMap[$category['id']] = $category;
+    $parentId = $category['parent_id'] ? (int) $category['parent_id'] : 0;
+    $categoryChildren[$parentId][] = $category;
+}
 $editId = (int) ($_GET['edit'] ?? 0);
 $productData = null;
 $featureText = '';
@@ -33,9 +40,18 @@ admin_header('Ürün Yönetimi');
         <label>Kategori
             <select name="category_id">
                 <option value="">Kategori Seçin</option>
-                <?php foreach ($categories as $category): ?>
-                    <option value="<?= (int) $category['id'] ?>" <?= ($productData && (int) $productData['category_id'] === (int) $category['id']) ? 'selected' : '' ?>><?= htmlspecialchars($category['name']) ?></option>
-                <?php endforeach; ?>
+                <?php if (!empty($categoryChildren[0])): ?>
+                    <?php foreach ($categoryChildren[0] as $parent): ?>
+                        <option value="<?= (int) $parent['id'] ?>" <?= ($productData && (int) $productData['category_id'] === (int) $parent['id']) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($parent['name']) ?>
+                        </option>
+                        <?php foreach ($categoryChildren[(int) $parent['id']] ?? [] as $child): ?>
+                            <option value="<?= (int) $child['id'] ?>" <?= ($productData && (int) $productData['category_id'] === (int) $child['id']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($parent['name'] . ' › ' . $child['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </select>
         </label>
         <label>Açıklama<textarea class="tinymce" name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>

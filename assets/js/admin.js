@@ -11,6 +11,7 @@ const iconPickerButton = document.querySelector('[data-icon-picker]');
 const iconPickerClose = document.querySelector('[data-icon-close]');
 const iconInput = document.getElementById('categoryIconInput');
 const iconPreview = document.getElementById('categoryIconPreview');
+const iconSearchInput = document.getElementById('iconSearchInput');
 
 const closeIconPicker = () => {
   if (iconPickerModal) {
@@ -47,6 +48,17 @@ document.querySelectorAll('[data-icon-value]').forEach((button) => {
     closeIconPicker();
   });
 });
+
+if (iconSearchInput) {
+  iconSearchInput.addEventListener('input', () => {
+    const query = iconSearchInput.value.toLowerCase().trim();
+    document.querySelectorAll('[data-icon-value]').forEach((button) => {
+      const name = button.dataset.iconName?.toLowerCase() || '';
+      const match = name.includes(query);
+      button.style.display = match ? '' : 'none';
+    });
+  });
+}
 if (chartCanvas && window.Chart) {
   orderChart = new Chart(chartCanvas, {
     type: 'line',
@@ -159,6 +171,20 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
     if (response.ok) {
       if (window.toastr) {
         toastr.success(data.message || 'Kaydedildi.');
+      }
+      form.reset();
+      const idField = form.querySelector('input[name="id"]');
+      if (idField) {
+        idField.value = '0';
+      }
+      if (window.tinymce) {
+        tinymce.editors?.forEach((editor) => {
+          editor.setContent('');
+        });
+      }
+      if (iconInput && iconPreview) {
+        iconInput.value = '';
+        iconPreview.innerHTML = '<i class="fa-regular fa-circle"></i>';
       }
     } else if (window.toastr) {
       toastr.error(data.message || 'İşlem başarısız.');

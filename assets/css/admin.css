@@ -255,11 +255,18 @@ table td {
   box-shadow: var(--shadow);
 }
 
+.icon-search {
+  margin-top: 12px;
+}
+
 .icon-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
   gap: 12px;
   margin-top: 16px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .icon-option {
@@ -268,6 +275,11 @@ table td {
   padding: 12px;
   background: #fff;
   cursor: pointer;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  font-size: 0.7rem;
+  text-align: center;
 }
 
 .icon-option i {

@@ -24,6 +24,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }).mount();
   }
 
+  const subcategorySlider = document.getElementById('subcategorySlider');
+  if (subcategorySlider && window.Splide) {
+    new Splide(subcategorySlider, {
+      perPage: 4,
+      gap: '1rem',
+      pagination: false,
+      arrows: true,
+      breakpoints: {
+        900: { perPage: 3 },
+        700: { perPage: 2 },
+        500: { perPage: 1 },
+      },
+    }).mount();
+  }
+
   if (window.GLightbox) {
     GLightbox({ selector: '.lightbox' });
   }

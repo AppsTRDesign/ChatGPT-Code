@@ -53,17 +53,25 @@ function render_header(string $title = '', array $meta = []): void
     } else {
         echo "<div class=\"logo\"><a href=\"/\">{$siteTitle}</a></div>\n";
     }
-    $categories = db()->query("SELECT * FROM categories WHERE parent_id IS NULL ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+    $categories = db()->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+    $categoryChildren = [];
+    foreach ($categories as $category) {
+        $parentId = $category['parent_id'] ? (int) $category['parent_id'] : 0;
+        $categoryChildren[$parentId][] = $category;
+    }
     $user = current_user();
     echo "<nav class=\"main-nav\" id=\"mainNav\">\n";
     echo "<a href=\"/\">Ana Sayfa</a>\n";
-    if ($categories) {
+    if (!empty($categoryChildren[0])) {
         echo "<div class=\"nav-dropdown\">\n";
         echo "<span>Kategoriler</span>\n";
         echo "<div class=\"dropdown-menu\">\n";
         echo "<a href=\"/kategoriler\">Tüm Kategoriler</a>\n";
-        foreach ($categories as $category) {
+        foreach ($categoryChildren[0] as $category) {
             echo "<a href=\"" . category_url($category) . "\">" . htmlspecialchars($category['name']) . "</a>\n";
+            foreach ($categoryChildren[(int) $category['id']] ?? [] as $child) {
+                echo "<a class=\"nav-child\" href=\"" . category_url($child) . "\">" . htmlspecialchars($category['name'] . ' › ' . $child['name']) . "</a>\n";
+            }
         }
         echo "</div>\n</div>\n";
     }

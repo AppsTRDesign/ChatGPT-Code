@@ -144,6 +144,12 @@ a {
   z-index: 10;
 }
 
+.nav-child {
+  padding-left: 12px;
+  font-size: 0.95rem;
+  color: #5b5b5b;
+}
+
 .nav-dropdown:hover .dropdown-menu {
   display: grid;
   gap: 8px;
@@ -414,6 +420,39 @@ a {
 .category-count {
   font-size: 0.9rem;
   color: #5b5b5b;
+}
+
+.subcategory-slider {
+  margin: 16px 0 24px;
+}
+
+.subcategory-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+  height: 100%;
+}
+
+.subcategory-card img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.price-range {
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.price-range input[type="range"] {
+  width: 100%;
 }
 
 .stars {
