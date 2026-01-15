@@ -40,6 +40,12 @@ $orderBy = $sortMap[$sort] ?? 'created_at DESC';
 $perPage = 9;
 $offset = ($page - 1) * $perPage;
 
+$childIdStmt = $pdo->prepare('SELECT id FROM categories WHERE parent_id = :parent_id');
+$childIdStmt->execute(['parent_id' => $category['id']]);
+$childCategoryIds = array_map('intval', $childIdStmt->fetchAll(PDO::FETCH_COLUMN));
+$categoryIds = array_values(array_unique(array_merge([$category['id']], $childCategoryIds)));
+$categoryPlaceholders = implode(',', array_fill(0, count($categoryIds), '?'));
+
 $avgStmt = $pdo->prepare('SELECT AVG(price) FROM products WHERE category_id = :category_id');
 $avgStmt->execute(['category_id' => $category['id']]);
 $avgPrice = (float) $avgStmt->fetchColumn();
@@ -48,21 +54,25 @@ $maxPrice = $avgPrice > 0 ? (int) ceil($avgPrice) : 1;
 $priceMax = $priceMax > 0 ? $priceMax : $maxPrice;
 $priceMin = max(0, min($priceMin, $priceMax));
 
-$countStmt = $pdo->prepare('SELECT COUNT(*) FROM products WHERE category_id = :category_id AND (:price_min = 0 OR price >= :price_min) AND (:price_max = 0 OR price <= :price_max)');
-$countStmt->execute([
-    'category_id' => $category['id'],
-    'price_min' => $priceMin,
-    'price_max' => $priceMax,
-]);
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM products WHERE category_id IN ({$categoryPlaceholders}) AND (? = 0 OR price >= ?) AND (? = 0 OR price <= ?)");
+$countStmt->execute(array_merge(
+    $categoryIds,
+    [$priceMin, $priceMin, $priceMax, $priceMax]
+));
 $total = (int) $countStmt->fetchColumn();
 $totalPages = max(1, (int) ceil($total / $perPage));
 
-$productsStmt = $pdo->prepare("SELECT * FROM products WHERE category_id = :category_id AND (:price_min = 0 OR price >= :price_min) AND (:price_max = 0 OR price <= :price_max) ORDER BY {$orderBy} LIMIT :limit OFFSET :offset");
-$productsStmt->bindValue(':category_id', $category['id'], PDO::PARAM_INT);
-$productsStmt->bindValue(':price_min', $priceMin);
-$productsStmt->bindValue(':price_max', $priceMax);
-$productsStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$productsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$productsStmt = $pdo->prepare("SELECT * FROM products WHERE category_id IN ({$categoryPlaceholders}) AND (? = 0 OR price >= ?) AND (? = 0 OR price <= ?) ORDER BY {$orderBy} LIMIT ? OFFSET ?");
+foreach ($categoryIds as $index => $categoryId) {
+    $productsStmt->bindValue($index + 1, $categoryId, PDO::PARAM_INT);
+}
+$priceMinIndex = count($categoryIds) + 1;
+$productsStmt->bindValue($priceMinIndex, $priceMin);
+$productsStmt->bindValue($priceMinIndex + 1, $priceMin);
+$productsStmt->bindValue($priceMinIndex + 2, $priceMax);
+$productsStmt->bindValue($priceMinIndex + 3, $priceMax);
+$productsStmt->bindValue($priceMinIndex + 4, $perPage, PDO::PARAM_INT);
+$productsStmt->bindValue($priceMinIndex + 5, $offset, PDO::PARAM_INT);
 $productsStmt->execute();
 $products = $productsStmt->fetchAll(PDO::FETCH_ASSOC);
 $categoryDescription = excerpt_words($category['description'] ?? '', 160);
