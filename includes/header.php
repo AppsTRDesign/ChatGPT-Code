@@ -2,7 +2,7 @@
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/auth.php';
 
-function render_header(string $title = ''): void
+function render_header(string $title = '', array $meta = []): void
 {
     $siteTitle = settings('site_name', 'Çiçek');
     $metaTitle = settings('meta_title', $siteTitle);
@@ -11,6 +11,7 @@ function render_header(string $title = ''): void
     $pageTitle = $title ? $title . ' | ' . $siteTitle : $metaTitle;
     $logo = settings('logo');
     $favicon = settings('favicon');
+    $metaImage = $meta['image'] ?? '';
 
     echo "<!DOCTYPE html>\n";
     echo "<html lang=\"tr\">\n<head>\n";
@@ -24,6 +25,11 @@ function render_header(string $title = ''): void
     echo "<meta property=\"og:description\" content=\"{$metaDescription}\">\n";
     echo "<meta property=\"og:type\" content=\"website\">\n";
     echo "<meta property=\"twitter:card\" content=\"summary_large_image\">\n";
+    if ($metaImage) {
+        $safeImage = htmlspecialchars($metaImage);
+        echo "<meta property=\"og:image\" content=\"{$safeImage}\">\n";
+        echo "<meta property=\"twitter:image\" content=\"{$safeImage}\">\n";
+    }
     if ($favicon) {
         echo "<link rel=\"icon\" href=\"{$favicon}\">\n";
     }

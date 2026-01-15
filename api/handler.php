@@ -302,6 +302,57 @@ switch ($action) {
         $likes = (int) $likesStmt->fetchColumn();
         echo json_encode(['success' => true, 'message' => 'Yorum beğenildi.', 'likes' => $likes]);
         break;
+    case 'review-update':
+        $user = current_user();
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Önce giriş yapın.']);
+            break;
+        }
+        $reviewId = (int) ($_POST['review_id'] ?? 0);
+        if (!$reviewId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Yorum bulunamadı.']);
+            break;
+        }
+        $checkStmt = db()->prepare('SELECT id FROM reviews WHERE id = :id AND user_id = :user_id');
+        $checkStmt->execute(['id' => $reviewId, 'user_id' => $user['id']]);
+        if (!$checkStmt->fetchColumn()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Yorum düzenleme yetkiniz yok.']);
+            break;
+        }
+        $stmt = db()->prepare('UPDATE reviews SET rating = :rating, comment = :comment WHERE id = :id');
+        $stmt->execute([
+            'rating' => (int) ($_POST['rating'] ?? 5),
+            'comment' => trim($_POST['comment'] ?? ''),
+            'id' => $reviewId,
+        ]);
+        echo json_encode(['success' => true, 'message' => 'Yorum güncellendi.']);
+        break;
+    case 'review-delete':
+        $user = current_user();
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Önce giriş yapın.']);
+            break;
+        }
+        $reviewId = (int) ($_POST['review_id'] ?? 0);
+        if (!$reviewId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Yorum bulunamadı.']);
+            break;
+        }
+        $checkStmt = db()->prepare('SELECT id FROM reviews WHERE id = :id AND user_id = :user_id');
+        $checkStmt->execute(['id' => $reviewId, 'user_id' => $user['id']]);
+        if (!$checkStmt->fetchColumn()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Yorum silme yetkiniz yok.']);
+            break;
+        }
+        db()->prepare('DELETE FROM reviews WHERE id = :id')->execute(['id' => $reviewId]);
+        echo json_encode(['success' => true, 'message' => 'Yorum silindi.']);
+        break;
     case 'reviews-list':
         $productId = (int) ($_POST['product_id'] ?? 0);
         if (!$productId) {

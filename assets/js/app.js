@@ -85,6 +85,32 @@ document.querySelectorAll('[data-favorite]').forEach((button) => {
   });
 });
 
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-review-delete]');
+  if (!button) return;
+  const reviewId = button.dataset.reviewDelete;
+  const formData = new FormData();
+  const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+  formData.append('csrf_token', csrf);
+  formData.append('review_id', reviewId);
+
+  try {
+    const response = await fetch('/api/handler.php?action=review-delete', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      notifySuccess(data.message || 'Yorum silindi.');
+      button.closest('.review-card')?.remove();
+    } else {
+      notifyError(data.message || 'Yorum silinemedi.');
+    }
+  } catch (error) {
+    notifyError('Sunucuya ulaşılamadı.');
+  }
+});
+
 document.querySelectorAll('[data-cart-add]').forEach((button) => {
   button.addEventListener('click', async () => {
     const productId = button.dataset.cartAdd;

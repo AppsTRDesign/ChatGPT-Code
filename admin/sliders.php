@@ -6,7 +6,16 @@ require_once __DIR__ . '/layout.php';
 require_admin();
 
 $pdo = db();
-$sliders = $pdo->query('SELECT * FROM sliders ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+$total = (int) $pdo->query('SELECT COUNT(*) FROM sliders')->fetchColumn();
+$totalPages = max(1, (int) ceil($total / $perPage));
+$slidersStmt = $pdo->prepare('SELECT * FROM sliders ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+$slidersStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$slidersStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$slidersStmt->execute();
+$sliders = $slidersStmt->fetchAll(PDO::FETCH_ASSOC);
 $editId = (int) ($_GET['edit'] ?? 0);
 $sliderData = null;
 if ($editId) {
@@ -59,6 +68,13 @@ admin_header('Slider Yönetimi');
             <?php endforeach; ?>
         </tbody>
     </table>
+    <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/sliders.php?page=<?= $i ?>"><?= $i ?></a>
+            <?php endfor; ?>
+        </div>
+    <?php endif; ?>
 </section>
 <?php
 admin_footer();

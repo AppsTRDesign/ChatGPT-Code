@@ -68,7 +68,9 @@ if ($product['category_id']) {
     $similarProducts = $similarStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-render_header($product['name']);
+$mainImage = $product['main_image'] ?: '/assets/images/placeholder.svg';
+$metaImage = absolute_url($mainImage);
+render_header($product['name'], ['image' => $metaImage]);
 ?>
 <main class="container product-detail">
     <div class="product-gallery">
@@ -76,8 +78,8 @@ render_header($product['name']);
             <div class="splide__track">
                 <ul class="splide__list">
                     <li class="splide__slide">
-                        <a class="lightbox" href="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" data-lightbox="product">
-                            <img loading="lazy" class="main-image product-image" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
+                        <a class="lightbox" href="<?= htmlspecialchars($mainImage) ?>" data-lightbox="product">
+                            <img loading="lazy" class="main-image product-image" src="<?= htmlspecialchars($mainImage) ?>" alt="<?= htmlspecialchars($product['name']) ?>">
                         </a>
                     </li>
                     <?php foreach ($gallery as $image): ?>
@@ -245,7 +247,9 @@ $reviewSchema = array_map(static function ($review) {
         'datePublished' => $review['created_at'],
     ];
 }, $reviews);
-$imageSchema = array_merge([$product['main_image']], array_column($gallery, 'image_path'));
+$imageSchema = array_merge([$mainImage], array_column($gallery, 'image_path'));
+$imageSchema = array_values(array_filter($imageSchema, static fn($image) => $image !== ''));
+$imageSchema = array_map('absolute_url', $imageSchema);
 ?>
 <?= json_encode([
     '@context' => 'https://schema.org',
@@ -258,7 +262,7 @@ $imageSchema = array_merge([$product['main_image']], array_column($gallery, 'ima
     'aggregateRating' => [
         '@type' => 'AggregateRating',
         'ratingValue' => $ratingAvg ?: 5,
-        'reviewCount' => count($reviews),
+        'reviewCount' => $reviewTotal,
     ],
     'offers' => [
         '@type' => 'Offer',
@@ -266,7 +270,7 @@ $imageSchema = array_merge([$product['main_image']], array_column($gallery, 'ima
         'price' => (float) $product['price'],
         'availability' => 'https://schema.org/InStock',
     ],
-], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 ?>
 </script>
 <?php

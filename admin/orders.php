@@ -5,7 +5,16 @@ require_once __DIR__ . '/layout.php';
 
 require_admin();
 
-$orders = db()->query('SELECT * FROM orders ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+$total = (int) db()->query('SELECT COUNT(*) FROM orders')->fetchColumn();
+$totalPages = max(1, (int) ceil($total / $perPage));
+$ordersStmt = db()->prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+$ordersStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$ordersStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$ordersStmt->execute();
+$orders = $ordersStmt->fetchAll(PDO::FETCH_ASSOC);
 $orderId = (int) ($_GET['view'] ?? 0);
 $orderDetail = null;
 $orderItems = [];
@@ -48,6 +57,13 @@ admin_header('Sipariş Yönetimi');
             <?php endforeach; ?>
         </tbody>
     </table>
+    <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/orders.php?page=<?= $i ?>"><?= $i ?></a>
+            <?php endfor; ?>
+        </div>
+    <?php endif; ?>
 </section>
 <?php endif; ?>
 <section class="panel">
@@ -87,6 +103,13 @@ admin_header('Sipariş Yönetimi');
             <?php endforeach; ?>
         </tbody>
     </table>
+    <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/orders.php?page=<?= $i ?>"><?= $i ?></a>
+            <?php endfor; ?>
+        </div>
+    <?php endif; ?>
 </section>
 <?php
 admin_footer();

@@ -5,7 +5,16 @@ require_once __DIR__ . '/layout.php';
 
 require_admin();
 
-$users = db()->query("SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+$total = (int) db()->query('SELECT COUNT(*) FROM users')->fetchColumn();
+$totalPages = max(1, (int) ceil($total / $perPage));
+$usersStmt = db()->prepare('SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+$usersStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$usersStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$usersStmt->execute();
+$users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
 
 admin_header('Kullanıcı Yönetimi');
 ?>
@@ -35,6 +44,13 @@ admin_header('Kullanıcı Yönetimi');
             <?php endforeach; ?>
         </tbody>
     </table>
+    <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/users.php?page=<?= $i ?>"><?= $i ?></a>
+            <?php endfor; ?>
+        </div>
+    <?php endif; ?>
 </section>
 <?php
 admin_footer();

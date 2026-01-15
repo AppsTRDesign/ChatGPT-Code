@@ -90,6 +90,9 @@ document.querySelectorAll('[data-order-status]').forEach((select) => {
 document.querySelectorAll('[data-ajax]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (window.tinymce) {
+      tinymce.triggerSave();
+    }
     const action = form.dataset.ajax;
     const formData = new FormData(form);
 

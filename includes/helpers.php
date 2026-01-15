@@ -34,6 +34,17 @@ function base_url(string $path = ''): string
     return $base . '/' . ltrim($path, '/');
 }
 
+function absolute_url(string $path): string
+{
+    if ($path === '') {
+        return '';
+    }
+    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+        return $path;
+    }
+    return base_url(ltrim($path, '/'));
+}
+
 function permalink(string $text): string
 {
     $text = trim($text);

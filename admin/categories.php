@@ -6,7 +6,16 @@ require_once __DIR__ . '/layout.php';
 require_admin();
 
 $pdo = db();
-$categories = $pdo->query('SELECT * FROM categories ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+$total = (int) $pdo->query('SELECT COUNT(*) FROM categories')->fetchColumn();
+$totalPages = max(1, (int) ceil($total / $perPage));
+$categoriesStmt = $pdo->prepare('SELECT * FROM categories ORDER BY name ASC LIMIT :limit OFFSET :offset');
+$categoriesStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$categoriesStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$categoriesStmt->execute();
+$categories = $categoriesStmt->fetchAll(PDO::FETCH_ASSOC);
 $editId = (int) ($_GET['edit'] ?? 0);
 $categoryData = null;
 if ($editId) {
@@ -62,6 +71,13 @@ admin_header('Kategori Yönetimi');
             <?php endforeach; ?>
         </tbody>
     </table>
+    <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/categories.php?page=<?= $i ?>"><?= $i ?></a>
+            <?php endfor; ?>
+        </div>
+    <?php endif; ?>
 </section>
 <?php
 admin_footer();
