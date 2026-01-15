@@ -206,9 +206,31 @@ render_header($category['name'], [
         <?php endforeach; ?>
     </div>
     <div class="pagination">
-        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-            <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="<?= category_url($category) ?>?page=<?= $i ?>&sort=<?= urlencode($sort) ?>&price_min=<?= urlencode((string) $priceMin) ?>&price_max=<?= urlencode((string) $priceMax) ?>"><?= $i ?></a>
-        <?php endfor; ?>
+        <?php
+        $pages = array_unique(array_filter([
+            1,
+            2,
+            $totalPages,
+            $totalPages - 1,
+            $page - 1,
+            $page,
+            $page + 1,
+        ], static fn($value) => $value >= 1 && $value <= $totalPages));
+        sort($pages);
+        $lastPage = 0;
+        foreach ($pages as $pageNumber) {
+            if ($pageNumber - $lastPage > 1) {
+                echo '<span class="pagination-ellipsis">…</span>';
+            }
+            $active = $pageNumber === $page ? 'primary' : '';
+            $url = category_url($category) . '?page=' . $pageNumber
+                . '&sort=' . urlencode($sort)
+                . '&price_min=' . urlencode((string) $priceMin)
+                . '&price_max=' . urlencode((string) $priceMax);
+            echo '<a class="btn ' . $active . '" href="' . $url . '">' . $pageNumber . '</a>';
+            $lastPage = $pageNumber;
+        }
+        ?>
     </div>
 </main>
 <script type="application/ld+json">

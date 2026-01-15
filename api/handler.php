@@ -374,10 +374,22 @@ switch ($action) {
             break;
         }
         $sort = $_POST['sort'] ?? 'top';
-        $sortSql = $sort === 'new' ? 'created_at DESC' : 'likes DESC, created_at DESC';
+        $sortMap = [
+            'top' => 'likes DESC, created_at DESC',
+            'new' => 'created_at DESC',
+            'old' => 'created_at ASC',
+            'low' => 'rating ASC, created_at DESC',
+            'high' => 'rating DESC, created_at DESC',
+        ];
+        $sortSql = $sortMap[$sort] ?? $sortMap['top'];
         $perPage = (int) settings('reviews_per_page', '5');
         $page = max(1, (int) ($_POST['page'] ?? 1));
         $offset = ($page - 1) * $perPage;
+
+        $countStmt = db()->prepare('SELECT COUNT(*) FROM reviews WHERE product_id = :product_id AND approved = 1');
+        $countStmt->execute(['product_id' => $productId]);
+        $reviewTotal = (int) $countStmt->fetchColumn();
+        $totalPages = max(1, (int) ceil($reviewTotal / $perPage));
 
         $reviewStmt = db()->prepare("SELECT reviews.*, users.avatar FROM reviews LEFT JOIN users ON users.id = reviews.user_id WHERE reviews.product_id = :product_id AND reviews.approved = 1 ORDER BY {$sortSql} LIMIT :limit OFFSET :offset");
         $reviewStmt->bindValue(':product_id', $productId, PDO::PARAM_INT);
@@ -412,7 +424,27 @@ switch ($action) {
             <?php
         }
         $html = ob_get_clean();
-        echo json_encode(['success' => true, 'html' => $html]);
+        $pages = array_unique(array_filter([
+            1,
+            2,
+            $totalPages,
+            $totalPages - 1,
+            $page - 1,
+            $page,
+            $page + 1,
+        ], static fn($value) => $value >= 1 && $value <= $totalPages));
+        sort($pages);
+        $pagination = '';
+        $lastPage = 0;
+        foreach ($pages as $reviewPageNumber) {
+            if ($reviewPageNumber - $lastPage > 1) {
+                $pagination .= '<span class="pagination-ellipsis">…</span>';
+            }
+            $active = $reviewPageNumber === $page ? ' primary' : '';
+            $pagination .= '<button class="btn' . $active . '" type="button" data-review-page="' . $reviewPageNumber . '">' . $reviewPageNumber . '</button>';
+            $lastPage = $reviewPageNumber;
+        }
+        echo json_encode(['success' => true, 'html' => $html, 'pagination' => $pagination, 'total_pages' => $totalPages]);
         break;
     case 'contact':
         echo json_encode(['success' => true, 'message' => 'Mesajınız alındı.']);

@@ -34,7 +34,14 @@ $featureStmt->execute(['product_id' => $product['id']]);
 $features = $featureStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $sort = $_GET['review_sort'] ?? 'top';
-$sortSql = $sort === 'new' ? 'created_at DESC' : 'likes DESC, created_at DESC';
+$sortMap = [
+    'top' => 'likes DESC, created_at DESC',
+    'new' => 'created_at DESC',
+    'old' => 'created_at ASC',
+    'low' => 'rating ASC, created_at DESC',
+    'high' => 'rating DESC, created_at DESC',
+];
+$sortSql = $sortMap[$sort] ?? $sortMap['top'];
 $perPage = (int) settings('reviews_per_page', '5');
 $page = max(1, (int) ($_GET['review_page'] ?? 1));
 $offset = ($page - 1) * $perPage;
@@ -190,9 +197,12 @@ render_header($product['name'], ['image' => $metaImage]);
                 <div class="review-filter">
                     <form method="get">
                         <input type="hidden" name="slug" value="<?= htmlspecialchars($product['slug']) ?>">
-                        <select name="review_sort" onchange="this.form.submit()">
+                        <select name="review_sort" data-review-sort-select>
                             <option value="top" <?= $sort === 'top' ? 'selected' : '' ?>>En Faydalı</option>
                             <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>En Yeni</option>
+                            <option value="old" <?= $sort === 'old' ? 'selected' : '' ?>>En Eski</option>
+                            <option value="low" <?= $sort === 'low' ? 'selected' : '' ?>>En Düşük Puan</option>
+                            <option value="high" <?= $sort === 'high' ? 'selected' : '' ?>>En Yüksek Puan</option>
                         </select>
                     </form>
                 </div>
@@ -221,9 +231,27 @@ render_header($product['name'], ['image' => $metaImage]);
                     <?php endforeach; ?>
                 </div>
                 <div class="pagination" id="reviewsPagination">
-                    <?php for ($i = 1; $i <= $reviewTotalPages; $i++): ?>
-                        <button class="btn <?= $i === $page ? 'primary' : '' ?>" type="button" data-review-page="<?= $i ?>"><?= $i ?></button>
-                    <?php endfor; ?>
+                    <?php
+                    $pages = array_unique(array_filter([
+                        1,
+                        2,
+                        $reviewTotalPages,
+                        $reviewTotalPages - 1,
+                        $page - 1,
+                        $page,
+                        $page + 1,
+                    ], static fn($value) => $value >= 1 && $value <= $reviewTotalPages));
+                    sort($pages);
+                    $lastPage = 0;
+                    foreach ($pages as $reviewPageNumber) {
+                        if ($reviewPageNumber - $lastPage > 1) {
+                            echo '<span class="pagination-ellipsis">…</span>';
+                        }
+                        $isActive = $reviewPageNumber === $page ? ' primary' : '';
+                        echo '<button class="btn' . $isActive . '" type="button" data-review-page="' . $reviewPageNumber . '">' . $reviewPageNumber . '</button>';
+                        $lastPage = $reviewPageNumber;
+                    }
+                    ?>
                 </div>
                 <form class="review-form" data-ajax="review" method="post">
                     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">

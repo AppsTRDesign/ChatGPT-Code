@@ -225,13 +225,10 @@ document.addEventListener('click', async (event) => {
 
 const reviewsContainer = document.getElementById('reviewsContainer');
 const reviewsPagination = document.getElementById('reviewsPagination');
+const reviewsSortSelect = document.querySelector('[data-review-sort-select]');
 if (reviewsContainer && reviewsPagination) {
-  reviewsPagination.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-review-page]');
-    if (!button) return;
-    const page = button.dataset.reviewPage;
+  const loadReviews = async ({ page = '1', sort = reviewsContainer.dataset.reviewSort || 'top' } = {}) => {
     const productId = reviewsContainer.dataset.productId;
-    const sort = reviewsContainer.dataset.reviewSort || 'top';
     const formData = new FormData();
     formData.append('csrf_token', getCsrfToken());
     formData.append('product_id', productId);
@@ -246,16 +243,28 @@ if (reviewsContainer && reviewsPagination) {
       const data = await response.json();
       if (response.ok) {
         reviewsContainer.innerHTML = data.html || '';
-        reviewsPagination.querySelectorAll('[data-review-page]').forEach((pageButton) => {
-          pageButton.classList.toggle('primary', pageButton.dataset.reviewPage === page);
-        });
+        reviewsPagination.innerHTML = data.pagination || '';
+        reviewsContainer.dataset.reviewSort = sort;
       } else {
         notifyError(data.message || 'Yorumlar yüklenemedi.');
       }
     } catch (error) {
       notifyError('Sunucuya ulaşılamadı.');
     }
+  };
+
+  reviewsPagination.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-review-page]');
+    if (!button) return;
+    const page = button.dataset.reviewPage;
+    loadReviews({ page });
   });
+
+  if (reviewsSortSelect) {
+    reviewsSortSelect.addEventListener('change', () => {
+      loadReviews({ page: '1', sort: reviewsSortSelect.value });
+    });
+  }
 }
 
 document.querySelectorAll('[data-tabs]').forEach((tabs) => {

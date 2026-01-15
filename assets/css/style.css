@@ -866,6 +866,12 @@ table td {
   gap: 8px;
   flex-wrap: wrap;
   margin: 32px 0;
+  align-items: center;
+}
+
+.pagination-ellipsis {
+  padding: 0 6px;
+  color: #8a8a8a;
 }
 
 .checkout .step {
