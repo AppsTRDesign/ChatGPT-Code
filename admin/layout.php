@@ -10,7 +10,8 @@ function admin_header(string $title): void
     echo "<title>{$title} | Admin</title>\n";
     echo "<meta name=\"theme-color\" content=\"{$themeColor}\">\n";
     echo "<style>:root{--theme-color: {$themeColor};}</style>\n";
-    echo "<link rel=\"stylesheet\" href=\"/assets/css/style.css\">\n";
+    echo "<link rel=\"stylesheet\" href=\"/assets/css/admin.css\">\n";
+    echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css\">\n";
     echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css\">\n";
     echo "</head>\n<body class=\"admin-body\">\n";
     echo "<aside class=\"admin-sidebar\" id=\"adminSidebar\">\n";

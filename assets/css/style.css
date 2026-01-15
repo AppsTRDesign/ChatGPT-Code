@@ -26,12 +26,13 @@ img {
 
 img.product-image {
   width: 100%;
-  height: 220px;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
+  display: block;
 }
 
 .list-grid img.product-image {
-  height: 140px;
+  aspect-ratio: 4 / 3;
 }
 
 a {
@@ -224,6 +225,13 @@ a {
   position: relative;
 }
 
+.card-media img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
 .card-badge {
   position: absolute;
   left: 12px;
@@ -344,6 +352,70 @@ a {
   margin-top: 16px;
 }
 
+.category-description {
+  border: 1px solid var(--border-color);
+  background: #fff;
+  padding: 20px;
+  border-radius: 16px;
+  margin: 20px 0 32px;
+  box-shadow: var(--shadow);
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.category-header img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 20px;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.category-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+}
+
+.category-card img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.category-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: #f7f7f7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: var(--theme-color);
+  margin: 0 auto;
+}
+
+.category-count {
+  font-size: 0.9rem;
+  color: #5b5b5b;
+}
+
 .stars {
   letter-spacing: 2px;
 }
@@ -376,6 +448,14 @@ a {
   margin-top: 12px;
 }
 
+.product-gallery .product-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: #f5f5f5;
+  border-radius: 16px;
+}
+
 .product-info .price {
   font-size: 1.4rem;
   margin: 16px 0;
@@ -385,8 +465,7 @@ a {
 .order-form,
 .contact-form,
 .auth-form,
-.profile-form,
-.admin-form {
+.profile-form {
   display: grid;
   gap: 16px;
   margin-top: 20px;
@@ -704,83 +783,6 @@ table td {
   margin-bottom: 16px;
 }
 
-.admin-body {
-  display: flex;
-  min-height: 100vh;
-  background: #f7f7f7;
-}
-
-.admin-sidebar {
-  width: 240px;
-  background: #1f1f1f;
-  color: #fff;
-  padding: 24px;
-}
-
-.admin-sidebar h2 {
-  font-size: 1.2rem;
-  margin-bottom: 8px;
-}
-
-.admin-sidebar nav {
-  display: grid;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.admin-sidebar a {
-  color: #fff;
-}
-
-.admin-nav-group {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.admin-nav-group span {
-  font-size: 0.85rem;
-  opacity: 0.7;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.admin-nav-toggle {
-  display: none;
-  border: none;
-  background: #1f1f1f;
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.admin-main {
-  flex: 1;
-  padding: 24px;
-}
-
-.admin-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.admin-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.admin-cards .card {
-  padding: 20px;
-  text-align: center;
-}
-
 .panel {
   background: #fff;
   padding: 24px;
@@ -840,25 +842,6 @@ td {
 
   .nav-toggle {
     display: block;
-  }
-
-  .admin-body {
-    flex-direction: column;
-  }
-
-  .admin-sidebar {
-    width: 100%;
-    display: none;
-  }
-
-  .admin-body.nav-open .admin-sidebar {
-    display: block;
-  }
-
-  .admin-nav-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .grid {

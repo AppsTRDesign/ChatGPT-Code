@@ -6,9 +6,9 @@ function render_header(string $title = '', array $meta = []): void
 {
     $siteTitle = settings('site_name', 'Çiçek');
     $metaTitle = settings('meta_title', $siteTitle);
-    $metaDescription = settings('meta_description', '');
     $themeColor = settings('theme_color', '#E85D75');
-    $pageTitle = $title ? $title . ' | ' . $siteTitle : $metaTitle;
+    $pageTitle = $meta['title'] ?? ($title ? $title . ' | ' . $siteTitle : $metaTitle);
+    $metaDescription = $meta['description'] ?? settings('meta_description', '');
     $logo = settings('logo');
     $favicon = settings('favicon');
     $metaImage = $meta['image'] ?? '';
@@ -25,6 +25,8 @@ function render_header(string $title = '', array $meta = []): void
     echo "<meta property=\"og:title\" content=\"{$pageTitle}\">\n";
     echo "<meta property=\"og:description\" content=\"{$metaDescription}\">\n";
     echo "<meta property=\"og:type\" content=\"website\">\n";
+    echo "<meta property=\"twitter:title\" content=\"{$pageTitle}\">\n";
+    echo "<meta property=\"twitter:description\" content=\"{$metaDescription}\">\n";
     echo "<meta property=\"twitter:card\" content=\"summary_large_image\">\n";
     if ($metaImage) {
         $safeImage = htmlspecialchars($metaImage);
@@ -35,6 +37,7 @@ function render_header(string $title = '', array $meta = []): void
         echo "<link rel=\"icon\" href=\"{$favicon}\">\n";
     }
     echo "<link rel=\"stylesheet\" href=\"/assets/css/style.css\">\n";
+    echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css\">\n";
     echo "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css\">\n";
     if (settings('lightbox_provider') === 'lightbox2') {
         echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.4/css/lightbox.min.css\">\n";
@@ -58,6 +61,7 @@ function render_header(string $title = '', array $meta = []): void
         echo "<div class=\"nav-dropdown\">\n";
         echo "<span>Kategoriler</span>\n";
         echo "<div class=\"dropdown-menu\">\n";
+        echo "<a href=\"/kategoriler\">Tüm Kategoriler</a>\n";
         foreach ($categories as $category) {
             echo "<a href=\"" . category_url($category) . "\">" . htmlspecialchars($category['name']) . "</a>\n";
         }

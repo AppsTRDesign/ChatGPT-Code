@@ -562,23 +562,26 @@ switch ($action) {
         }
         $categoryId = (int) ($_POST['id'] ?? 0);
         $name = trim($_POST['name'] ?? '');
+        $description = trim($_POST['description'] ?? '');
         $slug = permalink($name);
         $image = handle_upload('image');
         if ($categoryId) {
-            $stmt = db()->prepare('UPDATE categories SET name = :name, slug = :slug, parent_id = :parent_id, icon = :icon, image = COALESCE(:image, image) WHERE id = :id');
+            $stmt = db()->prepare('UPDATE categories SET name = :name, slug = :slug, description = :description, parent_id = :parent_id, icon = :icon, image = COALESCE(:image, image) WHERE id = :id');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
                 'parent_id' => $_POST['parent_id'] ?: null,
+                'description' => $description,
                 'icon' => trim($_POST['icon'] ?? ''),
                 'image' => $image,
                 'id' => $categoryId,
             ]);
         } else {
-            $stmt = db()->prepare('INSERT INTO categories (name, slug, parent_id, icon, image, created_at) VALUES (:name, :slug, :parent_id, :icon, :image, :created_at)');
+            $stmt = db()->prepare('INSERT INTO categories (name, slug, description, parent_id, icon, image, created_at) VALUES (:name, :slug, :description, :parent_id, :icon, :image, :created_at)');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
+                'description' => $description,
                 'parent_id' => $_POST['parent_id'] ?: null,
                 'icon' => trim($_POST['icon'] ?? ''),
                 'image' => $image,

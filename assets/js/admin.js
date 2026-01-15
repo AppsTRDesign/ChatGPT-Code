@@ -6,6 +6,47 @@ if (adminNavToggle) {
     document.body.classList.toggle('nav-open');
   });
 }
+const iconPickerModal = document.getElementById('iconPickerModal');
+const iconPickerButton = document.querySelector('[data-icon-picker]');
+const iconPickerClose = document.querySelector('[data-icon-close]');
+const iconInput = document.getElementById('categoryIconInput');
+const iconPreview = document.getElementById('categoryIconPreview');
+
+const closeIconPicker = () => {
+  if (iconPickerModal) {
+    iconPickerModal.classList.remove('open');
+    iconPickerModal.setAttribute('aria-hidden', 'true');
+  }
+};
+
+if (iconPickerButton && iconPickerModal) {
+  iconPickerButton.addEventListener('click', () => {
+    iconPickerModal.classList.add('open');
+    iconPickerModal.setAttribute('aria-hidden', 'false');
+  });
+}
+
+if (iconPickerClose) {
+  iconPickerClose.addEventListener('click', closeIconPicker);
+}
+
+if (iconPickerModal) {
+  iconPickerModal.addEventListener('click', (event) => {
+    if (event.target === iconPickerModal) {
+      closeIconPicker();
+    }
+  });
+}
+
+document.querySelectorAll('[data-icon-value]').forEach((button) => {
+  button.addEventListener('click', () => {
+    if (!iconInput || !iconPreview) return;
+    const iconClass = button.dataset.iconValue || '';
+    iconInput.value = iconClass;
+    iconPreview.innerHTML = iconClass ? `<i class="${iconClass}"></i>` : '<i class="fa-regular fa-circle"></i>';
+    closeIconPicker();
+  });
+});
 if (chartCanvas && window.Chart) {
   orderChart = new Chart(chartCanvas, {
     type: 'line',

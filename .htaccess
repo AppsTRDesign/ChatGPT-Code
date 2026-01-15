@@ -58,4 +58,8 @@ RewriteRule ^kategori/([^/]+)/?$ category.php?slug=$1 [L,QSA]
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^kategoriler/?$ categories.php [L,QSA]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^sayfa/([^/]+)/?$ page.php?slug=$1 [L,QSA]

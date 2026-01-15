@@ -21,6 +21,7 @@ CREATE TABLE categories (
     parent_id INT NULL,
     name VARCHAR(190) NOT NULL,
     slug VARCHAR(190) NOT NULL UNIQUE,
+    description TEXT,
     icon VARCHAR(255),
     image VARCHAR(255),
     created_at DATETIME NOT NULL,
@@ -162,4 +163,4 @@ INSERT INTO settings (setting_key, setting_value) VALUES
 ('paytr_fail_url', '');
 
 INSERT INTO users (name, email, phone, password_hash, role, created_at) VALUES
-('Admin', 'admin@noasoft.org', '+90 555 000 0001', '$2y$10$wH.6wOkC5AxYymG85TgDge6IhTrfWZ/5jhnQHdvnT4ATdH1oJbY9m', 'admin', NOW());
+('Admin', 'admin@noasoft.org', '+90 555 000 0001', '$2a$12$ANgmvXJurVX6nmbFsIG9yendGFdClptNcytcNJ9vAjJ9/7i6J8Opu', 'admin', NOW());

@@ -23,6 +23,7 @@ admin_header('Kategori Yönetimi');
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="id" value="<?= (int) ($categoryData['id'] ?? 0) ?>">
         <label>Kategori Adı<input type="text" name="name" value="<?= htmlspecialchars($categoryData['name'] ?? '') ?>" required></label>
+        <label>Kategori Açıklaması<textarea name="description" rows="4"><?= htmlspecialchars($categoryData['description'] ?? '') ?></textarea></label>
         <label>Üst Kategori
             <select name="parent_id">
                 <option value="">Ana Kategori</option>
@@ -31,11 +32,52 @@ admin_header('Kategori Yönetimi');
                 <?php endforeach; ?>
             </select>
         </label>
-        <label>Icon URL<input type="text" name="icon" value="<?= htmlspecialchars($categoryData['icon'] ?? '') ?>"></label>
+        <div class="icon-picker">
+            <input type="hidden" name="icon" id="categoryIconInput" value="<?= htmlspecialchars($categoryData['icon'] ?? '') ?>">
+            <div class="icon-preview" id="categoryIconPreview">
+                <?php if (!empty($categoryData['icon'])): ?>
+                    <i class="<?= htmlspecialchars($categoryData['icon']) ?>"></i>
+                <?php else: ?>
+                    <i class="fa-regular fa-circle"></i>
+                <?php endif; ?>
+            </div>
+            <button class="btn" type="button" data-icon-picker>Icon Seç</button>
+        </div>
         <label>Resim<input type="file" name="image"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>
 </section>
+<div class="admin-modal" id="iconPickerModal" aria-hidden="true">
+    <div class="admin-modal-content">
+        <div class="panel-header">
+            <h3>Icon Seç</h3>
+            <button class="btn" type="button" data-icon-close>Kapat</button>
+        </div>
+        <div class="icon-grid">
+            <?php
+            $icons = [
+                'fa-solid fa-heart',
+                'fa-solid fa-gift',
+                'fa-solid fa-leaf',
+                'fa-solid fa-star',
+                'fa-solid fa-basket-shopping',
+                'fa-solid fa-cake-candles',
+                'fa-solid fa-wand-magic-sparkles',
+                'fa-solid fa-champagne-glasses',
+                'fa-solid fa-seedling',
+                'fa-solid fa-palette',
+                'fa-solid fa-wine-glass',
+                'fa-solid fa-sun',
+            ];
+            foreach ($icons as $iconClass):
+            ?>
+                <button class="icon-option" type="button" data-icon-value="<?= htmlspecialchars($iconClass) ?>">
+                    <i class="<?= htmlspecialchars($iconClass) ?>"></i>
+                </button>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
 <?php
 admin_footer();
 ?>
