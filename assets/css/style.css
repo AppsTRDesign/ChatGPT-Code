@@ -26,7 +26,7 @@ img {
 
 img.product-image {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   display: block;
 }
@@ -206,13 +206,13 @@ a {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
   margin-top: 24px;
 }
 
 .site-width-wide .grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .list-grid {
@@ -241,11 +241,14 @@ a {
 
 .card-media {
   position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
 }
 
 .card-media img {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: 100%;
+  aspect-ratio: auto;
   object-fit: cover;
   display: block;
 }

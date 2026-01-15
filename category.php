@@ -22,10 +22,14 @@ $sort = $_GET['sort'] ?? 'recommended';
 $priceMin = (float) ($_GET['price_min'] ?? 0);
 $priceMax = (float) ($_GET['price_max'] ?? 0);
 $layout = settings('homepage_layout', 'grid');
-$siteWidth = settings('site_width', 'box');
-$excerptLimit = $layout === 'grid'
-    ? ($siteWidth === 'wide' ? 80 : 60)
-    : 120;
+$listExcerptLimit = 100;
+$summaryFor = static function (array $product) use ($layout, $listExcerptLimit): string {
+    if ($layout === 'grid') {
+        $short = trim((string) ($product['short_description'] ?? ''));
+        return $short !== '' ? $short : excerpt_words((string) ($product['description'] ?? ''), 60);
+    }
+    return excerpt_words((string) ($product['description'] ?? ''), $listExcerptLimit);
+};
 $sortMap = [
     'price_asc' => 'price ASC',
     'price_desc' => 'price DESC',
@@ -164,7 +168,7 @@ render_header($category['name'], [
                 </div>
                 <div class="card-body">
                     <h3><?= htmlspecialchars($product['name']) ?></h3>
-                    <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
+                    <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                     <p class="price"><?= currency((float) $product['price']) ?></p>
                     <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                 </div>

@@ -6,10 +6,14 @@ require_once __DIR__ . '/includes/footer.php';
 $pdo = db();
 
 $layout = settings('homepage_layout', 'grid');
-$siteWidth = settings('site_width', 'box');
-$excerptLimit = $layout === 'grid'
-    ? ($siteWidth === 'wide' ? 80 : 60)
-    : 120;
+$listExcerptLimit = 100;
+$summaryFor = static function (array $product) use ($layout, $listExcerptLimit): string {
+    if ($layout === 'grid') {
+        $short = trim((string) ($product['short_description'] ?? ''));
+        return $short !== '' ? $short : excerpt_words((string) ($product['description'] ?? ''), 60);
+    }
+    return excerpt_words((string) ($product['description'] ?? ''), $listExcerptLimit);
+};
 $orderBy = 'created_at DESC';
 $latestLimit = (int) settings('homepage_latest_limit', '8');
 $orderedLimit = (int) settings('homepage_ordered_limit', '8');
@@ -96,7 +100,7 @@ render_header('Ana Sayfa');
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
+                            <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                             <div class="rating-row">
                                 <span class="stars"><?= str_repeat('★', (int) round($product['avg_rating'] ?? 0)) ?></span>
                                 <span>(<?= (int) ($product['review_count'] ?? 0) ?>)</span>
@@ -135,7 +139,7 @@ render_header('Ana Sayfa');
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
+                            <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
                             <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                         </div>
@@ -170,7 +174,7 @@ render_header('Ana Sayfa');
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
+                            <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
                             <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                         </div>
@@ -205,7 +209,7 @@ render_header('Ana Sayfa');
                     </div>
                     <div class="card-body">
                         <h3><?= htmlspecialchars($product['name']) ?></h3>
-                        <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
+                        <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                         <p class="price"><?= currency((float) $product['price']) ?></p>
                         <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                     </div>

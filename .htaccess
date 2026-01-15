@@ -1,5 +1,10 @@
 RewriteEngine On
 
+RewriteRule ^sitemap\.xml$ includes/sitemap.php?section=index [L,QSA]
+RewriteRule ^sitemap-pages\.xml$ includes/sitemap.php?section=pages [L,QSA]
+RewriteRule ^sitemap-categories\.xml$ includes/sitemap.php?section=categories [L,QSA]
+RewriteRule ^sitemap-([0-9]+)\.xml$ includes/sitemap.php?section=products&page=$1 [L,QSA]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^icerikler/?$ content.php [L,QSA]

@@ -35,6 +35,7 @@ CREATE TABLE products (
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
     sku TEXT,
+    short_description TEXT,
     description TEXT,
     price REAL NOT NULL DEFAULT 0,
     stock INTEGER NOT NULL DEFAULT 0,

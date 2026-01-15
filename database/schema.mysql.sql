@@ -33,6 +33,7 @@ CREATE TABLE products (
     name VARCHAR(190) NOT NULL,
     slug VARCHAR(190) NOT NULL UNIQUE,
     sku VARCHAR(190),
+    short_description VARCHAR(255),
     description TEXT,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
     stock INT NOT NULL DEFAULT 0,

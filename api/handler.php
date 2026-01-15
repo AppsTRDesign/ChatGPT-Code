@@ -475,6 +475,7 @@ switch ($action) {
         $sku = trim($_POST['sku'] ?? '');
         $stock = max(0, (int) ($_POST['stock'] ?? 0));
         $badgeText = trim($_POST['badge_text'] ?? '');
+        $shortDescription = trim($_POST['short_description'] ?? '');
         $slug = permalink($name);
         $mainImage = handle_upload('main_image');
         if ($productId) {
@@ -486,11 +487,12 @@ switch ($action) {
                     unlink(__DIR__ . '/..' . $oldPath);
                 }
             }
-            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, description = :description, price = :price, stock = :stock, badge_text = :badge_text, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
+            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, short_description = :short_description, description = :description, price = :price, stock = :stock, badge_text = :badge_text, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
                 'sku' => $sku,
+                'short_description' => $shortDescription,
                 'description' => trim($_POST['description'] ?? ''),
                 'price' => (float) ($_POST['price'] ?? 0),
                 'stock' => $stock,
@@ -502,11 +504,12 @@ switch ($action) {
                 'id' => $productId,
             ]);
         } else {
-            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, description, price, stock, badge_text, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :description, :price, :stock, :badge_text, :main_image, :category_id, :order_channel, :order_link, :created_at)');
+            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, short_description, description, price, stock, badge_text, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :short_description, :description, :price, :stock, :badge_text, :main_image, :category_id, :order_channel, :order_link, :created_at)');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
                 'sku' => $sku,
+                'short_description' => $shortDescription,
                 'description' => trim($_POST['description'] ?? ''),
                 'price' => (float) ($_POST['price'] ?? 0),
                 'stock' => $stock,
