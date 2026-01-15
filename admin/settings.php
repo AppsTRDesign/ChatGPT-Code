@@ -33,13 +33,29 @@ admin_header('Site Ayarları');
                 <option value="list" <?= settings('homepage_layout') === 'list' ? 'selected' : '' ?>>Liste</option>
             </select>
         </label>
+        <label>Site Genişliği
+            <select name="site_width">
+                <option value="box" <?= settings('site_width', 'box') === 'box' ? 'selected' : '' ?>>Box</option>
+                <option value="wide" <?= settings('site_width', 'box') === 'wide' ? 'selected' : '' ?>>Wide</option>
+            </select>
+        </label>
         <label>Ana Sayfa Ürün Limitleri</label>
         <div class="form-grid">
-            <input type="number" name="homepage_latest_limit" value="<?= htmlspecialchars(settings('homepage_latest_limit', '8')) ?>" placeholder="En Yeni">
-            <input type="number" name="homepage_ordered_limit" value="<?= htmlspecialchars(settings('homepage_ordered_limit', '8')) ?>" placeholder="En Çok Sipariş">
-            <input type="number" name="homepage_visited_limit" value="<?= htmlspecialchars(settings('homepage_visited_limit', '8')) ?>" placeholder="En Çok Ziyaret">
-            <input type="number" name="homepage_favorited_limit" value="<?= htmlspecialchars(settings('homepage_favorited_limit', '8')) ?>" placeholder="En Çok Favori">
-            <input type="number" name="reviews_per_page" value="<?= htmlspecialchars(settings('reviews_per_page', '5')) ?>" placeholder="Yorum Sayısı">
+            <label>En Yeni Ürün Limiti
+                <input type="number" name="homepage_latest_limit" value="<?= htmlspecialchars(settings('homepage_latest_limit', '8')) ?>">
+            </label>
+            <label>En Çok Sipariş Limiti
+                <input type="number" name="homepage_ordered_limit" value="<?= htmlspecialchars(settings('homepage_ordered_limit', '8')) ?>">
+            </label>
+            <label>En Çok Ziyaret Limiti
+                <input type="number" name="homepage_visited_limit" value="<?= htmlspecialchars(settings('homepage_visited_limit', '8')) ?>">
+            </label>
+            <label>En Çok Favori Limiti
+                <input type="number" name="homepage_favorited_limit" value="<?= htmlspecialchars(settings('homepage_favorited_limit', '8')) ?>">
+            </label>
+            <label>Yorum Sayısı (Sayfalama)
+                <input type="number" name="reviews_per_page" value="<?= htmlspecialchars(settings('reviews_per_page', '5')) ?>">
+            </label>
         </div>
         <label>Banka Havalesi Ayarları</label>
         <label>Havale Aktif
@@ -48,9 +64,15 @@ admin_header('Site Ayarları');
                 <option value="1" <?= settings('bank_transfer_active') === '1' ? 'selected' : '' ?>>Evet</option>
             </select>
         </label>
-        <label>Banka Adı<input type="text" name="bank_name" value="<?= htmlspecialchars(settings('bank_name')) ?>"></label>
-        <label>IBAN<input type="text" name="bank_iban" value="<?= htmlspecialchars(settings('bank_iban')) ?>"></label>
-        <label>Alıcı Ad Soyad<input type="text" name="bank_account_name" value="<?= htmlspecialchars(settings('bank_account_name')) ?>"></label>
+        <label>Banka Adı (Teslimat Bilgileri)
+            <input type="text" name="bank_name" value="<?= htmlspecialchars(settings('bank_name')) ?>">
+        </label>
+        <label>IBAN (Teslimat Bilgileri)
+            <input type="text" name="bank_iban" value="<?= htmlspecialchars(settings('bank_iban')) ?>">
+        </label>
+        <label>Alıcı Ad Soyad (Teslimat Bilgileri)
+            <input type="text" name="bank_account_name" value="<?= htmlspecialchars(settings('bank_account_name')) ?>">
+        </label>
         <label>Renk Teması<input type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>

@@ -6,6 +6,10 @@ require_once __DIR__ . '/includes/footer.php';
 $pdo = db();
 
 $layout = settings('homepage_layout', 'grid');
+$siteWidth = settings('site_width', 'box');
+$excerptLimit = $layout === 'grid'
+    ? ($siteWidth === 'wide' ? 80 : 60)
+    : 120;
 $orderBy = 'created_at DESC';
 $latestLimit = (int) settings('homepage_latest_limit', '8');
 $orderedLimit = (int) settings('homepage_ordered_limit', '8');
@@ -74,7 +78,9 @@ render_header('Ana Sayfa');
                     <article class="card">
                         <div class="card-media">
                             <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
-                            <span class="card-badge">Ücretsiz Teslimat</span>
+                            <?php if (!empty($product['badge_text'])): ?>
+                                <span class="card-badge"><?= htmlspecialchars($product['badge_text']) ?></span>
+                            <?php endif; ?>
                             <?php if ($user): ?>
                                 <button
                                     class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
@@ -90,7 +96,7 @@ render_header('Ana Sayfa');
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
+                            <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
                             <div class="rating-row">
                                 <span class="stars"><?= str_repeat('★', (int) round($product['avg_rating'] ?? 0)) ?></span>
                                 <span>(<?= (int) ($product['review_count'] ?? 0) ?>)</span>
@@ -113,7 +119,7 @@ render_header('Ana Sayfa');
                     <article class="card">
                         <div class="card-media">
                             <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
-                            <span class="card-badge">Çok Satan</span>
+                            <span class="card-badge"><?= htmlspecialchars($product['badge_text'] ?: 'Çok Satan') ?></span>
                             <?php if ($user): ?>
                                 <button
                                     class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
@@ -129,7 +135,7 @@ render_header('Ana Sayfa');
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
+                            <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
                             <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                         </div>
@@ -148,7 +154,7 @@ render_header('Ana Sayfa');
                     <article class="card">
                         <div class="card-media">
                             <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
-                            <span class="card-badge">Popüler</span>
+                            <span class="card-badge"><?= htmlspecialchars($product['badge_text'] ?: 'Popüler') ?></span>
                             <?php if ($user): ?>
                                 <button
                                     class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
@@ -164,7 +170,7 @@ render_header('Ana Sayfa');
                         </div>
                         <div class="card-body">
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
+                            <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
                             <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                         </div>
@@ -183,7 +189,7 @@ render_header('Ana Sayfa');
                 <article class="card">
                     <div class="card-media">
                         <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
-                        <span class="card-badge">Favori</span>
+                        <span class="card-badge"><?= htmlspecialchars($product['badge_text'] ?: 'Favori') ?></span>
                         <?php if ($user): ?>
                             <button
                                 class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
@@ -199,7 +205,7 @@ render_header('Ana Sayfa');
                     </div>
                     <div class="card-body">
                         <h3><?= htmlspecialchars($product['name']) ?></h3>
-                        <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
+                        <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
                         <p class="price"><?= currency((float) $product['price']) ?></p>
                         <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                     </div>

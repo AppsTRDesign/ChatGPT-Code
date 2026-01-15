@@ -189,6 +189,12 @@ switch ($action) {
             break;
         }
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
+        $stock = (int) ($product['stock'] ?? 0);
+        if ($stock > 0 && $quantity > $stock) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Stokta yeterli ürün yok.']);
+            break;
+        }
         $total = $quantity * (float) $product['price'];
         $paytrActive = settings('paytr_active') === '1';
         $bankTransferActive = settings('bank_transfer_active') === '1';
@@ -234,6 +240,12 @@ switch ($action) {
                 'quantity' => $quantity,
                 'unit_price' => $product['price'],
             ]);
+        if ($stock > 0) {
+            db()->prepare('UPDATE products SET stock = stock - :quantity WHERE id = :id')->execute([
+                'quantity' => $quantity,
+                'id' => $productId,
+            ]);
+        }
 
         if ($channel === 'paytr') {
             $html = '<p>PayTR ödeme adımına geçin.</p><a class="btn primary" href="/paytr.php?order_id=' . $orderId . '">PayTR ile Öde</a>';
@@ -272,16 +284,17 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Bu ürün için sadece sipariş veren kullanıcılar yorum yapabilir.']);
             break;
         }
-        $stmt = db()->prepare('INSERT INTO reviews (product_id, user_id, reviewer_name, rating, comment, created_at) VALUES (:product_id, :user_id, :reviewer_name, :rating, :comment, :created_at)');
+        $stmt = db()->prepare('INSERT INTO reviews (product_id, user_id, reviewer_name, rating, comment, approved, created_at) VALUES (:product_id, :user_id, :reviewer_name, :rating, :comment, :approved, :created_at)');
         $stmt->execute([
             'product_id' => $productId,
             'user_id' => $user['id'],
             'reviewer_name' => $user['name'],
             'rating' => (int) ($_POST['rating'] ?? 5),
             'comment' => trim($_POST['comment'] ?? ''),
+            'approved' => 0,
             'created_at' => date('Y-m-d H:i:s'),
         ]);
-        echo json_encode(['success' => true, 'message' => 'Yorumunuz alındı.']);
+        echo json_encode(['success' => true, 'message' => 'Yorumunuz incelenmek üzere gönderildi.']);
         break;
     case 'review-like':
         $reviewId = (int) ($_POST['review_id'] ?? 0);
@@ -366,7 +379,7 @@ switch ($action) {
         $page = max(1, (int) ($_POST['page'] ?? 1));
         $offset = ($page - 1) * $perPage;
 
-        $reviewStmt = db()->prepare("SELECT reviews.*, users.avatar FROM reviews LEFT JOIN users ON users.id = reviews.user_id WHERE reviews.product_id = :product_id ORDER BY {$sortSql} LIMIT :limit OFFSET :offset");
+        $reviewStmt = db()->prepare("SELECT reviews.*, users.avatar FROM reviews LEFT JOIN users ON users.id = reviews.user_id WHERE reviews.product_id = :product_id AND reviews.approved = 1 ORDER BY {$sortSql} LIMIT :limit OFFSET :offset");
         $reviewStmt->bindValue(':product_id', $productId, PDO::PARAM_INT);
         $reviewStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
         $reviewStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -423,6 +436,7 @@ switch ($action) {
             'theme_color',
             'lightbox_provider',
             'homepage_layout',
+            'site_width',
             'homepage_latest_limit',
             'homepage_ordered_limit',
             'homepage_visited_limit',
@@ -458,6 +472,9 @@ switch ($action) {
         $orderChannel = $_POST['order_channel'] ?? 'whatsapp';
         $orderLink = $orderChannel === 'whatsapp' ? trim($_POST['order_link'] ?? '') : '';
         $name = trim($_POST['name'] ?? '');
+        $sku = trim($_POST['sku'] ?? '');
+        $stock = max(0, (int) ($_POST['stock'] ?? 0));
+        $badgeText = trim($_POST['badge_text'] ?? '');
         $slug = permalink($name);
         $mainImage = handle_upload('main_image');
         if ($productId) {
@@ -469,12 +486,15 @@ switch ($action) {
                     unlink(__DIR__ . '/..' . $oldPath);
                 }
             }
-            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, description = :description, price = :price, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
+            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, description = :description, price = :price, stock = :stock, badge_text = :badge_text, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
+                'sku' => $sku,
                 'description' => trim($_POST['description'] ?? ''),
                 'price' => (float) ($_POST['price'] ?? 0),
+                'stock' => $stock,
+                'badge_text' => $badgeText,
                 'category_id' => $_POST['category_id'] ?: null,
                 'main_image' => $mainImage,
                 'order_channel' => $orderChannel,
@@ -482,12 +502,15 @@ switch ($action) {
                 'id' => $productId,
             ]);
         } else {
-            $stmt = db()->prepare('INSERT INTO products (name, slug, description, price, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :description, :price, :main_image, :category_id, :order_channel, :order_link, :created_at)');
+            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, description, price, stock, badge_text, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :description, :price, :stock, :badge_text, :main_image, :category_id, :order_channel, :order_link, :created_at)');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
+                'sku' => $sku,
                 'description' => trim($_POST['description'] ?? ''),
                 'price' => (float) ($_POST['price'] ?? 0),
+                'stock' => $stock,
+                'badge_text' => $badgeText,
                 'main_image' => $mainImage,
                 'category_id' => $_POST['category_id'] ?: null,
                 'order_channel' => $orderChannel,

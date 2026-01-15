@@ -60,3 +60,19 @@ document.querySelectorAll('.checkout [data-ajax="checkout"]').forEach((form) => 
     }
   });
 });
+
+document.querySelectorAll('[data-order-summary]').forEach((summary) => {
+  const unitPrice = Number(summary.dataset.unitPrice || 0);
+  const quantityInput = document.querySelector('[data-quantity-input]');
+  const totalEl = summary.querySelector('[data-order-total]');
+  if (!quantityInput || !totalEl) return;
+
+  const updateTotal = () => {
+    const qty = Math.max(1, Number(quantityInput.value || 1));
+    const total = unitPrice * qty;
+    totalEl.textContent = `${total.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+  };
+
+  quantityInput.addEventListener('input', updateTotal);
+  updateTotal();
+});

@@ -21,6 +21,11 @@ $page = max(1, (int) ($_GET['page'] ?? 1));
 $sort = $_GET['sort'] ?? 'recommended';
 $priceMin = (float) ($_GET['price_min'] ?? 0);
 $priceMax = (float) ($_GET['price_max'] ?? 0);
+$layout = settings('homepage_layout', 'grid');
+$siteWidth = settings('site_width', 'box');
+$excerptLimit = $layout === 'grid'
+    ? ($siteWidth === 'wide' ? 80 : 60)
+    : 120;
 $sortMap = [
     'price_asc' => 'price ASC',
     'price_desc' => 'price DESC',
@@ -141,7 +146,9 @@ render_header($category['name'], [
             <article class="card">
                 <div class="card-media">
                     <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>">
-                    <span class="card-badge">Ücretsiz Teslimat</span>
+                    <?php if (!empty($product['badge_text'])): ?>
+                        <span class="card-badge"><?= htmlspecialchars($product['badge_text']) ?></span>
+                    <?php endif; ?>
                     <?php if ($user): ?>
                         <button
                             class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
@@ -157,7 +164,7 @@ render_header($category['name'], [
                 </div>
                 <div class="card-body">
                     <h3><?= htmlspecialchars($product['name']) ?></h3>
-                    <p><?= htmlspecialchars(excerpt_words($product['description'], 120)) ?></p>
+                    <p><?= htmlspecialchars(excerpt_words($product['description'], $excerptLimit)) ?></p>
                     <p class="price"><?= currency((float) $product['price']) ?></p>
                     <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
                 </div>

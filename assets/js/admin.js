@@ -358,7 +358,6 @@ document.querySelectorAll('[data-order-detail]').forEach((button) => {
     const itemsHtml = items.map((item) => `
       <tr>
         <td>${item.name}</td>
-        <td>${item.quantity}</td>
         <td>${item.unit_price}</td>
       </tr>
     `).join('');
@@ -373,7 +372,6 @@ document.querySelectorAll('[data-order-detail]').forEach((button) => {
         <thead>
           <tr>
             <th>Ürün</th>
-            <th>Adet</th>
             <th>Birim Fiyat</th>
           </tr>
         </thead>

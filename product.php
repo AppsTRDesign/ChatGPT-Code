@@ -39,23 +39,23 @@ $perPage = (int) settings('reviews_per_page', '5');
 $page = max(1, (int) ($_GET['review_page'] ?? 1));
 $offset = ($page - 1) * $perPage;
 
-$reviewCountStmt = $pdo->prepare('SELECT COUNT(*) FROM reviews WHERE product_id = :product_id');
+$reviewCountStmt = $pdo->prepare('SELECT COUNT(*) FROM reviews WHERE product_id = :product_id AND approved = 1');
 $reviewCountStmt->execute(['product_id' => $product['id']]);
 $reviewTotal = (int) $reviewCountStmt->fetchColumn();
 $reviewTotalPages = max(1, (int) ceil($reviewTotal / $perPage));
 
-$reviewStmt = $pdo->prepare("SELECT reviews.*, users.avatar FROM reviews LEFT JOIN users ON users.id = reviews.user_id WHERE reviews.product_id = :product_id ORDER BY {$sortSql} LIMIT :limit OFFSET :offset");
+$reviewStmt = $pdo->prepare("SELECT reviews.*, users.avatar FROM reviews LEFT JOIN users ON users.id = reviews.user_id WHERE reviews.product_id = :product_id AND reviews.approved = 1 ORDER BY {$sortSql} LIMIT :limit OFFSET :offset");
 $reviewStmt->bindValue(':product_id', $product['id'], PDO::PARAM_INT);
 $reviewStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
 $reviewStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $reviewStmt->execute();
 $reviews = $reviewStmt->fetchAll(PDO::FETCH_ASSOC);
-$avgStmt = $pdo->prepare('SELECT AVG(rating) FROM reviews WHERE product_id = :product_id');
+$avgStmt = $pdo->prepare('SELECT AVG(rating) FROM reviews WHERE product_id = :product_id AND approved = 1');
 $avgStmt->execute(['product_id' => $product['id']]);
 $ratingAvg = (float) $avgStmt->fetchColumn();
 
 $ratingCounts = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
-$ratingStmt = $pdo->prepare('SELECT rating, COUNT(*) as count FROM reviews WHERE product_id = :product_id GROUP BY rating');
+$ratingStmt = $pdo->prepare('SELECT rating, COUNT(*) as count FROM reviews WHERE product_id = :product_id AND approved = 1 GROUP BY rating');
 $ratingStmt->execute(['product_id' => $product['id']]);
 foreach ($ratingStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $ratingCounts[(int) $row['rating']] = (int) $row['count'];
@@ -124,6 +124,12 @@ render_header($product['name'], ['image' => $metaImage]);
         <div class="rating-row">
             <span class="stars"><?= render_stars((int) round($ratingAvg)) ?></span>
             <span><?= $reviewTotal ?> değerlendirme</span>
+        </div>
+        <div class="product-meta">
+            <?php if (!empty($product['sku'])): ?>
+                <p><strong>Ürün Kodu:</strong> <?= htmlspecialchars($product['sku']) ?></p>
+            <?php endif; ?>
+            <p><strong>Stok:</strong> <?= (int) $product['stock'] ?></p>
         </div>
         <p class="order-note">WhatsApp siparişleri beklemede düşer, PayTR siparişleri ödeme onayı sonrası onaylanır.</p>
         <?php if ($product['order_channel'] === 'whatsapp'): ?>
@@ -262,42 +268,52 @@ render_header($product['name'], ['image' => $metaImage]);
 <?php endif; ?>
 <script type="application/ld+json">
 <?php
-$reviewSchema = array_map(static function ($review) {
-    return [
-        '@type' => 'Review',
-        'author' => $review['reviewer_name'],
-        'reviewBody' => $review['comment'],
-        'reviewRating' => [
-            '@type' => 'Rating',
-            'ratingValue' => (int) $review['rating'],
-        ],
-        'datePublished' => $review['created_at'],
-    ];
-}, $reviews);
 $imageSchema = array_merge([$mainImage], array_column($gallery, 'image_path'));
 $imageSchema = array_values(array_filter($imageSchema, static fn($image) => $image !== ''));
 $imageSchema = array_map('absolute_url', $imageSchema);
-?>
-<?= json_encode([
+$schema = [
     '@context' => 'https://schema.org',
     '@type' => 'Product',
     'name' => $product['name'],
     'description' => excerpt_words($product['description'], 160),
     'image' => $imageSchema,
     'url' => base_url('urun/' . $product['slug']),
-    'review' => $reviewSchema,
-    'aggregateRating' => [
-        '@type' => 'AggregateRating',
-        'ratingValue' => $ratingAvg ?: 5,
-        'reviewCount' => $reviewTotal,
-    ],
     'offers' => [
         '@type' => 'Offer',
         'priceCurrency' => 'TRY',
         'price' => (float) $product['price'],
         'availability' => 'https://schema.org/InStock',
     ],
-], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+];
+if ($reviewTotal > 0) {
+    $reviewSchema = array_map(static function ($review) {
+        return [
+            '@type' => 'Review',
+            'author' => $review['reviewer_name'],
+            'reviewBody' => $review['comment'],
+            'reviewRating' => [
+                '@type' => 'Rating',
+                'ratingValue' => (int) $review['rating'],
+            ],
+            'datePublished' => $review['created_at'],
+        ];
+    }, $reviews);
+    $schema['review'] = $reviewSchema;
+    $schema['aggregateRating'] = [
+        '@type' => 'AggregateRating',
+        'ratingValue' => $ratingAvg ?: 5,
+        'reviewCount' => $reviewTotal,
+    ];
+} else {
+    $schema['review'] = [];
+    $schema['aggregateRating'] = [
+        '@type' => 'AggregateRating',
+        'ratingValue' => 5,
+        'reviewCount' => 0,
+    ];
+}
+?>
+<?= json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 ?>
 </script>
 <?php

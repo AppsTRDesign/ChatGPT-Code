@@ -45,7 +45,9 @@ function render_header(string $title = '', array $meta = []): void
         echo "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css\">\n";
     }
     echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css\">\n";
-    echo "</head>\n<body>\n";
+    $siteWidth = settings('site_width', 'box');
+    $bodyClass = $siteWidth === 'wide' ? 'site-width-wide' : 'site-width-box';
+    echo "</head>\n<body class=\"{$bodyClass}\">\n";
     echo "<header class=\"site-header\">\n<div class=\"container\">\n";
     if ($logo) {
         $logoTag = "<img src=\"{$logo}\" alt=\"{$siteTitle}\">";

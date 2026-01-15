@@ -22,7 +22,7 @@ if ($orderId) {
     $stmt = db()->prepare('SELECT * FROM orders WHERE id = :id');
     $stmt->execute(['id' => $orderId]);
     $orderDetail = $stmt->fetch(PDO::FETCH_ASSOC);
-    $itemsStmt = db()->prepare('SELECT products.name, order_items.quantity, order_items.unit_price FROM order_items INNER JOIN products ON products.id = order_items.product_id WHERE order_items.order_id = :order_id');
+    $itemsStmt = db()->prepare('SELECT products.name, order_items.unit_price FROM order_items INNER JOIN products ON products.id = order_items.product_id WHERE order_items.order_id = :order_id');
     $itemsStmt->execute(['order_id' => $orderId]);
     $orderItems = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -43,7 +43,6 @@ admin_header('Sipariş Yönetimi');
         <thead>
             <tr>
                 <th>Ürün</th>
-                <th>Adet</th>
                 <th>Birim Fiyat</th>
             </tr>
         </thead>
@@ -51,7 +50,6 @@ admin_header('Sipariş Yönetimi');
             <?php foreach ($orderItems as $item): ?>
                 <tr>
                     <td><?= htmlspecialchars($item['name']) ?></td>
-                    <td><?= (int) $item['quantity'] ?></td>
                     <td><?= currency((float) $item['unit_price']) ?></td>
                 </tr>
             <?php endforeach; ?>

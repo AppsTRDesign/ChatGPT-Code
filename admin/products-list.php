@@ -7,11 +7,19 @@ require_admin();
 
 $pdo = db();
 $page = max(1, (int) ($_GET['page'] ?? 1));
+$search = trim($_GET['q'] ?? '');
 $perPage = 10;
 $offset = ($page - 1) * $perPage;
-$total = (int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn();
+$countStmt = $pdo->prepare('SELECT COUNT(*) FROM products WHERE (:search = "" OR name LIKE :like_search)');
+$countStmt->execute([
+    'search' => $search,
+    'like_search' => '%' . $search . '%',
+]);
+$total = (int) $countStmt->fetchColumn();
 $totalPages = max(1, (int) ceil($total / $perPage));
-$productsStmt = $pdo->prepare('SELECT * FROM products ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+$productsStmt = $pdo->prepare('SELECT * FROM products WHERE (:search = "" OR name LIKE :like_search) ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+$productsStmt->bindValue(':search', $search);
+$productsStmt->bindValue(':like_search', '%' . $search . '%');
 $productsStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
 $productsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $productsStmt->execute();
@@ -22,7 +30,13 @@ admin_header('Ürünler');
 <section class="panel">
     <div class="panel-header">
         <h2>Ürünler</h2>
-        <a class="btn primary" href="/admin/products.php">Ürün Ekle</a>
+        <div class="button-row">
+            <form method="get">
+                <input type="text" name="q" placeholder="Ürün ara" value="<?= htmlspecialchars($search) ?>">
+                <button class="btn" type="submit">Ara</button>
+            </form>
+            <a class="btn primary" href="/admin/products.php">Ürün Ekle</a>
+        </div>
     </div>
     <table>
         <thead>
@@ -50,7 +64,7 @@ admin_header('Ürünler');
     <?php if ($totalPages > 1): ?>
         <div class="pagination">
             <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/products-list.php?page=<?= $i ?>"><?= $i ?></a>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/products-list.php?page=<?= $i ?>&q=<?= urlencode($search) ?>"><?= $i ?></a>
             <?php endfor; ?>
         </div>
     <?php endif; ?>

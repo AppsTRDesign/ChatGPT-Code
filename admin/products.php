@@ -37,6 +37,8 @@ admin_header('Ürün Yönetimi');
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="id" value="<?= (int) ($productData['id'] ?? 0) ?>">
         <label>Ürün Adı<input type="text" name="name" value="<?= htmlspecialchars($productData['name'] ?? '') ?>" required></label>
+        <label>Ürün Kodu<input type="text" name="sku" value="<?= htmlspecialchars($productData['sku'] ?? '') ?>"></label>
+        <label>Stok Adeti<input type="number" name="stock" min="0" value="<?= htmlspecialchars((string) ($productData['stock'] ?? 0)) ?>"></label>
         <label>Kategori
             <select name="category_id">
                 <option value="">Kategori Seçin</option>
@@ -54,6 +56,7 @@ admin_header('Ürün Yönetimi');
                 <?php endif; ?>
             </select>
         </label>
+        <label>Kart Rozeti Metni<input type="text" name="badge_text" value="<?= htmlspecialchars($productData['badge_text'] ?? '') ?>" placeholder="Örn: Ücretsiz Teslimat"></label>
         <label>Açıklama<textarea class="tinymce" name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
         <label>Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
         <label>Ürün Görseli<input type="file" name="main_image"></label>

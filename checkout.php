@@ -63,21 +63,39 @@ render_header('Sipariş Adımları');
                 <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
                 <input type="hidden" name="channel" value="<?= htmlspecialchars($defaultChannel) ?>">
                 <div class="form-grid">
-                    <input type="text" name="full_name" placeholder="Ad Soyad" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
-                    <input type="email" name="email" placeholder="E-posta" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
-                    <input type="tel" name="phone" placeholder="Telefon" value="<?= htmlspecialchars($user['phone'] ?? '') ?>" required>
-                    <textarea name="address" placeholder="Teslimat Adresi" rows="3"><?= htmlspecialchars($user['address'] ?? '') ?></textarea>
-                    <textarea name="order_note" placeholder="Sipariş Notu (Opsiyonel)" rows="2"></textarea>
-                    <select name="payment_method">
-                        <option value="<?= htmlspecialchars($defaultChannel) ?>">Standart (<?= htmlspecialchars($defaultChannel) ?>)</option>
-                        <?php if ($paytrActive && in_array('paytr', $availableChannels, true) && $defaultChannel !== 'paytr'): ?>
-                            <option value="paytr">Kredi Kartı (PayTR)</option>
-                        <?php endif; ?>
-                        <?php if ($bankTransferActive && in_array('bank_transfer', $availableChannels, true) && $defaultChannel !== 'bank_transfer'): ?>
-                            <option value="bank_transfer">Banka Havalesi</option>
-                        <?php endif; ?>
-                    </select>
-                    <input type="number" name="quantity" min="1" value="1" required>
+                    <label>Ad Soyad
+                        <input type="text" name="full_name" placeholder="Ad Soyad" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
+                    </label>
+                    <label>E-posta
+                        <input type="email" name="email" placeholder="E-posta" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
+                    </label>
+                    <label>Telefon
+                        <input type="tel" name="phone" placeholder="Telefon" value="<?= htmlspecialchars($user['phone'] ?? '') ?>" required>
+                    </label>
+                    <label>Teslimat Adresi
+                        <textarea name="address" placeholder="Teslimat Adresi" rows="3"><?= htmlspecialchars($user['address'] ?? '') ?></textarea>
+                    </label>
+                    <label>Sipariş Notu (Opsiyonel)
+                        <textarea name="order_note" placeholder="Sipariş Notu (Opsiyonel)" rows="2"></textarea>
+                    </label>
+                    <label>Ödeme Yöntemi
+                        <select name="payment_method">
+                            <option value="<?= htmlspecialchars($defaultChannel) ?>">Standart (<?= htmlspecialchars($defaultChannel) ?>)</option>
+                            <?php if ($paytrActive && in_array('paytr', $availableChannels, true) && $defaultChannel !== 'paytr'): ?>
+                                <option value="paytr">Kredi Kartı (PayTR)</option>
+                            <?php endif; ?>
+                            <?php if ($bankTransferActive && in_array('bank_transfer', $availableChannels, true) && $defaultChannel !== 'bank_transfer'): ?>
+                                <option value="bank_transfer">Banka Havalesi</option>
+                            <?php endif; ?>
+                        </select>
+                    </label>
+                    <label>Ürün Adedi
+                        <input type="number" name="quantity" min="1" value="1" required data-quantity-input>
+                    </label>
+                </div>
+                <div class="order-summary" data-order-summary data-unit-price="<?= htmlspecialchars((string) $product['price']) ?>">
+                    <span>Birim Fiyat: <?= currency((float) $product['price']) ?></span>
+                    <strong>Toplam: <span data-order-total><?= currency((float) $product['price']) ?></span></strong>
                 </div>
                 <button class="btn primary" type="submit">Siparişi Onayla</button>
             </form>
