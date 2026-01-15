@@ -88,6 +88,18 @@ function order_status_label(string $status): string
     return $labels[$status] ?? $status;
 }
 
+function render_stars(int $rating): string
+{
+    $rating = max(0, min(5, $rating));
+    $output = '';
+    for ($i = 1; $i <= 5; $i++) {
+        $filled = $i <= $rating ? ' filled' : '';
+        $output .= '<svg class="star-icon' . $filled . '" viewBox="0 0 24 24" aria-hidden="true">'
+            . '<path d="M12 2l2.9 6.4 7 .6-5.2 4.5 1.6 6.8L12 16.9 5.7 20.3 7.3 13.5 2 9l7-.6L12 2z"/></svg>';
+    }
+    return $output;
+}
+
 function is_admin(): bool
 {
     return isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';

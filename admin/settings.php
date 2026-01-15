@@ -41,6 +41,16 @@ admin_header('Site Ayarları');
             <input type="number" name="homepage_favorited_limit" value="<?= htmlspecialchars(settings('homepage_favorited_limit', '8')) ?>" placeholder="En Çok Favori">
             <input type="number" name="reviews_per_page" value="<?= htmlspecialchars(settings('reviews_per_page', '5')) ?>" placeholder="Yorum Sayısı">
         </div>
+        <label>Banka Havalesi Ayarları</label>
+        <label>Havale Aktif
+            <select name="bank_transfer_active">
+                <option value="0" <?= settings('bank_transfer_active') === '0' ? 'selected' : '' ?>>Hayır</option>
+                <option value="1" <?= settings('bank_transfer_active') === '1' ? 'selected' : '' ?>>Evet</option>
+            </select>
+        </label>
+        <label>Banka Adı<input type="text" name="bank_name" value="<?= htmlspecialchars(settings('bank_name')) ?>"></label>
+        <label>IBAN<input type="text" name="bank_iban" value="<?= htmlspecialchars(settings('bank_iban')) ?>"></label>
+        <label>Alıcı Ad Soyad<input type="text" name="bank_account_name" value="<?= htmlspecialchars(settings('bank_account_name')) ?>"></label>
         <label>Renk Teması<input type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>

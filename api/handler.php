@@ -190,7 +190,27 @@ switch ($action) {
         }
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
         $total = $quantity * (float) $product['price'];
-        $channel = $_POST['channel'] ?? $product['order_channel'];
+        $paytrActive = settings('paytr_active') === '1';
+        $bankTransferActive = settings('bank_transfer_active') === '1';
+        $requestedChannel = $_POST['payment_method'] ?? $product['order_channel'];
+        $availableChannels = [];
+        if ($product['order_channel'] === 'whatsapp') {
+            $availableChannels[] = 'whatsapp';
+        }
+        if ($paytrActive) {
+            $availableChannels[] = 'paytr';
+        }
+        if ($bankTransferActive) {
+            $availableChannels[] = 'bank_transfer';
+        }
+        if ($product['order_channel'] === 'paytr' && $paytrActive) {
+            $availableChannels[] = 'paytr';
+        }
+        $availableChannels = array_values(array_unique($availableChannels));
+        if (!in_array($requestedChannel, $availableChannels, true)) {
+            $requestedChannel = $availableChannels[0] ?? 'whatsapp';
+        }
+        $channel = $requestedChannel;
 
         $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, order_note, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :order_note, :status, :channel, :total_amount, :created_at)');
         $stmt->execute([
@@ -218,6 +238,12 @@ switch ($action) {
         if ($channel === 'paytr') {
             $html = '<p>PayTR ödeme adımına geçin.</p><a class="btn primary" href="/paytr.php?order_id=' . $orderId . '">PayTR ile Öde</a>';
             echo json_encode(['success' => true, 'message' => 'Ödeme adımına geçiliyor.', 'html' => $html]);
+        } elseif ($channel === 'bank_transfer') {
+            $html = '<p>Banka havalesi için aşağıdaki bilgileri kullanın.</p>'
+                . '<p><strong>Banka:</strong> ' . htmlspecialchars(settings('bank_name')) . '</p>'
+                . '<p><strong>IBAN:</strong> ' . htmlspecialchars(settings('bank_iban')) . '</p>'
+                . '<p><strong>Alıcı:</strong> ' . htmlspecialchars(settings('bank_account_name')) . '</p>';
+            echo json_encode(['success' => true, 'message' => 'Havale bilgileri hazır.', 'html' => $html]);
         } else {
             $whatsapp = $product['order_link'] ?: settings('whatsapp_number');
             $message = urlencode($product['name'] . ' için sipariş verdim. Sipariş No: #' . $orderId);
@@ -264,8 +290,65 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Yorum bulunamadı.']);
             break;
         }
+        $user = current_user();
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Beğeni için giriş yapın.']);
+            break;
+        }
         db()->prepare('UPDATE reviews SET likes = likes + 1 WHERE id = :id')->execute(['id' => $reviewId]);
-        echo json_encode(['success' => true, 'message' => 'Yorum beğenildi.']);
+        $likesStmt = db()->prepare('SELECT likes FROM reviews WHERE id = :id');
+        $likesStmt->execute(['id' => $reviewId]);
+        $likes = (int) $likesStmt->fetchColumn();
+        echo json_encode(['success' => true, 'message' => 'Yorum beğenildi.', 'likes' => $likes]);
+        break;
+    case 'reviews-list':
+        $productId = (int) ($_POST['product_id'] ?? 0);
+        if (!$productId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Ürün bulunamadı.']);
+            break;
+        }
+        $sort = $_POST['sort'] ?? 'top';
+        $sortSql = $sort === 'new' ? 'created_at DESC' : 'likes DESC, created_at DESC';
+        $perPage = (int) settings('reviews_per_page', '5');
+        $page = max(1, (int) ($_POST['page'] ?? 1));
+        $offset = ($page - 1) * $perPage;
+
+        $reviewStmt = db()->prepare("SELECT reviews.*, users.avatar FROM reviews LEFT JOIN users ON users.id = reviews.user_id WHERE reviews.product_id = :product_id ORDER BY {$sortSql} LIMIT :limit OFFSET :offset");
+        $reviewStmt->bindValue(':product_id', $productId, PDO::PARAM_INT);
+        $reviewStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+        $reviewStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $reviewStmt->execute();
+        $reviews = $reviewStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        ob_start();
+        foreach ($reviews as $review) {
+            ?>
+            <div class="review-card">
+                <div class="review-header">
+                    <div class="review-user">
+                        <div class="avatar">
+                            <?php if (!empty($review['avatar'])): ?>
+                                <img src="<?= htmlspecialchars($review['avatar']) ?>" alt="<?= htmlspecialchars($review['reviewer_name']) ?>">
+                            <?php else: ?>
+                                <?= strtoupper(mb_substr($review['reviewer_name'], 0, 1)) ?>
+                            <?php endif; ?>
+                        </div>
+                        <div>
+                            <strong><?= htmlspecialchars($review['reviewer_name']) ?></strong>
+                            <span class="review-date"><?= htmlspecialchars($review['created_at']) ?></span>
+                        </div>
+                    </div>
+                    <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
+                </div>
+                <p><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
+                <button class="btn" type="button" data-review-like="<?= (int) $review['id'] ?>" data-review-likes="<?= (int) $review['likes'] ?>">Faydalı (<?= (int) $review['likes'] ?>)</button>
+            </div>
+            <?php
+        }
+        $html = ob_get_clean();
+        echo json_encode(['success' => true, 'html' => $html]);
         break;
     case 'contact':
         echo json_encode(['success' => true, 'message' => 'Mesajınız alındı.']);
@@ -294,6 +377,10 @@ switch ($action) {
             'homepage_visited_limit',
             'homepage_favorited_limit',
             'reviews_per_page',
+            'bank_transfer_active',
+            'bank_name',
+            'bank_iban',
+            'bank_account_name',
         ];
         foreach ($fields as $field) {
             update_setting($field, trim($_POST[$field] ?? ''));

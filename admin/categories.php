@@ -23,7 +23,7 @@ admin_header('Kategori Yönetimi');
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="id" value="<?= (int) ($categoryData['id'] ?? 0) ?>">
         <label>Kategori Adı<input type="text" name="name" value="<?= htmlspecialchars($categoryData['name'] ?? '') ?>" required></label>
-        <label>Slug<input type="text" name="slug" value="<?= htmlspecialchars($categoryData['slug'] ?? '') ?>" required></label>
+        <label>Slug<input type="text" name="slug" value="<?= htmlspecialchars($categoryData['slug'] ?? '') ?>"></label>
         <label>Üst Kategori
             <select name="parent_id">
                 <option value="">Ana Kategori</option>

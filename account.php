@@ -33,6 +33,9 @@ render_header('Üyelik');
     <?php else: ?>
         <div class="account-info">
             <h2>Merhaba, <?= htmlspecialchars($user['name']) ?></h2>
+            <?php if (!empty($user['avatar'])): ?>
+                <img class="avatar-image" src="<?= htmlspecialchars($user['avatar']) ?>" alt="<?= htmlspecialchars($user['name']) ?>">
+            <?php endif; ?>
             <p>E-posta: <?= htmlspecialchars($user['email']) ?></p>
             <p>Telefon: <?= htmlspecialchars($user['phone']) ?></p>
         </div>
@@ -123,18 +126,19 @@ render_header('Üyelik');
                     <div class="review-card">
                         <div class="review-header">
                             <strong><a href="/urun/<?= urlencode($review['slug']) ?>"><?= htmlspecialchars($review['product_name']) ?></a></strong>
-                            <span class="stars"><?= str_repeat('★', (int) $review['rating']) ?></span>
+                            <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
                         </div>
                         <p><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
                     </div>
                 <?php endforeach; ?>
             </div>
         </section>
-        <form class="profile-form" data-ajax="profile" method="post">
+        <form class="profile-form" data-ajax="profile" enctype="multipart/form-data" method="post">
             <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
             <input type="text" name="name" value="<?= htmlspecialchars($user['name']) ?>" required>
             <input type="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
             <input type="tel" name="phone" value="<?= htmlspecialchars($user['phone']) ?>">
+            <label>Profil Fotoğrafı<input type="file" name="avatar"></label>
             <button class="btn primary" type="submit">Bilgileri Güncelle</button>
         </form>
         <a class="btn" href="/logout.php">Çıkış Yap</a>

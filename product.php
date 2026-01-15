@@ -50,10 +50,9 @@ $reviewStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
 $reviewStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $reviewStmt->execute();
 $reviews = $reviewStmt->fetchAll(PDO::FETCH_ASSOC);
-$ratingAvg = 0;
-if ($reviews) {
-    $ratingAvg = array_sum(array_column($reviews, 'rating')) / count($reviews);
-}
+$avgStmt = $pdo->prepare('SELECT AVG(rating) FROM reviews WHERE product_id = :product_id');
+$avgStmt->execute(['product_id' => $product['id']]);
+$ratingAvg = (float) $avgStmt->fetchColumn();
 
 $ratingCounts = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
 $ratingStmt = $pdo->prepare('SELECT rating, COUNT(*) as count FROM reviews WHERE product_id = :product_id GROUP BY rating');
@@ -103,8 +102,8 @@ render_header($product['name']);
             <a class="btn primary" href="/checkout.php?slug=<?= urlencode($product['slug']) ?>">Siparişe Devam Et</a>
         </div>
         <div class="rating-row">
-            <span class="stars"><?= str_repeat('★', (int) round($ratingAvg)) ?></span>
-            <span><?= count($reviews) ?> değerlendirme</span>
+            <span class="stars"><?= render_stars((int) round($ratingAvg)) ?></span>
+            <span><?= $reviewTotal ?> değerlendirme</span>
         </div>
         <p class="order-note">WhatsApp siparişleri beklemede düşer, PayTR siparişleri ödeme onayı sonrası onaylanır.</p>
         <?php if ($product['order_channel'] === 'whatsapp'): ?>
@@ -163,7 +162,7 @@ render_header($product['name']);
             <div>
                 <h2>Yorumlar (<?= $reviewTotal ?>)</h2>
                 <p class="rating-big"><?= number_format($ratingAvg, 1, ',', '.') ?></p>
-                <div class="stars"><?= str_repeat('★', (int) round($ratingAvg)) ?></div>
+                <div class="stars"><?= render_stars((int) round($ratingAvg)) ?></div>
             </div>
             <div class="rating-bars">
                 <?php for ($i = 5; $i >= 1; $i--): ?>
@@ -188,7 +187,7 @@ render_header($product['name']);
                 </select>
             </form>
         </div>
-        <div class="reviews">
+        <div class="reviews" id="reviewsContainer" data-product-id="<?= (int) $product['id'] ?>" data-review-sort="<?= htmlspecialchars($sort) ?>">
             <?php foreach ($reviews as $review): ?>
                 <div class="review-card">
                     <div class="review-header">
@@ -205,16 +204,16 @@ render_header($product['name']);
                                 <span class="review-date"><?= htmlspecialchars($review['created_at']) ?></span>
                             </div>
                         </div>
-                        <span class="stars"><?= str_repeat('★', (int) $review['rating']) ?></span>
+                    <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
                     </div>
                     <p><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
-                    <button class="btn" type="button" data-review-like="<?= (int) $review['id'] ?>">Faydalı (<?= (int) $review['likes'] ?>)</button>
+                    <button class="btn" type="button" data-review-like="<?= (int) $review['id'] ?>" data-review-likes="<?= (int) $review['likes'] ?>">Faydalı (<?= (int) $review['likes'] ?>)</button>
                 </div>
             <?php endforeach; ?>
         </div>
-        <div class="pagination">
+        <div class="pagination" id="reviewsPagination">
             <?php for ($i = 1; $i <= $reviewTotalPages; $i++): ?>
-                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="<?= product_url($product) ?>?review_page=<?= $i ?>&review_sort=<?= urlencode($sort) ?>"><?= $i ?></a>
+                <button class="btn <?= $i === $page ? 'primary' : '' ?>" type="button" data-review-page="<?= $i ?>"><?= $i ?></button>
             <?php endfor; ?>
         </div>
         <form class="review-form" data-ajax="review" method="post">

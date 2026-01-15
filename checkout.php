@@ -18,6 +18,20 @@ if (!$product) {
 }
 
 $user = current_user();
+$paytrActive = settings('paytr_active') === '1';
+$bankTransferActive = settings('bank_transfer_active') === '1';
+$defaultChannel = $product['order_channel'];
+if ($defaultChannel === 'paytr' && !$paytrActive) {
+    $defaultChannel = $bankTransferActive ? 'bank_transfer' : 'whatsapp';
+}
+$availableChannels = [$defaultChannel, $product['order_channel']];
+if ($paytrActive) {
+    $availableChannels[] = 'paytr';
+}
+if ($bankTransferActive) {
+    $availableChannels[] = 'bank_transfer';
+}
+$availableChannels = array_values(array_unique($availableChannels));
 render_header('Sipariş Adımları');
 ?>
 <main class="container checkout">
@@ -47,13 +61,22 @@ render_header('Sipariş Adımları');
             <form class="order-form" data-ajax="checkout" method="post">
                 <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                 <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-                <input type="hidden" name="channel" value="<?= htmlspecialchars($product['order_channel']) ?>">
+                <input type="hidden" name="channel" value="<?= htmlspecialchars($defaultChannel) ?>">
                 <div class="form-grid">
                     <input type="text" name="full_name" placeholder="Ad Soyad" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
                     <input type="email" name="email" placeholder="E-posta" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
                     <input type="tel" name="phone" placeholder="Telefon" value="<?= htmlspecialchars($user['phone'] ?? '') ?>" required>
                     <textarea name="address" placeholder="Teslimat Adresi" rows="3"><?= htmlspecialchars($user['address'] ?? '') ?></textarea>
                     <textarea name="order_note" placeholder="Sipariş Notu (Opsiyonel)" rows="2"></textarea>
+                    <select name="payment_method">
+                        <option value="<?= htmlspecialchars($defaultChannel) ?>">Standart (<?= htmlspecialchars($defaultChannel) ?>)</option>
+                        <?php if ($paytrActive && in_array('paytr', $availableChannels, true) && $defaultChannel !== 'paytr'): ?>
+                            <option value="paytr">Kredi Kartı (PayTR)</option>
+                        <?php endif; ?>
+                        <?php if ($bankTransferActive && in_array('bank_transfer', $availableChannels, true) && $defaultChannel !== 'bank_transfer'): ?>
+                            <option value="bank_transfer">Banka Havalesi</option>
+                        <?php endif; ?>
+                    </select>
                     <input type="number" name="quantity" min="1" value="1" required>
                 </div>
                 <button class="btn primary" type="submit">Siparişi Onayla</button>

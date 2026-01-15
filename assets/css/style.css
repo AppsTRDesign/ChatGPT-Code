@@ -275,6 +275,21 @@ a {
   letter-spacing: 2px;
 }
 
+.stars {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.star-icon {
+  width: 16px;
+  height: 16px;
+  fill: #e0e0e0;
+}
+
+.star-icon.filled {
+  fill: #f2a93b;
+}
+
 .product-detail {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -473,6 +488,14 @@ table td {
   display: grid;
   place-items: center;
   font-weight: 700;
+}
+
+.avatar-image {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 12px 0;
 }
 
 .avatar img {

@@ -34,7 +34,13 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
         method: 'POST',
         body: formData,
       });
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (error) {
+        notifyError('Sunucu yanıtı okunamadı.');
+        return;
+      }
 
       if (!response.ok) {
         notifyError(data.message || 'İşlem başarısız.');
@@ -130,27 +136,76 @@ document.querySelectorAll('[data-cart-remove]').forEach((button) => {
   });
 });
 
-document.querySelectorAll('[data-review-like]').forEach((button) => {
-  button.addEventListener('click', async () => {
-    const reviewId = button.dataset.reviewLike;
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-review-like]');
+  if (!button) return;
+  if (button.disabled || button.dataset.reviewLikePending === 'true') {
+    return;
+  }
+  const reviewId = button.dataset.reviewLike;
+  const formData = new FormData();
+  const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+  formData.append('csrf_token', csrf);
+  formData.append('review_id', reviewId);
+  button.dataset.reviewLikePending = 'true';
+
+  try {
+    const response = await fetch('/api/handler.php?action=review-like', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      const likes = typeof data.likes === 'number'
+        ? data.likes
+        : (parseInt(button.dataset.reviewLikes, 10) || 0) + 1;
+      button.dataset.reviewLikes = likes;
+      button.textContent = `Faydalı (${likes})`;
+      button.disabled = true;
+      button.classList.add('primary');
+      notifySuccess(data.message || 'Beğeni kaydedildi.');
+    } else {
+      notifyError(data.message || 'Beğeni kaydedilemedi.');
+    }
+  } catch (error) {
+    notifyError('Sunucuya ulaşılamadı.');
+  } finally {
+    button.dataset.reviewLikePending = 'false';
+  }
+});
+
+const reviewsContainer = document.getElementById('reviewsContainer');
+const reviewsPagination = document.getElementById('reviewsPagination');
+if (reviewsContainer && reviewsPagination) {
+  reviewsPagination.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-review-page]');
+    if (!button) return;
+    const page = button.dataset.reviewPage;
+    const productId = reviewsContainer.dataset.productId;
+    const sort = reviewsContainer.dataset.reviewSort || 'top';
     const formData = new FormData();
-    const csrf = document.querySelector('input[name="csrf_token"]')?.value || '';
+    const csrf = document.querySelector('input[name=\"csrf_token\"]')?.value || '';
     formData.append('csrf_token', csrf);
-    formData.append('review_id', reviewId);
+    formData.append('product_id', productId);
+    formData.append('page', page);
+    formData.append('sort', sort);
 
     try {
-      const response = await fetch('/api/handler.php?action=review-like', {
+      const response = await fetch('/api/handler.php?action=reviews-list', {
         method: 'POST',
         body: formData,
       });
       const data = await response.json();
       if (response.ok) {
-        notifySuccess(data.message || 'Beğeni kaydedildi.');
+        reviewsContainer.innerHTML = data.html || '';
+        reviewsPagination.querySelectorAll('[data-review-page]').forEach((pageButton) => {
+          pageButton.classList.toggle('primary', pageButton.dataset.reviewPage === page);
+        });
       } else {
-        notifyError(data.message || 'Beğeni kaydedilemedi.');
+        notifyError(data.message || 'Yorumlar yüklenemedi.');
       }
     } catch (error) {
       notifyError('Sunucuya ulaşılamadı.');
     }
   });
-});
+}

@@ -14,7 +14,15 @@ document.querySelectorAll('.checkout [data-ajax="login-inline"], .checkout [data
       method: 'POST',
       body: formData,
     });
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (error) {
+      if (window.toastr) {
+        toastr.error('Sunucu yanıtı okunamadı.');
+      }
+      return;
+    }
     if (response.ok) {
       goToStep(2);
     }
@@ -33,7 +41,15 @@ document.querySelectorAll('.checkout [data-ajax="checkout"]').forEach((form) => 
       method: 'POST',
       body: formData,
     });
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (error) {
+      if (window.toastr) {
+        toastr.error('Sunucu yanıtı okunamadı.');
+      }
+      return;
+    }
     const result = document.getElementById('checkoutResult');
     if (response.ok && result) {
       result.innerHTML = data.html || '';

@@ -32,7 +32,7 @@ admin_header('Ürün Yönetimi');
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="id" value="<?= (int) ($productData['id'] ?? 0) ?>">
         <label>Ürün Adı<input type="text" name="name" value="<?= htmlspecialchars($productData['name'] ?? '') ?>" required></label>
-        <label>Slug<input type="text" name="slug" value="<?= htmlspecialchars($productData['slug'] ?? '') ?>" required></label>
+        <label>Slug<input type="text" name="slug" value="<?= htmlspecialchars($productData['slug'] ?? '') ?>"></label>
         <label>Kategori
             <select name="category_id">
                 <option value="">Kategori Seçin</option>
