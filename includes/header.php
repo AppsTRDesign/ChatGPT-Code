@@ -61,6 +61,10 @@ function render_header(string $title = '', array $meta = []): void
         $parentId = $category['parent_id'] ? (int) $category['parent_id'] : 0;
         $categoryChildren[$parentId][] = $category;
     }
+    foreach ($categoryChildren as &$children) {
+        usort($children, static fn($a, $b) => strcmp($a['name'], $b['name']));
+    }
+    unset($children);
     $user = current_user();
     $cartCount = array_sum($_SESSION['cart'] ?? []);
     echo "<nav class=\"main-nav\" id=\"mainNav\">\n";

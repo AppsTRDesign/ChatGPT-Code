@@ -18,8 +18,16 @@ if ($cart) {
 }
 $vatRate = (float) settings('vat_rate', '0');
 $shippingFee = (float) settings('shipping_fee', '0');
+$hasFreeShipping = false;
+foreach ($products as $product) {
+    if (!empty($product['free_shipping'])) {
+        $hasFreeShipping = true;
+        break;
+    }
+}
+$shippingFeeApplied = $hasFreeShipping ? 0.0 : $shippingFee;
 $vatAmount = $subtotal * ($vatRate / 100);
-$grandTotal = $subtotal + $vatAmount + $shippingFee;
+$grandTotal = $subtotal + $vatAmount + $shippingFeeApplied;
 
 render_header('Sepetim');
 ?>
@@ -59,7 +67,7 @@ render_header('Sepetim');
         <div class="order-summary">
             <span>Ürünler Toplamı: <?= currency($subtotal) ?></span>
             <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount) ?></span>
-            <span>Teslimat Ücreti: <?= currency($shippingFee) ?></span>
+            <span>Teslimat Ücreti: <?= currency($shippingFeeApplied) ?></span>
             <strong>Genel Toplam: <?= currency($grandTotal) ?></strong>
         </div>
     <?php endif; ?>

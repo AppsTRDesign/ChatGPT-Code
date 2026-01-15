@@ -40,6 +40,7 @@ CREATE TABLE products (
     price REAL NOT NULL DEFAULT 0,
     stock INTEGER NOT NULL DEFAULT 0,
     badge_text TEXT,
+    free_shipping INTEGER NOT NULL DEFAULT 0,
     main_image TEXT,
     category_id INTEGER,
     order_channel TEXT NOT NULL DEFAULT 'whatsapp',

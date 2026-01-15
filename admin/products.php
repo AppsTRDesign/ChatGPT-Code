@@ -58,6 +58,10 @@ admin_header('Ürün Yönetimi');
         </label>
         <label>Kart Rozeti Metni<input type="text" name="badge_text" value="<?= htmlspecialchars($productData['badge_text'] ?? '') ?>" placeholder="Örn: Ücretsiz Teslimat"></label>
         <label>Kısa Açıklama<input type="text" name="short_description" value="<?= htmlspecialchars($productData['short_description'] ?? '') ?>" placeholder="Kartlarda görünen kısa metin"></label>
+        <label>
+            <input type="checkbox" name="free_shipping" value="1" <?= !empty($productData['free_shipping']) ? 'checked' : '' ?>>
+            Ücretsiz Teslimat
+        </label>
         <label>Açıklama<textarea class="tinymce" name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
         <label>Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
         <label>Ürün Görseli<input type="file" name="main_image"></label>

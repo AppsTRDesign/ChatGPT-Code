@@ -151,7 +151,12 @@ switch ($action) {
         }
 
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
-        $total = $quantity * (float) $product['price'];
+        $vatRate = (float) settings('vat_rate', '0');
+        $shippingFee = (float) settings('shipping_fee', '0');
+        $shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
+        $subtotal = $quantity * (float) $product['price'];
+        $vatAmount = $subtotal * ($vatRate / 100);
+        $total = $subtotal + $vatAmount + $shippingFeeApplied;
         $status = $product['order_channel'] === 'paytr' ? 'approved' : 'pending';
 
         $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :status, :channel, :total_amount, :created_at)');
@@ -195,7 +200,12 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Stokta yeterli ürün yok.']);
             break;
         }
-        $total = $quantity * (float) $product['price'];
+        $vatRate = (float) settings('vat_rate', '0');
+        $shippingFee = (float) settings('shipping_fee', '0');
+        $shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
+        $subtotal = $quantity * (float) $product['price'];
+        $vatAmount = $subtotal * ($vatRate / 100);
+        $total = $subtotal + $vatAmount + $shippingFeeApplied;
         $paytrActive = settings('paytr_active') === '1';
         $bankTransferActive = settings('bank_transfer_active') === '1';
         $requestedChannel = $_POST['payment_method'] ?? $product['order_channel'];
@@ -510,6 +520,7 @@ switch ($action) {
         $stock = max(0, (int) ($_POST['stock'] ?? 0));
         $badgeText = trim($_POST['badge_text'] ?? '');
         $shortDescription = trim($_POST['short_description'] ?? '');
+        $freeShipping = isset($_POST['free_shipping']) ? 1 : 0;
         $slug = permalink($name);
         $mainImage = handle_upload('main_image');
         if ($productId) {
@@ -521,7 +532,7 @@ switch ($action) {
                     unlink(__DIR__ . '/..' . $oldPath);
                 }
             }
-            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, short_description = :short_description, description = :description, price = :price, stock = :stock, badge_text = :badge_text, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
+            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, short_description = :short_description, description = :description, price = :price, stock = :stock, badge_text = :badge_text, free_shipping = :free_shipping, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
@@ -531,6 +542,7 @@ switch ($action) {
                 'price' => (float) ($_POST['price'] ?? 0),
                 'stock' => $stock,
                 'badge_text' => $badgeText,
+                'free_shipping' => $freeShipping,
                 'category_id' => $_POST['category_id'] ?: null,
                 'main_image' => $mainImage,
                 'order_channel' => $orderChannel,
@@ -538,7 +550,7 @@ switch ($action) {
                 'id' => $productId,
             ]);
         } else {
-            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, short_description, description, price, stock, badge_text, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :short_description, :description, :price, :stock, :badge_text, :main_image, :category_id, :order_channel, :order_link, :created_at)');
+            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, short_description, description, price, stock, badge_text, free_shipping, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :short_description, :description, :price, :stock, :badge_text, :free_shipping, :main_image, :category_id, :order_channel, :order_link, :created_at)');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
@@ -548,6 +560,7 @@ switch ($action) {
                 'price' => (float) ($_POST['price'] ?? 0),
                 'stock' => $stock,
                 'badge_text' => $badgeText,
+                'free_shipping' => $freeShipping,
                 'main_image' => $mainImage,
                 'category_id' => $_POST['category_id'] ?: null,
                 'order_channel' => $orderChannel,

@@ -38,6 +38,7 @@ CREATE TABLE products (
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
     stock INT NOT NULL DEFAULT 0,
     badge_text VARCHAR(255),
+    free_shipping TINYINT(1) NOT NULL DEFAULT 0,
     main_image VARCHAR(255),
     category_id INT NULL,
     order_channel VARCHAR(50) NOT NULL DEFAULT 'whatsapp',

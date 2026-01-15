@@ -3,7 +3,10 @@ require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/footer.php';
 
-$categories = db()->query('SELECT categories.*, COUNT(products.id) AS product_count FROM categories LEFT JOIN products ON products.category_id = categories.id GROUP BY categories.id ORDER BY categories.name ASC')->fetchAll(PDO::FETCH_ASSOC);
+$categories = db()->query('SELECT categories.*, COUNT(products.id) AS product_count FROM categories LEFT JOIN products ON products.category_id = categories.id WHERE categories.parent_id IS NOT NULL GROUP BY categories.id ORDER BY categories.name ASC')->fetchAll(PDO::FETCH_ASSOC);
+if (!$categories) {
+    $categories = db()->query('SELECT categories.*, COUNT(products.id) AS product_count FROM categories LEFT JOIN products ON products.category_id = categories.id GROUP BY categories.id ORDER BY categories.name ASC')->fetchAll(PDO::FETCH_ASSOC);
+}
 
 $description = 'Tüm kategorileri keşfedin ve ürün sayılarını inceleyin.';
 render_header('Kategoriler', [

@@ -110,14 +110,16 @@ render_header($product['name'], ['image' => $metaImage]);
     </div>
     <div class="product-info">
         <h1><?= htmlspecialchars($product['name']) ?></h1>
-        <p class="price" data-product-price data-unit-price="<?= htmlspecialchars((string) $product['price']) ?>">
-            <?= currency((float) $product['price']) ?>
-        </p>
+        <div class="product-purchase">
+            <p class="price" data-product-price data-unit-price="<?= htmlspecialchars((string) $product['price']) ?>">
+                <?= currency((float) $product['price']) ?>
+            </p>
+            <label class="product-quantity">
+                Adet
+                <input type="number" min="1" value="1" data-product-quantity>
+            </label>
+        </div>
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-        <label class="product-quantity">
-            Adet
-            <input type="number" min="1" value="1" data-product-quantity>
-        </label>
         <div class="button-row">
             <?php if ($user): ?>
                 <button
@@ -144,7 +146,9 @@ render_header($product['name'], ['image' => $metaImage]);
             <?php endif; ?>
             <p><strong>Stok:</strong> <?= (int) $product['stock'] ?></p>
         </div>
-        <p class="order-note">WhatsApp siparişleri beklemede düşer, PayTR siparişleri ödeme onayı sonrası onaylanır.</p>
+        <p class="text-muted">
+            <?= htmlspecialchars($product['short_description'] ?: excerpt_words((string) $product['description'], 24)) ?>
+        </p>
         <?php if ($product['order_channel'] === 'whatsapp'): ?>
             <?php
             $whatsapp = $product['order_link'] ?: settings('whatsapp_number');
@@ -236,6 +240,7 @@ render_header($product['name'], ['image' => $metaImage]);
                         </div>
                     <?php endforeach; ?>
                 </div>
+                <?php if ($reviewTotal > 0): ?>
                 <div class="pagination" id="reviewsPagination">
                     <?php
                     $pages = array_unique(array_filter([
@@ -259,6 +264,9 @@ render_header($product['name'], ['image' => $metaImage]);
                     }
                     ?>
                 </div>
+                <?php else: ?>
+                    <div class="empty-state">Henüz yorum yok. İlk yorumu siz bırakın.</div>
+                <?php endif; ?>
                 <form class="review-form" data-ajax="review" method="post">
                     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                     <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">

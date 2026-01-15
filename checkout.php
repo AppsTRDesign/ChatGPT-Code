@@ -21,6 +21,12 @@ $user = current_user();
 $paytrActive = settings('paytr_active') === '1';
 $bankTransferActive = settings('bank_transfer_active') === '1';
 $quantity = max(1, (int) ($_GET['qty'] ?? 1));
+$vatRate = (float) settings('vat_rate', '0');
+$shippingFee = (float) settings('shipping_fee', '0');
+$shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
+$subtotal = $quantity * (float) $product['price'];
+$vatAmount = $subtotal * ($vatRate / 100);
+$grandTotal = $subtotal + $vatAmount + $shippingFeeApplied;
 $defaultChannel = $product['order_channel'];
 if ($defaultChannel === 'paytr' && !$paytrActive) {
     $defaultChannel = $bankTransferActive ? 'bank_transfer' : 'whatsapp';
@@ -95,7 +101,9 @@ render_header('Sipariş Adımları');
                 <div class="order-summary">
                     <span>Birim Fiyat: <?= currency((float) $product['price']) ?></span>
                     <span>Adet: <?= $quantity ?></span>
-                    <strong>Toplam: <?= currency($quantity * (float) $product['price']) ?></strong>
+                    <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount) ?></span>
+                    <span>Teslimat Ücreti: <?= currency($shippingFeeApplied) ?></span>
+                    <strong>Toplam: <?= currency($grandTotal) ?></strong>
                 </div>
                 <button class="btn primary" type="submit">Siparişi Onayla</button>
             </form>
