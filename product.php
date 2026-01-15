@@ -243,7 +243,7 @@ render_header($product['name'], ['image' => $metaImage]);
     </div>
 </section>
 <?php if ($similarProducts): ?>
-    <section class="section alt">
+    <section class="section alt similar-products">
         <div class="container">
             <h2>Benzer Ürünler</h2>
             <div class="splide" id="similarSlider">

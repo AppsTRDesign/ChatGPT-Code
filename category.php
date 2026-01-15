@@ -40,14 +40,30 @@ $orderBy = $sortMap[$sort] ?? 'created_at DESC';
 $perPage = 9;
 $offset = ($page - 1) * $perPage;
 
-$childIdStmt = $pdo->prepare('SELECT id FROM categories WHERE parent_id = :parent_id');
-$childIdStmt->execute(['parent_id' => $category['id']]);
-$childCategoryIds = array_map('intval', $childIdStmt->fetchAll(PDO::FETCH_COLUMN));
-$categoryIds = array_values(array_unique(array_merge([$category['id']], $childCategoryIds)));
+$allCategories = $pdo->query('SELECT id, parent_id FROM categories')->fetchAll(PDO::FETCH_ASSOC);
+$childrenMap = [];
+foreach ($allCategories as $row) {
+    $parentId = $row['parent_id'] !== null ? (int) $row['parent_id'] : 0;
+    $childrenMap[$parentId][] = (int) $row['id'];
+}
+$categoryIds = [];
+$categoryIdSet = [];
+$queue = [(int) $category['id']];
+while ($queue) {
+    $currentId = array_shift($queue);
+    if (isset($categoryIdSet[$currentId])) {
+        continue;
+    }
+    $categoryIds[] = $currentId;
+    $categoryIdSet[$currentId] = true;
+    foreach ($childrenMap[$currentId] ?? [] as $childId) {
+        $queue[] = $childId;
+    }
+}
 $categoryPlaceholders = implode(',', array_fill(0, count($categoryIds), '?'));
 
-$avgStmt = $pdo->prepare('SELECT AVG(price) FROM products WHERE category_id = :category_id');
-$avgStmt->execute(['category_id' => $category['id']]);
+$avgStmt = $pdo->prepare("SELECT AVG(price) FROM products WHERE category_id IN ({$categoryPlaceholders})");
+$avgStmt->execute($categoryIds);
 $avgPrice = (float) $avgStmt->fetchColumn();
 $maxPrice = $avgPrice > 0 ? (int) ceil($avgPrice) : 1;
 
@@ -144,10 +160,14 @@ render_header($category['name'], [
                 <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>En Popüler</option>
             </select>
             <div class="price-range" data-price-range data-max="<?= $maxPrice ?>">
-                <label>Min ₺: <span data-range-value="min"><?= htmlspecialchars((string) $priceMin) ?></span></label>
-                <input type="range" min="0" max="<?= $maxPrice ?>" value="<?= htmlspecialchars((string) $priceMin) ?>" data-range="min">
-                <label>Max ₺: <span data-range-value="max"><?= htmlspecialchars((string) $priceMax) ?></span></label>
-                <input type="range" min="0" max="<?= $maxPrice ?>" value="<?= htmlspecialchars((string) $priceMax) ?>" data-range="max">
+                <div class="price-field">
+                    <label>Min ₺: <span data-range-value="min"><?= htmlspecialchars((string) $priceMin) ?></span></label>
+                    <input type="range" min="0" max="<?= $maxPrice ?>" value="<?= htmlspecialchars((string) $priceMin) ?>" data-range="min">
+                </div>
+                <div class="price-field">
+                    <label>Max ₺: <span data-range-value="max"><?= htmlspecialchars((string) $priceMax) ?></span></label>
+                    <input type="range" min="0" max="<?= $maxPrice ?>" value="<?= htmlspecialchars((string) $priceMax) ?>" data-range="max">
+                </div>
                 <input type="hidden" name="price_min" value="<?= htmlspecialchars((string) $priceMin) ?>">
                 <input type="hidden" name="price_max" value="<?= htmlspecialchars((string) $priceMax) ?>">
             </div>
