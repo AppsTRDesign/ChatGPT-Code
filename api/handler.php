@@ -274,6 +274,111 @@ switch ($action) {
             echo json_encode(['success' => true, 'message' => 'Sipariş oluşturuldu.', 'html' => $html]);
         }
         break;
+    case 'checkout-cart':
+        $cart = $_SESSION['cart'] ?? [];
+        if (!$cart) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Sepetiniz boş.']);
+            break;
+        }
+        $productIds = array_keys($cart);
+        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+        $productsStmt = db()->prepare("SELECT * FROM products WHERE id IN ({$placeholders})");
+        $productsStmt->execute($productIds);
+        $products = $productsStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($products) !== count($productIds)) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Sepetteki bazı ürünler bulunamadı.']);
+            break;
+        }
+        $vatRate = (float) settings('vat_rate', '0');
+        $shippingFee = (float) settings('shipping_fee', '0');
+        $subtotal = 0.0;
+        $hasFreeShipping = false;
+        foreach ($products as $product) {
+            $quantity = max(1, (int) ($cart[$product['id']] ?? 1));
+            $stock = (int) ($product['stock'] ?? 0);
+            if ($stock > 0 && $quantity > $stock) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Stokta yeterli ürün yok.']);
+                break 2;
+            }
+            $subtotal += $quantity * (float) $product['price'];
+            if (!empty($product['free_shipping'])) {
+                $hasFreeShipping = true;
+            }
+        }
+        $shippingFeeApplied = $hasFreeShipping ? 0.0 : $shippingFee;
+        $vatAmount = $subtotal * ($vatRate / 100);
+        $total = $subtotal + $vatAmount + $shippingFeeApplied;
+        $paytrActive = settings('paytr_active') === '1';
+        $bankTransferActive = settings('bank_transfer_active') === '1';
+        $requestedChannel = $_POST['payment_method'] ?? 'whatsapp';
+        $availableChannels = ['whatsapp'];
+        if ($paytrActive) {
+            $availableChannels[] = 'paytr';
+        }
+        if ($bankTransferActive) {
+            $availableChannels[] = 'bank_transfer';
+        }
+        if (!in_array($requestedChannel, $availableChannels, true)) {
+            $requestedChannel = $availableChannels[0] ?? 'whatsapp';
+        }
+        $channel = $requestedChannel;
+
+        $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, order_note, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :order_note, :status, :channel, :total_amount, :created_at)');
+        $stmt->execute([
+            'user_id' => $_SESSION['user_id'] ?? null,
+            'full_name' => trim($_POST['full_name'] ?? ''),
+            'email' => trim($_POST['email'] ?? ''),
+            'phone' => trim($_POST['phone'] ?? ''),
+            'address' => trim($_POST['address'] ?? ''),
+            'order_note' => trim($_POST['order_note'] ?? ''),
+            'status' => 'pending',
+            'channel' => $channel,
+            'total_amount' => $total,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        $orderId = (int) db()->lastInsertId();
+        $itemsMessage = [];
+        foreach ($products as $product) {
+            $quantity = max(1, (int) ($cart[$product['id']] ?? 1));
+            db()->prepare('INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (:order_id, :product_id, :quantity, :unit_price)')
+                ->execute([
+                    'order_id' => $orderId,
+                    'product_id' => $product['id'],
+                    'quantity' => $quantity,
+                    'unit_price' => $product['price'],
+                ]);
+            $stock = (int) ($product['stock'] ?? 0);
+            if ($stock > 0) {
+                db()->prepare('UPDATE products SET stock = stock - :quantity WHERE id = :id')->execute([
+                    'quantity' => $quantity,
+                    'id' => $product['id'],
+                ]);
+            }
+            $itemsMessage[] = $product['name'] . ' x' . $quantity;
+        }
+        unset($_SESSION['cart']);
+
+        if ($channel === 'paytr') {
+            $html = '<p>PayTR ödeme adımına geçin.</p><a class="btn primary" href="/paytr.php?order_id=' . $orderId . '">PayTR ile Öde</a>';
+            echo json_encode(['success' => true, 'message' => 'Ödeme adımına geçiliyor.', 'html' => $html]);
+        } elseif ($channel === 'bank_transfer') {
+            $html = '<p>Banka havalesi için aşağıdaki bilgileri kullanın.</p>'
+                . '<p><strong>Banka:</strong> ' . htmlspecialchars(settings('bank_name')) . '</p>'
+                . '<p><strong>IBAN:</strong> ' . htmlspecialchars(settings('bank_iban')) . '</p>'
+                . '<p><strong>Alıcı:</strong> ' . htmlspecialchars(settings('bank_account_name')) . '</p>';
+            echo json_encode(['success' => true, 'message' => 'Havale bilgileri hazır.', 'html' => $html]);
+        } else {
+            $whatsapp = settings('whatsapp_number');
+            $message = urlencode('Sipariş No: #' . $orderId . ' için sipariş verdim. Ürünler: ' . implode(', ', $itemsMessage));
+            $link = 'https://wa.me/' . preg_replace('/[^0-9]/', '', $whatsapp) . '?text=' . $message;
+            $html = '<p>Siparişiniz alındı. WhatsApp üzerinden bilgilendirme için tıklayın.</p><a class="btn primary" href="' . $link . '" target="_blank" rel="noopener">WhatsApp ile Bilgilendir</a>';
+            echo json_encode(['success' => true, 'message' => 'Sipariş oluşturuldu.', 'html' => $html]);
+        }
+        break;
     case 'review':
         $productId = (int) ($_POST['product_id'] ?? 0);
         if (!$productId) {

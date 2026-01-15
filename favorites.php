@@ -38,30 +38,34 @@ render_header('Favoriler');
         <?php render_account_nav('favoriler'); ?>
         <section class="section">
             <h2>Favorilerim</h2>
-            <div class="favorites-list">
-                <?php foreach ($favorites as $product): ?>
-                    <article class="favorite-item" data-favorite-item>
-                        <div class="favorite-media">
-                            <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>" title="<?= htmlspecialchars($product['name']) ?>">
-                        </div>
-                        <div class="favorite-content">
-                            <h3><?= htmlspecialchars($product['name']) ?></h3>
-                            <div class="favorite-actions">
-                                <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
-                                <button
-                                    class="btn danger"
-                                    type="button"
-                                    data-favorite="<?= (int) $product['id'] ?>"
-                                    data-favorite-label-add="Favoriye Ekle"
-                                    data-favorite-label-remove="Favoriden Çıkar"
-                                >
-                                    Favoriden Çıkar
-                                </button>
+            <?php if (!$favorites): ?>
+                <div class="empty-state">Henüz favoriniz yok.</div>
+            <?php else: ?>
+                <div class="favorites-list">
+                    <?php foreach ($favorites as $product): ?>
+                        <article class="favorite-item" data-favorite-item>
+                            <div class="favorite-media">
+                                <img loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>" title="<?= htmlspecialchars($product['name']) ?>">
                             </div>
-                        </div>
-                    </article>
-                <?php endforeach; ?>
-            </div>
+                            <div class="favorite-content">
+                                <h3><?= htmlspecialchars($product['name']) ?></h3>
+                                <div class="favorite-actions">
+                                    <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
+                                    <button
+                                        class="btn danger"
+                                        type="button"
+                                        data-favorite="<?= (int) $product['id'] ?>"
+                                        data-favorite-label-add="Favoriye Ekle"
+                                        data-favorite-label-remove="Favoriden Çıkar"
+                                    >
+                                        Favoriden Çıkar
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
             <?php if ($totalPages > 1): ?>
                 <div class="pagination">
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>

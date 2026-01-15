@@ -62,10 +62,10 @@ while ($queue) {
 }
 $categoryPlaceholders = implode(',', array_fill(0, count($categoryIds), '?'));
 
-$avgStmt = $pdo->prepare("SELECT AVG(price) FROM products WHERE category_id IN ({$categoryPlaceholders})");
-$avgStmt->execute($categoryIds);
-$avgPrice = (float) $avgStmt->fetchColumn();
-$maxPrice = $avgPrice > 0 ? (int) ceil($avgPrice) : 1;
+$maxStmt = $pdo->prepare("SELECT MAX(price) FROM products WHERE category_id IN ({$categoryPlaceholders})");
+$maxStmt->execute($categoryIds);
+$maxPriceValue = (float) $maxStmt->fetchColumn();
+$maxPrice = $maxPriceValue > 0 ? (int) ceil($maxPriceValue) : 1;
 
 $priceMax = $priceMax > 0 ? $priceMax : $maxPrice;
 $priceMin = max(0, min($priceMin, $priceMax));

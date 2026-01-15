@@ -37,30 +37,34 @@ render_header('Siparişler');
         <?php render_account_nav('siparisler'); ?>
         <section class="section">
             <h2>Sipariş Geçmişi</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Sipariş</th>
-                        <th>Ürünler</th>
-                        <th>Durum</th>
-                        <th>Kanal</th>
-                        <th>Tutar</th>
-                        <th>Tarih</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($orders as $order): ?>
+            <?php if (!$orders): ?>
+                <div class="empty-state">Henüz siparişiniz yok.</div>
+            <?php else: ?>
+                <table>
+                    <thead>
                         <tr>
-                            <td>#<?= (int) $order['id'] ?></td>
-                            <td><?= htmlspecialchars(implode(', ', $orderItems[(int) $order['id']] ?? [])) ?></td>
-                            <td><span class="badge badge-<?= htmlspecialchars($order['status']) ?>"><?= order_status_label($order['status']) ?></span></td>
-                            <td><?= htmlspecialchars($order['channel']) ?></td>
-                            <td><?= currency((float) $order['total_amount']) ?></td>
-                            <td><?= htmlspecialchars($order['created_at']) ?></td>
+                            <th>Sipariş</th>
+                            <th>Ürünler</th>
+                            <th>Durum</th>
+                            <th>Kanal</th>
+                            <th>Tutar</th>
+                            <th>Tarih</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($orders as $order): ?>
+                            <tr>
+                                <td>#<?= (int) $order['id'] ?></td>
+                                <td><?= htmlspecialchars(implode(', ', $orderItems[(int) $order['id']] ?? [])) ?></td>
+                                <td><span class="badge badge-<?= htmlspecialchars($order['status']) ?>"><?= order_status_label($order['status']) ?></span></td>
+                                <td><?= htmlspecialchars($order['channel']) ?></td>
+                                <td><?= currency((float) $order['total_amount']) ?></td>
+                                <td><?= htmlspecialchars($order['created_at']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
         </section>
     <?php endif; ?>
 </main>

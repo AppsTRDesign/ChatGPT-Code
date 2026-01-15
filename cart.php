@@ -57,7 +57,6 @@ render_header('Sepetim');
                         <td><?= currency((float) $product['price']) ?></td>
                         <td><?= currency($lineTotal) ?></td>
                         <td>
-                            <a class="btn" href="/checkout.php?slug=<?= urlencode($product['slug']) ?>&qty=<?= $quantity ?>" title="Siparişe Devam">Siparişe Devam</a>
                             <button class="btn danger" data-cart-remove="<?= (int) $product['id'] ?>">Sil</button>
                         </td>
                     </tr>
@@ -69,6 +68,9 @@ render_header('Sepetim');
             <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount) ?></span>
             <span>Teslimat Ücreti: <?= currency($shippingFeeApplied) ?></span>
             <strong>Genel Toplam: <?= currency($grandTotal) ?></strong>
+        </div>
+        <div class="button-row">
+            <a class="btn primary" href="/checkout.php?cart=1">Siparişi Tamamla</a>
         </div>
     <?php endif; ?>
 </main>

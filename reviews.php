@@ -41,34 +41,38 @@ render_header('Yorumlar');
         <?php render_account_nav('yorumlar'); ?>
         <section class="section">
             <h2>Yorumlarım</h2>
-            <div class="reviews">
-                <?php foreach ($reviews as $review): ?>
-                    <div class="review-card">
-                        <div class="review-header">
-                            <strong><a href="/urun/<?= urlencode($review['slug']) ?>"><?= htmlspecialchars($review['product_name']) ?></a></strong>
-                            <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
-                        </div>
-                        <form class="review-edit-form" data-ajax="review-update" method="post">
-                            <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                            <input type="hidden" name="review_id" value="<?= (int) $review['id'] ?>">
-                            <label>Puan
-                                <select name="rating">
-                                    <?php for ($i = 5; $i >= 1; $i--): ?>
-                                        <option value="<?= $i ?>" <?= (int) $review['rating'] === $i ? 'selected' : '' ?>><?= $i ?> Yıldız</option>
-                                    <?php endfor; ?>
-                                </select>
-                            </label>
-                            <label>Yorum
-                                <textarea name="comment" rows="3"><?= htmlspecialchars($review['comment']) ?></textarea>
-                            </label>
-                            <div class="button-row">
-                                <button class="btn primary" type="submit">Kaydet</button>
-                                <button class="btn danger" type="button" data-review-delete="<?= (int) $review['id'] ?>">Sil</button>
+            <?php if (!$reviews): ?>
+                <div class="empty-state">Henüz yorumunuz yok.</div>
+            <?php else: ?>
+                <div class="reviews">
+                    <?php foreach ($reviews as $review): ?>
+                        <div class="review-card">
+                            <div class="review-header">
+                                <strong><a href="/urun/<?= urlencode($review['slug']) ?>"><?= htmlspecialchars($review['product_name']) ?></a></strong>
+                                <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
                             </div>
-                        </form>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+                            <form class="review-edit-form" data-ajax="review-update" method="post">
+                                <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                                <input type="hidden" name="review_id" value="<?= (int) $review['id'] ?>">
+                                <label>Puan
+                                    <select name="rating">
+                                        <?php for ($i = 5; $i >= 1; $i--): ?>
+                                            <option value="<?= $i ?>" <?= (int) $review['rating'] === $i ? 'selected' : '' ?>><?= $i ?> Yıldız</option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </label>
+                                <label>Yorum
+                                    <textarea name="comment" rows="3"><?= htmlspecialchars($review['comment']) ?></textarea>
+                                </label>
+                                <div class="button-row">
+                                    <button class="btn primary" type="submit">Kaydet</button>
+                                    <button class="btn danger" type="button" data-review-delete="<?= (int) $review['id'] ?>">Sil</button>
+                                </div>
+                            </form>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
             <?php if ($totalPages > 1): ?>
                 <div class="pagination">
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>

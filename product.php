@@ -265,7 +265,7 @@ render_header($product['name'], ['image' => $metaImage]);
                     ?>
                 </div>
                 <?php else: ?>
-                    <div class="empty-state">Henüz yorum yok. İlk yorumu siz bırakın.</div>
+                    <div class="empty-state reviews-empty">Henüz yorum yok. İlk yorumu siz bırakın.</div>
                 <?php endif; ?>
                 <form class="review-form" data-ajax="review" method="post">
                     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">

@@ -32,12 +32,13 @@ document.querySelectorAll('.checkout [data-ajax="login-inline"], .checkout [data
   });
 });
 
-document.querySelectorAll('.checkout [data-ajax="checkout"]').forEach((form) => {
+document.querySelectorAll('.checkout [data-ajax="checkout"], .checkout [data-ajax="checkout-cart"]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(form);
+    const action = form.dataset.ajax || 'checkout';
 
-    const response = await fetch('/api/handler.php?action=checkout', {
+    const response = await fetch(`/api/handler.php?action=${action}`, {
       method: 'POST',
       body: formData,
     });

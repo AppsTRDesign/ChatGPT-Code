@@ -285,6 +285,8 @@ a {
 
 .hero .btn {
   margin-top: 16px;
+  align-self: flex-start;
+  width: fit-content;
 }
 
 .splide__slide.is-active .hero-content,
@@ -713,7 +715,7 @@ a {
 
 .product-purchase {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
   flex-wrap: wrap;
 }
@@ -735,9 +737,27 @@ a {
 }
 
 .product-quantity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 160px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+}
+
+.product-quantity input {
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  padding: 6px 10px;
+}
+
+.order-summary-list {
   display: grid;
   gap: 6px;
-  max-width: 140px;
+  margin-bottom: 8px;
+  color: #5b5b5b;
 }
 
 .similar-products .card {
@@ -947,6 +967,10 @@ table td {
   padding: 16px;
   background: #fff;
   color: #5b5b5b;
+}
+
+.reviews-empty {
+  margin-top: 16px;
 }
 
 .avatar {
