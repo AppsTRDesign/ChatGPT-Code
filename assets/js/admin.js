@@ -1,5 +1,11 @@
 const chartCanvas = document.getElementById('orderChart');
 let orderChart;
+const adminNavToggle = document.getElementById('adminNavToggle');
+if (adminNavToggle) {
+  adminNavToggle.addEventListener('click', () => {
+    document.body.classList.toggle('nav-open');
+  });
+}
 if (chartCanvas && window.Chart) {
   orderChart = new Chart(chartCanvas, {
     type: 'line',
@@ -232,3 +238,83 @@ bindDeleteButtons('[data-delete-page]', 'delete-page');
 bindDeleteButtons('[data-delete-category]', 'delete-category');
 bindDeleteButtons('[data-delete-faq]', 'delete-faq');
 bindDeleteButtons('[data-delete-slider]', 'delete-slider');
+
+const orderModal = document.getElementById('orderModal');
+const orderModalBody = document.getElementById('orderModalBody');
+const orderModalClose = document.getElementById('orderModalClose');
+
+const closeOrderModal = () => {
+  if (!orderModal) return;
+  orderModal.classList.remove('open');
+};
+
+if (orderModalClose) {
+  orderModalClose.addEventListener('click', closeOrderModal);
+}
+
+if (orderModal) {
+  orderModal.addEventListener('click', (event) => {
+    if (event.target === orderModal) {
+      closeOrderModal();
+    }
+  });
+}
+
+document.querySelectorAll('[data-order-detail]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    if (!orderModal || !orderModalBody) return;
+    const orderId = button.dataset.orderDetail;
+    const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    formData.append('order_id', orderId);
+    const response = await fetch('/api/handler.php?action=order-detail', {
+      method: 'POST',
+      body: formData,
+    });
+    let data = {};
+    try {
+      data = await response.json();
+    } catch (error) {
+      if (window.toastr) {
+        toastr.error('Sipariş detayı okunamadı.');
+      }
+      return;
+    }
+    if (!response.ok) {
+      if (window.toastr) {
+        toastr.error(data.message || 'Sipariş detayı alınamadı.');
+      }
+      return;
+    }
+    const order = data.order || {};
+    const items = data.items || [];
+    const itemsHtml = items.map((item) => `
+      <tr>
+        <td>${item.name}</td>
+        <td>${item.quantity}</td>
+        <td>${item.unit_price}</td>
+      </tr>
+    `).join('');
+    orderModalBody.innerHTML = `
+      <p><strong>Ad Soyad:</strong> ${order.full_name || ''}</p>
+      <p><strong>E-posta:</strong> ${order.email || ''}</p>
+      <p><strong>Telefon:</strong> ${order.phone || ''}</p>
+      <p><strong>Adres:</strong> ${order.address || ''}</p>
+      <p><strong>Sipariş Notu:</strong> ${order.order_note || '-'}</p>
+      <p><strong>Durum:</strong> ${order.status_label || ''}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Ürün</th>
+            <th>Adet</th>
+            <th>Birim Fiyat</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+    `;
+    orderModal.classList.add('open');
+  });
+});

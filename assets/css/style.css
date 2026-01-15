@@ -659,12 +659,40 @@ table td {
   color: #fff;
 }
 
+.admin-nav-group {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-nav-group span {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-nav-toggle {
+  display: none;
+  border: none;
+  background: #1f1f1f;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
 .admin-main {
   flex: 1;
   padding: 24px;
 }
 
 .admin-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
@@ -686,6 +714,14 @@ table td {
   border-radius: 16px;
   margin-bottom: 24px;
   box-shadow: var(--shadow);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .table-section table,
@@ -739,5 +775,16 @@ td {
 
   .admin-sidebar {
     width: 100%;
+    display: none;
+  }
+
+  .admin-body.nav-open .admin-sidebar {
+    display: block;
+  }
+
+  .admin-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }

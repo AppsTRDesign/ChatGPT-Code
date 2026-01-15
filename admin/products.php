@@ -32,12 +32,11 @@ if ($editId) {
         $features
     ));
 }
-
 admin_header('Ürün Yönetimi');
 ?>
 <section class="panel">
     <h2><?= $productData ? 'Ürün Düzenle' : 'Yeni Ürün Ekle' ?></h2>
-    <form class="admin-form" data-ajax="product" enctype="multipart/form-data" method="post">
+    <form id="productForm" class="admin-form" data-ajax="product" enctype="multipart/form-data" method="post">
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="id" value="<?= (int) ($productData['id'] ?? 0) ?>">
         <label>Ürün Adı<input type="text" name="name" value="<?= htmlspecialchars($productData['name'] ?? '') ?>" required></label>
@@ -66,7 +65,10 @@ admin_header('Ürün Yönetimi');
     </form>
 </section>
 <section class="panel">
-    <h2>Ürünler</h2>
+    <div class="panel-header">
+        <h2>Ürünler</h2>
+        <a class="btn primary" href="#productForm">Ürün Ekle</a>
+    </div>
     <table>
         <thead>
             <tr>
@@ -98,10 +100,10 @@ admin_header('Ürün Yönetimi');
         </div>
     <?php endif; ?>
 </section>
-<?php
-admin_footer();
-?>
 <script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js"></script>
 <script>
     tinymce.init({ selector: '.tinymce', height: 240, menubar: false });
 </script>
+<?php
+admin_footer();
+?>
