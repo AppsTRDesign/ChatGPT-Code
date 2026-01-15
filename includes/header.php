@@ -56,16 +56,16 @@ function render_header(string $title = ''): void
         }
         echo "</div>\n</div>\n";
     }
-    echo "<a href=\"/content.php\">İçerikler</a>\n";
-    echo "<a href=\"/cart.php\">Sepet</a>\n";
-    echo "<a href=\"/faq.php\">SSS</a>\n";
-    echo "<a href=\"/contact.php\">İletişim</a>\n";
+    echo "<a href=\"/icerikler\">İçerikler</a>\n";
+    echo "<a href=\"/sepet\">Sepet</a>\n";
+    echo "<a href=\"/sss\">SSS</a>\n";
+    echo "<a href=\"/iletisim\">İletişim</a>\n";
     if ($user) {
-        echo "<a href=\"/account.php\">Profil</a>\n";
-        echo "<a href=\"/logout.php\">Çıkış</a>\n";
+        echo "<a href=\"/profil\">Profil</a>\n";
+        echo "<a href=\"/cikis\">Çıkış</a>\n";
     } else {
-        echo "<a href=\"/login.php\">Giriş Yap</a>\n";
-        echo "<a href=\"/register.php\">Kayıt Ol</a>\n";
+        echo "<a href=\"/giris\">Giriş Yap</a>\n";
+        echo "<a href=\"/kayit\">Kayıt Ol</a>\n";
     }
     echo "</nav>\n";
     echo "<button class=\"nav-toggle\" id=\"navToggle\" aria-label=\"Menüyü Aç\">☰</button>\n";
