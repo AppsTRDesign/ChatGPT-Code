@@ -343,15 +343,8 @@ if ($reviewTotal > 0) {
     $schema['review'] = $reviewSchema;
     $schema['aggregateRating'] = [
         '@type' => 'AggregateRating',
-        'ratingValue' => $ratingAvg ?: 5,
+        'ratingValue' => round($ratingAvg, 1),
         'reviewCount' => $reviewTotal,
-    ];
-} else {
-    $schema['review'] = [];
-    $schema['aggregateRating'] = [
-        '@type' => 'AggregateRating',
-        'ratingValue' => 5,
-        'reviewCount' => 0,
     ];
 }
 ?>

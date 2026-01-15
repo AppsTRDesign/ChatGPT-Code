@@ -113,6 +113,16 @@ function order_status_label(string $status): string
     return $labels[$status] ?? $status;
 }
 
+function order_channel_label(string $channel): string
+{
+    $labels = [
+        'whatsapp' => 'WhatsApp',
+        'paytr' => 'Kredi Kartı',
+        'bank_transfer' => 'Banka Havalesi',
+    ];
+    return $labels[$channel] ?? $channel;
+}
+
 function render_stars(int $rating): string
 {
     $rating = max(0, min(5, $rating));

@@ -146,6 +146,50 @@ document.querySelectorAll('[data-order-status]').forEach((select) => {
   });
 });
 
+document.querySelectorAll('[data-bank-transfer-approve]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const notificationId = button.dataset.bankTransferApprove;
+    const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    formData.append('notification_id', notificationId);
+    const response = await fetch('/api/handler.php?action=bank-transfer-approve', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      if (window.toastr) {
+        toastr.success(data.message || 'Sipariş onaylandı.');
+      }
+      window.location.reload();
+    } else if (window.toastr) {
+      toastr.error(data.message || 'İşlem başarısız.');
+    }
+  });
+});
+
+document.querySelectorAll('[data-bank-transfer-delete]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const notificationId = button.dataset.bankTransferDelete;
+    const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    formData.append('notification_id', notificationId);
+    const response = await fetch('/api/handler.php?action=bank-transfer-delete', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      if (window.toastr) {
+        toastr.success(data.message || 'Bildirim silindi.');
+      }
+      button.closest('tr')?.remove();
+    } else if (window.toastr) {
+      toastr.error(data.message || 'İşlem başarısız.');
+    }
+  });
+});
+
 document.querySelectorAll('[data-ajax]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

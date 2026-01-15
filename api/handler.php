@@ -150,6 +150,21 @@ switch ($action) {
             break;
         }
 
+        $fullName = trim($_POST['full_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        if ($fullName === '' || $email === '' || $phone === '' || $address === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Ad soyad, e-posta, telefon ve adres zorunludur.']);
+            break;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Geçerli bir e-posta girin.']);
+            break;
+        }
+
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
         $vatRate = (float) settings('vat_rate', '0');
         $shippingFee = (float) settings('shipping_fee', '0');
@@ -162,10 +177,10 @@ switch ($action) {
         $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :status, :channel, :total_amount, :created_at)');
         $stmt->execute([
             'user_id' => $_SESSION['user_id'] ?? null,
-            'full_name' => trim($_POST['full_name'] ?? ''),
-            'email' => trim($_POST['email'] ?? ''),
-            'phone' => trim($_POST['phone'] ?? ''),
-            'address' => trim($_POST['address'] ?? ''),
+            'full_name' => $fullName,
+            'email' => $email,
+            'phone' => $phone,
+            'address' => $address,
             'status' => $status,
             'channel' => $product['order_channel'],
             'total_amount' => $total,
@@ -191,6 +206,20 @@ switch ($action) {
         if (!$product) {
             http_response_code(404);
             echo json_encode(['success' => false, 'message' => 'Ürün bulunamadı.']);
+            break;
+        }
+        $fullName = trim($_POST['full_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        if ($fullName === '' || $email === '' || $phone === '' || $address === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Ad soyad, e-posta, telefon ve adres zorunludur.']);
+            break;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Geçerli bir e-posta girin.']);
             break;
         }
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
@@ -231,10 +260,10 @@ switch ($action) {
         $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, order_note, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :order_note, :status, :channel, :total_amount, :created_at)');
         $stmt->execute([
             'user_id' => $_SESSION['user_id'] ?? null,
-            'full_name' => trim($_POST['full_name'] ?? ''),
-            'email' => trim($_POST['email'] ?? ''),
-            'phone' => trim($_POST['phone'] ?? ''),
-            'address' => trim($_POST['address'] ?? ''),
+            'full_name' => $fullName,
+            'email' => $email,
+            'phone' => $phone,
+            'address' => $address,
             'order_note' => trim($_POST['order_note'] ?? ''),
             'status' => 'pending',
             'channel' => $channel,
@@ -279,6 +308,20 @@ switch ($action) {
         if (!$cart) {
             http_response_code(422);
             echo json_encode(['success' => false, 'message' => 'Sepetiniz boş.']);
+            break;
+        }
+        $fullName = trim($_POST['full_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        if ($fullName === '' || $email === '' || $phone === '' || $address === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Ad soyad, e-posta, telefon ve adres zorunludur.']);
+            break;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Geçerli bir e-posta girin.']);
             break;
         }
         $productIds = array_keys($cart);
@@ -329,10 +372,10 @@ switch ($action) {
         $stmt = db()->prepare('INSERT INTO orders (user_id, full_name, email, phone, address, order_note, status, channel, total_amount, created_at) VALUES (:user_id, :full_name, :email, :phone, :address, :order_note, :status, :channel, :total_amount, :created_at)');
         $stmt->execute([
             'user_id' => $_SESSION['user_id'] ?? null,
-            'full_name' => trim($_POST['full_name'] ?? ''),
-            'email' => trim($_POST['email'] ?? ''),
-            'phone' => trim($_POST['phone'] ?? ''),
-            'address' => trim($_POST['address'] ?? ''),
+            'full_name' => $fullName,
+            'email' => $email,
+            'phone' => $phone,
+            'address' => $address,
             'order_note' => trim($_POST['order_note'] ?? ''),
             'status' => 'pending',
             'channel' => $channel,
@@ -378,6 +421,113 @@ switch ($action) {
             $html = '<p>Siparişiniz alındı. WhatsApp üzerinden bilgilendirme için tıklayın.</p><a class="btn primary" href="' . $link . '" target="_blank" rel="noopener">WhatsApp ile Bilgilendir</a>';
             echo json_encode(['success' => true, 'message' => 'Sipariş oluşturuldu.', 'html' => $html]);
         }
+        break;
+    case 'bank-transfer-notify':
+        $user = current_user();
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Önce giriş yapın.']);
+            break;
+        }
+        $orderId = (int) ($_POST['order_id'] ?? 0);
+        $fullName = trim($_POST['full_name'] ?? '');
+        $bankName = trim($_POST['bank_name'] ?? '');
+        if (!$orderId || $fullName === '' || $bankName === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Sipariş, ad soyad ve banka adı zorunludur.']);
+            break;
+        }
+        $orderStmt = db()->prepare('SELECT id, user_id, email, channel FROM orders WHERE id = :id');
+        $orderStmt->execute(['id' => $orderId]);
+        $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$order) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Sipariş bulunamadı.']);
+            break;
+        }
+        if ($order['channel'] !== 'bank_transfer') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Bu sipariş için havale bildirimi yapılamaz.']);
+            break;
+        }
+        if ($order['user_id'] && (int) $order['user_id'] !== (int) $user['id']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Bu sipariş için bildirim yapamazsınız.']);
+            break;
+        }
+        $receiptPath = handle_upload('receipt');
+        if (!$receiptPath) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Dekont yükleyin.']);
+            break;
+        }
+        $stmt = db()->prepare('INSERT INTO bank_transfer_notifications (order_id, user_id, full_name, bank_name, receipt_path, status, created_at) VALUES (:order_id, :user_id, :full_name, :bank_name, :receipt_path, :status, :created_at)');
+        $stmt->execute([
+            'order_id' => $orderId,
+            'user_id' => $user['id'],
+            'full_name' => $fullName,
+            'bank_name' => $bankName,
+            'receipt_path' => $receiptPath,
+            'status' => 'pending',
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+        echo json_encode(['success' => true, 'message' => 'Havale bildirimi alındı.']);
+        break;
+    case 'bank-transfer-approve':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        if (!$notificationId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Bildirim bulunamadı.']);
+            break;
+        }
+        $notificationStmt = db()->prepare('SELECT * FROM bank_transfer_notifications WHERE id = :id');
+        $notificationStmt->execute(['id' => $notificationId]);
+        $notification = $notificationStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$notification) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Bildirim bulunamadı.']);
+            break;
+        }
+        db()->prepare('UPDATE bank_transfer_notifications SET status = :status WHERE id = :id')->execute([
+            'status' => 'approved',
+            'id' => $notificationId,
+        ]);
+        db()->prepare('UPDATE orders SET status = :status WHERE id = :id')->execute([
+            'status' => 'approved',
+            'id' => $notification['order_id'],
+        ]);
+        $orderStmt = db()->prepare('SELECT full_name, email FROM orders WHERE id = :id');
+        $orderStmt->execute(['id' => $notification['order_id']]);
+        if ($order = $orderStmt->fetch(PDO::FETCH_ASSOC)) {
+            send_order_status_email($order['email'], $order['full_name'], 'approved', (int) $notification['order_id']);
+        }
+        echo json_encode(['success' => true, 'message' => 'Sipariş onaylandı.']);
+        break;
+    case 'bank-transfer-delete':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        if (!$notificationId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Bildirim bulunamadı.']);
+            break;
+        }
+        $notificationStmt = db()->prepare('SELECT receipt_path FROM bank_transfer_notifications WHERE id = :id');
+        $notificationStmt->execute(['id' => $notificationId]);
+        $receiptPath = $notificationStmt->fetchColumn();
+        if ($receiptPath && is_file(__DIR__ . '/..' . $receiptPath)) {
+            unlink(__DIR__ . '/..' . $receiptPath);
+        }
+        db()->prepare('DELETE FROM bank_transfer_notifications WHERE id = :id')->execute(['id' => $notificationId]);
+        echo json_encode(['success' => true, 'message' => 'Bildirim silindi.']);
         break;
     case 'review':
         $productId = (int) ($_POST['product_id'] ?? 0);

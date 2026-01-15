@@ -34,6 +34,7 @@ function admin_header(string $title): void
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Siparişler</span>\n";
     echo "<a href=\"/admin/orders.php\">Siparişler</a>\n";
+    echo "<a href=\"/admin/bank-transfer-notifications.php\">Havale Bildirimleri</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Kullanıcılar</span>\n";
     echo "<a href=\"/admin/users.php\">Kullanıcılar</a>\n";

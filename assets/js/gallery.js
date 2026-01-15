@@ -43,6 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
     GLightbox({ selector: '.lightbox' });
   }
 
+  if (window.lightbox) {
+    lightbox.option({
+      resizeDuration: 200,
+      wrapAround: true,
+      albumLabel: 'Görsel %1 / %2',
+    });
+  }
+
   const homeSlider = document.getElementById('homeSlider');
   if (homeSlider && window.Splide) {
     new Splide(homeSlider, {

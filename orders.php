@@ -57,7 +57,12 @@ render_header('Siparişler');
                                 <td>#<?= (int) $order['id'] ?></td>
                                 <td><?= htmlspecialchars(implode(', ', $orderItems[(int) $order['id']] ?? [])) ?></td>
                                 <td><span class="badge badge-<?= htmlspecialchars($order['status']) ?>"><?= order_status_label($order['status']) ?></span></td>
-                                <td><?= htmlspecialchars($order['channel']) ?></td>
+                                <td>
+                                    <span class="badge badge-channel"><?= htmlspecialchars(order_channel_label($order['channel'])) ?></span>
+                                    <?php if ($order['channel'] === 'bank_transfer'): ?>
+                                        <button class="link-button" type="button" data-bank-transfer-open data-order-id="<?= (int) $order['id'] ?>">Havale Bilgisi</button>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= currency((float) $order['total_amount']) ?></td>
                                 <td><?= htmlspecialchars($order['created_at']) ?></td>
                             </tr>
@@ -68,6 +73,34 @@ render_header('Siparişler');
         </section>
     <?php endif; ?>
 </main>
+<?php if ($user): ?>
+    <div class="modal" id="bankTransferModal" aria-hidden="true">
+        <div class="modal-content">
+            <button class="modal-close" type="button" data-modal-close aria-label="Kapat">×</button>
+            <h3>Havale Bilgileri</h3>
+            <p><strong>Sipariş No:</strong> <span data-order-label>—</span></p>
+            <div class="bank-info">
+                <p><strong>Banka:</strong> <?= htmlspecialchars(settings('bank_name')) ?></p>
+                <p><strong>IBAN:</strong> <?= htmlspecialchars(settings('bank_iban')) ?></p>
+                <p><strong>Alıcı:</strong> <?= htmlspecialchars(settings('bank_account_name')) ?></p>
+            </div>
+            <form class="bank-transfer-form" data-ajax="bank-transfer-notify" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                <input type="hidden" name="order_id" value="">
+                <label>Ad Soyad
+                    <input type="text" name="full_name" required>
+                </label>
+                <label>İşlem Yapılan Banka
+                    <input type="text" name="bank_name" required>
+                </label>
+                <label>Dekont (PDF / Görsel)
+                    <input type="file" name="receipt" accept=".pdf,image/*" required>
+                </label>
+                <button class="btn primary" type="submit">Havaleyi Bildir</button>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>
 <?php
 render_footer();
 ?>

@@ -119,7 +119,7 @@ render_header($title);
                         <input type="tel" name="phone" placeholder="Telefon" value="<?= htmlspecialchars($user['phone'] ?? '') ?>" required>
                     </label>
                     <label>Teslimat Adresi
-                        <textarea name="address" placeholder="Teslimat Adresi" rows="3"><?= htmlspecialchars($user['address'] ?? '') ?></textarea>
+                        <textarea name="address" placeholder="Teslimat Adresi" rows="3" required><?= htmlspecialchars($user['address'] ?? '') ?></textarea>
                     </label>
                     <label>Sipariş Notu (Opsiyonel)
                         <textarea name="order_note" placeholder="Sipariş Notu (Opsiyonel)" rows="2"></textarea>

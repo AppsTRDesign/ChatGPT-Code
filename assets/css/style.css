@@ -1070,6 +1070,21 @@ table td {
   font-weight: 600;
 }
 
+.badge-channel {
+  background: #eef2ff;
+  color: #3b4cca;
+}
+
+.link-button {
+  border: none;
+  padding: 0;
+  background: none;
+  color: var(--theme-color);
+  font-weight: 600;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
 .badge-pending {
   background: #fff4e5;
   color: #b76e00;
@@ -1111,6 +1126,50 @@ table td {
 .pagination-ellipsis {
   padding: 0 6px;
   color: #8a8a8a;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 20;
+}
+
+.modal.open {
+  display: flex;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: min(520px, 100%);
+  position: relative;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12);
+  display: grid;
+  gap: 16px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.bank-transfer-form {
+  display: grid;
+  gap: 12px;
 }
 
 .checkout .step {

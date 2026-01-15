@@ -57,6 +57,15 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
         notifySuccess(data.message);
       }
 
+      if (form.classList.contains('bank-transfer-form')) {
+        const modal = form.closest('.modal');
+        if (modal) {
+          modal.classList.remove('open');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+        form.reset();
+      }
+
       if (data.redirect) {
         window.location.href = data.redirect;
       }
@@ -233,6 +242,40 @@ document.addEventListener('click', async (event) => {
     button.dataset.reviewLikePending = 'false';
   }
 });
+
+const bankTransferModal = document.getElementById('bankTransferModal');
+if (bankTransferModal) {
+  const closeModal = () => {
+    bankTransferModal.classList.remove('open');
+    bankTransferModal.setAttribute('aria-hidden', 'true');
+  };
+
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-bank-transfer-open]');
+    if (!button) return;
+    const orderId = button.dataset.orderId;
+    const orderInput = bankTransferModal.querySelector('input[name="order_id"]');
+    if (orderInput) {
+      orderInput.value = orderId || '';
+    }
+    const orderLabel = bankTransferModal.querySelector('[data-order-label]');
+    if (orderLabel) {
+      orderLabel.textContent = orderId ? `#${orderId}` : '—';
+    }
+    bankTransferModal.classList.add('open');
+    bankTransferModal.setAttribute('aria-hidden', 'false');
+  });
+
+  bankTransferModal.addEventListener('click', (event) => {
+    if (event.target === bankTransferModal) {
+      closeModal();
+    }
+  });
+
+  bankTransferModal.querySelectorAll('[data-modal-close]').forEach((button) => {
+    button.addEventListener('click', closeModal);
+  });
+}
 
 const reviewsContainer = document.getElementById('reviewsContainer');
 const reviewsPagination = document.getElementById('reviewsPagination');

@@ -102,6 +102,19 @@ CREATE TABLE order_items (
     CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE bank_transfer_notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    user_id INT NULL,
+    full_name VARCHAR(190) NOT NULL,
+    bank_name VARCHAR(190) NOT NULL,
+    receipt_path VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_transfer_notifications_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_transfer_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE pages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(190) NOT NULL,
