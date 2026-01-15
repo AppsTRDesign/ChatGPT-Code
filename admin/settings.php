@@ -74,6 +74,12 @@ admin_header('Site Ayarları');
             <input type="text" name="bank_account_name" value="<?= htmlspecialchars(settings('bank_account_name')) ?>">
         </label>
         <label>Renk Teması<input type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>"></label>
+        <label>KDV Oranı (%)
+            <input type="number" name="vat_rate" step="0.01" min="0" value="<?= htmlspecialchars(settings('vat_rate', '0')) ?>">
+        </label>
+        <label>Teslimat Ücreti
+            <input type="number" name="shipping_fee" step="0.01" min="0" value="<?= htmlspecialchars(settings('shipping_fee', '0')) ?>">
+        </label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>
 </section>

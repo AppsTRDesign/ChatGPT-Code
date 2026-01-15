@@ -140,9 +140,12 @@ document.addEventListener('click', async (event) => {
 document.querySelectorAll('[data-cart-add]').forEach((button) => {
   button.addEventListener('click', async () => {
     const productId = button.dataset.cartAdd;
+    const quantityInput = document.querySelector('[data-product-quantity]');
+    const quantity = quantityInput ? Number(quantityInput.value || 1) : 1;
     const formData = new FormData();
     formData.append('csrf_token', getCsrfToken());
     formData.append('product_id', productId);
+    formData.append('quantity', String(Math.max(1, quantity)));
 
     try {
       const response = await fetch('/api/handler.php?action=cart-add', {
@@ -152,6 +155,10 @@ document.querySelectorAll('[data-cart-add]').forEach((button) => {
       const data = await response.json();
       if (response.ok) {
         notifySuccess(data.message || 'Sepete eklendi.');
+        const cartCount = document.querySelector('[data-cart-count]');
+        if (cartCount && typeof data.cart_count === 'number') {
+          cartCount.textContent = String(data.cart_count);
+        }
       } else {
         notifyError(data.message || 'Sepete eklenemedi.');
       }
@@ -174,13 +181,17 @@ document.querySelectorAll('[data-cart-remove]').forEach((button) => {
         body: formData,
       });
       const data = await response.json();
-      if (response.ok) {
-        notifySuccess(data.message || 'Sepetten çıkarıldı.');
-        button.closest('tr')?.remove();
-      } else {
-        notifyError(data.message || 'Sepetten çıkarılamadı.');
+    if (response.ok) {
+      notifySuccess(data.message || 'Sepetten çıkarıldı.');
+      const cartCount = document.querySelector('[data-cart-count]');
+      if (cartCount && typeof data.cart_count === 'number') {
+        cartCount.textContent = String(data.cart_count);
       }
-    } catch (error) {
+      button.closest('tr')?.remove();
+    } else {
+      notifyError(data.message || 'Sepetten çıkarılamadı.');
+    }
+  } catch (error) {
       notifyError('Sunucuya ulaşılamadı.');
     }
   });
@@ -289,6 +300,27 @@ document.querySelectorAll('[data-tabs]').forEach((tabs) => {
     }
   });
 });
+
+const productQuantityInput = document.querySelector('[data-product-quantity]');
+if (productQuantityInput) {
+  const priceEl = document.querySelector('[data-product-price]');
+  const checkoutLink = document.querySelector('[data-checkout-link]');
+  const unitPrice = priceEl ? Number(priceEl.dataset.unitPrice || 0) : 0;
+  const updateProductTotal = () => {
+    const qty = Math.max(1, Number(productQuantityInput.value || 1));
+    if (priceEl) {
+      const total = unitPrice * qty;
+      priceEl.textContent = `${total.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+    }
+    if (checkoutLink) {
+      const url = new URL(checkoutLink.href, window.location.origin);
+      url.searchParams.set('qty', String(qty));
+      checkoutLink.href = url.pathname + url.search;
+    }
+  };
+  productQuantityInput.addEventListener('input', updateProductTotal);
+  updateProductTotal();
+}
 
 document.querySelectorAll('[data-price-range]').forEach((range) => {
   const minRange = range.querySelector('[data-range="min"]');

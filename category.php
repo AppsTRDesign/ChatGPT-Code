@@ -132,7 +132,7 @@ render_header($category['name'], [
                 <ul class="splide__list">
                     <?php foreach ($childCategories as $child): ?>
                         <li class="splide__slide">
-                            <a class="subcategory-card" href="<?= category_url($child) ?>">
+                            <a class="subcategory-card" href="<?= category_url($child) ?>" title="<?= htmlspecialchars($child['name']) ?>">
                                 <?php if (!empty($child['image'])): ?>
                                     <img loading="lazy" src="<?= htmlspecialchars($child['image']) ?>" alt="<?= htmlspecialchars($child['name']) ?>">
                                 <?php elseif (!empty($child['icon'])): ?>
@@ -200,7 +200,7 @@ render_header($category['name'], [
                     <h3><?= htmlspecialchars($product['name']) ?></h3>
                     <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                     <p class="price"><?= currency((float) $product['price']) ?></p>
-                    <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
+                    <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
                 </div>
             </article>
         <?php endforeach; ?>

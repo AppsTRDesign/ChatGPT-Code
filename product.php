@@ -110,8 +110,14 @@ render_header($product['name'], ['image' => $metaImage]);
     </div>
     <div class="product-info">
         <h1><?= htmlspecialchars($product['name']) ?></h1>
-        <p class="price"><?= currency((float) $product['price']) ?></p>
+        <p class="price" data-product-price data-unit-price="<?= htmlspecialchars((string) $product['price']) ?>">
+            <?= currency((float) $product['price']) ?>
+        </p>
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+        <label class="product-quantity">
+            Adet
+            <input type="number" min="1" value="1" data-product-quantity>
+        </label>
         <div class="button-row">
             <?php if ($user): ?>
                 <button
@@ -126,7 +132,7 @@ render_header($product['name'], ['image' => $metaImage]);
                 </button>
             <?php endif; ?>
             <button class="btn" type="button" data-cart-add="<?= (int) $product['id'] ?>">Sepete Ekle</button>
-            <a class="btn primary" href="/checkout.php?slug=<?= urlencode($product['slug']) ?>">Siparişe Devam Et</a>
+            <a class="btn primary" href="/checkout.php?slug=<?= urlencode($product['slug']) ?>&qty=1" data-checkout-link title="Siparişe Devam Et"> Siparişe Devam Et</a>
         </div>
         <div class="rating-row">
             <span class="stars"><?= render_stars((int) round($ratingAvg)) ?></span>
@@ -283,7 +289,7 @@ render_header($product['name'], ['image' => $metaImage]);
                                     <img class="product-image" loading="lazy" src="<?= htmlspecialchars($similar['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($similar['name']) ?>">
                                     <div class="card-body">
                                         <h3><?= htmlspecialchars($similar['name']) ?></h3>
-                                        <a class="btn" href="<?= product_url($similar) ?>">Ürünü İncele</a>
+                                        <a class="btn" href="<?= product_url($similar) ?>" title="<?= htmlspecialchars($similar['name']) ?>">Ürünü İncele</a>
                                     </div>
                                 </article>
                             </li>

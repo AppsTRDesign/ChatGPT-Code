@@ -106,7 +106,7 @@ render_header('Ana Sayfa');
                                 <span>(<?= (int) ($product['review_count'] ?? 0) ?>)</span>
                             </div>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
-                            <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
+                            <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
                         </div>
                     </article>
                 <?php endforeach; ?>
@@ -141,7 +141,7 @@ render_header('Ana Sayfa');
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
                             <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
-                            <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
+                            <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
                         </div>
                     </article>
                 <?php endforeach; ?>
@@ -176,7 +176,7 @@ render_header('Ana Sayfa');
                             <h3><?= htmlspecialchars($product['name']) ?></h3>
                             <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                             <p class="price"><?= currency((float) $product['price']) ?></p>
-                            <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
+                            <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
                         </div>
                     </article>
                 <?php endforeach; ?>
@@ -211,7 +211,7 @@ render_header('Ana Sayfa');
                         <h3><?= htmlspecialchars($product['name']) ?></h3>
                         <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                         <p class="price"><?= currency((float) $product['price']) ?></p>
-                        <a class="btn" href="<?= product_url($product) ?>">Ürünü İncele</a>
+                        <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
                     </div>
                 </article>
             <?php endforeach; ?>

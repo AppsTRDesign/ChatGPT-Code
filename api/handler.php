@@ -474,6 +474,8 @@ switch ($action) {
             'homepage_visited_limit',
             'homepage_favorited_limit',
             'reviews_per_page',
+            'vat_rate',
+            'shipping_fee',
             'bank_transfer_active',
             'bank_name',
             'bank_iban',
@@ -778,21 +780,24 @@ switch ($action) {
         break;
     case 'cart-add':
         $productId = (int) ($_POST['product_id'] ?? 0);
+        $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
         if (!$productId) {
             http_response_code(422);
             echo json_encode(['success' => false, 'message' => 'Ürün seçilmedi.']);
             break;
         }
         $_SESSION['cart'] = $_SESSION['cart'] ?? [];
-        $_SESSION['cart'][$productId] = ($_SESSION['cart'][$productId] ?? 0) + 1;
-        echo json_encode(['success' => true, 'message' => 'Sepete eklendi.']);
+        $_SESSION['cart'][$productId] = ($_SESSION['cart'][$productId] ?? 0) + $quantity;
+        $cartCount = array_sum($_SESSION['cart']);
+        echo json_encode(['success' => true, 'message' => 'Sepete eklendi.', 'cart_count' => $cartCount]);
         break;
     case 'cart-remove':
         $productId = (int) ($_POST['product_id'] ?? 0);
         if (isset($_SESSION['cart'][$productId])) {
             unset($_SESSION['cart'][$productId]);
         }
-        echo json_encode(['success' => true, 'message' => 'Sepetten çıkarıldı.']);
+        $cartCount = array_sum($_SESSION['cart'] ?? []);
+        echo json_encode(['success' => true, 'message' => 'Sepetten çıkarıldı.', 'cart_count' => $cartCount]);
         break;
     case 'paytr':
         if (!is_admin()) {

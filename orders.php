@@ -7,10 +7,20 @@ require_once __DIR__ . '/includes/account_nav.php';
 
 $user = current_user();
 $orders = [];
+$orderItems = [];
 if ($user) {
     $stmt = db()->prepare('SELECT * FROM orders WHERE user_id = :id OR email = :email ORDER BY created_at DESC');
     $stmt->execute(['id' => $user['id'], 'email' => $user['email']]);
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if ($orders) {
+        $orderIds = array_column($orders, 'id');
+        $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
+        $itemsStmt = db()->prepare("SELECT order_items.order_id, products.name, order_items.quantity FROM order_items INNER JOIN products ON products.id = order_items.product_id WHERE order_items.order_id IN ({$placeholders})");
+        $itemsStmt->execute($orderIds);
+        foreach ($itemsStmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
+            $orderItems[(int) $item['order_id']][] = $item['name'] . ' x' . (int) $item['quantity'];
+        }
+    }
 }
 
 render_header('Siparişler');
@@ -31,6 +41,7 @@ render_header('Siparişler');
                 <thead>
                     <tr>
                         <th>Sipariş</th>
+                        <th>Ürünler</th>
                         <th>Durum</th>
                         <th>Kanal</th>
                         <th>Tutar</th>
@@ -41,6 +52,7 @@ render_header('Siparişler');
                     <?php foreach ($orders as $order): ?>
                         <tr>
                             <td>#<?= (int) $order['id'] ?></td>
+                            <td><?= htmlspecialchars(implode(', ', $orderItems[(int) $order['id']] ?? [])) ?></td>
                             <td><span class="badge badge-<?= htmlspecialchars($order['status']) ?>"><?= order_status_label($order['status']) ?></span></td>
                             <td><?= htmlspecialchars($order['channel']) ?></td>
                             <td><?= currency((float) $order['total_amount']) ?></td>

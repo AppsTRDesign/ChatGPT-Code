@@ -20,6 +20,7 @@ if (!$product) {
 $user = current_user();
 $paytrActive = settings('paytr_active') === '1';
 $bankTransferActive = settings('bank_transfer_active') === '1';
+$quantity = max(1, (int) ($_GET['qty'] ?? 1));
 $defaultChannel = $product['order_channel'];
 if ($defaultChannel === 'paytr' && !$paytrActive) {
     $defaultChannel = $bankTransferActive ? 'bank_transfer' : 'whatsapp';
@@ -62,6 +63,7 @@ render_header('Sipariş Adımları');
                 <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                 <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
                 <input type="hidden" name="channel" value="<?= htmlspecialchars($defaultChannel) ?>">
+                <input type="hidden" name="quantity" value="<?= $quantity ?>">
                 <div class="form-grid">
                     <label>Ad Soyad
                         <input type="text" name="full_name" placeholder="Ad Soyad" value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
@@ -89,13 +91,11 @@ render_header('Sipariş Adımları');
                             <?php endif; ?>
                         </select>
                     </label>
-                    <label>Ürün Adedi
-                        <input type="number" name="quantity" min="1" value="1" required data-quantity-input>
-                    </label>
                 </div>
-                <div class="order-summary" data-order-summary data-unit-price="<?= htmlspecialchars((string) $product['price']) ?>">
+                <div class="order-summary">
                     <span>Birim Fiyat: <?= currency((float) $product['price']) ?></span>
-                    <strong>Toplam: <span data-order-total><?= currency((float) $product['price']) ?></span></strong>
+                    <span>Adet: <?= $quantity ?></span>
+                    <strong>Toplam: <?= currency($quantity * (float) $product['price']) ?></strong>
                 </div>
                 <button class="btn primary" type="submit">Siparişi Onayla</button>
             </form>

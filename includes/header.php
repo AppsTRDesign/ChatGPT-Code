@@ -50,10 +50,10 @@ function render_header(string $title = '', array $meta = []): void
     echo "</head>\n<body class=\"{$bodyClass}\">\n";
     echo "<header class=\"site-header\">\n<div class=\"container\">\n";
     if ($logo) {
-        $logoTag = "<img src=\"{$logo}\" alt=\"{$siteTitle}\">";
-        echo "<div class=\"logo\"><a href=\"/\">{$logoTag}</a></div>\n";
+        $logoTag = "<img src=\"{$logo}\" alt=\"{$siteTitle}\" title=\"{$siteTitle}\">";
+        echo "<div class=\"logo\"><a href=\"/\" title=\"{$siteTitle}\">{$logoTag}</a></div>\n";
     } else {
-        echo "<div class=\"logo\"><a href=\"/\">{$siteTitle}</a></div>\n";
+        echo "<div class=\"logo\"><a href=\"/\" title=\"{$siteTitle}\">{$siteTitle}</a></div>\n";
     }
     $categories = db()->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
     $categoryChildren = [];
@@ -62,31 +62,34 @@ function render_header(string $title = '', array $meta = []): void
         $categoryChildren[$parentId][] = $category;
     }
     $user = current_user();
+    $cartCount = array_sum($_SESSION['cart'] ?? []);
     echo "<nav class=\"main-nav\" id=\"mainNav\">\n";
-    echo "<a href=\"/\">Ana Sayfa</a>\n";
+    echo "<a href=\"/\" title=\"Ana Sayfa\">Ana Sayfa</a>\n";
     if (!empty($categoryChildren[0])) {
         echo "<div class=\"nav-dropdown\">\n";
         echo "<span>Kategoriler</span>\n";
         echo "<div class=\"dropdown-menu\">\n";
-        echo "<a href=\"/kategoriler\">Tüm Kategoriler</a>\n";
+        echo "<a href=\"/kategoriler\" title=\"Tüm Kategoriler\">Tüm Kategoriler</a>\n";
         foreach ($categoryChildren[0] as $category) {
-            echo "<a href=\"" . category_url($category) . "\">" . htmlspecialchars($category['name']) . "</a>\n";
+            $categoryName = htmlspecialchars($category['name']);
+            echo "<a href=\"" . category_url($category) . "\" title=\"{$categoryName}\">{$categoryName}</a>\n";
             foreach ($categoryChildren[(int) $category['id']] ?? [] as $child) {
-                echo "<a class=\"nav-child\" href=\"" . category_url($child) . "\">" . htmlspecialchars($category['name'] . ' › ' . $child['name']) . "</a>\n";
+                $childName = htmlspecialchars($child['name']);
+                echo "<a class=\"nav-child\" href=\"" . category_url($child) . "\" title=\"{$childName}\">{$childName}</a>\n";
             }
         }
         echo "</div>\n</div>\n";
     }
-    echo "<a href=\"/icerikler\">İçerikler</a>\n";
-    echo "<a href=\"/sepet\">Sepet</a>\n";
-    echo "<a href=\"/sss\">SSS</a>\n";
-    echo "<a href=\"/iletisim\">İletişim</a>\n";
+    echo "<a href=\"/icerikler\" title=\"İçerikler\">İçerikler</a>\n";
+    echo "<a href=\"/sepet\" title=\"Sepet\">Sepet <span class=\"cart-count\" data-cart-count>" . (int) $cartCount . "</span></a>\n";
+    echo "<a href=\"/sss\" title=\"SSS\">SSS</a>\n";
+    echo "<a href=\"/iletisim\" title=\"İletişim\">İletişim</a>\n";
     if ($user) {
-        echo "<a href=\"/profil\">Profil</a>\n";
-        echo "<a href=\"/cikis\">Çıkış</a>\n";
+        echo "<a href=\"/profil\" title=\"Profil\">Profil</a>\n";
+        echo "<a href=\"/cikis\" title=\"Çıkış\">Çıkış</a>\n";
     } else {
-        echo "<a href=\"/giris\">Giriş Yap</a>\n";
-        echo "<a href=\"/kayit\">Kayıt Ol</a>\n";
+        echo "<a href=\"/giris\" title=\"Giriş Yap\">Giriş Yap</a>\n";
+        echo "<a href=\"/kayit\" title=\"Kayıt Ol\">Kayıt Ol</a>\n";
     }
     echo "</nav>\n";
     echo "<button class=\"nav-toggle\" id=\"navToggle\" aria-label=\"Menüyü Aç\">☰</button>\n";

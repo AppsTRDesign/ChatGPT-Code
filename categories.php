@@ -15,7 +15,7 @@ render_header('Kategoriler', [
     <h1>Kategoriler</h1>
     <div class="category-grid">
         <?php foreach ($categories as $category): ?>
-            <a class="category-card" href="<?= category_url($category) ?>">
+                <a class="category-card" href="<?= category_url($category) ?>" title="<?= htmlspecialchars($category['name']) ?>">
                 <?php if (!empty($category['image'])): ?>
                     <img loading="lazy" src="<?= htmlspecialchars($category['image']) ?>" alt="<?= htmlspecialchars($category['name']) ?>">
                 <?php elseif (!empty($category['icon'])): ?>
