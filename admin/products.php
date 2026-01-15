@@ -6,16 +6,6 @@ require_once __DIR__ . '/layout.php';
 require_admin();
 
 $pdo = db();
-$page = max(1, (int) ($_GET['page'] ?? 1));
-$perPage = 10;
-$offset = ($page - 1) * $perPage;
-$total = (int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn();
-$totalPages = max(1, (int) ceil($total / $perPage));
-$productsStmt = $pdo->prepare('SELECT * FROM products ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
-$productsStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$productsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$productsStmt->execute();
-$products = $productsStmt->fetchAll(PDO::FETCH_ASSOC);
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
 $editId = (int) ($_GET['edit'] ?? 0);
 $productData = null;
@@ -40,7 +30,6 @@ admin_header('Ürün Yönetimi');
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="id" value="<?= (int) ($productData['id'] ?? 0) ?>">
         <label>Ürün Adı<input type="text" name="name" value="<?= htmlspecialchars($productData['name'] ?? '') ?>" required></label>
-        <label>Slug<input type="text" name="slug" value="<?= htmlspecialchars($productData['slug'] ?? '') ?>"></label>
         <label>Kategori
             <select name="category_id">
                 <option value="">Kategori Seçin</option>
@@ -63,42 +52,6 @@ admin_header('Ürün Yönetimi');
         <label>WhatsApp Link<input type="text" name="order_link" value="<?= htmlspecialchars($productData['order_link'] ?? '') ?>"></label>
         <button class="btn primary" type="submit">Kaydet</button>
     </form>
-</section>
-<section class="panel">
-    <div class="panel-header">
-        <h2>Ürünler</h2>
-        <a class="btn primary" href="#productForm">Ürün Ekle</a>
-    </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Ürün</th>
-                <th>Fiyat</th>
-                <th>Kanal</th>
-                <th>İşlemler</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($products as $product): ?>
-                <tr>
-                    <td><?= htmlspecialchars($product['name']) ?></td>
-                    <td><?= currency((float) $product['price']) ?></td>
-                    <td><?= htmlspecialchars($product['order_channel']) ?></td>
-                    <td>
-                        <a class="btn" href="/admin/products.php?edit=<?= (int) $product['id'] ?>">Düzenle</a>
-                        <button class="btn danger" data-delete-product="<?= (int) $product['id'] ?>">Sil</button>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-    <?php if ($totalPages > 1): ?>
-        <div class="pagination">
-            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/products.php?page=<?= $i ?>"><?= $i ?></a>
-            <?php endfor; ?>
-        </div>
-    <?php endif; ?>
 </section>
 <script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js"></script>
 <script>

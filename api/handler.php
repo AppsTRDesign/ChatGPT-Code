@@ -457,10 +457,8 @@ switch ($action) {
         $productId = (int) ($_POST['id'] ?? 0);
         $orderChannel = $_POST['order_channel'] ?? 'whatsapp';
         $orderLink = $orderChannel === 'whatsapp' ? trim($_POST['order_link'] ?? '') : '';
-        $slug = permalink($_POST['slug'] ?? '');
-        if (!$slug) {
-            $slug = permalink($_POST['name'] ?? '');
-        }
+        $name = trim($_POST['name'] ?? '');
+        $slug = permalink($name);
         $mainImage = handle_upload('main_image');
         if ($productId) {
             if ($mainImage) {
@@ -473,7 +471,7 @@ switch ($action) {
             }
             $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, description = :description, price = :price, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
             $stmt->execute([
-                'name' => trim($_POST['name'] ?? ''),
+                'name' => $name,
                 'slug' => $slug,
                 'description' => trim($_POST['description'] ?? ''),
                 'price' => (float) ($_POST['price'] ?? 0),
@@ -486,7 +484,7 @@ switch ($action) {
         } else {
             $stmt = db()->prepare('INSERT INTO products (name, slug, description, price, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :description, :price, :main_image, :category_id, :order_channel, :order_link, :created_at)');
             $stmt->execute([
-                'name' => trim($_POST['name'] ?? ''),
+                'name' => $name,
                 'slug' => $slug,
                 'description' => trim($_POST['description'] ?? ''),
                 'price' => (float) ($_POST['price'] ?? 0),
@@ -533,14 +531,12 @@ switch ($action) {
             break;
         }
         $pageId = (int) ($_POST['id'] ?? 0);
-        $slug = permalink($_POST['slug'] ?? '');
-        if (!$slug) {
-            $slug = permalink($_POST['title'] ?? '');
-        }
+        $title = trim($_POST['title'] ?? '');
+        $slug = permalink($title);
         if ($pageId) {
             $stmt = db()->prepare('UPDATE pages SET title = :title, slug = :slug, summary = :summary, content = :content WHERE id = :id');
             $stmt->execute([
-                'title' => trim($_POST['title'] ?? ''),
+                'title' => $title,
                 'slug' => $slug,
                 'summary' => trim($_POST['summary'] ?? ''),
                 'content' => trim($_POST['content'] ?? ''),
@@ -549,7 +545,7 @@ switch ($action) {
         } else {
             $stmt = db()->prepare('INSERT INTO pages (title, slug, summary, content, created_at) VALUES (:title, :slug, :summary, :content, :created_at)');
             $stmt->execute([
-                'title' => trim($_POST['title'] ?? ''),
+                'title' => $title,
                 'slug' => $slug,
                 'summary' => trim($_POST['summary'] ?? ''),
                 'content' => trim($_POST['content'] ?? ''),
@@ -565,15 +561,13 @@ switch ($action) {
             break;
         }
         $categoryId = (int) ($_POST['id'] ?? 0);
-        $slug = permalink($_POST['slug'] ?? '');
-        if (!$slug) {
-            $slug = permalink($_POST['name'] ?? '');
-        }
+        $name = trim($_POST['name'] ?? '');
+        $slug = permalink($name);
         $image = handle_upload('image');
         if ($categoryId) {
             $stmt = db()->prepare('UPDATE categories SET name = :name, slug = :slug, parent_id = :parent_id, icon = :icon, image = COALESCE(:image, image) WHERE id = :id');
             $stmt->execute([
-                'name' => trim($_POST['name'] ?? ''),
+                'name' => $name,
                 'slug' => $slug,
                 'parent_id' => $_POST['parent_id'] ?: null,
                 'icon' => trim($_POST['icon'] ?? ''),
@@ -583,7 +577,7 @@ switch ($action) {
         } else {
             $stmt = db()->prepare('INSERT INTO categories (name, slug, parent_id, icon, image, created_at) VALUES (:name, :slug, :parent_id, :icon, :image, :created_at)');
             $stmt->execute([
-                'name' => trim($_POST['name'] ?? ''),
+                'name' => $name,
                 'slug' => $slug,
                 'parent_id' => $_POST['parent_id'] ?: null,
                 'icon' => trim($_POST['icon'] ?? ''),

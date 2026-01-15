@@ -21,10 +21,12 @@ function admin_header(string $title): void
     echo "<a href=\"/admin/settings.php\">Ayarlar</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Ürünler</span>\n";
-    echo "<a href=\"/admin/products.php\">Ürünler</a>\n";
+    echo "<a href=\"/admin/products.php\">Ürün Ekle</a>\n";
+    echo "<a href=\"/admin/products-list.php\">Eklenenler</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Kategoriler</span>\n";
-    echo "<a href=\"/admin/categories.php\">Kategoriler</a>\n";
+    echo "<a href=\"/admin/categories.php\">Kategori Ekle</a>\n";
+    echo "<a href=\"/admin/categories-list.php\">Eklenenler</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Slider</span>\n";
     echo "<a href=\"/admin/sliders.php\">Sliderlar</a>\n";
@@ -36,7 +38,8 @@ function admin_header(string $title): void
     echo "<a href=\"/admin/users.php\">Kullanıcılar</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>İçerik</span>\n";
-    echo "<a href=\"/admin/pages.php\">Dinamik Sayfalar</a>\n";
+    echo "<a href=\"/admin/pages.php\">Sayfa Ekle</a>\n";
+    echo "<a href=\"/admin/pages-list.php\">Eklenen Sayfalar</a>\n";
     echo "<a href=\"/admin/faqs.php\">SSS</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Ödeme</span>\n";

@@ -6,7 +6,16 @@ require_once __DIR__ . '/layout.php';
 require_admin();
 
 $pdo = db();
-$faqs = $pdo->query('SELECT * FROM faqs ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 10;
+$offset = ($page - 1) * $perPage;
+$total = (int) $pdo->query('SELECT COUNT(*) FROM faqs')->fetchColumn();
+$totalPages = max(1, (int) ceil($total / $perPage));
+$faqsStmt = $pdo->prepare('SELECT * FROM faqs ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+$faqsStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$faqsStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$faqsStmt->execute();
+$faqs = $faqsStmt->fetchAll(PDO::FETCH_ASSOC);
 $editId = (int) ($_GET['edit'] ?? 0);
 $faqData = null;
 if ($editId) {
@@ -48,6 +57,13 @@ admin_header('SSS Yönetimi');
             <?php endforeach; ?>
         </tbody>
     </table>
+    <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/admin/faqs.php?page=<?= $i ?>"><?= $i ?></a>
+            <?php endfor; ?>
+        </div>
+    <?php endif; ?>
 </section>
 <?php
 admin_footer();
