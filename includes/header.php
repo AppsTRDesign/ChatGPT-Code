@@ -11,7 +11,39 @@ function render_header(string $title = '', array $meta = []): void
     $lightBg = settings('light_bg', '#fff7f9');
     $borderColor = settings('border_color', '#f3d1d8');
     $shadow = settings('shadow', '0 16px 32px rgba(0, 0, 0, 0.08)');
-    $fontFamily = settings('font_family', "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif");
+    $fontFamilyKey = settings('font_family', 'segoe-ui');
+    $fontOptions = [
+        'segoe-ui' => [
+            'family' => "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            'link' => '',
+        ],
+        'inter' => [
+            'family' => "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            'link' => 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+        ],
+        'noto-sans' => [
+            'family' => "'Noto Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            'link' => 'https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap',
+        ],
+        'open-sans' => [
+            'family' => "'Open Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            'link' => 'https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap',
+        ],
+        'roboto' => [
+            'family' => "'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            'link' => 'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap',
+        ],
+        'montserrat' => [
+            'family' => "'Montserrat', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            'link' => 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap',
+        ],
+        'poppins' => [
+            'family' => "'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            'link' => 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap',
+        ],
+    ];
+    $fontData = $fontOptions[$fontFamilyKey] ?? $fontOptions['segoe-ui'];
+    $fontFamily = $fontData['family'];
     $mobileMenuToggleColor = settings('mobile_menu_toggle_color', $themeColor);
     $mobileMenuTextColor = settings('mobile_menu_text_color', '#ffffff');
     $pageTitle = $meta['title'] ?? ($title ? $title . ' | ' . $siteTitle : $metaTitle);
@@ -42,6 +74,10 @@ function render_header(string $title = '', array $meta = []): void
     }
     if ($favicon) {
         echo "<link rel=\"icon\" href=\"{$favicon}\">\n";
+    }
+    if ($fontData['link']) {
+        $fontLink = htmlspecialchars($fontData['link']);
+        echo "<link rel=\"stylesheet\" href=\"{$fontLink}\">\n";
     }
     echo "<link rel=\"stylesheet\" href=\"/assets/css/style.css\">\n";
     echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css\">\n";

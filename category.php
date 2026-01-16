@@ -8,13 +8,11 @@ $pdo = db();
 $stmt = $pdo->prepare('SELECT * FROM categories WHERE slug = :slug');
 $stmt->execute(['slug' => $slug]);
 $category = $stmt->fetch(PDO::FETCH_ASSOC);
-$sectionContainerEnabled = settings('section_container_enabled', '1') === '1';
-$containerClass = $sectionContainerEnabled ? 'container' : '';
 
 if (!$category) {
     http_response_code(404);
     render_header('Kategori Bulunamadı');
-    echo '<main class="' . $containerClass . '"><p>Kategori bulunamadı.</p></main>';
+    echo '<main class="container"><p>Kategori bulunamadı.</p></main>';
     render_footer();
     exit;
 }
@@ -122,7 +120,7 @@ render_header($category['name'], [
     'image' => $metaImage,
 ]);
 ?>
-<main class="<?= $containerClass ?>">
+<main class="container">
     <div class="category-header">
         <?php if (!empty($category['image'])): ?>
             <img loading="lazy" src="<?= htmlspecialchars($category['image']) ?>" alt="<?= htmlspecialchars($category['name']) ?>" title="<?= htmlspecialchars($category['name']) ?>">

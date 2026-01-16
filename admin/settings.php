@@ -80,7 +80,16 @@ admin_header('Site Ayarları');
                     <input type="text" name="shadow" value="<?= htmlspecialchars(settings('shadow', '0 16px 32px rgba(0, 0, 0, 0.08)')) ?>">
                 </label>
                 <label>Font Ailesi
-                    <input type="text" name="font_family" value="<?= htmlspecialchars(settings('font_family', \"'Segoe UI', Tahoma, Geneva, Verdana, sans-serif\")) ?>">
+                    <select name="font_family">
+                        <?php $fontFamily = settings('font_family', 'segoe-ui'); ?>
+                        <option value="segoe-ui" <?= $fontFamily === 'segoe-ui' ? 'selected' : '' ?>>Segoe UI</option>
+                        <option value="inter" <?= $fontFamily === 'inter' ? 'selected' : '' ?>>Inter</option>
+                        <option value="noto-sans" <?= $fontFamily === 'noto-sans' ? 'selected' : '' ?>>Noto Sans</option>
+                        <option value="open-sans" <?= $fontFamily === 'open-sans' ? 'selected' : '' ?>>Open Sans</option>
+                        <option value="roboto" <?= $fontFamily === 'roboto' ? 'selected' : '' ?>>Roboto</option>
+                        <option value="montserrat" <?= $fontFamily === 'montserrat' ? 'selected' : '' ?>>Montserrat</option>
+                        <option value="poppins" <?= $fontFamily === 'poppins' ? 'selected' : '' ?>>Poppins</option>
+                    </select>
                 </label>
                 <label>Bölüm Container Kullan
                     <select name="section_container_enabled">
