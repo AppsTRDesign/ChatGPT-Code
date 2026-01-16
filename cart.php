@@ -13,19 +13,19 @@ if ($cart) {
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($products as $product) {
         $quantity = (int) ($cart[$product['id']] ?? 1);
-        $subtotal += $quantity * (float) $product['price'];
+        $subtotal += $quantity * product_discounted_price($product);
     }
 }
 $vatRate = (float) settings('vat_rate', '0');
 $shippingFee = (float) settings('shipping_fee', '0');
-$hasFreeShipping = false;
+$hasNonFreeShipping = false;
 foreach ($products as $product) {
-    if (!empty($product['free_shipping'])) {
-        $hasFreeShipping = true;
+    if (empty($product['free_shipping'])) {
+        $hasNonFreeShipping = true;
         break;
     }
 }
-$shippingFeeApplied = $hasFreeShipping ? 0.0 : $shippingFee;
+$shippingFeeApplied = $hasNonFreeShipping ? $shippingFee : 0.0;
 $vatAmount = $subtotal * ($vatRate / 100);
 $grandTotal = $subtotal + $vatAmount + $shippingFeeApplied;
 
@@ -35,7 +35,7 @@ render_header('Sepetim');
     <h1>Sepetim</h1>
     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
     <?php if (!$products): ?>
-        <p>Sepetiniz boş.</p>
+        <div class="empty-state">Sepetiniz boş.</div>
     <?php else: ?>
         <table>
             <thead>
@@ -50,11 +50,11 @@ render_header('Sepetim');
             <tbody>
                 <?php foreach ($products as $product): ?>
                     <?php $quantity = (int) ($cart[$product['id']] ?? 1); ?>
-                    <?php $lineTotal = $quantity * (float) $product['price']; ?>
+                    <?php $lineTotal = $quantity * product_discounted_price($product); ?>
                     <tr>
                         <td><?= htmlspecialchars($product['name']) ?></td>
                         <td><?= $quantity ?></td>
-                        <td><?= currency((float) $product['price']) ?></td>
+                        <td><?= currency(product_discounted_price($product)) ?></td>
                         <td><?= currency($lineTotal) ?></td>
                         <td>
                             <button class="btn danger" data-cart-remove="<?= (int) $product['id'] ?>">Sil</button>

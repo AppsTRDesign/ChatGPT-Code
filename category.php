@@ -21,6 +21,7 @@ $page = max(1, (int) ($_GET['page'] ?? 1));
 $sort = $_GET['sort'] ?? 'recommended';
 $priceMin = (float) ($_GET['price_min'] ?? 0);
 $priceMax = (float) ($_GET['price_max'] ?? 0);
+$search = trim($_GET['q'] ?? '');
 $layout = settings('homepage_layout', 'grid');
 $listExcerptLimit = 100;
 $summaryFor = static function (array $product) use ($layout, $listExcerptLimit): string {
@@ -35,8 +36,13 @@ $sortMap = [
     'price_desc' => 'price DESC',
     'new' => 'created_at DESC',
     'popular' => 'visit_count DESC',
+    'discount' => 'discounted_price ASC',
 ];
+$discountExpression = "CASE WHEN discount_type = 'percent' THEN price - (price * discount_value / 100) WHEN discount_type = 'amount' THEN price - discount_value ELSE price END";
 $orderBy = $sortMap[$sort] ?? 'created_at DESC';
+if ($orderBy === 'discounted_price ASC') {
+    $orderBy = "{$discountExpression} ASC";
+}
 $perPage = 9;
 $offset = ($page - 1) * $perPage;
 
@@ -70,15 +76,15 @@ $maxPrice = $maxPriceValue > 0 ? (int) ceil($maxPriceValue) : 1;
 $priceMax = $priceMax > 0 ? $priceMax : $maxPrice;
 $priceMin = max(0, min($priceMin, $priceMax));
 
-$countStmt = $pdo->prepare("SELECT COUNT(*) FROM products WHERE category_id IN ({$categoryPlaceholders}) AND (? = 0 OR price >= ?) AND (? = 0 OR price <= ?)");
+$countStmt = $pdo->prepare("SELECT COUNT(*) FROM products WHERE category_id IN ({$categoryPlaceholders}) AND (? = 0 OR price >= ?) AND (? = 0 OR price <= ?) AND (? = '' OR name LIKE ?)");
 $countStmt->execute(array_merge(
     $categoryIds,
-    [$priceMin, $priceMin, $priceMax, $priceMax]
+    [$priceMin, $priceMin, $priceMax, $priceMax, $search, '%' . $search . '%']
 ));
 $total = (int) $countStmt->fetchColumn();
 $totalPages = max(1, (int) ceil($total / $perPage));
 
-$productsStmt = $pdo->prepare("SELECT * FROM products WHERE category_id IN ({$categoryPlaceholders}) AND (? = 0 OR price >= ?) AND (? = 0 OR price <= ?) ORDER BY {$orderBy} LIMIT ? OFFSET ?");
+$productsStmt = $pdo->prepare("SELECT * FROM products WHERE category_id IN ({$categoryPlaceholders}) AND (? = 0 OR price >= ?) AND (? = 0 OR price <= ?) AND (? = '' OR name LIKE ?) ORDER BY {$orderBy} LIMIT ? OFFSET ?");
 foreach ($categoryIds as $index => $categoryId) {
     $productsStmt->bindValue($index + 1, $categoryId, PDO::PARAM_INT);
 }
@@ -87,8 +93,10 @@ $productsStmt->bindValue($priceMinIndex, $priceMin);
 $productsStmt->bindValue($priceMinIndex + 1, $priceMin);
 $productsStmt->bindValue($priceMinIndex + 2, $priceMax);
 $productsStmt->bindValue($priceMinIndex + 3, $priceMax);
-$productsStmt->bindValue($priceMinIndex + 4, $perPage, PDO::PARAM_INT);
-$productsStmt->bindValue($priceMinIndex + 5, $offset, PDO::PARAM_INT);
+$productsStmt->bindValue($priceMinIndex + 4, $search);
+$productsStmt->bindValue($priceMinIndex + 5, '%' . $search . '%');
+$productsStmt->bindValue($priceMinIndex + 6, $perPage, PDO::PARAM_INT);
+$productsStmt->bindValue($priceMinIndex + 7, $offset, PDO::PARAM_INT);
 $productsStmt->execute();
 $products = $productsStmt->fetchAll(PDO::FETCH_ASSOC);
 $categoryDescription = excerpt_words($category['description'] ?? '', 160);
@@ -152,12 +160,14 @@ render_header($category['name'], [
     <form class="filter-bar" method="get">
         <input type="hidden" name="slug" value="<?= htmlspecialchars($category['slug']) ?>">
         <div class="filter-row">
+            <input class="filter-search" type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Bu kategoride ürün ara">
             <select name="sort">
                 <option value="recommended" <?= $sort === 'recommended' ? 'selected' : '' ?>>Önerilen</option>
                 <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>Ucuzdan Pahalıya</option>
                 <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : '' ?>>Pahalıdan Ucuza</option>
                 <option value="new" <?= $sort === 'new' ? 'selected' : '' ?>>En Yeni</option>
                 <option value="popular" <?= $sort === 'popular' ? 'selected' : '' ?>>En Popüler</option>
+                <option value="discount" <?= $sort === 'discount' ? 'selected' : '' ?>>İndirimli Ürünler</option>
             </select>
             <div class="price-range" data-price-range data-max="<?= $maxPrice ?>">
                 <div class="price-field">
@@ -176,12 +186,19 @@ render_header($category['name'], [
     </form>
     <div class="grid">
         <?php foreach ($products as $product): ?>
-            <?php $isFavorited = isset($favoriteMap[$product['id']]); ?>
+            <?php
+            $isFavorited = isset($favoriteMap[$product['id']]);
+            $hasDiscount = product_has_discount($product);
+            $finalPrice = product_discounted_price($product);
+            ?>
             <article class="card">
                 <div class="card-media">
                     <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>" title="<?= htmlspecialchars($product['name']) ?>">
                     <?php if (!empty($product['badge_text'])): ?>
                         <span class="card-badge"><?= htmlspecialchars($product['badge_text']) ?></span>
+                    <?php endif; ?>
+                    <?php if ($hasDiscount): ?>
+                        <span class="card-badge discount-badge">İndirimli</span>
                     <?php endif; ?>
                     <?php if ($user): ?>
                         <button
@@ -199,7 +216,12 @@ render_header($category['name'], [
                 <div class="card-body">
                     <h3><?= htmlspecialchars($product['name']) ?></h3>
                     <p><?= htmlspecialchars($summaryFor($product)) ?></p>
-                    <p class="price"><?= currency((float) $product['price']) ?></p>
+                    <p class="price">
+                        <?php if ($hasDiscount): ?>
+                            <span class="price-old"><?= currency((float) $product['price']) ?></span>
+                        <?php endif; ?>
+                        <span class="price-new"><?= currency($finalPrice) ?></span>
+                    </p>
                     <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
                 </div>
             </article>
@@ -226,7 +248,8 @@ render_header($category['name'], [
             $url = category_url($category) . '?page=' . $pageNumber
                 . '&sort=' . urlencode($sort)
                 . '&price_min=' . urlencode((string) $priceMin)
-                . '&price_max=' . urlencode((string) $priceMax);
+                . '&price_max=' . urlencode((string) $priceMax)
+                . '&q=' . urlencode($search);
             echo '<a class="btn ' . $active . '" href="' . $url . '">' . $pageNumber . '</a>';
             $lastPage = $pageNumber;
         }

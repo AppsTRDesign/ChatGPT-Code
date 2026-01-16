@@ -18,7 +18,9 @@ admin_header('Site Ayarları');
         </fieldset>
         <fieldset class="settings-group">
             <legend>İletişim</legend>
-            <label>Harita Embed URL<input type="text" name="map_embed" value="<?= htmlspecialchars(settings('map_embed')) ?>"></label>
+            <label>Harita Embed (HTML)
+                <textarea name="map_embed" rows="4"><?= htmlspecialchars(settings('map_embed')) ?></textarea>
+            </label>
             <label>İletişim Telefonu<input type="text" name="contact_phone" value="<?= htmlspecialchars(settings('contact_phone')) ?>"></label>
             <label>WhatsApp Sipariş Numarası<input type="text" name="whatsapp_number" value="<?= htmlspecialchars(settings('whatsapp_number')) ?>"></label>
             <label>İletişim E-postası<input type="email" name="contact_email" value="<?= htmlspecialchars(settings('contact_email')) ?>"></label>
@@ -71,6 +73,9 @@ admin_header('Site Ayarları');
                 <label>En Çok Favori Limiti
                     <input type="number" name="homepage_favorited_limit" value="<?= htmlspecialchars(settings('homepage_favorited_limit', '8')) ?>">
                 </label>
+                <label>İndirimli Ürün Limiti
+                    <input type="number" name="homepage_discounted_limit" value="<?= htmlspecialchars(settings('homepage_discounted_limit', '8')) ?>">
+                </label>
                 <label>Yorum Sayısı (Sayfalama)
                     <input type="number" name="reviews_per_page" value="<?= htmlspecialchars(settings('reviews_per_page', '5')) ?>">
                 </label>
@@ -100,6 +105,15 @@ admin_header('Site Ayarları');
             </label>
             <label>Alıcı Ad Soyad (Teslimat Bilgileri)
                 <input type="text" name="bank_account_name" value="<?= htmlspecialchars(settings('bank_account_name')) ?>">
+            </label>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>Header & Footer</legend>
+            <label>Header HTML
+                <textarea name="header_html" rows="4"><?= htmlspecialchars(settings('header_html')) ?></textarea>
+            </label>
+            <label>Footer HTML
+                <textarea name="footer_html" rows="4"><?= htmlspecialchars(settings('footer_html')) ?></textarea>
             </label>
         </fieldset>
         <button class="btn primary" type="submit">Kaydet</button>

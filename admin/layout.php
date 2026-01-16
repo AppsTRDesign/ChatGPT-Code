@@ -43,6 +43,7 @@ function admin_header(string $title): void
     echo "<a href=\"/admin/pages.php\">Sayfa Ekle</a>\n";
     echo "<a href=\"/admin/pages-list.php\">Eklenen Sayfalar</a>\n";
     echo "<a href=\"/admin/faqs.php\">SSS</a>\n";
+    echo "<a href=\"/admin/social-links.php\">Sosyal Medya</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Ödeme</span>\n";
     echo "<a href=\"/admin/paytr.php\">PayTR Ayarları</a>\n";

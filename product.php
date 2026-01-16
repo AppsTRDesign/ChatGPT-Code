@@ -109,10 +109,20 @@ render_header($product['name'], ['image' => $metaImage]);
         </div>
     </div>
     <div class="product-info">
+        <?php
+        $hasDiscount = product_has_discount($product);
+        $finalPrice = product_discounted_price($product);
+        ?>
         <h1><?= htmlspecialchars($product['name']) ?></h1>
+        <?php if ($hasDiscount): ?>
+            <span class="discount-pill">İndirimli</span>
+        <?php endif; ?>
         <div class="product-purchase">
-            <p class="price" data-product-price data-unit-price="<?= htmlspecialchars((string) $product['price']) ?>">
-                <?= currency((float) $product['price']) ?>
+            <p class="price" data-product-price data-unit-price="<?= htmlspecialchars((string) $finalPrice) ?>">
+                <?php if ($hasDiscount): ?>
+                    <span class="price-old"><?= currency((float) $product['price']) ?></span>
+                <?php endif; ?>
+                <span class="price-new"><?= currency($finalPrice) ?></span>
             </p>
             <label class="product-quantity">
                 Adet
@@ -135,6 +145,7 @@ render_header($product['name'], ['image' => $metaImage]);
             <?php endif; ?>
             <button class="btn" type="button" data-cart-add="<?= (int) $product['id'] ?>">Sepete Ekle</button>
             <a class="btn primary" href="/checkout.php?slug=<?= urlencode($product['slug']) ?>&qty=1" data-checkout-link title="Siparişe Devam Et"> Siparişe Devam Et</a>
+            <button class="btn" type="button" data-share title="Paylaş">Paylaş</button>
         </div>
         <div class="rating-row">
             <span class="stars"><?= render_stars((int) round($ratingAvg)) ?></span>
@@ -323,7 +334,7 @@ $schema = [
     'offers' => [
         '@type' => 'Offer',
         'priceCurrency' => 'TRY',
-        'price' => (float) $product['price'],
+        'price' => $finalPrice,
         'availability' => 'https://schema.org/InStock',
     ],
 ];

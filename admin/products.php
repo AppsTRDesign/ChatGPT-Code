@@ -62,6 +62,14 @@ admin_header('Ürün Yönetimi');
             <input type="checkbox" name="free_shipping" value="1" <?= !empty($productData['free_shipping']) ? 'checked' : '' ?>>
             Ücretsiz Teslimat
         </label>
+        <label>İndirim Türü
+            <select name="discount_type">
+                <option value="">Yok</option>
+                <option value="percent" <?= ($productData && $productData['discount_type'] === 'percent') ? 'selected' : '' ?>>Yüzde (%)</option>
+                <option value="amount" <?= ($productData && $productData['discount_type'] === 'amount') ? 'selected' : '' ?>>Tutar (₺)</option>
+            </select>
+        </label>
+        <label>İndirim Değeri<input type="number" step="0.01" min="0" name="discount_value" value="<?= htmlspecialchars($productData['discount_value'] ?? '') ?>" placeholder="Örn: 10"></label>
         <label>Açıklama<textarea class="tinymce" name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
         <label>Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
         <label>Ürün Görseli<input type="file" name="main_image"></label>

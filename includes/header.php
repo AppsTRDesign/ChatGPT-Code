@@ -96,6 +96,10 @@ function render_header(string $title = '', array $meta = []): void
         echo "<a href=\"/kayit\" title=\"Kayıt Ol\">Kayıt Ol</a>\n";
     }
     echo "</nav>\n";
+    $headerHtml = settings('header_html');
+    if ($headerHtml) {
+        echo "<div class=\"header-html\">{$headerHtml}</div>\n";
+    }
     echo "<button class=\"nav-toggle\" id=\"navToggle\" aria-label=\"Menüyü Aç\">☰</button>\n";
     echo "</div>\n</header>\n";
 }

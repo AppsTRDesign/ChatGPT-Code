@@ -39,15 +39,15 @@ if ($isCartCheckout) {
         exit;
     }
     $subtotal = 0.0;
-    $hasFreeShipping = false;
+    $hasNonFreeShipping = false;
     foreach ($cartProducts as $cartProduct) {
         $quantity = max(1, (int) ($cart[$cartProduct['id']] ?? 1));
-        $subtotal += $quantity * (float) $cartProduct['price'];
-        if (!empty($cartProduct['free_shipping'])) {
-            $hasFreeShipping = true;
+        $subtotal += $quantity * product_discounted_price($cartProduct);
+        if (empty($cartProduct['free_shipping'])) {
+            $hasNonFreeShipping = true;
         }
     }
-    $shippingFeeApplied = $hasFreeShipping ? 0.0 : $shippingFee;
+    $shippingFeeApplied = $hasNonFreeShipping ? $shippingFee : 0.0;
     $vatAmount = $subtotal * ($vatRate / 100);
     $grandTotal = $subtotal + $vatAmount + $shippingFeeApplied;
     $title = 'Sepet Siparişi';
@@ -64,8 +64,9 @@ if ($isCartCheckout) {
         exit;
     }
     $quantity = max(1, (int) ($_GET['qty'] ?? 1));
+    $unitPrice = product_discounted_price($product);
     $shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
-    $subtotal = $quantity * (float) $product['price'];
+    $subtotal = $quantity * $unitPrice;
     $vatAmount = $subtotal * ($vatRate / 100);
     $grandTotal = $subtotal + $vatAmount + $shippingFeeApplied;
     $defaultChannel = $product['order_channel'];
@@ -145,7 +146,7 @@ render_header($title);
                             <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <span>Birim Fiyat: <?= currency((float) $product['price']) ?></span>
+                        <span>Birim Fiyat: <?= currency($unitPrice) ?></span>
                         <span>Adet: <?= $quantity ?></span>
                     <?php endif; ?>
                     <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount) ?></span>

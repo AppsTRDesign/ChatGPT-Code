@@ -166,10 +166,11 @@ switch ($action) {
         }
 
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
+        $unitPrice = product_discounted_price($product);
         $vatRate = (float) settings('vat_rate', '0');
         $shippingFee = (float) settings('shipping_fee', '0');
         $shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
-        $subtotal = $quantity * (float) $product['price'];
+        $subtotal = $quantity * $unitPrice;
         $vatAmount = $subtotal * ($vatRate / 100);
         $total = $subtotal + $vatAmount + $shippingFeeApplied;
         $status = $product['order_channel'] === 'paytr' ? 'approved' : 'pending';
@@ -193,7 +194,7 @@ switch ($action) {
             'order_id' => $orderId,
             'product_id' => $productId,
             'quantity' => $quantity,
-            'unit_price' => $product['price'],
+            'unit_price' => $unitPrice,
         ]);
 
         echo json_encode(['success' => true, 'message' => 'Siparişiniz alınmıştır.', 'redirect' => '/account.php']);
@@ -223,6 +224,7 @@ switch ($action) {
             break;
         }
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
+        $unitPrice = product_discounted_price($product);
         $stock = (int) ($product['stock'] ?? 0);
         if ($stock > 0 && $quantity > $stock) {
             http_response_code(422);
@@ -232,7 +234,7 @@ switch ($action) {
         $vatRate = (float) settings('vat_rate', '0');
         $shippingFee = (float) settings('shipping_fee', '0');
         $shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
-        $subtotal = $quantity * (float) $product['price'];
+        $subtotal = $quantity * $unitPrice;
         $vatAmount = $subtotal * ($vatRate / 100);
         $total = $subtotal + $vatAmount + $shippingFeeApplied;
         $paytrActive = settings('paytr_active') === '1';
@@ -277,7 +279,7 @@ switch ($action) {
                 'order_id' => $orderId,
                 'product_id' => $productId,
                 'quantity' => $quantity,
-                'unit_price' => $product['price'],
+                'unit_price' => $unitPrice,
             ]);
         if ($stock > 0) {
             db()->prepare('UPDATE products SET stock = stock - :quantity WHERE id = :id')->execute([
@@ -337,7 +339,7 @@ switch ($action) {
         $vatRate = (float) settings('vat_rate', '0');
         $shippingFee = (float) settings('shipping_fee', '0');
         $subtotal = 0.0;
-        $hasFreeShipping = false;
+        $hasNonFreeShipping = false;
         foreach ($products as $product) {
             $quantity = max(1, (int) ($cart[$product['id']] ?? 1));
             $stock = (int) ($product['stock'] ?? 0);
@@ -346,12 +348,12 @@ switch ($action) {
                 echo json_encode(['success' => false, 'message' => 'Stokta yeterli ürün yok.']);
                 break 2;
             }
-            $subtotal += $quantity * (float) $product['price'];
-            if (!empty($product['free_shipping'])) {
-                $hasFreeShipping = true;
+            $subtotal += $quantity * product_discounted_price($product);
+            if (empty($product['free_shipping'])) {
+                $hasNonFreeShipping = true;
             }
         }
-        $shippingFeeApplied = $hasFreeShipping ? 0.0 : $shippingFee;
+        $shippingFeeApplied = $hasNonFreeShipping ? $shippingFee : 0.0;
         $vatAmount = $subtotal * ($vatRate / 100);
         $total = $subtotal + $vatAmount + $shippingFeeApplied;
         $paytrActive = settings('paytr_active') === '1';
@@ -387,12 +389,13 @@ switch ($action) {
         $itemsMessage = [];
         foreach ($products as $product) {
             $quantity = max(1, (int) ($cart[$product['id']] ?? 1));
+            $unitPrice = product_discounted_price($product);
             db()->prepare('INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (:order_id, :product_id, :quantity, :unit_price)')
                 ->execute([
                     'order_id' => $orderId,
                     'product_id' => $product['id'],
                     'quantity' => $quantity,
-                    'unit_price' => $product['price'],
+                    'unit_price' => $unitPrice,
                 ]);
             $stock = (int) ($product['stock'] ?? 0);
             if ($stock > 0) {
@@ -738,6 +741,7 @@ switch ($action) {
             'homepage_ordered_limit',
             'homepage_visited_limit',
             'homepage_favorited_limit',
+            'homepage_discounted_limit',
             'reviews_per_page',
             'vat_rate',
             'shipping_fee',
@@ -745,8 +749,14 @@ switch ($action) {
             'bank_name',
             'bank_iban',
             'bank_account_name',
+            'header_html',
+            'footer_html',
         ];
         foreach ($fields as $field) {
+            if (in_array($field, ['header_html', 'footer_html', 'map_embed'], true)) {
+                update_setting($field, $_POST[$field] ?? '');
+                continue;
+            }
             update_setting($field, trim($_POST[$field] ?? ''));
         }
 
@@ -760,6 +770,55 @@ switch ($action) {
         }
 
         echo json_encode(['success' => true, 'message' => 'Ayarlar kaydedildi.']);
+        break;
+    case 'social-link':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $linkId = (int) ($_POST['id'] ?? 0);
+        $label = trim($_POST['label'] ?? '');
+        $url = trim($_POST['url'] ?? '');
+        $iconClass = trim($_POST['icon_class'] ?? '');
+        if ($label === '' || $url === '' || $iconClass === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Tüm alanlar zorunludur.']);
+            break;
+        }
+        if ($linkId) {
+            $stmt = db()->prepare('UPDATE social_links SET label = :label, url = :url, icon_class = :icon_class WHERE id = :id');
+            $stmt->execute([
+                'label' => $label,
+                'url' => $url,
+                'icon_class' => $iconClass,
+                'id' => $linkId,
+            ]);
+        } else {
+            $stmt = db()->prepare('INSERT INTO social_links (label, url, icon_class, created_at) VALUES (:label, :url, :icon_class, :created_at)');
+            $stmt->execute([
+                'label' => $label,
+                'url' => $url,
+                'icon_class' => $iconClass,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Sosyal medya bağlantısı kaydedildi.']);
+        break;
+    case 'social-link-delete':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $linkId = (int) ($_POST['id'] ?? 0);
+        if (!$linkId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Bağlantı bulunamadı.']);
+            break;
+        }
+        db()->prepare('DELETE FROM social_links WHERE id = :id')->execute(['id' => $linkId]);
+        echo json_encode(['success' => true, 'message' => 'Bağlantı silindi.']);
         break;
     case 'product':
         if (!is_admin()) {
@@ -776,6 +835,12 @@ switch ($action) {
         $badgeText = trim($_POST['badge_text'] ?? '');
         $shortDescription = trim($_POST['short_description'] ?? '');
         $freeShipping = isset($_POST['free_shipping']) ? 1 : 0;
+        $discountType = $_POST['discount_type'] ?? '';
+        $discountValue = (float) ($_POST['discount_value'] ?? 0);
+        if (!in_array($discountType, ['percent', 'amount'], true)) {
+            $discountType = null;
+            $discountValue = 0;
+        }
         $slug = permalink($name);
         $mainImage = handle_upload('main_image');
         if ($productId) {
@@ -787,7 +852,7 @@ switch ($action) {
                     unlink(__DIR__ . '/..' . $oldPath);
                 }
             }
-            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, short_description = :short_description, description = :description, price = :price, stock = :stock, badge_text = :badge_text, free_shipping = :free_shipping, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
+            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, short_description = :short_description, description = :description, price = :price, stock = :stock, badge_text = :badge_text, free_shipping = :free_shipping, discount_type = :discount_type, discount_value = :discount_value, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
@@ -798,6 +863,8 @@ switch ($action) {
                 'stock' => $stock,
                 'badge_text' => $badgeText,
                 'free_shipping' => $freeShipping,
+                'discount_type' => $discountType,
+                'discount_value' => $discountValue,
                 'category_id' => $_POST['category_id'] ?: null,
                 'main_image' => $mainImage,
                 'order_channel' => $orderChannel,
@@ -805,7 +872,7 @@ switch ($action) {
                 'id' => $productId,
             ]);
         } else {
-            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, short_description, description, price, stock, badge_text, free_shipping, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :short_description, :description, :price, :stock, :badge_text, :free_shipping, :main_image, :category_id, :order_channel, :order_link, :created_at)');
+            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, short_description, description, price, stock, badge_text, free_shipping, discount_type, discount_value, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :short_description, :description, :price, :stock, :badge_text, :free_shipping, :discount_type, :discount_value, :main_image, :category_id, :order_channel, :order_link, :created_at)');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
@@ -816,6 +883,8 @@ switch ($action) {
                 'stock' => $stock,
                 'badge_text' => $badgeText,
                 'free_shipping' => $freeShipping,
+                'discount_type' => $discountType,
+                'discount_value' => $discountValue,
                 'main_image' => $mainImage,
                 'category_id' => $_POST['category_id'] ?: null,
                 'order_channel' => $orderChannel,

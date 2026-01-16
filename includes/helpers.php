@@ -123,6 +123,35 @@ function order_channel_label(string $channel): string
     return $labels[$channel] ?? $channel;
 }
 
+function product_discount_value(array $product): float
+{
+    $type = $product['discount_type'] ?? '';
+    $value = (float) ($product['discount_value'] ?? 0);
+    return $value > 0 && in_array($type, ['percent', 'amount'], true) ? $value : 0.0;
+}
+
+function product_has_discount(array $product): bool
+{
+    return product_discount_value($product) > 0;
+}
+
+function product_discounted_price(array $product): float
+{
+    $price = (float) ($product['price'] ?? 0);
+    $type = $product['discount_type'] ?? '';
+    $value = product_discount_value($product);
+    if ($value <= 0) {
+        return $price;
+    }
+    if ($type === 'percent') {
+        return max(0.0, $price - ($price * ($value / 100)));
+    }
+    if ($type === 'amount') {
+        return max(0.0, $price - $value);
+    }
+    return $price;
+}
+
 function render_stars(int $rating): string
 {
     $rating = max(0, min(5, $rating));

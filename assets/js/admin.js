@@ -190,6 +190,72 @@ document.querySelectorAll('[data-bank-transfer-delete]').forEach((button) => {
   });
 });
 
+const socialForm = document.querySelector('form[data-ajax="social-link"]');
+document.querySelectorAll('[data-social-edit]').forEach((button) => {
+  button.addEventListener('click', () => {
+    if (!socialForm) return;
+    socialForm.querySelector('input[name="id"]').value = button.dataset.id || '0';
+    socialForm.querySelector('input[name="label"]').value = button.dataset.label || '';
+    socialForm.querySelector('input[name="url"]').value = button.dataset.url || '';
+    socialForm.querySelector('input[name="icon_class"]').value = button.dataset.icon || '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+
+document.querySelectorAll('[data-social-delete]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const linkId = button.dataset.socialDelete;
+    const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    formData.append('id', linkId);
+    const response = await fetch('/api/handler.php?action=social-link-delete', {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+    if (response.ok) {
+      if (window.toastr) {
+        toastr.success(data.message || 'Silindi.');
+      }
+      button.closest('tr')?.remove();
+    } else if (window.toastr) {
+      toastr.error(data.message || 'İşlem başarısız.');
+    }
+  });
+});
+
+const iconModal = document.getElementById('iconPickerModal');
+if (iconModal) {
+  const closeIconModal = () => {
+    iconModal.classList.remove('open');
+    iconModal.setAttribute('aria-hidden', 'true');
+  };
+  const openButton = document.querySelector('[data-icon-picker-open]');
+  if (openButton) {
+    openButton.addEventListener('click', () => {
+      iconModal.classList.add('open');
+      iconModal.setAttribute('aria-hidden', 'false');
+    });
+  }
+  iconModal.querySelectorAll('[data-modal-close]').forEach((button) => {
+    button.addEventListener('click', closeIconModal);
+  });
+  iconModal.addEventListener('click', (event) => {
+    if (event.target === iconModal) {
+      closeIconModal();
+    }
+  });
+  iconModal.querySelectorAll('[data-icon-option]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const icon = button.dataset.iconOption || '';
+      if (socialForm) {
+        socialForm.querySelector('input[name="icon_class"]').value = icon;
+      }
+      closeIconModal();
+    });
+  });
+}
+
 document.querySelectorAll('[data-ajax]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

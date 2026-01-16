@@ -39,6 +39,8 @@ CREATE TABLE products (
     stock INT NOT NULL DEFAULT 0,
     badge_text VARCHAR(255),
     free_shipping TINYINT(1) NOT NULL DEFAULT 0,
+    discount_type VARCHAR(20),
+    discount_value DECIMAL(10,2) NOT NULL DEFAULT 0,
     main_image VARCHAR(255),
     category_id INT NULL,
     order_channel VARCHAR(50) NOT NULL DEFAULT 'whatsapp',
@@ -139,6 +141,14 @@ CREATE TABLE favorites (
     UNIQUE KEY uniq_favorite (user_id, product_id),
     CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CONSTRAINT fk_favorites_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE social_links (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    label VARCHAR(190) NOT NULL,
+    icon_class VARCHAR(190) NOT NULL,
+    url VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE sliders (

@@ -277,6 +277,32 @@ if (bankTransferModal) {
   });
 }
 
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-share]');
+  if (!button) return;
+  const shareData = {
+    title: document.title,
+    url: window.location.href,
+  };
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      notifySuccess('Paylaşım hazırlandı.');
+    } catch (error) {
+      notifyError('Paylaşım iptal edildi.');
+    }
+  } else if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(shareData.url);
+      notifySuccess('Link kopyalandı.');
+    } catch (error) {
+      notifyError('Link kopyalanamadı.');
+    }
+  } else {
+    notifyError('Paylaşım desteklenmiyor.');
+  }
+});
+
 const reviewsContainer = document.getElementById('reviewsContainer');
 const reviewsPagination = document.getElementById('reviewsPagination');
 const reviewsSortSelect = document.querySelector('[data-review-sort-select]');

@@ -41,6 +41,8 @@ CREATE TABLE products (
     stock INTEGER NOT NULL DEFAULT 0,
     badge_text TEXT,
     free_shipping INTEGER NOT NULL DEFAULT 0,
+    discount_type TEXT,
+    discount_value REAL NOT NULL DEFAULT 0,
     main_image TEXT,
     category_id INTEGER,
     order_channel TEXT NOT NULL DEFAULT 'whatsapp',
@@ -141,6 +143,14 @@ CREATE TABLE favorites (
     UNIQUE (user_id, product_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE social_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    icon_class TEXT NOT NULL,
+    url TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE sliders (
