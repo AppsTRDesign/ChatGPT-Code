@@ -184,7 +184,7 @@ render_header($product['name'], ['image' => $metaImage]);
                 <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="#tab-features">Ürün Özellikleri</button>
                 <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="#tab-reviews">Yorumlar</button>
             </div>
-            <div class="tab-panel is-active" id="tab-description" role="tabpanel">
+            <div class="tab-panel is-active content-body" id="tab-description" role="tabpanel">
                 <?= $product['description'] ?>
             </div>
             <div class="tab-panel" id="tab-features" role="tabpanel">

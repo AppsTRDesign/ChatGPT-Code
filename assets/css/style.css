@@ -110,6 +110,24 @@ a {
   background: var(--light-bg);
 }
 
+.content-body {
+  line-height: 1.7;
+}
+
+.content-body p {
+  margin: 0 0 1rem;
+}
+
+.content-body p:last-child {
+  margin-bottom: 0;
+}
+
+.content-body br {
+  display: block;
+  content: "";
+  margin-top: 0.75rem;
+}
+
 .site-header {
   position: sticky;
   top: 0;
