@@ -87,7 +87,7 @@ a {
 }
 
 .section {
-  padding: 60px 0;
+  padding: 15px 0 5px;
 }
 
 .framed-section .container {
@@ -95,7 +95,7 @@ a {
   border-radius: 24px;
   border: 1px solid var(--border-color);
   padding: 32px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .section-header {
@@ -189,7 +189,7 @@ a {
 .nav-user-info {
   display: grid;
   gap: 4px;
-  color: #fff;
+  color: var(--mobile-menu-text-color, #fff);
 }
 
 .main-nav a,
@@ -261,7 +261,7 @@ a {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: var(--theme-color);
+  color: var(--mobile-menu-toggle-color, var(--theme-color));
 }
 
 .header-html {
@@ -663,7 +663,7 @@ a {
   padding: 20px;
   border-radius: 16px;
   margin: 20px 0 32px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
 }
 
 .category-header {
@@ -695,12 +695,16 @@ a {
   background: #fff;
   border-radius: 18px;
   padding: 16px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
   border: 1px solid var(--theme-color);
   display: grid;
   gap: 12px;
   align-items: center;
   text-align: center;
+}
+
+.category-card h3 {
+  color: #2c2c2c;
 }
 
 .category-card img {
@@ -724,7 +728,7 @@ a {
 
 .category-count {
   font-size: 0.9rem;
-  color: #5b5b5b;
+  color: #4a4a4a;
 }
 
 .subcategory-slider {
@@ -735,13 +739,17 @@ a {
   background: #fff;
   border-radius: 16px;
   padding: 12px;
-  box-shadow: var(--shadow);
+  box-shadow: none;
   border: 1px solid var(--theme-color);
   display: grid;
   gap: 8px;
   align-items: center;
   text-align: center;
   height: 100%;
+}
+
+.subcategory-card h4 {
+  color: #2c2c2c;
 }
 
 .subcategory-card img {
@@ -1475,7 +1483,7 @@ td {
 
   .main-nav a,
   .nav-dropdown span {
-    color: #fff;
+    color: var(--mobile-menu-text-color, #fff);
     font-size: 1.05rem;
     font-weight: 600;
   }

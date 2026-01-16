@@ -7,6 +7,8 @@ function render_header(string $title = '', array $meta = []): void
     $siteTitle = settings('site_name', 'Çiçek');
     $metaTitle = settings('meta_title', $siteTitle);
     $themeColor = settings('theme_color', '#E85D75');
+    $mobileMenuToggleColor = settings('mobile_menu_toggle_color', $themeColor);
+    $mobileMenuTextColor = settings('mobile_menu_text_color', '#ffffff');
     $pageTitle = $meta['title'] ?? ($title ? $title . ' | ' . $siteTitle : $metaTitle);
     $metaDescription = $meta['description'] ?? settings('meta_description', '');
     $logo = settings('logo');
@@ -18,7 +20,7 @@ function render_header(string $title = '', array $meta = []): void
     echo "<meta charset=\"UTF-8\">\n";
     echo "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     echo "<meta name=\"theme-color\" content=\"{$themeColor}\">\n";
-    echo "<style>:root{--theme-color: {$themeColor};}</style>\n";
+    echo "<style>:root{--theme-color: {$themeColor};--mobile-menu-toggle-color: {$mobileMenuToggleColor};--mobile-menu-text-color: {$mobileMenuTextColor};}</style>\n";
     echo "<title>{$pageTitle}</title>\n";
     echo "<meta name=\"description\" content=\"{$metaDescription}\">\n";
     echo "<meta name=\"csrf-token\" content=\"" . csrf_token() . "\">\n";

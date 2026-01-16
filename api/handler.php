@@ -734,6 +734,8 @@ switch ($action) {
             'meta_title',
             'meta_description',
             'theme_color',
+            'mobile_menu_toggle_color',
+            'mobile_menu_text_color',
             'lightbox_provider',
             'homepage_layout',
             'site_width',

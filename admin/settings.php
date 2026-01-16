@@ -35,9 +35,6 @@ admin_header('Site Ayarları');
             <div class="settings-grid">
                 <label>Logo<input type="file" name="logo"></label>
                 <label>Favicon<input type="file" name="favicon"></label>
-                <label>Renk Teması
-                    <input class="color-input" type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>">
-                </label>
             </div>
             <label>Galeri Lightbox
                 <select name="lightbox_provider">
@@ -57,6 +54,20 @@ admin_header('Site Ayarları');
                     <option value="wide" <?= settings('site_width', 'box') === 'wide' ? 'selected' : '' ?>>Wide</option>
                 </select>
             </label>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>Tema Renkleri</legend>
+            <div class="settings-grid">
+                <label>Tema Rengi
+                    <input class="color-input" type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>">
+                </label>
+                <label>Mobil Menü Aç/Kapa Rengi
+                    <input class="color-input" type="color" name="mobile_menu_toggle_color" value="<?= htmlspecialchars(settings('mobile_menu_toggle_color')) ?>">
+                </label>
+                <label>Mobil Tema Yazı Rengi
+                    <input class="color-input" type="color" name="mobile_menu_text_color" value="<?= htmlspecialchars(settings('mobile_menu_text_color')) ?>">
+                </label>
+            </div>
         </fieldset>
         <fieldset class="settings-group">
             <legend>Ana Sayfa Limitleri</legend>
