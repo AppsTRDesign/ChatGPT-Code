@@ -83,7 +83,6 @@ a {
 }
 
 .framed-section .container {
-  background: #fff;
   border-radius: var(--framed-section-radius, 24px);
   border: var(--framed-section-border, 1px solid var(--border-color));
   padding: var(--framed-section-padding, 32px);
@@ -598,7 +597,7 @@ a {
 
 .tab-button.is-active {
   background: var(--theme-color);
-  color: var(--site-header-text-color, var(--text-color));
+  color: var(--tab-active-color, #fff);
   border-color: var(--theme-color);
 }
 
@@ -997,7 +996,7 @@ table td {
   padding: 40px 0;
   background: var(--site-footer-bg, #fdf2f4);
   color: var(--site-footer-text-color, #5b5b5b);
-  margin-top: auto;
+  margin-top: 25px;
 }
 
 .footer-grid {
