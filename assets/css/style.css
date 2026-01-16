@@ -153,7 +153,7 @@ a {
 }
 
 .logo img {
-  max-height: 42px;
+  max-height: 50px;
   width: auto;
   display: block;
 }
@@ -1154,6 +1154,7 @@ table td {
 
 .reviews-empty {
   margin-top: 16px;
+  margin-bottom: 10px;
 }
 
 .avatar {
