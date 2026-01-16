@@ -110,6 +110,15 @@ a {
   background: var(--light-bg);
 }
 
+.section-divider {
+  width: 120px;
+  height: 3px;
+  background: var(--theme-color);
+  border: none;
+  border-radius: 999px;
+  margin: 12px 0 0;
+}
+
 .content-body {
   line-height: 1.7;
 }
@@ -232,6 +241,10 @@ a {
   white-space: nowrap;
 }
 
+.dropdown-menu a {
+  color: #2c2c2c;
+}
+
 .nav-child {
   padding-left: 12px;
   font-size: 0.95rem;
@@ -248,6 +261,7 @@ a {
   background: none;
   border: none;
   font-size: 1.5rem;
+  color: var(--theme-color);
 }
 
 .header-html {
@@ -424,7 +438,7 @@ a {
 .grid {
   display: grid;
   grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 24px;
+  gap: 25px;
   margin-top: 24px;
   align-items: stretch;
 }
@@ -682,6 +696,7 @@ a {
   border-radius: 18px;
   padding: 16px;
   box-shadow: var(--shadow);
+  border: 1px solid var(--theme-color);
   display: grid;
   gap: 12px;
   align-items: center;
@@ -720,8 +735,8 @@ a {
   background: #fff;
   border-radius: 16px;
   padding: 12px;
-  box-shadow: none;
-  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--theme-color);
   display: grid;
   gap: 8px;
   align-items: center;
@@ -812,6 +827,7 @@ a {
 
 .product-info .button-row {
   flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .discount-pill {
@@ -1423,7 +1439,7 @@ td {
   .main-nav {
     position: fixed;
     inset: 0;
-    background: #1769ff;
+    background: var(--theme-color);
     flex-direction: column;
     padding: 80px 24px 24px;
     gap: 16px;
@@ -1445,6 +1461,7 @@ td {
     background: #fff;
     border-radius: 12px;
     width: 100%;
+    border: 1px solid rgba(0, 0, 0, 0.08);
   }
 
   .main-nav.open {
@@ -1460,18 +1477,23 @@ td {
   .nav-dropdown span {
     color: #fff;
     font-size: 1.05rem;
+    font-weight: 600;
   }
 
   .nav-child {
-    color: #4a4a4a;
+    color: #2c2c2c;
   }
 
   .nav-user {
     display: flex;
+    background: rgba(255, 255, 255, 0.14);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
   }
 
   .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .favorite-item {
@@ -1480,7 +1502,6 @@ td {
 }
 
 @media (max-width: 768px) {
-  .grid .card,
   .list-grid .card {
     display: grid;
     grid-template-columns: 120px 1fr;
@@ -1488,23 +1509,19 @@ td {
     align-items: center;
   }
 
-  .grid .card-media,
   .list-grid .card-media {
     aspect-ratio: 1 / 1;
     border-radius: 16px;
   }
 
-  .grid .card-body,
   .list-grid .card-body {
     padding: 0;
   }
 
-  .grid .card-body .btn,
   .list-grid .card-body .btn {
     width: fit-content;
   }
 
-  .grid .card-body p,
   .list-grid .card-body p {
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -1544,25 +1561,25 @@ td {
   }
 }
 
-@media (min-width: 600px) {
+@media (min-width: 769px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 900px) {
+@media (min-width: 1024px) {
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1280px) {
   .grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1400px) {
+@media (min-width: 1440px) {
   .site-width-wide .grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }

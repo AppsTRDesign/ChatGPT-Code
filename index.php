@@ -91,6 +91,7 @@ render_header('Ana Sayfa');
             <div class="container">
                 <div class="section-header">
                     <h2>İndirimli Ürünler</h2>
+                    <hr class="section-divider">
                 </div>
                 <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
                     <?php foreach ($discountedProducts as $product): ?>
@@ -143,6 +144,7 @@ render_header('Ana Sayfa');
         <div class="container">
             <div class="section-header">
                 <h2>Öne Çıkan Ürünler</h2>
+                <hr class="section-divider">
             </div>
             <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
                 <?php foreach ($latestProducts as $product): ?>
