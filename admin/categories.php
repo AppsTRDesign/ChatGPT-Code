@@ -74,120 +74,56 @@ admin_header('Kategori Yönetimi');
         <input type="text" class="icon-search" id="iconSearchInput" placeholder="Icon ara...">
         <div class="icon-grid">
             <?php
-            $icons = [
+            $featuredIcons = [
+                'fa-solid fa-seedling',
+                'fa-solid fa-leaf',
+                'fa-solid fa-tree',
+                'fa-solid fa-spa',
+                'fa-solid fa-plant-wilt',
                 'fa-solid fa-heart',
                 'fa-solid fa-gift',
-                'fa-solid fa-leaf',
-                'fa-solid fa-star',
-                'fa-solid fa-basket-shopping',
                 'fa-solid fa-cake-candles',
-                'fa-solid fa-wand-magic-sparkles',
                 'fa-solid fa-champagne-glasses',
-                'fa-solid fa-seedling',
-                'fa-solid fa-palette',
-                'fa-solid fa-wine-glass',
-                'fa-solid fa-sun',
-                'fa-solid fa-mug-hot',
-                'fa-solid fa-ice-cream',
-                'fa-solid fa-cookie',
+                'fa-solid fa-ring',
+                'fa-solid fa-hand-holding-heart',
+                'fa-solid fa-basket-shopping',
+                'fa-solid fa-bag-shopping',
+                'fa-solid fa-truck-fast',
+                'fa-solid fa-location-dot',
+                'fa-solid fa-star',
+                'fa-solid fa-wand-magic-sparkles',
                 'fa-solid fa-apple-whole',
                 'fa-solid fa-lemon',
-                'fa-solid fa-pepper-hot',
-                'fa-solid fa-bell',
-                'fa-solid fa-bolt',
-                'fa-solid fa-fire',
-                'fa-solid fa-snowflake',
+                'fa-solid fa-mug-hot',
+                'fa-solid fa-sun',
                 'fa-solid fa-cloud',
-                'fa-solid fa-cloud-sun',
-                'fa-solid fa-cloud-moon',
-                'fa-solid fa-moon',
-                'fa-solid fa-star-of-life',
-                'fa-solid fa-crown',
-                'fa-solid fa-rocket',
-                'fa-solid fa-globe',
-                'fa-solid fa-location-dot',
-                'fa-solid fa-tree',
-                'fa-solid fa-plant-wilt',
-                'fa-solid fa-feather',
-                'fa-solid fa-paw',
-                'fa-solid fa-fish',
-                'fa-solid fa-bug',
-                'fa-solid fa-dragon',
-                'fa-solid fa-car',
-                'fa-solid fa-truck-fast',
-                'fa-solid fa-truck',
-                'fa-solid fa-bicycle',
-                'fa-solid fa-plane',
-                'fa-solid fa-ship',
-                'fa-solid fa-bus',
-                'fa-solid fa-house',
-                'fa-solid fa-building',
-                'fa-solid fa-shop',
-                'fa-solid fa-store',
-                'fa-solid fa-shirt',
-                'fa-solid fa-shoe-prints',
-                'fa-solid fa-hat-cowboy',
-                'fa-solid fa-glasses',
-                'fa-solid fa-music',
-                'fa-solid fa-guitar',
-                'fa-solid fa-headphones',
-                'fa-solid fa-camera',
-                'fa-solid fa-image',
-                'fa-solid fa-film',
-                'fa-solid fa-book',
-                'fa-solid fa-book-open',
-                'fa-solid fa-pen',
-                'fa-solid fa-pencil',
-                'fa-solid fa-paintbrush',
-                'fa-solid fa-palette',
-                'fa-solid fa-microphone',
-                'fa-solid fa-gamepad',
-                'fa-solid fa-dice',
-                'fa-solid fa-dice-d20',
-                'fa-solid fa-football',
-                'fa-solid fa-basketball',
-                'fa-solid fa-volleyball',
-                'fa-solid fa-baseball',
-                'fa-solid fa-medal',
-                'fa-solid fa-trophy',
-                'fa-solid fa-gem',
-                'fa-solid fa-ring',
-                'fa-solid fa-user',
-                'fa-solid fa-user-group',
-                'fa-solid fa-user-tie',
-                'fa-solid fa-people-group',
-                'fa-solid fa-briefcase',
-                'fa-solid fa-calendar',
-                'fa-solid fa-calendar-days',
-                'fa-solid fa-clock',
-                'fa-solid fa-envelope',
-                'fa-solid fa-comment',
-                'fa-solid fa-comments',
-                'fa-solid fa-phone',
-                'fa-solid fa-mobile-screen',
-                'fa-solid fa-lock',
-                'fa-solid fa-key',
-                'fa-solid fa-shield',
-                'fa-solid fa-circle-check',
-                'fa-solid fa-circle-xmark',
-                'fa-solid fa-triangle-exclamation',
-                'fa-solid fa-magnifying-glass',
-                'fa-solid fa-filter',
-                'fa-solid fa-sliders',
-                'fa-solid fa-tag',
-                'fa-solid fa-tags',
-                'fa-solid fa-percent',
-                'fa-solid fa-gift',
-                'fa-solid fa-bag-shopping',
-                'fa-solid fa-cart-shopping',
-                'fa-solid fa-wallet',
-                'fa-solid fa-credit-card',
-                'fa-solid fa-receipt',
-                'fa-solid fa-money-bill-wave',
-                'fa-solid fa-hand-holding-heart',
-                'fa-solid fa-handshake',
+                'fa-solid fa-umbrella',
                 'fa-solid fa-heart-circle-bolt',
             ];
+            $icons = $featuredIcons;
+            $iconData = @file_get_contents('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/metadata/icons.json');
+            if ($iconData) {
+                $decoded = json_decode($iconData, true);
+                if (is_array($decoded)) {
+                    $allIcons = [];
+                    foreach ($decoded as $name => $meta) {
+                        $styles = $meta['styles'] ?? [];
+                        if (in_array('solid', $styles, true)) {
+                            $allIcons[] = 'fa-solid fa-' . $name;
+                            continue;
+                        }
+                        if (in_array('regular', $styles, true)) {
+                            $allIcons[] = 'fa-regular fa-' . $name;
+                            continue;
+                        }
+                        if (in_array('brands', $styles, true)) {
+                            $allIcons[] = 'fa-brands fa-' . $name;
+                        }
+                    }
+                    sort($allIcons);
+                    $icons = array_values(array_unique(array_merge($featuredIcons, $allIcons)));
+                }
+            }
             foreach ($icons as $iconClass):
             ?>
                 <button class="icon-option" type="button" data-icon-value="<?= htmlspecialchars($iconClass) ?>" data-icon-name="<?= htmlspecialchars($iconClass) ?>">
