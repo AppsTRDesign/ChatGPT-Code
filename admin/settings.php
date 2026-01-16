@@ -1,0 +1,192 @@
+<?php
+require_once __DIR__ . '/../includes/bootstrap.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/layout.php';
+
+require_admin();
+
+admin_header('Site Ayarları');
+?>
+<section class="panel">
+    <form class="admin-form settings-form" data-ajax="settings" enctype="multipart/form-data" method="post">
+        <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+        <fieldset class="settings-group">
+            <legend>Genel</legend>
+            <label>Base URL<input type="text" name="base_url" value="<?= htmlspecialchars(settings('base_url')) ?>"></label>
+            <label>Site Adı<input type="text" name="site_name" value="<?= htmlspecialchars(settings('site_name')) ?>"></label>
+            <label>Adres<input type="text" name="site_address" value="<?= htmlspecialchars(settings('site_address')) ?>"></label>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>İletişim</legend>
+            <label>Harita Embed (HTML)
+                <textarea name="map_embed" rows="4"><?= htmlspecialchars(settings('map_embed')) ?></textarea>
+            </label>
+            <label>İletişim Telefonu<input type="text" name="contact_phone" value="<?= htmlspecialchars(settings('contact_phone')) ?>"></label>
+            <label>WhatsApp Sipariş Numarası<input type="text" name="whatsapp_number" value="<?= htmlspecialchars(settings('whatsapp_number')) ?>"></label>
+            <label>İletişim E-postası<input type="email" name="contact_email" value="<?= htmlspecialchars(settings('contact_email')) ?>"></label>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>SEO</legend>
+            <label>Meta Başlık<input type="text" name="meta_title" value="<?= htmlspecialchars(settings('meta_title')) ?>"></label>
+            <label>Meta Açıklama<textarea name="meta_description" rows="3"><?= htmlspecialchars(settings('meta_description')) ?></textarea></label>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>Görünüm</legend>
+            <div class="settings-grid">
+                <label>Logo<input type="file" name="logo"></label>
+                <label>Favicon<input type="file" name="favicon"></label>
+            </div>
+            <label>Galeri Lightbox
+                <select name="lightbox_provider">
+                    <option value="glightbox" <?= settings('lightbox_provider') === 'glightbox' ? 'selected' : '' ?>>GLightbox</option>
+                    <option value="lightbox2" <?= settings('lightbox_provider') === 'lightbox2' ? 'selected' : '' ?>>Lightbox2</option>
+                </select>
+            </label>
+            <label>Ana Sayfa Görünümü
+                <select name="homepage_layout">
+                    <option value="grid" <?= settings('homepage_layout') === 'grid' ? 'selected' : '' ?>>Grid</option>
+                    <option value="list" <?= settings('homepage_layout') === 'list' ? 'selected' : '' ?>>Liste</option>
+                </select>
+            </label>
+            <label>Site Genişliği
+                <select name="site_width">
+                    <option value="box" <?= settings('site_width', 'box') === 'box' ? 'selected' : '' ?>>Box</option>
+                    <option value="wide" <?= settings('site_width', 'box') === 'wide' ? 'selected' : '' ?>>Wide</option>
+                </select>
+            </label>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>Tema Ayarları</legend>
+            <div class="settings-grid">
+                <label>Tema Rengi
+                    <input class="color-input" type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color', '#E85D75')) ?>">
+                </label>
+                <label>Metin Rengi
+                    <input class="color-input" type="color" name="text_color" value="<?= htmlspecialchars(settings('text_color', '#2c2c2c')) ?>">
+                </label>
+                <label>Arka Plan Rengi
+                    <input class="color-input" type="color" name="light_bg" value="<?= htmlspecialchars(settings('light_bg', '#fff7f9')) ?>">
+                </label>
+                <label>Çerçeve Rengi
+                    <input class="color-input" type="color" name="border_color" value="<?= htmlspecialchars(settings('border_color', '#f3d1d8')) ?>">
+                </label>
+                <label>Mobil Menü Aç/Kapa Rengi
+                    <input class="color-input" type="color" name="mobile_menu_toggle_color" value="<?= htmlspecialchars(settings('mobile_menu_toggle_color', settings('theme_color', '#E85D75'))) ?>">
+                </label>
+                <label>Mobil Tema Yazı Rengi
+                    <input class="color-input" type="color" name="mobile_menu_text_color" value="<?= htmlspecialchars(settings('mobile_menu_text_color', '#ffffff')) ?>">
+                </label>
+                <label>Gölge Değeri
+                    <input type="text" name="shadow" value="<?= htmlspecialchars(settings('shadow', '0 16px 32px rgba(0, 0, 0, 0.08)')) ?>">
+                </label>
+                <label>Font Ailesi
+                    <select name="font_family">
+                        <?php $fontFamily = settings('font_family', 'segoe-ui'); ?>
+                        <option value="segoe-ui" <?= $fontFamily === 'segoe-ui' ? 'selected' : '' ?>>Segoe UI</option>
+                        <option value="inter" <?= $fontFamily === 'inter' ? 'selected' : '' ?>>Inter</option>
+                        <option value="noto-sans" <?= $fontFamily === 'noto-sans' ? 'selected' : '' ?>>Noto Sans</option>
+                        <option value="open-sans" <?= $fontFamily === 'open-sans' ? 'selected' : '' ?>>Open Sans</option>
+                        <option value="roboto" <?= $fontFamily === 'roboto' ? 'selected' : '' ?>>Roboto</option>
+                        <option value="montserrat" <?= $fontFamily === 'montserrat' ? 'selected' : '' ?>>Montserrat</option>
+                        <option value="poppins" <?= $fontFamily === 'poppins' ? 'selected' : '' ?>>Poppins</option>
+                    </select>
+                </label>
+                <label>Dropdown Menü Arka Plan
+                    <input class="color-input" type="color" name="dropdown_menu_bg" value="<?= htmlspecialchars(settings('dropdown_menu_bg', '#ffffff')) ?>">
+                </label>
+                <label>Header Arka Plan
+                    <input class="color-input" type="color" name="site_header_bg" value="<?= htmlspecialchars(settings('site_header_bg', '#ffffff')) ?>">
+                </label>
+                <label>Header Yazı Rengi
+                    <input class="color-input" type="color" name="site_header_text_color" value="<?= htmlspecialchars(settings('site_header_text_color', '#2c2c2c')) ?>">
+                </label>
+                <label>Footer Arka Plan
+                    <input class="color-input" type="color" name="site_footer_bg" value="<?= htmlspecialchars(settings('site_footer_bg', '#fdf2f4')) ?>">
+                </label>
+                <label>Footer Yazı Rengi
+                    <input class="color-input" type="color" name="site_footer_text_color" value="<?= htmlspecialchars(settings('site_footer_text_color', '#5b5b5b')) ?>">
+                </label>
+                <label>Sepet Sayacı Arka Plan
+                    <input class="color-input" type="color" name="cart_count_bg" value="<?= htmlspecialchars(settings('cart_count_bg', settings('theme_color', '#E85D75'))) ?>">
+                </label>
+                <label>Section Çerçeve
+                    <input type="text" name="framed_section_border" value="<?= htmlspecialchars(settings('framed_section_border', '1px solid var(--border-color)')) ?>">
+                </label>
+                <label>Section İç Boşluk
+                    <input type="text" name="framed_section_padding" value="<?= htmlspecialchars(settings('framed_section_padding', '32px')) ?>">
+                </label>
+                <label>Section Köşe Yuvarlama
+                    <input type="text" name="framed_section_radius" value="<?= htmlspecialchars(settings('framed_section_radius', '24px')) ?>">
+                </label>
+                <label>Aktif Sekme Arka Plan
+                    <input class="color-input" type="color" name="tab_active_bg" value="<?= htmlspecialchars(settings('tab_active_bg', settings('theme_color', '#E85D75'))) ?>">
+                </label>
+                <label>Aktif Sekme Yazı Rengi
+                    <input class="color-input" type="color" name="tab_active_color" value="<?= htmlspecialchars(settings('tab_active_color', '#ffffff')) ?>">
+                </label>
+            </div>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>Ana Sayfa Limitleri</legend>
+            <div class="settings-grid">
+                <label>En Yeni Ürün Limiti
+                    <input type="number" name="homepage_latest_limit" value="<?= htmlspecialchars(settings('homepage_latest_limit', '8')) ?>">
+                </label>
+                <label>En Çok Sipariş Limiti
+                    <input type="number" name="homepage_ordered_limit" value="<?= htmlspecialchars(settings('homepage_ordered_limit', '8')) ?>">
+                </label>
+                <label>En Çok Ziyaret Limiti
+                    <input type="number" name="homepage_visited_limit" value="<?= htmlspecialchars(settings('homepage_visited_limit', '8')) ?>">
+                </label>
+                <label>En Çok Favori Limiti
+                    <input type="number" name="homepage_favorited_limit" value="<?= htmlspecialchars(settings('homepage_favorited_limit', '8')) ?>">
+                </label>
+                <label>İndirimli Ürün Limiti
+                    <input type="number" name="homepage_discounted_limit" value="<?= htmlspecialchars(settings('homepage_discounted_limit', '8')) ?>">
+                </label>
+                <label>Yorum Sayısı (Sayfalama)
+                    <input type="number" name="reviews_per_page" value="<?= htmlspecialchars(settings('reviews_per_page', '5')) ?>">
+                </label>
+            </div>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>Ödeme & Teslimat</legend>
+            <div class="settings-grid">
+                <label>KDV Oranı (%)
+                    <input type="number" name="vat_rate" step="0.01" min="0" value="<?= htmlspecialchars(settings('vat_rate', '0')) ?>">
+                </label>
+                <label>Teslimat Ücreti
+                    <input type="number" name="shipping_fee" step="0.01" min="0" value="<?= htmlspecialchars(settings('shipping_fee', '0')) ?>">
+                </label>
+                <label>Havale Aktif
+                    <select name="bank_transfer_active">
+                        <option value="0" <?= settings('bank_transfer_active') === '0' ? 'selected' : '' ?>>Hayır</option>
+                        <option value="1" <?= settings('bank_transfer_active') === '1' ? 'selected' : '' ?>>Evet</option>
+                    </select>
+                </label>
+            </div>
+            <label>Banka Adı (Teslimat Bilgileri)
+                <input type="text" name="bank_name" value="<?= htmlspecialchars(settings('bank_name')) ?>">
+            </label>
+            <label>IBAN (Teslimat Bilgileri)
+                <input type="text" name="bank_iban" value="<?= htmlspecialchars(settings('bank_iban')) ?>">
+            </label>
+            <label>Alıcı Ad Soyad (Teslimat Bilgileri)
+                <input type="text" name="bank_account_name" value="<?= htmlspecialchars(settings('bank_account_name')) ?>">
+            </label>
+        </fieldset>
+        <fieldset class="settings-group">
+            <legend>Header & Footer</legend>
+            <label>Header HTML
+                <textarea name="header_html" rows="4"><?= htmlspecialchars(settings('header_html')) ?></textarea>
+            </label>
+            <label>Footer HTML
+                <textarea name="footer_html" rows="4"><?= htmlspecialchars(settings('footer_html')) ?></textarea>
+            </label>
+        </fieldset>
+        <button class="btn primary" type="submit">Kaydet</button>
+    </form>
+</section>
+<?php
+admin_footer();
+?>
