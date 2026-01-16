@@ -67,6 +67,8 @@ function render_header(string $title = '', array $meta = []): void
     unset($children);
     $user = current_user();
     $cartCount = array_sum($_SESSION['cart'] ?? []);
+    $userAvatar = $user['avatar'] ?? '';
+    $avatarSrc = $userAvatar ?: ($favicon ?: '/assets/images/placeholder.svg');
     echo "<nav class=\"main-nav\" id=\"mainNav\">\n";
     echo "<a href=\"/\" title=\"Ana Sayfa\">Ana Sayfa</a>\n";
     if (!empty($categoryChildren[0])) {
@@ -94,6 +96,17 @@ function render_header(string $title = '', array $meta = []): void
     } else {
         echo "<a href=\"/giris\" title=\"Giriş Yap\">Giriş Yap</a>\n";
         echo "<a href=\"/kayit\" title=\"Kayıt Ol\">Kayıt Ol</a>\n";
+    }
+    if ($user) {
+        $userName = htmlspecialchars($user['name'] ?? '');
+        $userEmail = htmlspecialchars($user['email'] ?? '');
+        $avatarEscaped = htmlspecialchars($avatarSrc);
+        echo "<div class=\"nav-user\">\n";
+        echo "<img class=\"nav-user-avatar\" src=\"{$avatarEscaped}\" alt=\"{$userName}\">\n";
+        echo "<div class=\"nav-user-info\">\n";
+        echo "<strong>{$userName}</strong>\n";
+        echo "<span>{$userEmail}</span>\n";
+        echo "</div>\n</div>\n";
     }
     echo "</nav>\n";
     $headerHtml = settings('header_html');

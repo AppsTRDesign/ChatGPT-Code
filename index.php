@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/footer.php';
 $pdo = db();
 
 $layout = settings('homepage_layout', 'grid');
-$listExcerptLimit = 100;
+$listExcerptLimit = 50;
 $summaryFor = static function (array $product) use ($layout, $listExcerptLimit): string {
     if ($layout === 'grid') {
         $short = trim((string) ($product['short_description'] ?? ''));
