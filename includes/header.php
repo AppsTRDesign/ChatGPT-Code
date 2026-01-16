@@ -20,6 +20,8 @@ function render_header(string $title = '', array $meta = []): void
     $framedSectionBorder = settings('framed_section_border', '1px solid var(--border-color)');
     $framedSectionPadding = settings('framed_section_padding', '32px');
     $framedSectionRadius = settings('framed_section_radius', '24px');
+    $tabActiveBg = settings('tab_active_bg', $themeColor);
+    $tabActiveColor = settings('tab_active_color', '#ffffff');
     $fontFamilyKey = settings('font_family', 'segoe-ui');
     $fontOptions = [
         'segoe-ui' => [
@@ -66,7 +68,7 @@ function render_header(string $title = '', array $meta = []): void
     echo "<meta charset=\"UTF-8\">\n";
     echo "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     echo "<meta name=\"theme-color\" content=\"{$themeColor}\">\n";
-    echo "<style>:root{--theme-color: {$themeColor};--text-color: {$textColor};--light-bg: {$lightBg};--border-color: {$borderColor};--shadow: {$shadow};--font-family: {$fontFamily};--dropdown-menu-bg: {$dropdownMenuBg};--site-header-bg: {$siteHeaderBg};--site-header-text-color: {$siteHeaderTextColor};--site-footer-bg: {$siteFooterBg};--site-footer-text-color: {$siteFooterTextColor};--cart-count-bg: {$cartCountBg};--framed-section-border: {$framedSectionBorder};--framed-section-padding: {$framedSectionPadding};--framed-section-radius: {$framedSectionRadius};--mobile-menu-toggle-color: {$mobileMenuToggleColor};--mobile-menu-text-color: {$mobileMenuTextColor};}</style>\n";
+    $rootStyle = ":root{--theme-color: {$themeColor};--text-color: {$textColor};--light-bg: {$lightBg};--border-color: {$borderColor};--shadow: {$shadow};--font-family: {$fontFamily};--dropdown-menu-bg: {$dropdownMenuBg};--site-header-bg: {$siteHeaderBg};--site-header-text-color: {$siteHeaderTextColor};--site-footer-bg: {$siteFooterBg};--site-footer-text-color: {$siteFooterTextColor};--cart-count-bg: {$cartCountBg};--framed-section-border: {$framedSectionBorder};--framed-section-padding: {$framedSectionPadding};--framed-section-radius: {$framedSectionRadius};--tab-active-bg: {$tabActiveBg};--tab-active-color: {$tabActiveColor};--mobile-menu-toggle-color: {$mobileMenuToggleColor};--mobile-menu-text-color: {$mobileMenuTextColor};}";
     echo "<title>{$pageTitle}</title>\n";
     echo "<meta name=\"description\" content=\"{$metaDescription}\">\n";
     echo "<meta name=\"csrf-token\" content=\"" . csrf_token() . "\">\n";
@@ -89,6 +91,7 @@ function render_header(string $title = '', array $meta = []): void
         echo "<link rel=\"stylesheet\" href=\"{$fontLink}\">\n";
     }
     echo "<link rel=\"stylesheet\" href=\"/assets/css/style.css\">\n";
+    echo "<style>{$rootStyle}</style>\n";
     echo "<link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css\">\n";
     echo "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css\">\n";
     if (settings('lightbox_provider') === 'lightbox2') {

@@ -750,6 +750,8 @@ switch ($action) {
             'framed_section_border',
             'framed_section_padding',
             'framed_section_radius',
+            'tab_active_bg',
+            'tab_active_color',
             'lightbox_provider',
             'homepage_layout',
             'site_width',

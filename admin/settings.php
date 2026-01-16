@@ -118,6 +118,12 @@ admin_header('Site Ayarları');
                 <label>Section Köşe Yuvarlama
                     <input type="text" name="framed_section_radius" value="<?= htmlspecialchars(settings('framed_section_radius', '24px')) ?>">
                 </label>
+                <label>Aktif Sekme Arka Plan
+                    <input class="color-input" type="color" name="tab_active_bg" value="<?= htmlspecialchars(settings('tab_active_bg', settings('theme_color', '#E85D75'))) ?>">
+                </label>
+                <label>Aktif Sekme Yazı Rengi
+                    <input class="color-input" type="color" name="tab_active_color" value="<?= htmlspecialchars(settings('tab_active_color', '#ffffff')) ?>">
+                </label>
             </div>
         </fieldset>
         <fieldset class="settings-group">

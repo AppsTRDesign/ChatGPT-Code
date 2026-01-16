@@ -598,9 +598,9 @@ a {
 }
 
 .tab-button.is-active {
-  background: #e85d75;
-  color: #fff;
-  border-color: #e85d75;
+  background: var(--tab-active-bg, var(--theme-color));
+  color: var(--tab-active-color, #fff);
+  border-color: var(--tab-active-bg, var(--theme-color));
 }
 
 .tab-panel {
