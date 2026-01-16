@@ -6,6 +6,27 @@ if (navToggle && mainNav) {
   });
 }
 
+document.querySelectorAll('.nav-dropdown').forEach((dropdown) => {
+  const trigger = dropdown.querySelector('span');
+  if (!trigger) return;
+  trigger.addEventListener('click', (event) => {
+    event.stopPropagation();
+    document.querySelectorAll('.nav-dropdown.open').forEach((openDropdown) => {
+      if (openDropdown !== dropdown) {
+        openDropdown.classList.remove('open');
+      }
+    });
+    dropdown.classList.toggle('open');
+  });
+});
+
+document.addEventListener('click', (event) => {
+  if (event.target.closest('.nav-dropdown')) return;
+  document.querySelectorAll('.nav-dropdown.open').forEach((dropdown) => {
+    dropdown.classList.remove('open');
+  });
+});
+
 const notifySuccess = (message) => {
   if (window.toastr) {
     toastr.success(message);

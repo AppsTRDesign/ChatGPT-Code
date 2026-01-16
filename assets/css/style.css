@@ -232,6 +232,9 @@ a {
   min-width: 180px;
   z-index: 10;
   white-space: nowrap;
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .dropdown-menu a {
@@ -244,7 +247,7 @@ a {
   color: #5b5b5b;
 }
 
-.nav-dropdown:hover .dropdown-menu {
+.nav-dropdown.open .dropdown-menu {
   display: grid;
   gap: 8px;
 }
@@ -596,9 +599,9 @@ a {
 }
 
 .tab-button.is-active {
-  background: var(--theme-color);
+  background: var(--tab-active-bg, var(--theme-color));
   color: var(--tab-active-color, #fff);
-  border-color: var(--theme-color);
+  border-color: var(--tab-active-bg, var(--theme-color));
 }
 
 .tab-panel {
