@@ -79,7 +79,7 @@ a {
 }
 
 .section {
-  padding: 15px 0 5px;
+  padding: 25px 0 40px;
 }
 
 .framed-section .container {
@@ -599,7 +599,7 @@ a {
 
 .tab-button.is-active {
   background: var(--theme-color);
-  color: var(--text-color);
+  color: var(--site-header-text-color, var(--text-color));
   border-color: var(--theme-color);
 }
 
