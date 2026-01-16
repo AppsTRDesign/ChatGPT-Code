@@ -91,11 +91,32 @@ admin_header('Site Ayarları');
                         <option value="poppins" <?= $fontFamily === 'poppins' ? 'selected' : '' ?>>Poppins</option>
                     </select>
                 </label>
-                <label>Bölüm Container Kullan
-                    <select name="section_container_enabled">
-                        <option value="1" <?= settings('section_container_enabled', '1') === '1' ? 'selected' : '' ?>>Evet</option>
-                        <option value="0" <?= settings('section_container_enabled', '1') === '0' ? 'selected' : '' ?>>Hayır</option>
-                    </select>
+                <label>Dropdown Menü Arka Plan
+                    <input class="color-input" type="color" name="dropdown_menu_bg" value="<?= htmlspecialchars(settings('dropdown_menu_bg', '#ffffff')) ?>">
+                </label>
+                <label>Header Arka Plan
+                    <input class="color-input" type="color" name="site_header_bg" value="<?= htmlspecialchars(settings('site_header_bg', '#ffffff')) ?>">
+                </label>
+                <label>Header Yazı Rengi
+                    <input class="color-input" type="color" name="site_header_text_color" value="<?= htmlspecialchars(settings('site_header_text_color', '#2c2c2c')) ?>">
+                </label>
+                <label>Footer Arka Plan
+                    <input class="color-input" type="color" name="site_footer_bg" value="<?= htmlspecialchars(settings('site_footer_bg', '#fdf2f4')) ?>">
+                </label>
+                <label>Footer Yazı Rengi
+                    <input class="color-input" type="color" name="site_footer_text_color" value="<?= htmlspecialchars(settings('site_footer_text_color', '#5b5b5b')) ?>">
+                </label>
+                <label>Sepet Sayacı Arka Plan
+                    <input class="color-input" type="color" name="cart_count_bg" value="<?= htmlspecialchars(settings('cart_count_bg', settings('theme_color', '#E85D75'))) ?>">
+                </label>
+                <label>Section Çerçeve
+                    <input type="text" name="framed_section_border" value="<?= htmlspecialchars(settings('framed_section_border', '1px solid var(--border-color)')) ?>">
+                </label>
+                <label>Section İç Boşluk
+                    <input type="text" name="framed_section_padding" value="<?= htmlspecialchars(settings('framed_section_padding', '32px')) ?>">
+                </label>
+                <label>Section Köşe Yuvarlama
+                    <input type="text" name="framed_section_radius" value="<?= htmlspecialchars(settings('framed_section_radius', '24px')) ?>">
                 </label>
             </div>
         </fieldset>

@@ -282,19 +282,21 @@ document.querySelectorAll('[data-ajax]').forEach((form) => {
       if (window.toastr) {
         toastr.success(data.message || 'Kaydedildi.');
       }
-      form.reset();
-      const idField = form.querySelector('input[name="id"]');
-      if (idField) {
-        idField.value = '0';
-      }
-      if (window.tinymce) {
-        tinymce.editors?.forEach((editor) => {
-          editor.setContent('');
-        });
-      }
-      if (iconInput && iconPreview) {
-        iconInput.value = '';
-        iconPreview.innerHTML = '<i class="fa-regular fa-circle"></i>';
+      if (action !== 'settings') {
+        form.reset();
+        const idField = form.querySelector('input[name="id"]');
+        if (idField) {
+          idField.value = '0';
+        }
+        if (window.tinymce) {
+          tinymce.editors?.forEach((editor) => {
+            editor.setContent('');
+          });
+        }
+        if (iconInput && iconPreview) {
+          iconInput.value = '';
+          iconPreview.innerHTML = '<i class="fa-regular fa-circle"></i>';
+        }
       }
     } else if (window.toastr) {
       toastr.error(data.message || 'İşlem başarısız.');

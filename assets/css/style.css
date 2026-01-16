@@ -84,9 +84,9 @@ a {
 
 .framed-section .container {
   background: #fff;
-  border-radius: 24px;
-  border: 1px solid var(--border-color);
-  padding: 32px;
+  border-radius: var(--framed-section-radius, 24px);
+  border: var(--framed-section-border, 1px solid var(--border-color));
+  padding: var(--framed-section-padding, 32px);
   box-shadow: none;
 }
 
@@ -133,7 +133,8 @@ a {
 .site-header {
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--site-header-bg, #fff);
+  color: var(--site-header-text-color, var(--text-color));
   box-shadow: var(--shadow);
   z-index: 10;
 }
@@ -199,7 +200,7 @@ a {
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--theme-color);
+  background: var(--cart-count-bg, var(--theme-color));
   color: #fff;
   font-size: 0.75rem;
   font-weight: 600;
@@ -224,7 +225,7 @@ a {
   position: absolute;
   top: 100%;
   left: 0;
-  background: #fff;
+  background: var(--dropdown-menu-bg, #fff);
   border-radius: 12px;
   padding: 12px;
   box-shadow: var(--shadow);
@@ -990,7 +991,8 @@ table td {
 
 .site-footer {
   padding: 40px 0;
-  background: #fdf2f4;
+  background: var(--site-footer-bg, #fdf2f4);
+  color: var(--site-footer-text-color, #5b5b5b);
   margin-top: auto;
 }
 
@@ -1013,7 +1015,7 @@ table td {
 }
 
 .footer-links a {
-  color: #5b5b5b;
+  color: var(--site-footer-text-color, #5b5b5b);
 }
 
 .social-icons {
@@ -1459,7 +1461,7 @@ td {
     position: static;
     box-shadow: none;
     padding: 12px;
-    background: #fff;
+    background: var(--dropdown-menu-bg, #fff);
     border-radius: 12px;
     width: 100%;
     border: 1px solid rgba(0, 0, 0, 0.08);

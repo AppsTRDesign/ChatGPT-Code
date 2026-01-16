@@ -11,6 +11,15 @@ function render_header(string $title = '', array $meta = []): void
     $lightBg = settings('light_bg', '#fff7f9');
     $borderColor = settings('border_color', '#f3d1d8');
     $shadow = settings('shadow', '0 16px 32px rgba(0, 0, 0, 0.08)');
+    $dropdownMenuBg = settings('dropdown_menu_bg', '#ffffff');
+    $siteHeaderBg = settings('site_header_bg', '#ffffff');
+    $siteHeaderTextColor = settings('site_header_text_color', '#2c2c2c');
+    $siteFooterBg = settings('site_footer_bg', '#fdf2f4');
+    $siteFooterTextColor = settings('site_footer_text_color', '#5b5b5b');
+    $cartCountBg = settings('cart_count_bg', $themeColor);
+    $framedSectionBorder = settings('framed_section_border', '1px solid var(--border-color)');
+    $framedSectionPadding = settings('framed_section_padding', '32px');
+    $framedSectionRadius = settings('framed_section_radius', '24px');
     $fontFamilyKey = settings('font_family', 'segoe-ui');
     $fontOptions = [
         'segoe-ui' => [
@@ -57,7 +66,7 @@ function render_header(string $title = '', array $meta = []): void
     echo "<meta charset=\"UTF-8\">\n";
     echo "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     echo "<meta name=\"theme-color\" content=\"{$themeColor}\">\n";
-    echo "<style>:root{--theme-color: {$themeColor};--text-color: {$textColor};--light-bg: {$lightBg};--border-color: {$borderColor};--shadow: {$shadow};--font-family: {$fontFamily};--mobile-menu-toggle-color: {$mobileMenuToggleColor};--mobile-menu-text-color: {$mobileMenuTextColor};}</style>\n";
+    echo "<style>:root{--theme-color: {$themeColor};--text-color: {$textColor};--light-bg: {$lightBg};--border-color: {$borderColor};--shadow: {$shadow};--font-family: {$fontFamily};--dropdown-menu-bg: {$dropdownMenuBg};--site-header-bg: {$siteHeaderBg};--site-header-text-color: {$siteHeaderTextColor};--site-footer-bg: {$siteFooterBg};--site-footer-text-color: {$siteFooterTextColor};--cart-count-bg: {$cartCountBg};--framed-section-border: {$framedSectionBorder};--framed-section-padding: {$framedSectionPadding};--framed-section-radius: {$framedSectionRadius};--mobile-menu-toggle-color: {$mobileMenuToggleColor};--mobile-menu-text-color: {$mobileMenuTextColor};}</style>\n";
     echo "<title>{$pageTitle}</title>\n";
     echo "<meta name=\"description\" content=\"{$metaDescription}\">\n";
     echo "<meta name=\"csrf-token\" content=\"" . csrf_token() . "\">\n";
