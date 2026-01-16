@@ -83,21 +83,33 @@ render_header($title);
     <div class="checkout-steps">
         <div class="step <?= $user ? '' : 'active' ?>" data-step="1">
             <h2>1. Giriş / Üyelik</h2>
-            <div class="grid">
-                <form class="auth-form" data-ajax="login-inline" method="post">
-                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                    <input type="email" name="email" placeholder="E-posta" required>
-                    <input type="password" name="password" placeholder="Şifre" required>
-                    <button class="btn primary" type="submit">Giriş Yap</button>
-                </form>
-                <form class="auth-form" data-ajax="register-inline" method="post">
-                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                    <input type="text" name="name" placeholder="Ad Soyad" required>
-                    <input type="email" name="email" placeholder="E-posta" required>
-                    <input type="tel" name="phone" placeholder="Telefon">
-                    <input type="password" name="password" placeholder="Şifre" required>
-                    <button class="btn primary" type="submit">Kayıt Ol</button>
-                </form>
+            <div class="auth-split">
+                <section class="auth-card">
+                    <div class="auth-header">
+                        <h3>Giriş Yap</h3>
+                        <hr class="section-divider">
+                    </div>
+                    <form class="auth-form" data-ajax="login-inline" method="post">
+                        <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                        <input type="email" name="email" placeholder="E-posta" required>
+                        <input type="password" name="password" placeholder="Şifre" required>
+                        <button class="btn primary" type="submit">Giriş Yap</button>
+                    </form>
+                </section>
+                <section class="auth-card">
+                    <div class="auth-header">
+                        <h3>Üye Ol</h3>
+                        <hr class="section-divider">
+                    </div>
+                    <form class="auth-form" data-ajax="register-inline" method="post">
+                        <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                        <input type="text" name="name" placeholder="Ad Soyad" required>
+                        <input type="email" name="email" placeholder="E-posta" required>
+                        <input type="tel" name="phone" placeholder="Telefon">
+                        <input type="password" name="password" placeholder="Şifre" required>
+                        <button class="btn primary" type="submit">Kayıt Ol</button>
+                    </form>
+                </section>
             </div>
         </div>
         <div class="step <?= $user ? 'active' : '' ?>" data-step="2">
