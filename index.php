@@ -86,60 +86,6 @@ render_header('Ana Sayfa');
         </section>
     <?php endif; ?>
 
-    <?php if ($discountedProducts): ?>
-        <section class="section framed-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2>İndirimli Ürünler</h2>
-                    <hr class="section-divider">
-                </div>
-                <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
-                    <?php foreach ($discountedProducts as $product): ?>
-                        <?php
-                        $isFavorited = isset($favoriteMap[$product['id']]);
-                        $hasDiscount = product_has_discount($product);
-                        $finalPrice = product_discounted_price($product);
-                        ?>
-                        <article class="card">
-                            <div class="card-media">
-                                <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>" title="<?= htmlspecialchars($product['name']) ?>">
-                                <?php if (!empty($product['badge_text'])): ?>
-                                    <span class="card-badge"><?= htmlspecialchars($product['badge_text']) ?></span>
-                                <?php endif; ?>
-                                <?php if ($hasDiscount): ?>
-                                    <span class="card-badge discount-badge">İndirimli</span>
-                                <?php endif; ?>
-                                <?php if ($user): ?>
-                                    <button
-                                        class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
-                                        type="button"
-                                        data-favorite="<?= (int) $product['id'] ?>"
-                                        data-favorite-filled="♥"
-                                        data-favorite-empty="♡"
-                                        aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
-                                    >
-                                        <?= $isFavorited ? '♥' : '♡' ?>
-                                    </button>
-                                <?php endif; ?>
-                            </div>
-                            <div class="card-body">
-                                <h3><?= htmlspecialchars($product['name']) ?></h3>
-                                <p><?= htmlspecialchars($summaryFor($product)) ?></p>
-                                <p class="price">
-                                    <?php if ($hasDiscount): ?>
-                                        <span class="price-old"><?= currency((float) $product['price']) ?></span>
-                                    <?php endif; ?>
-                                    <span class="price-new"><?= currency($finalPrice) ?></span>
-                                </p>
-                                <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </section>
-    <?php endif; ?>
-
     <section class="section framed-section">
         <div class="container">
             <div class="section-header">
@@ -345,6 +291,59 @@ render_header('Ana Sayfa');
         </div>
     </div>
 </section>
+<?php if ($discountedProducts): ?>
+    <section class="section framed-section">
+        <div class="container">
+            <div class="section-header">
+                <h2>İndirimli Ürünler</h2>
+                <hr class="section-divider">
+            </div>
+            <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
+                <?php foreach ($discountedProducts as $product): ?>
+                    <?php
+                    $isFavorited = isset($favoriteMap[$product['id']]);
+                    $hasDiscount = product_has_discount($product);
+                    $finalPrice = product_discounted_price($product);
+                    ?>
+                    <article class="card">
+                        <div class="card-media">
+                            <img class="product-image" loading="lazy" src="<?= htmlspecialchars($product['main_image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($product['name']) ?>" title="<?= htmlspecialchars($product['name']) ?>">
+                            <?php if (!empty($product['badge_text'])): ?>
+                                <span class="card-badge"><?= htmlspecialchars($product['badge_text']) ?></span>
+                            <?php endif; ?>
+                            <?php if ($hasDiscount): ?>
+                                <span class="card-badge discount-badge">İndirimli</span>
+                            <?php endif; ?>
+                            <?php if ($user): ?>
+                                <button
+                                    class="card-fav<?= $isFavorited ? ' is-active' : '' ?>"
+                                    type="button"
+                                    data-favorite="<?= (int) $product['id'] ?>"
+                                    data-favorite-filled="♥"
+                                    data-favorite-empty="♡"
+                                    aria-pressed="<?= $isFavorited ? 'true' : 'false' ?>"
+                                >
+                                    <?= $isFavorited ? '♥' : '♡' ?>
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                        <div class="card-body">
+                            <h3><?= htmlspecialchars($product['name']) ?></h3>
+                            <p><?= htmlspecialchars($summaryFor($product)) ?></p>
+                            <p class="price">
+                                <?php if ($hasDiscount): ?>
+                                    <span class="price-old"><?= currency((float) $product['price']) ?></span>
+                                <?php endif; ?>
+                                <span class="price-new"><?= currency($finalPrice) ?></span>
+                            </p>
+                            <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+<?php endif; ?>
 <?php
 render_footer();
 ?>

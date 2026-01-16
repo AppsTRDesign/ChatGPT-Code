@@ -79,7 +79,7 @@ a {
 }
 
 .section {
-  padding: 25px 0 40px;
+  padding: 25px 0 5px;
 }
 
 .framed-section .container {
@@ -220,7 +220,7 @@ a {
   font-size: 0.8rem;
 }
 
-.dropdown-menu {
+.nav-dropdown .dropdown-menu {
   position: absolute;
   top: 100%;
   left: 0;
@@ -235,9 +235,10 @@ a {
   max-height: 320px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  gap: 8px;
 }
 
-.dropdown-menu a {
+.nav-dropdown .dropdown-menu a {
   color: var(--site-header-text-color, var(--text-color));
 }
 
