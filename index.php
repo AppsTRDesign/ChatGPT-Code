@@ -198,7 +198,10 @@ render_header('Ana Sayfa');
 
     <section class="section alt framed-section">
         <div class="container">
-            <h2>En Çok Sipariş Edilenler</h2>
+            <div class="section-header">
+                <h2>En Çok Sipariş Edilenler</h2>
+                <hr class="section-divider">
+            </div>
             <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
                 <?php foreach ($topOrdered as $product): ?>
                     <?php
@@ -245,7 +248,10 @@ render_header('Ana Sayfa');
 
     <section class="section framed-section">
         <div class="container">
-            <h2>En Çok Ziyaret Edilenler</h2>
+            <div class="section-header">
+                <h2>En Çok Ziyaret Edilenler</h2>
+                <hr class="section-divider">
+            </div>
             <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
                 <?php foreach ($topVisited as $product): ?>
                     <?php
@@ -292,7 +298,10 @@ render_header('Ana Sayfa');
 </main>
 <section class="section alt framed-section">
     <div class="container">
-        <h2>En Çok Favoriye Eklenenler</h2>
+        <div class="section-header">
+            <h2>En Çok Favoriye Eklenenler</h2>
+            <hr class="section-divider">
+        </div>
         <div class="<?= $layout === 'list' ? 'list-grid' : 'grid' ?>">
             <?php foreach ($topFavorited as $product): ?>
                 <?php
