@@ -1,12 +1,3 @@
-:root {
-  --theme-color: #e85d75;
-  --text-color: #2c2c2c;
-  --light-bg: #fff7f9;
-  --border-color: #f3d1d8;
-  --shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
 * {
   box-sizing: border-box;
   margin: 0;
@@ -16,6 +7,7 @@
 body {
   color: var(--text-color);
   background: #fff;
+  font-family: var(--font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
   line-height: 1.6;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;

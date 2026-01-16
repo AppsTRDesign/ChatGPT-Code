@@ -7,6 +7,8 @@ $categories = db()->query('SELECT categories.*, COUNT(products.id) AS product_co
 if (!$categories) {
     $categories = db()->query('SELECT categories.*, COUNT(products.id) AS product_count FROM categories LEFT JOIN products ON products.category_id = categories.id GROUP BY categories.id ORDER BY categories.name ASC')->fetchAll(PDO::FETCH_ASSOC);
 }
+$sectionContainerEnabled = settings('section_container_enabled', '1') === '1';
+$containerClass = $sectionContainerEnabled ? 'container' : '';
 
 $description = 'Tüm kategorileri keşfedin ve ürün sayılarını inceleyin.';
 render_header('Kategoriler', [
@@ -14,7 +16,7 @@ render_header('Kategoriler', [
     'description' => $description,
 ]);
 ?>
-<main class="container">
+<main class="<?= $containerClass ?>">
     <h1>Kategoriler</h1>
     <div class="category-grid">
         <?php foreach ($categories as $category): ?>

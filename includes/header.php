@@ -7,6 +7,11 @@ function render_header(string $title = '', array $meta = []): void
     $siteTitle = settings('site_name', 'Çiçek');
     $metaTitle = settings('meta_title', $siteTitle);
     $themeColor = settings('theme_color', '#E85D75');
+    $textColor = settings('text_color', '#2c2c2c');
+    $lightBg = settings('light_bg', '#fff7f9');
+    $borderColor = settings('border_color', '#f3d1d8');
+    $shadow = settings('shadow', '0 16px 32px rgba(0, 0, 0, 0.08)');
+    $fontFamily = settings('font_family', "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif");
     $mobileMenuToggleColor = settings('mobile_menu_toggle_color', $themeColor);
     $mobileMenuTextColor = settings('mobile_menu_text_color', '#ffffff');
     $pageTitle = $meta['title'] ?? ($title ? $title . ' | ' . $siteTitle : $metaTitle);
@@ -20,7 +25,7 @@ function render_header(string $title = '', array $meta = []): void
     echo "<meta charset=\"UTF-8\">\n";
     echo "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
     echo "<meta name=\"theme-color\" content=\"{$themeColor}\">\n";
-    echo "<style>:root{--theme-color: {$themeColor};--mobile-menu-toggle-color: {$mobileMenuToggleColor};--mobile-menu-text-color: {$mobileMenuTextColor};}</style>\n";
+    echo "<style>:root{--theme-color: {$themeColor};--text-color: {$textColor};--light-bg: {$lightBg};--border-color: {$borderColor};--shadow: {$shadow};--font-family: {$fontFamily};--mobile-menu-toggle-color: {$mobileMenuToggleColor};--mobile-menu-text-color: {$mobileMenuTextColor};}</style>\n";
     echo "<title>{$pageTitle}</title>\n";
     echo "<meta name=\"description\" content=\"{$metaDescription}\">\n";
     echo "<meta name=\"csrf-token\" content=\"" . csrf_token() . "\">\n";

@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/footer.php';
 $pdo = db();
 
 $layout = settings('homepage_layout', 'grid');
+$sectionContainerEnabled = settings('section_container_enabled', '1') === '1';
 $listExcerptLimit = 50;
 $summaryFor = static function (array $product) use ($layout, $listExcerptLimit): string {
     if ($layout === 'grid') {
@@ -49,7 +50,9 @@ render_header('Ana Sayfa');
 <main>
     <?php if ($sliders): ?>
         <section class="hero">
-            <div class="container">
+            <?php if ($sectionContainerEnabled): ?>
+                <div class="container">
+            <?php endif; ?>
                 <div class="splide" id="homeSlider">
                     <div class="splide__track">
                         <ul class="splide__list">
@@ -82,13 +85,17 @@ render_header('Ana Sayfa');
                         </ul>
                     </div>
                 </div>
-            </div>
+            <?php if ($sectionContainerEnabled): ?>
+                </div>
+            <?php endif; ?>
         </section>
     <?php endif; ?>
 
     <?php if ($discountedProducts): ?>
         <section class="section framed-section">
-            <div class="container">
+            <?php if ($sectionContainerEnabled): ?>
+                <div class="container">
+            <?php endif; ?>
                 <div class="section-header">
                     <h2>İndirimli Ürünler</h2>
                     <hr class="section-divider">
@@ -136,12 +143,16 @@ render_header('Ana Sayfa');
                         </article>
                     <?php endforeach; ?>
                 </div>
-            </div>
+            <?php if ($sectionContainerEnabled): ?>
+                </div>
+            <?php endif; ?>
         </section>
     <?php endif; ?>
 
     <section class="section framed-section">
-        <div class="container">
+        <?php if ($sectionContainerEnabled): ?>
+            <div class="container">
+        <?php endif; ?>
             <div class="section-header">
                 <h2>Öne Çıkan Ürünler</h2>
                 <hr class="section-divider">
@@ -193,11 +204,15 @@ render_header('Ana Sayfa');
                     </article>
                 <?php endforeach; ?>
             </div>
-        </div>
+        <?php if ($sectionContainerEnabled): ?>
+            </div>
+        <?php endif; ?>
     </section>
 
     <section class="section alt framed-section">
-        <div class="container">
+        <?php if ($sectionContainerEnabled): ?>
+            <div class="container">
+        <?php endif; ?>
             <div class="section-header">
                 <h2>En Çok Sipariş Edilenler</h2>
                 <hr class="section-divider">
@@ -243,11 +258,15 @@ render_header('Ana Sayfa');
                     </article>
                 <?php endforeach; ?>
             </div>
-        </div>
+        <?php if ($sectionContainerEnabled): ?>
+            </div>
+        <?php endif; ?>
     </section>
 
     <section class="section framed-section">
-        <div class="container">
+        <?php if ($sectionContainerEnabled): ?>
+            <div class="container">
+        <?php endif; ?>
             <div class="section-header">
                 <h2>En Çok Ziyaret Edilenler</h2>
                 <hr class="section-divider">
@@ -293,11 +312,15 @@ render_header('Ana Sayfa');
                     </article>
                 <?php endforeach; ?>
             </div>
-        </div>
+        <?php if ($sectionContainerEnabled): ?>
+            </div>
+        <?php endif; ?>
     </section>
 </main>
 <section class="section alt framed-section">
-    <div class="container">
+    <?php if ($sectionContainerEnabled): ?>
+        <div class="container">
+    <?php endif; ?>
         <div class="section-header">
             <h2>En Çok Favoriye Eklenenler</h2>
             <hr class="section-divider">
@@ -343,7 +366,9 @@ render_header('Ana Sayfa');
                 </article>
             <?php endforeach; ?>
         </div>
-    </div>
+    <?php if ($sectionContainerEnabled): ?>
+        </div>
+    <?php endif; ?>
 </section>
 <?php
 render_footer();

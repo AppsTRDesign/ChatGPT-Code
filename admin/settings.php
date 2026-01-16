@@ -56,16 +56,37 @@ admin_header('Site Ayarları');
             </label>
         </fieldset>
         <fieldset class="settings-group">
-            <legend>Tema Renkleri</legend>
+            <legend>Tema Ayarları</legend>
             <div class="settings-grid">
                 <label>Tema Rengi
-                    <input class="color-input" type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color')) ?>">
+                    <input class="color-input" type="color" name="theme_color" value="<?= htmlspecialchars(settings('theme_color', '#E85D75')) ?>">
+                </label>
+                <label>Metin Rengi
+                    <input class="color-input" type="color" name="text_color" value="<?= htmlspecialchars(settings('text_color', '#2c2c2c')) ?>">
+                </label>
+                <label>Arka Plan Rengi
+                    <input class="color-input" type="color" name="light_bg" value="<?= htmlspecialchars(settings('light_bg', '#fff7f9')) ?>">
+                </label>
+                <label>Çerçeve Rengi
+                    <input class="color-input" type="color" name="border_color" value="<?= htmlspecialchars(settings('border_color', '#f3d1d8')) ?>">
                 </label>
                 <label>Mobil Menü Aç/Kapa Rengi
-                    <input class="color-input" type="color" name="mobile_menu_toggle_color" value="<?= htmlspecialchars(settings('mobile_menu_toggle_color')) ?>">
+                    <input class="color-input" type="color" name="mobile_menu_toggle_color" value="<?= htmlspecialchars(settings('mobile_menu_toggle_color', settings('theme_color', '#E85D75'))) ?>">
                 </label>
                 <label>Mobil Tema Yazı Rengi
-                    <input class="color-input" type="color" name="mobile_menu_text_color" value="<?= htmlspecialchars(settings('mobile_menu_text_color')) ?>">
+                    <input class="color-input" type="color" name="mobile_menu_text_color" value="<?= htmlspecialchars(settings('mobile_menu_text_color', '#ffffff')) ?>">
+                </label>
+                <label>Gölge Değeri
+                    <input type="text" name="shadow" value="<?= htmlspecialchars(settings('shadow', '0 16px 32px rgba(0, 0, 0, 0.08)')) ?>">
+                </label>
+                <label>Font Ailesi
+                    <input type="text" name="font_family" value="<?= htmlspecialchars(settings('font_family', \"'Segoe UI', Tahoma, Geneva, Verdana, sans-serif\")) ?>">
+                </label>
+                <label>Bölüm Container Kullan
+                    <select name="section_container_enabled">
+                        <option value="1" <?= settings('section_container_enabled', '1') === '1' ? 'selected' : '' ?>>Evet</option>
+                        <option value="0" <?= settings('section_container_enabled', '1') === '0' ? 'selected' : '' ?>>Hayır</option>
+                    </select>
                 </label>
             </div>
         </fieldset>
