@@ -12,7 +12,14 @@ function render_footer(): void
     echo "<footer class=\"site-footer\">\n<div class=\"container\">\n";
     echo "<div class=\"footer-grid\">\n";
     echo "<div class=\"footer-brand\">\n<strong>{$siteName}</strong>\n<p>{$address}</p>\n</div>\n";
-    echo "<div class=\"footer-contact\">\n<p>Telefon: {$phone}</p>\n<p>E-posta: {$email}</p>\n</div>\n";
+    $phoneTitle = htmlspecialchars($siteName . ' Telefon Numarası');
+    $emailTitle = htmlspecialchars($siteName . ' Mail Adresi');
+    $phoneEscaped = htmlspecialchars($phone);
+    $emailEscaped = htmlspecialchars($email);
+    echo "<div class=\"footer-contact\">\n";
+    echo "<p>Telefon: <a href=\"tel:{$phoneEscaped}\" title=\"{$phoneTitle}\">{$phoneEscaped}</a></p>\n";
+    echo "<p>E-posta: <a href=\"mailto:{$emailEscaped}\" title=\"{$emailTitle}\">{$emailEscaped}</a></p>\n";
+    echo "</div>\n";
     echo "<div class=\"footer-links\">\n<h4>Sayfalar</h4>\n<ul>\n";
     foreach ($pages as $page) {
         $title = htmlspecialchars($page['title']);
@@ -23,7 +30,8 @@ function render_footer(): void
     foreach ($socialLinks as $link) {
         $url = htmlspecialchars($link['url']);
         $icon = htmlspecialchars($link['icon_class']);
-        echo "<a href=\"{$url}\" target=\"_blank\" rel=\"noopener\" aria-label=\"{$link['label']}\"><i class=\"{$icon}\"></i></a>\n";
+        $label = htmlspecialchars($link['label']);
+        echo "<a href=\"{$url}\" target=\"_blank\" rel=\"noopener\" aria-label=\"{$label}\" title=\"{$label}\"><i class=\"{$icon}\"></i></a>\n";
     }
     echo "</div>\n</div>\n";
     echo "</div>\n";

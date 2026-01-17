@@ -3,6 +3,11 @@ require_once __DIR__ . '/includes/bootstrap.php';
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/footer.php';
 
+$siteName = settings('site_name', 'Çiçek');
+$phone = settings('contact_phone');
+$email = settings('contact_email');
+$socialLinks = db()->query('SELECT * FROM social_links ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+
 render_header('İletişim');
 ?>
 <main class="container contact-page">
@@ -13,8 +18,32 @@ render_header('İletişim');
         </div>
         <div class="contact-card">
             <p><strong>Adres:</strong> <?= htmlspecialchars(settings('site_address')) ?></p>
-            <p><strong>Telefon:</strong> <?= htmlspecialchars(settings('contact_phone')) ?></p>
-            <p><strong>E-posta:</strong> <?= htmlspecialchars(settings('contact_email')) ?></p>
+            <p>
+                <strong>Telefon:</strong>
+                <a href="tel:<?= htmlspecialchars($phone) ?>" title="<?= htmlspecialchars($siteName) ?> Telefon Numarası">
+                    <?= htmlspecialchars($phone) ?>
+                </a>
+            </p>
+            <p>
+                <strong>E-posta:</strong>
+                <a href="mailto:<?= htmlspecialchars($email) ?>" title="<?= htmlspecialchars($siteName) ?> Mail Adresi">
+                    <?= htmlspecialchars($email) ?>
+                </a>
+            </p>
+            <?php if ($socialLinks): ?>
+                <div class="social-icons">
+                    <?php foreach ($socialLinks as $link): ?>
+                        <?php
+                        $url = htmlspecialchars($link['url']);
+                        $icon = htmlspecialchars($link['icon_class']);
+                        $label = htmlspecialchars($link['label']);
+                        ?>
+                        <a href="<?= $url ?>" target="_blank" rel="noopener" aria-label="<?= $label ?>" title="<?= $label ?>">
+                            <i class="<?= $icon ?>"></i>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
     <div class="contact-grid">
