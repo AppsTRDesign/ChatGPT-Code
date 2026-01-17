@@ -411,12 +411,16 @@ document.querySelectorAll('[data-delete-faq]').forEach((button) => {
 document.querySelectorAll('[data-delete-slider]').forEach((button) => {
   button.dataset.deleteId = button.dataset.deleteSlider;
 });
+document.querySelectorAll('[data-delete-campaign]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteCampaign;
+});
 
 bindDeleteButtons('[data-delete-product]', 'delete-product');
 bindDeleteButtons('[data-delete-page]', 'delete-page');
 bindDeleteButtons('[data-delete-category]', 'delete-category');
 bindDeleteButtons('[data-delete-faq]', 'delete-faq');
 bindDeleteButtons('[data-delete-slider]', 'delete-slider');
+bindDeleteButtons('[data-delete-campaign]', 'delete-campaign');
 
 const bindMediaDeleteButtons = (selector, action, payloadKey) => {
   document.querySelectorAll(selector).forEach((button) => {
@@ -455,6 +459,7 @@ bindMediaDeleteButtons('[data-delete-category-image]', 'category-image-delete', 
 bindMediaDeleteButtons('[data-delete-product-image]', 'product-image-delete', 'deleteProductImage');
 bindMediaDeleteButtons('[data-delete-product-gallery]', 'product-gallery-delete', 'deleteProductGallery');
 bindMediaDeleteButtons('[data-delete-setting-image]', 'setting-image-delete', 'deleteSettingImage');
+bindMediaDeleteButtons('[data-delete-campaign-image]', 'campaign-image-delete', 'deleteCampaignImage');
 
 const orderModal = document.getElementById('orderModal');
 const orderModalBody = document.getElementById('orderModalBody');

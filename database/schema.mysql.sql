@@ -168,6 +168,12 @@ CREATE TABLE sliders (
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE campaign_banners (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    image VARCHAR(255),
+    created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),

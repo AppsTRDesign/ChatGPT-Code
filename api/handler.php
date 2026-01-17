@@ -1145,6 +1145,46 @@ switch ($action) {
         }
         echo json_encode(['success' => true, 'message' => 'Slider kaydedildi.']);
         break;
+    case 'campaign':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $campaignId = (int) ($_POST['id'] ?? 0);
+        $image = handle_upload('image');
+        if ($campaignId) {
+            $stmt = db()->prepare('SELECT image FROM campaign_banners WHERE id = :id');
+            $stmt->execute(['id' => $campaignId]);
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$existing) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Kampanya bulunamadı.']);
+                break;
+            }
+            $currentImage = $existing['image'] ?? null;
+            if ($image) {
+                delete_upload($currentImage);
+                $currentImage = $image;
+            }
+            if (!$currentImage) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Görsel yükleyin.']);
+                break;
+            }
+            $updateStmt = db()->prepare('UPDATE campaign_banners SET image = :image WHERE id = :id');
+            $updateStmt->execute(['image' => $currentImage, 'id' => $campaignId]);
+        } else {
+            if (!$image) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Görsel yükleyin.']);
+                break;
+            }
+            $stmt = db()->prepare('INSERT INTO campaign_banners (image, created_at) VALUES (:image, :created_at)');
+            $stmt->execute(['image' => $image, 'created_at' => date('Y-m-d H:i:s')]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Kampanya görseli kaydedildi.']);
+        break;
     case 'delete-product':
         if (!is_admin()) {
             http_response_code(401);
@@ -1194,6 +1234,41 @@ switch ($action) {
         $sliderId = (int) ($_POST['id'] ?? 0);
         db()->prepare('DELETE FROM sliders WHERE id = :id')->execute(['id' => $sliderId]);
         echo json_encode(['success' => true, 'message' => 'Slider silindi.']);
+        break;
+    case 'delete-campaign':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $campaignId = (int) ($_POST['id'] ?? 0);
+        $stmt = db()->prepare('SELECT image FROM campaign_banners WHERE id = :id');
+        $stmt->execute(['id' => $campaignId]);
+        $campaign = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($campaign) {
+            delete_upload($campaign['image'] ?? null);
+            db()->prepare('DELETE FROM campaign_banners WHERE id = :id')->execute(['id' => $campaignId]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Kampanya silindi.']);
+        break;
+    case 'campaign-image-delete':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $campaignId = (int) ($_POST['id'] ?? 0);
+        $stmt = db()->prepare('SELECT image FROM campaign_banners WHERE id = :id');
+        $stmt->execute(['id' => $campaignId]);
+        $campaign = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$campaign) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Kampanya bulunamadı.']);
+            break;
+        }
+        delete_upload($campaign['image'] ?? null);
+        db()->prepare('UPDATE campaign_banners SET image = NULL WHERE id = :id')->execute(['id' => $campaignId]);
+        echo json_encode(['success' => true, 'message' => 'Görsel silindi.']);
         break;
     case 'favorite':
         $user = current_user();
@@ -1314,4 +1389,23 @@ function store_upload(string $tmp, string $name): string
     $target = $uploadDir . '/' . $fileName;
     move_uploaded_file($tmp, $target);
     return '/storage/uploads/' . $fileName;
+}
+
+function delete_upload(?string $path): void
+{
+    if (!$path) {
+        return;
+    }
+    $baseDir = realpath(__DIR__ . '/..');
+    if (!$baseDir) {
+        return;
+    }
+    $fullPath = realpath($baseDir . '/' . ltrim($path, '/'));
+    if (!$fullPath) {
+        return;
+    }
+    $uploadsDir = realpath($baseDir . '/storage/uploads');
+    if ($uploadsDir && str_starts_with($fullPath, $uploadsDir)) {
+        @unlink($fullPath);
+    }
 }

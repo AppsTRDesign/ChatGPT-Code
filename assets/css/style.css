@@ -687,6 +687,79 @@ a {
   gap: 20px;
 }
 
+.category-slider-section {
+  padding-top: 10px;
+}
+
+.category-slider .splide__track {
+  padding: 8px 0;
+}
+
+.category-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--text-color);
+}
+
+.category-pill-media {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid var(--theme-color);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #fff;
+  color: var(--theme-color);
+  font-size: 1.6rem;
+}
+
+.category-pill-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.category-pill-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.campaign-section .container {
+  display: grid;
+  gap: 16px;
+}
+
+.campaign-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.campaign-card img {
+  width: 100%;
+  display: block;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.campaign-slider {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .campaign-grid {
+    display: none;
+  }
+
+  .campaign-slider {
+    display: block;
+  }
+}
+
 .category-card {
   background: #fff;
   border-radius: 18px;

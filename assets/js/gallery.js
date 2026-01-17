@@ -39,6 +39,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }).mount();
   }
 
+  const categorySlider = document.getElementById('categorySlider');
+  if (categorySlider && window.Splide) {
+    new Splide(categorySlider, {
+      perPage: 8,
+      gap: '1rem',
+      pagination: false,
+      arrows: true,
+      breakpoints: {
+        1200: { perPage: 6 },
+        900: { perPage: 5 },
+        700: { perPage: 4 },
+        560: { perPage: 3 },
+        420: { perPage: 2 },
+      },
+    }).mount();
+  }
+
   if (window.GLightbox) {
     GLightbox({ selector: '.lightbox' });
   }
@@ -61,6 +78,17 @@ document.addEventListener('DOMContentLoaded', () => {
       gap: '1rem',
       arrows: true,
       pagination: true,
+    }).mount();
+  }
+
+  const campaignSlider = document.getElementById('campaignSlider');
+  if (campaignSlider && window.Splide) {
+    new Splide(campaignSlider, {
+      type: 'loop',
+      perPage: 1,
+      gap: '1rem',
+      pagination: true,
+      arrows: true,
     }).mount();
   }
 });

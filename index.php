@@ -26,6 +26,8 @@ $topVisited = $pdo->query("SELECT products.*, (SELECT AVG(rating) FROM reviews W
 $topFavorited = $pdo->query("SELECT products.*, COUNT(favorites.id) as favorite_count FROM products LEFT JOIN favorites ON favorites.product_id = products.id GROUP BY products.id ORDER BY favorite_count DESC LIMIT {$favoritedLimit}")->fetchAll(PDO::FETCH_ASSOC);
 $discountedProducts = $pdo->query("SELECT products.* FROM products WHERE discount_value > 0 AND discount_type IS NOT NULL ORDER BY created_at DESC LIMIT {$discountedLimit}")->fetchAll(PDO::FETCH_ASSOC);
 $sliders = $pdo->query('SELECT * FROM sliders WHERE is_active = 1 ORDER BY created_at DESC')->fetchAll(PDO::FETCH_ASSOC);
+$categories = $pdo->query('SELECT * FROM categories WHERE parent_id IS NOT NULL ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
+$campaignBanners = $pdo->query("SELECT * FROM campaign_banners WHERE image IS NOT NULL AND image != '' ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 $user = current_user();
 $favoriteMap = [];
 if ($user) {
@@ -76,6 +78,62 @@ render_header('Ana Sayfa');
                                     </div>
                                     <div class="hero-image">
                                         <img loading="lazy" src="<?= htmlspecialchars($slider['image'] ?: '/assets/images/placeholder.svg') ?>" alt="<?= htmlspecialchars($slider['title']) ?>" title="<?= htmlspecialchars($slider['title']) ?>">
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($categories): ?>
+        <section class="section category-slider-section">
+            <div class="container">
+                <div class="splide category-slider" id="categorySlider">
+                    <div class="splide__track">
+                        <ul class="splide__list">
+                            <?php foreach ($categories as $category): ?>
+                                <li class="splide__slide">
+                                    <a class="category-pill" href="<?= category_url($category) ?>" title="<?= htmlspecialchars($category['name']) ?>">
+                                        <span class="category-pill-media">
+                                            <?php if (!empty($category['image'])): ?>
+                                                <img loading="lazy" src="<?= htmlspecialchars($category['image']) ?>" alt="<?= htmlspecialchars($category['name']) ?>">
+                                            <?php elseif (!empty($category['icon'])): ?>
+                                                <i class="<?= htmlspecialchars($category['icon']) ?>"></i>
+                                            <?php else: ?>
+                                                <i class="fa-regular fa-circle"></i>
+                                            <?php endif; ?>
+                                        </span>
+                                        <span class="category-pill-title"><?= htmlspecialchars($category['name']) ?></span>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($campaignBanners): ?>
+        <section class="section campaign-section">
+            <div class="container">
+                <div class="campaign-grid">
+                    <?php foreach ($campaignBanners as $banner): ?>
+                        <div class="campaign-card">
+                            <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="Kampanya Görseli">
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="campaign-slider splide" id="campaignSlider">
+                    <div class="splide__track">
+                        <ul class="splide__list">
+                            <?php foreach ($campaignBanners as $banner): ?>
+                                <li class="splide__slide">
+                                    <div class="campaign-card">
+                                        <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="Kampanya Görseli">
                                     </div>
                                 </li>
                             <?php endforeach; ?>

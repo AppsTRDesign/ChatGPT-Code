@@ -170,6 +170,12 @@ CREATE TABLE sliders (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE campaign_banners (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    image TEXT,
+    created_at TEXT NOT NULL
+);
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),
