@@ -170,6 +170,8 @@ CREATE TABLE sliders (
 
 CREATE TABLE campaign_banners (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(190) NOT NULL,
+    url VARCHAR(255),
     image VARCHAR(255),
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

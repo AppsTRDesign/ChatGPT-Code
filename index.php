@@ -122,8 +122,18 @@ render_header('Ana Sayfa');
             <div class="container">
                 <div class="campaign-grid">
                     <?php foreach ($campaignBanners as $banner): ?>
+                        <?php
+                        $campaignTitle = htmlspecialchars($banner['title'] ?? 'Kampanya');
+                        $campaignUrl = trim((string) ($banner['url'] ?? ''));
+                        ?>
                         <div class="campaign-card">
-                            <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="Kampanya Görseli">
+                            <?php if ($campaignUrl): ?>
+                                <a href="<?= htmlspecialchars($campaignUrl) ?>" title="<?= $campaignTitle ?>">
+                                    <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="<?= $campaignTitle ?>" title="<?= $campaignTitle ?>">
+                                </a>
+                            <?php else: ?>
+                                <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="<?= $campaignTitle ?>" title="<?= $campaignTitle ?>">
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -131,9 +141,19 @@ render_header('Ana Sayfa');
                     <div class="splide__track">
                         <ul class="splide__list">
                             <?php foreach ($campaignBanners as $banner): ?>
+                                <?php
+                                $campaignTitle = htmlspecialchars($banner['title'] ?? 'Kampanya');
+                                $campaignUrl = trim((string) ($banner['url'] ?? ''));
+                                ?>
                                 <li class="splide__slide">
                                     <div class="campaign-card">
-                                        <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="Kampanya Görseli">
+                                        <?php if ($campaignUrl): ?>
+                                            <a href="<?= htmlspecialchars($campaignUrl) ?>" title="<?= $campaignTitle ?>">
+                                                <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="<?= $campaignTitle ?>" title="<?= $campaignTitle ?>">
+                                            </a>
+                                        <?php else: ?>
+                                            <img loading="lazy" src="<?= htmlspecialchars($banner['image']) ?>" alt="<?= $campaignTitle ?>" title="<?= $campaignTitle ?>">
+                                        <?php endif; ?>
                                     </div>
                                 </li>
                             <?php endforeach; ?>

@@ -1152,6 +1152,13 @@ switch ($action) {
             break;
         }
         $campaignId = (int) ($_POST['id'] ?? 0);
+        $title = trim($_POST['title'] ?? '');
+        $url = trim($_POST['url'] ?? '');
+        if ($title === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Başlık gerekli.']);
+            break;
+        }
         $image = handle_upload('image');
         if ($campaignId) {
             $stmt = db()->prepare('SELECT image FROM campaign_banners WHERE id = :id');
@@ -1172,16 +1179,26 @@ switch ($action) {
                 echo json_encode(['success' => false, 'message' => 'Görsel yükleyin.']);
                 break;
             }
-            $updateStmt = db()->prepare('UPDATE campaign_banners SET image = :image WHERE id = :id');
-            $updateStmt->execute(['image' => $currentImage, 'id' => $campaignId]);
+            $updateStmt = db()->prepare('UPDATE campaign_banners SET title = :title, url = :url, image = :image WHERE id = :id');
+            $updateStmt->execute([
+                'title' => $title,
+                'url' => $url ?: null,
+                'image' => $currentImage,
+                'id' => $campaignId,
+            ]);
         } else {
             if (!$image) {
                 http_response_code(422);
                 echo json_encode(['success' => false, 'message' => 'Görsel yükleyin.']);
                 break;
             }
-            $stmt = db()->prepare('INSERT INTO campaign_banners (image, created_at) VALUES (:image, :created_at)');
-            $stmt->execute(['image' => $image, 'created_at' => date('Y-m-d H:i:s')]);
+            $stmt = db()->prepare('INSERT INTO campaign_banners (title, url, image, created_at) VALUES (:title, :url, :image, :created_at)');
+            $stmt->execute([
+                'title' => $title,
+                'url' => $url ?: null,
+                'image' => $image,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
         }
         echo json_encode(['success' => true, 'message' => 'Kampanya görseli kaydedildi.']);
         break;

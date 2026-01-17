@@ -172,6 +172,8 @@ CREATE TABLE sliders (
 
 CREATE TABLE campaign_banners (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    url TEXT,
     image TEXT,
     created_at TEXT NOT NULL
 );

@@ -31,6 +31,12 @@ admin_header('Kampanya Görselleri');
     <form class="admin-form" data-ajax="campaign" enctype="multipart/form-data" method="post">
         <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="id" value="<?= (int) ($campaignData['id'] ?? 0) ?>">
+        <label>Kampanya Başlığı
+            <input type="text" name="title" value="<?= htmlspecialchars($campaignData['title'] ?? '') ?>" required>
+        </label>
+        <label>Kampanya Linki
+            <input type="url" name="url" value="<?= htmlspecialchars($campaignData['url'] ?? '') ?>" placeholder="https://">
+        </label>
         <label>Kampanya Görseli
             <input type="file" name="image" <?= $campaignData ? '' : 'required' ?>>
         </label>
@@ -49,6 +55,8 @@ admin_header('Kampanya Görselleri');
         <thead>
             <tr>
                 <th>Görsel</th>
+                <th>Başlık</th>
+                <th>Link</th>
                 <th>Eklenme</th>
                 <th>İşlem</th>
             </tr>
@@ -59,6 +67,14 @@ admin_header('Kampanya Görselleri');
                     <td>
                         <?php if (!empty($campaign['image'])): ?>
                             <img src="<?= htmlspecialchars($campaign['image']) ?>" alt="Kampanya Görseli" style="width: 120px; height: 70px; object-fit: cover; border-radius: 12px;">
+                        <?php else: ?>
+                            -
+                        <?php endif; ?>
+                    </td>
+                    <td><?= htmlspecialchars($campaign['title'] ?? '') ?></td>
+                    <td>
+                        <?php if (!empty($campaign['url'])): ?>
+                            <a href="<?= htmlspecialchars($campaign['url']) ?>" target="_blank" rel="noopener">Link</a>
                         <?php else: ?>
                             -
                         <?php endif; ?>
