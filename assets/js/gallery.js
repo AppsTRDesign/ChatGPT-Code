@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (categorySlider && window.Splide) {
     new Splide(categorySlider, {
       perPage: 8,
-      gap: '1rem',
+      gap: '0.6rem',
       pagination: false,
       arrows: true,
       breakpoints: {

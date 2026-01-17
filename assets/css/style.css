@@ -692,21 +692,21 @@ a {
 }
 
 .category-slider .splide__track {
-  padding: 8px 0;
+  padding: 6px 0;
 }
 
 .category-pill {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: center;
   color: var(--text-color);
 }
 
 .category-pill-media {
-  width: 72px;
-  height: 72px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   border: 2px solid var(--theme-color);
   display: grid;
@@ -714,7 +714,7 @@ a {
   overflow: hidden;
   background: #fff;
   color: var(--theme-color);
-  font-size: 1.6rem;
+  font-size: 1.85rem;
 }
 
 .category-pill-media img {
@@ -724,7 +724,7 @@ a {
 }
 
 .category-pill-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 500;
 }
 
