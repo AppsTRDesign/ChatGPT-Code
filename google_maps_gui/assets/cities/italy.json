@@ -1,0 +1,12 @@
+[
+  {"name": "roma", "latitude": "41.9028", "longitude": "12.4964"},
+  {"name": "milano", "latitude": "45.4642", "longitude": "9.1900"},
+  {"name": "napoli", "latitude": "40.8518", "longitude": "14.2681"},
+  {"name": "torino", "latitude": "45.0703", "longitude": "7.6869"},
+  {"name": "palermo", "latitude": "38.1157", "longitude": "13.3615"},
+  {"name": "genova", "latitude": "44.4056", "longitude": "8.9463"},
+  {"name": "bologna", "latitude": "44.4949", "longitude": "11.3426"},
+  {"name": "firenze", "latitude": "43.7696", "longitude": "11.2558"},
+  {"name": "bari", "latitude": "41.1171", "longitude": "16.8719"},
+  {"name": "catania", "latitude": "37.5079", "longitude": "15.0830"}
+]
