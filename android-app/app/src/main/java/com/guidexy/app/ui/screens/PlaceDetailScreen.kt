@@ -2101,6 +2101,7 @@ private fun SocialLinkCard(link: PlaceSocialDto) {
     val label = link.label.ifBlank { link.url }
     val icon = socialIconForLabel(label)
     val context = LocalContext.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -2120,17 +2121,30 @@ private fun SocialLinkCard(link: PlaceSocialDto) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(icon, style = MaterialTheme.typography.titleMedium)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
             Column(modifier = Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.titleSmall)
                 Text(
-                    link.url,
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = link.url,
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(Icons.Default.Link, contentDescription = null)
+            Icon(
+                imageVector = Icons.Default.Link,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -2944,17 +2958,17 @@ private fun groupServices(knowsAbout: List<PlaceKnowsAboutDto>): List<ServiceGro
     }
 }
 
-private fun socialIconForLabel(label: String): String {
+private fun socialIconForLabel(label: String): ImageVector {
     val l = label.lowercase()
     return when {
-        l.contains("instagram") -> "📸"
-        l.contains("facebook") -> "📘"
-        l.contains("twitter") || l.contains("x") -> "𝕏"
-        l.contains("youtube") -> "▶️"
-        l.contains("tiktok") -> "🎵"
-        l.contains("linkedin") -> "💼"
-        l.contains("whatsapp") -> "💬"
-        else -> "🌐"
+        l.contains("instagram") -> Icons.Filled.CameraAlt
+        l.contains("facebook") -> Icons.Filled.Facebook
+        l.contains("twitter") || l.contains("x") -> Icons.Filled.AlternateEmail
+        l.contains("youtube") -> Icons.Filled.PlayCircleFilled
+        l.contains("tiktok") -> Icons.Filled.MusicNote
+        l.contains("linkedin") -> Icons.Filled.Work
+        l.contains("whatsapp") -> Icons.Filled.Chat
+        else -> Icons.Filled.Language
     }
 }
 
