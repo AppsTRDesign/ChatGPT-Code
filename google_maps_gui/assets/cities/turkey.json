@@ -1,0 +1,14 @@
+[
+  {"name": "istanbul", "latitude": "41.0082", "longitude": "28.9784"},
+  {"name": "ankara", "latitude": "39.9208", "longitude": "32.8541"},
+  {"name": "izmir", "latitude": "38.4237", "longitude": "27.1428"},
+  {"name": "bursa", "latitude": "40.1826", "longitude": "29.0669"},
+  {"name": "antalya", "latitude": "36.8969", "longitude": "30.7133"},
+  {"name": "adana", "latitude": "36.9914", "longitude": "35.3308"},
+  {"name": "gaziantep", "latitude": "37.0662", "longitude": "37.3833"},
+  {"name": "konya", "latitude": "37.8746", "longitude": "32.4932"},
+  {"name": "kayseri", "latitude": "38.7225", "longitude": "35.4875"},
+  {"name": "mersin", "latitude": "36.8121", "longitude": "34.6415"},
+  {"name": "diyarbakır", "latitude": "37.9220", "longitude": "40.2100"},
+  {"name": "eskisehir", "latitude": "39.7667", "longitude": "30.5256"}
+]
