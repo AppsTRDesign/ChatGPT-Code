@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1063276280060",
+    "project_id": "guidexy-maps",
+    "storage_bucket": "guidexy-maps.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1063276280060:android:ece179d9ff9d5c91a87f79",
+        "android_client_info": {
+          "package_name": "com.guidexy.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1063276280060-v7d5cmbr8vqrpu3jnu484gkbo2dsoqpl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.guidexy.app",
+            "certificate_hash": "a107d2ae4700c95f58ad3518433fb8dc446f862c"
+          }
+        },
+        {
+          "client_id": "1063276280060-ufkg168easlt949km6r6bk7s3u6bg8af.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBabLiwgeRFBUjGTQWYjnG7mGcPvunxfSQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1063276280060-ufkg168easlt949km6r6bk7s3u6bg8af.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
