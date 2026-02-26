@@ -9,6 +9,40 @@ function start_session(): void
     }
 }
 
+function available_languages(): array
+{
+    static $cache = null;
+
+    if (is_array($cache)) {
+        return $cache;
+    }
+
+    try {
+        $rows = db()->query('SELECT code, name FROM languages WHERE is_active = 1 ORDER BY sort_order, code')->fetchAll();
+        if ($rows) {
+            $cache = [];
+            foreach ($rows as $row) {
+                $cache[$row['code']] = $row['name'];
+            }
+
+            return $cache;
+        }
+    } catch (Throwable $e) {
+    }
+
+    $cache = [];
+    foreach (SUPPORTED_LANGS as $code) {
+        $cache[$code] = strtoupper($code);
+    }
+
+    return $cache;
+}
+
+function supported_langs(): array
+{
+    return array_keys(available_languages());
+}
+
 function detect_browser_lang(array $available): string
 {
     $header = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
@@ -26,16 +60,17 @@ function detect_browser_lang(array $available): string
 function current_lang(): string
 {
     start_session();
+    $available = supported_langs();
 
-    if (!empty($_GET['lang']) && in_array($_GET['lang'], SUPPORTED_LANGS, true)) {
+    if (!empty($_GET['lang']) && in_array($_GET['lang'], $available, true)) {
         $_SESSION['lang'] = $_GET['lang'];
     }
 
-    if (!empty($_SESSION['lang']) && in_array($_SESSION['lang'], SUPPORTED_LANGS, true)) {
+    if (!empty($_SESSION['lang']) && in_array($_SESSION['lang'], $available, true)) {
         return $_SESSION['lang'];
     }
 
-    $lang = detect_browser_lang(SUPPORTED_LANGS);
+    $lang = detect_browser_lang($available);
     $_SESSION['lang'] = $lang;
 
     return $lang;
@@ -58,7 +93,7 @@ function seo_slug(string $text): string
     $text = preg_replace('/[^a-z0-9]+/i', '-', $text) ?? '';
     $text = trim($text, '-');
 
-    return $text !== '' ? $text : 'sayfa';
+    return $text !== '' ? $text : 'page';
 }
 
 function csrf_token(): string

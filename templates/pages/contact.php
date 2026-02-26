@@ -1,6 +1,7 @@
 <?php $cfg = settings(); ?>
 <section class="container section">
   <h2><?= t('front', 'contact') ?></h2>
+  <p class="subtext"><?= t('front', 'contact_desc') ?></p>
   <div class="grid-2">
     <div class="panel">
       <p><strong><?= t('front', 'address') ?>:</strong> <?= htmlspecialchars($cfg['company_address'] ?? '-', ENT_QUOTES) ?></p>

@@ -1,5 +1,6 @@
 <?php
 /** @var array<string,string> $settings */
+$languages = available_languages();
 ?>
 <!doctype html>
 <html lang="<?= htmlspecialchars($lang, ENT_QUOTES) ?>">
@@ -13,8 +14,18 @@
   <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="container topbar-inner">
+<header class="site-header">
+  <div class="header-strip">
+    <div class="container strip-inner">
+      <p><?= t('front', 'top_message') ?></p>
+      <div class="lang-switch">
+        <?php foreach ($languages as $code => $name): ?>
+          <a class="<?= $code === $lang ? 'active' : '' ?>" href="?lang=<?= htmlspecialchars($code, ENT_QUOTES) ?>"><?= htmlspecialchars(strtoupper($code), ENT_QUOTES) ?></a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+  <div class="container nav-shell">
     <a class="logo" href="/"><img src="<?= htmlspecialchars($settings['logo_path'] ?? 'https://dummyimage.com/180x45/ffcc00/111&text=CargoAfrik', ENT_QUOTES) ?>" alt="logo"></a>
     <nav class="desktop-menu">
       <a href="/kargo-takip"><?= t('front', 'track') ?></a>
@@ -24,7 +35,7 @@
         <a href="/sayfa/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
       <?php endforeach; ?>
     </nav>
-    <button id="mobileToggle">☰</button>
+    <button id="mobileToggle" class="mobile-toggle">☰</button>
   </div>
   <div class="mobile-menu" id="mobileMenu">
     <a href="/kargo-takip"><?= t('front', 'track') ?></a>
@@ -39,7 +50,16 @@
   <?php include __DIR__ . '/pages/' . $page . '.php'; ?>
 </main>
 <footer class="footer">
-  <div class="container"><?= htmlspecialchars($settings['company_name'] ?? 'CargoAfrik Logistics', ENT_QUOTES) ?> - <?= htmlspecialchars($settings['company_address'] ?? '-', ENT_QUOTES) ?></div>
+  <div class="container footer-grid">
+    <div>
+      <strong><?= htmlspecialchars($settings['company_name'] ?? 'CargoAfrik Logistics', ENT_QUOTES) ?></strong>
+      <p><?= htmlspecialchars($settings['company_address'] ?? '-', ENT_QUOTES) ?></p>
+    </div>
+    <div>
+      <p><?= t('front', 'email') ?>: <?= htmlspecialchars($settings['company_email'] ?? '-', ENT_QUOTES) ?></p>
+      <p><?= t('front', 'phone') ?>: <?= htmlspecialchars($settings['company_phone'] ?? '-', ENT_QUOTES) ?></p>
+    </div>
+  </div>
 </footer>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>

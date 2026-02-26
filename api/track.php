@@ -13,7 +13,7 @@ if (!verify_csrf($_POST['csrf'] ?? null)) {
 }
 
 if (strcasecmp($_SESSION['captcha_text'] ?? '', trim($_POST['captcha'] ?? '')) !== 0) {
-    json_response(false, 'Doğrulama kodu hatalı');
+    json_response(false, t('front', 'captcha_invalid'));
 }
 
 $number = trim($_POST['tracking_number'] ?? '');
@@ -22,10 +22,10 @@ $stmt->execute(['num' => $number]);
 $shipment = $stmt->fetch();
 
 if (!$shipment) {
-    json_response(false, 'Takip numarası bulunamadı');
+    json_response(false, t('front', 'tracking_not_found'));
 }
 
 $events = db()->prepare('SELECT status_code, status_note, city, country, latitude, longitude, created_at FROM shipment_events WHERE shipment_id = :id ORDER BY created_at DESC');
 $events->execute(['id' => $shipment['id']]);
 
-json_response(true, 'Kargo bulundu', ['shipment' => $shipment, 'events' => $events->fetchAll()]);
+json_response(true, t('front', 'tracking_found'), ['shipment' => $shipment, 'events' => $events->fetchAll()]);

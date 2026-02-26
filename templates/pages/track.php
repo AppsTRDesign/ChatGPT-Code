@@ -1,5 +1,6 @@
 <section class="container section">
   <h2><?= t('front', 'track') ?></h2>
+  <p class="subtext"><?= t('front', 'track_desc') ?></p>
   <form id="trackingForm" class="panel">
     <label><?= t('front', 'tracking_number') ?></label>
     <input type="text" name="tracking_number" required>

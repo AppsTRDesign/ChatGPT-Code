@@ -42,7 +42,7 @@ $tab = $_GET['tab'] ?? 'dashboard';
         <input type="hidden" name="csrf" value="<?= csrf_token() ?>">
         <input type="number" name="page_id" placeholder="Sayfa ID (güncelleme)">
         <input type="text" name="slug_source" placeholder="Başlık (slug üretmek için)" required>
-        <select name="lang_code" required><?php foreach (SUPPORTED_LANGS as $l): ?><option><?= $l ?></option><?php endforeach; ?></select>
+        <select name="lang_code" required><?php foreach (supported_langs() as $l): ?><option><?= htmlspecialchars($l, ENT_QUOTES) ?></option><?php endforeach; ?></select>
         <input type="text" name="title" placeholder="Başlık" required>
         <textarea name="content_html" rows="8" placeholder="HTML içerik" required></textarea>
         <button type="submit">Kaydet</button>
@@ -85,8 +85,12 @@ $tab = $_GET['tab'] ?? 'dashboard';
 
   <?php if ($tab === 'pricing'): ?>
     <div class="grid-2">
-      <form id="countryForm" class="panel"><h3>Ülke Ekle</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="name" placeholder="Ülke adı" required><button>Kaydet</button></form>
-      <form id="categoryForm" class="panel"><h3>Kategori Ekle</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="title" placeholder="Kategori" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form>
+      <form id="countryForm" class="panel"><h3>Ülke Ekle</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="name" placeholder="Varsayılan ülke adı (EN)" required><button>Kaydet</button></form>
+      <form id="categoryForm" class="panel"><h3>Kategori Ekle</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="title" placeholder="Varsayılan kategori (EN)" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form>
+    </div>
+    <div class="grid-2">
+      <form id="countryTranslationForm" class="panel"><h3>Ülke Çevirisi</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="country_id" placeholder="Ülke ID" required><select name="lang_code" required><?php foreach (supported_langs() as $l): ?><option><?= htmlspecialchars($l, ENT_QUOTES) ?></option><?php endforeach; ?></select><input name="name" placeholder="Çeviri ülke adı" required><button>Kaydet</button></form>
+      <form id="categoryTranslationForm" class="panel"><h3>Kategori Çevirisi</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="category_id" placeholder="Kategori ID" required><select name="lang_code" required><?php foreach (supported_langs() as $l): ?><option><?= htmlspecialchars($l, ENT_QUOTES) ?></option><?php endforeach; ?></select><input name="title" placeholder="Başlık" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form>
     </div>
     <form id="priceConfigForm" class="panel"><h3>Ülke + Kategori Ücret</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="country_id" placeholder="Ülke ID" required><input name="category_id" placeholder="Kategori ID" required><input name="price_amount" placeholder="Fiyat" required><button>Kaydet</button></form>
   <?php endif; ?>
@@ -110,7 +114,10 @@ $tab = $_GET['tab'] ?? 'dashboard';
   <?php endif; ?>
 
   <?php if ($tab === 'languages'): ?>
-    <form id="langForm" class="panel"><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="lang_code" placeholder="en"><input name="group_name" placeholder="front"><input name="key_name" placeholder="hero_title"><textarea name="text_value" placeholder="Metin"></textarea><button>Çeviri Kaydet</button></form>
+    <div class="grid-2">
+      <form id="languageForm" class="panel"><h3>Dil Ekle / Aktif Et</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="code" placeholder="es" required><input name="name" placeholder="Español" required><input name="sort_order" type="number" value="10"><button>Dil Kaydet</button></form>
+      <form id="langForm" class="panel"><h3>Metin Çevirisi</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="lang_code" placeholder="en"><input name="group_name" placeholder="front"><input name="key_name" placeholder="hero_title"><textarea name="text_value" placeholder="Metin"></textarea><button>Çeviri Kaydet</button></form>
+    </div>
   <?php endif; ?>
 
 </section>
@@ -119,7 +126,7 @@ $tab = $_GET['tab'] ?? 'dashboard';
 <script>
 const endpoint = (name) => '/admin/api/' + name + '.php';
 const ajaxForm = (id, api) => $(id).on('submit', function(e){e.preventDefault();$.post(endpoint(api), $(this).serialize(), function(res){res.ok?toastr.success(res.message):toastr.error(res.message);}, 'json');});
-ajaxForm('#pageForm','page_save');ajaxForm('#menuForm','menu_save');ajaxForm('#shipmentForm','shipment_save');ajaxForm('#eventForm','event_save');ajaxForm('#countryForm','country_save');ajaxForm('#categoryForm','category_save');ajaxForm('#priceConfigForm','price_save');ajaxForm('#settingsForm','settings_save');ajaxForm('#langForm','lang_save');
+ajaxForm('#pageForm','page_save');ajaxForm('#menuForm','menu_save');ajaxForm('#shipmentForm','shipment_save');ajaxForm('#eventForm','event_save');ajaxForm('#countryForm','country_save');ajaxForm('#categoryForm','category_save');ajaxForm('#countryTranslationForm','country_translation_save');ajaxForm('#categoryTranslationForm','category_translation_save');ajaxForm('#priceConfigForm','price_save');ajaxForm('#settingsForm','settings_save');ajaxForm('#languageForm','language_save');ajaxForm('#langForm','lang_save');
 </script>
 </body>
 </html>
