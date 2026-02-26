@@ -28,21 +28,21 @@ $languages = available_languages();
   <div class="container nav-shell">
     <a class="logo" href="/"><img src="<?= htmlspecialchars($settings['logo_path'] ?? 'https://dummyimage.com/180x45/ffcc00/111&text=CargoAfrik', ENT_QUOTES) ?>" alt="logo"></a>
     <nav class="desktop-menu">
-      <a href="/kargo-takip"><?= t('front', 'track') ?></a>
-      <a href="/fiyat-hesapla"><?= t('front', 'pricing') ?></a>
-      <a href="/iletisim"><?= t('front', 'contact') ?></a>
+      <a href="/tracking"><?= t('front', 'track') ?></a>
+      <a href="/pricing"><?= t('front', 'pricing') ?></a>
+      <a href="/contact"><?= t('front', 'contact') ?></a>
       <?php foreach ($menus as $item): ?>
-        <a href="/sayfa/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
+        <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
       <?php endforeach; ?>
     </nav>
     <button id="mobileToggle" class="mobile-toggle">☰</button>
   </div>
   <div class="mobile-menu" id="mobileMenu">
-    <a href="/kargo-takip"><?= t('front', 'track') ?></a>
-    <a href="/fiyat-hesapla"><?= t('front', 'pricing') ?></a>
-    <a href="/iletisim"><?= t('front', 'contact') ?></a>
+    <a href="/tracking"><?= t('front', 'track') ?></a>
+    <a href="/pricing"><?= t('front', 'pricing') ?></a>
+    <a href="/contact"><?= t('front', 'contact') ?></a>
     <?php foreach ($menus as $item): ?>
-      <a href="/sayfa/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
+      <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
     <?php endforeach; ?>
   </div>
 </header>

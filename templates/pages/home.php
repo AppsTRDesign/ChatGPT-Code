@@ -29,5 +29,5 @@
     <h2><?= t('front', 'cta_title') ?></h2>
     <p><?= t('front', 'cta_desc') ?></p>
   </div>
-  <a href="/fiyat-hesapla" class="cta-btn"><?= t('front', 'calculate') ?></a>
+  <a href="/pricing" class="cta-btn"><?= t('front', 'calculate') ?></a>
 </section>

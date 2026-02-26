@@ -6,7 +6,7 @@ $(function () {
   $('#quickTrack').on('submit', function (e) {
     e.preventDefault();
     const no = $(this).find('input[name="tracking_number"]').val();
-    window.location.href = '/kargo-takip?num=' + encodeURIComponent(no);
+    window.location.href = '/tracking?num=' + encodeURIComponent(no);
   });
 
   $('#countrySelect').on('change', function () {

@@ -14,13 +14,13 @@ $payload = [];
 $menus = [];
 
 try {
-    if (($segments[0] ?? '') === 'kargo-takip') {
+    if (($segments[0] ?? '') === 'tracking') {
         $page = 'track';
-    } elseif (($segments[0] ?? '') === 'fiyat-hesapla') {
+    } elseif (($segments[0] ?? '') === 'pricing') {
         $page = 'pricing';
-    } elseif (($segments[0] ?? '') === 'iletisim') {
+    } elseif (($segments[0] ?? '') === 'contact') {
         $page = 'contact';
-    } elseif (($segments[0] ?? '') === 'sayfa' && isset($segments[1], $segments[2])) {
+    } elseif (($segments[0] ?? '') === 'page' && isset($segments[1], $segments[2])) {
         $stmt = db()->prepare('SELECT p.id, pt.title, pt.content_html FROM pages p JOIN page_translations pt ON pt.page_id = p.id AND pt.lang_code = :lang WHERE p.id = :id AND p.slug = :slug AND p.is_active = 1');
         $stmt->execute(['lang' => $lang, 'id' => (int) $segments[1], 'slug' => $segments[2]]);
         $pageRow = $stmt->fetch();

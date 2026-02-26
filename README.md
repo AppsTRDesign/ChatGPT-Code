@@ -6,7 +6,7 @@ Plesk uyumlu, kök dizine kurulan ve `/admin` paneli ile yönetilen prodüksiyon
 - **Pro UI/UX**: modern, mobil uyumlu, premium görünüm.
 - **Çoklu dil sistemi**: tr/en/de/fr aktif; adminden yeni dil eklenebilir.
 - **Tam yönetilebilir metinler**: tüm kullanıcı metinleri `translations` tablosu üzerinden yönetilir.
-- **SEO URL**: `.htaccess` ile temiz linkler ve dinamik sayfalarda `/sayfa/{id}/{slug}`.
+- **SEO URL**: `.htaccess` ile temiz linkler ve dinamik sayfalarda `/page/{id}/{slug}`.
 - **Kargo takip**: captcha + ajax + toastr + event zaman çizelgesi.
 - **Fiyat hesaplama**: ülke + kategori + ücret; ülke/kategori çevirileri dahil.
 - **Admin yönetimi**:
