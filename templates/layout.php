@@ -31,6 +31,7 @@ $languages = available_languages();
       <a href="/tracking"><?= t('front', 'track') ?></a>
       <a href="/pricing"><?= t('front', 'pricing') ?></a>
       <a href="/contact"><?= t('front', 'contact') ?></a>
+    <a href="/active-shipments">Active Shipments</a>
       <?php foreach ($menus as $item): ?>
         <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
       <?php endforeach; ?>
@@ -41,6 +42,7 @@ $languages = available_languages();
     <a href="/tracking"><?= t('front', 'track') ?></a>
     <a href="/pricing"><?= t('front', 'pricing') ?></a>
     <a href="/contact"><?= t('front', 'contact') ?></a>
+    <a href="/active-shipments">Active Shipments</a>
     <?php foreach ($menus as $item): ?>
       <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
     <?php endforeach; ?>

@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS shipments (
   receiver_name VARCHAR(190),
   receiver_phone VARCHAR(60),
   receiver_address TEXT,
+  current_latitude DECIMAL(10,7) NULL,
+  current_longitude DECIMAL(10,7) NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL
 );
@@ -145,7 +147,9 @@ INSERT INTO settings (key_name, value) VALUES
 ('meta_description', 'Track shipments, estimate prices, and manage logistics globally.'),
 ('logo_path', 'https://dummyimage.com/180x45/ffcc00/111&text=CargoAfrik'),
 ('favicon_path', 'https://dummyimage.com/32x32/ffcc00/111&text=C'),
-('osm_embed_url', 'https://www.openstreetmap.org/export/embed.html?bbox=28.83%2C40.97%2C29.15%2C41.12&layer=mapnik')
+('company_latitude', '41.015137'),
+('company_longitude', '28.979530'),
+('yandex_api_key', 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6')
 ON DUPLICATE KEY UPDATE value=VALUES(value);
 
 INSERT INTO translations (lang_code, group_name, key_name, text_value) VALUES

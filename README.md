@@ -4,17 +4,17 @@ Plesk uyumlu, kök dizine kurulan ve `/admin` paneli ile yönetilen prodüksiyon
 
 ## Öne Çıkanlar
 - **Pro UI/UX**: modern, mobil uyumlu, premium görünüm.
+- **Dinamik Admin**: sayfa, menü, kargo, event, fiyatlama, dil, ayar ve admin şifre yönetimi.
 - **Çoklu dil sistemi**: tr/en/de/fr aktif; adminden yeni dil eklenebilir.
-- **Tam yönetilebilir metinler**: tüm kullanıcı metinleri `translations` tablosu üzerinden yönetilir.
+- **Tam yönetilebilir metinler**: tekil çeviri + JSON import/export.
 - **SEO URL**: `.htaccess` ile temiz linkler ve dinamik sayfalarda `/page/{id}/{slug}`.
-- **Kargo takip**: captcha + ajax + toastr + event zaman çizelgesi.
+- **Kargo takip**: captcha + ajax + toastr + Yandex harita güzergah çizimi.
 - **Fiyat hesaplama**: ülke + kategori + ücret; ülke/kategori çevirileri dahil.
-- **Admin yönetimi**:
-  - Sayfa ve menü yönetimi
-  - Kargo ve durum güncellemeleri
-  - Fiyatlandırma + çoklu dil çeviri yönetimi
-  - Site ayarları
-  - Dil ve metin yönetimi
+- **Yandex Maps entegrasyonu**:
+  - Site iletişim haritası
+  - Admin konum seçiciler (site ve kargo)
+  - İngilizce `active-shipments` canlı pin haritası (gemi ikonu SVG)
+- **Site ayarları**: logo/favicon dosya yükleme + kurumsal ve harita ayarları.
 
 ## Kurulum
 1. Veritabanı oluşturun.

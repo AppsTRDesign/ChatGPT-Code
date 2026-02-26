@@ -6,127 +6,145 @@ require_once __DIR__ . '/../app/bootstrap.php';
 require_admin();
 
 $tab = $_GET['tab'] ?? 'dashboard';
-?><!doctype html>
+$cfg = settings();
+$csrf = csrf_token();
+?>
+<!doctype html>
 <html lang="tr">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin Panel</title>
+  <title>CargoAfrik Admin</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
   <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/admin.css">
+  <script src="https://api-maps.yandex.ru/2.1/?lang=tr_TR"></script>
 </head>
-<body>
-<section class="container section">
-  <h1>Pro Admin Yönetimi</h1>
-  <p><a href="/admin/logout.php">Çıkış</a></p>
-  <nav class="desktop-menu" style="display:flex;flex-wrap:wrap">
-    <a href="?tab=dashboard">Dashboard</a>
-    <a href="?tab=pages">Sayfalar</a>
-    <a href="?tab=menus">Menüler</a>
-    <a href="?tab=shipments">Kargo Takip</a>
-    <a href="?tab=pricing">Fiyatlama</a>
-    <a href="?tab=settings">Site Ayarları</a>
-    <a href="?tab=languages">Diller</a>
+<body class="admin-body">
+<div class="admin-wrap">
+  <div class="admin-top">
+    <div class="admin-title">CargoAfrik Admin</div>
+    <a href="/admin/logout.php">Çıkış</a>
+  </div>
+
+  <nav class="admin-nav">
+    <?php $tabs=['dashboard'=>'Dashboard','pages'=>'Sayfa Yönetimi','menus'=>'Menü Yönetimi','shipments'=>'Kargo Yönetimi','pricing'=>'Fiyatlama Yönetimi','settings'=>'Site Ayarları','languages'=>'Dil Yönetimi','admin'=>'Admin Ayarları']; ?>
+    <?php foreach ($tabs as $k => $v): ?><a class="<?= $tab === $k ? 'active' : '' ?>" href="?tab=<?= $k ?>"><?= $v ?></a><?php endforeach; ?>
   </nav>
 
   <?php if ($tab === 'dashboard'): ?>
-    <div class="grid-2">
-      <div class="panel"><h3>Toplam Kargo</h3><strong><?= (int) db()->query('SELECT COUNT(*) FROM shipments')->fetchColumn() ?></strong></div>
-      <div class="panel"><h3>Toplam Sayfa</h3><strong><?= (int) db()->query('SELECT COUNT(*) FROM pages')->fetchColumn() ?></strong></div>
+    <div class="admin-grid">
+      <div class="admin-card"><h3>Toplam Kargo</h3><p><?= (int) db()->query('SELECT COUNT(*) FROM shipments')->fetchColumn() ?></p></div>
+      <div class="admin-card"><h3>Toplam Sayfa</h3><p><?= (int) db()->query('SELECT COUNT(*) FROM pages')->fetchColumn() ?></p></div>
+      <div class="admin-card admin-full"><h3>Aktif Kargolar Haritası</h3><p><a href="/active-shipments" target="_blank">İngilizce aktif kargo haritasını aç</a></p></div>
     </div>
   <?php endif; ?>
 
   <?php if ($tab === 'pages'): ?>
-    <div class="panel">
-      <h3>Sayfa Ekle / Güncelle</h3>
-      <form id="pageForm">
-        <input type="hidden" name="csrf" value="<?= csrf_token() ?>">
-        <input type="number" name="page_id" placeholder="Sayfa ID (güncelleme)">
-        <input type="text" name="slug_source" placeholder="Başlık (slug üretmek için)" required>
-        <select name="lang_code" required><?php foreach (supported_langs() as $l): ?><option><?= htmlspecialchars($l, ENT_QUOTES) ?></option><?php endforeach; ?></select>
-        <input type="text" name="title" placeholder="Başlık" required>
-        <textarea name="content_html" rows="8" placeholder="HTML içerik" required></textarea>
-        <button type="submit">Kaydet</button>
-      </form>
-      <div id="pagesList"></div>
+    <div class="admin-grid">
+      <div class="admin-card admin-full"><h3>Dinamik Sayfa Kaydet</h3>
+        <form id="pageForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="number" name="page_id" placeholder="Sayfa ID (opsiyonel)"><input type="text" name="slug_source" placeholder="Slug başlığı" required><select class="lang-options" name="lang_code"></select><input type="text" name="title" placeholder="Başlık" required><textarea name="content_html" rows="8" placeholder="HTML içerik" required></textarea><button>Kaydet</button></form>
+      </div>
     </div>
   <?php endif; ?>
 
   <?php if ($tab === 'menus'): ?>
-    <div class="panel">
-      <h3>Dinamik Menü Yönetimi</h3>
-      <form id="menuForm"><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="page_id" type="number" required placeholder="Sayfa ID"><input name="sort_order" type="number" value="1"><button>Ekle</button></form>
+    <div class="admin-grid">
+      <div class="admin-card"><h3>Menü Ekle</h3><form id="menuForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="menuPageId" name="page_id"></select><input type="number" name="sort_order" value="1"><button>Menüye Ekle</button></form></div>
     </div>
   <?php endif; ?>
 
   <?php if ($tab === 'shipments'): ?>
-    <div class="panel">
-      <h3>Kargo Takip Numarası Oluşturma</h3>
-      <form id="shipmentForm">
-        <input type="hidden" name="csrf" value="<?= csrf_token() ?>">
-        <input name="tracking_number" placeholder="Tracking no" required>
-        <input name="origin_country" placeholder="Çıkış Ülke" required>
-        <input name="origin_city" placeholder="Çıkış Şehir" required>
-        <input name="destination_country" placeholder="Varış Ülke" required>
-        <input name="destination_city" placeholder="Varış Şehir" required>
-        <input name="current_status" placeholder="Durum" required>
-        <textarea name="description" placeholder="Açıklama"></textarea>
-        <input name="sender_name" placeholder="Gönderici ad/soyad">
-        <input name="sender_company" placeholder="Gönderici şirket">
-        <input name="sender_phone" placeholder="Gönderici telefon">
-        <input name="receiver_name" placeholder="Alıcı ad/soyad">
-        <input name="receiver_phone" placeholder="Alıcı telefon">
-        <input name="receiver_address" placeholder="Alıcı adres">
-        <button>Kargo Kaydet</button>
-      </form>
-      <h4>Durum Güncelle</h4>
-      <form id="eventForm"><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="tracking_number" placeholder="Tracking no" required><input name="status_code" placeholder="status code" required><input name="status_note" placeholder="Açıklama"><input name="country" placeholder="Ülke"><input name="city" placeholder="Şehir"><input name="latitude" placeholder="Lat"><input name="longitude" placeholder="Lng"><button>Durum Ekle</button></form>
+    <div class="admin-grid">
+      <div class="admin-card">
+        <h3>Kargo Ekle</h3>
+        <form id="shipmentForm">
+          <input type="hidden" name="csrf" value="<?= $csrf ?>">
+          <input name="tracking_number" placeholder="Tracking no" required>
+          <input name="origin_country" placeholder="Çıkış ülke" required>
+          <input name="origin_city" placeholder="Çıkış şehir" required>
+          <input name="destination_country" placeholder="Varış ülke" required>
+          <input name="destination_city" placeholder="Varış şehir" required>
+          <input name="current_status" placeholder="Durum" required>
+          <textarea name="description" placeholder="Açıklama"></textarea>
+          <input name="sender_name" placeholder="Gönderici">
+          <input name="sender_company" placeholder="Gönderici şirket">
+          <input name="sender_phone" placeholder="Gönderici telefon">
+          <input name="receiver_name" placeholder="Alıcı">
+          <input name="receiver_phone" placeholder="Alıcı telefon">
+          <input name="receiver_address" placeholder="Alıcı adres">
+          <input id="shipmentLat" name="current_latitude" placeholder="Lat">
+          <input id="shipmentLng" name="current_longitude" placeholder="Lng">
+          <button>Kargo Kaydet</button>
+        </form>
+      </div>
+      <div class="admin-card"><h3>Yandex Harita Konum Seçici</h3><div id="mapPicker"></div></div>
+      <div class="admin-card admin-full">
+        <h3>Durum / Güzergah Event Ekle</h3>
+        <form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="shipmentTrackingSelect" name="tracking_number"></select><input name="status_code" placeholder="Status code" required><input name="status_note" placeholder="Açıklama"><input name="country" placeholder="Ülke"><input name="city" placeholder="Şehir"><input name="latitude" placeholder="Lat"><input name="longitude" placeholder="Lng"><button>Durum Ekle</button></form>
+      </div>
     </div>
   <?php endif; ?>
 
   <?php if ($tab === 'pricing'): ?>
-    <div class="grid-2">
-      <form id="countryForm" class="panel"><h3>Ülke Ekle</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="name" placeholder="Varsayılan ülke adı (EN)" required><button>Kaydet</button></form>
-      <form id="categoryForm" class="panel"><h3>Kategori Ekle</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="title" placeholder="Varsayılan kategori (EN)" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form>
+    <div class="admin-grid">
+      <div class="admin-card"><h3>Ülke Ekle</h3><form id="countryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input name="name" placeholder="Country name (EN)" required><button>Kaydet</button></form></div>
+      <div class="admin-card"><h3>Kategori Ekle</h3><form id="categoryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input name="title" placeholder="Category title (EN)" required><textarea name="description" placeholder="Description"></textarea><button>Kaydet</button></form></div>
+      <div class="admin-card"><h3>Ülke Çevirisi</h3><form id="countryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="countrySelectAdmin" name="country_id"></select><select class="lang-options" name="lang_code"></select><input name="name" placeholder="Çeviri ülke adı" required><button>Kaydet</button></form></div>
+      <div class="admin-card"><h3>Kategori Çevirisi</h3><form id="categoryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin" name="category_id"></select><select class="lang-options" name="lang_code"></select><input name="title" placeholder="Başlık" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form></div>
+      <div class="admin-card admin-full"><h3>Fiyat Ekle / Güncelle</h3><form id="priceConfigForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="priceCountryId" name="country_id"></select><select id="priceCategoryId" name="category_id"></select><input type="number" step="0.01" name="price_amount" placeholder="Ücret" required><button>Kaydet</button></form></div>
+      <div class="admin-card admin-full"><h3>Fiyat Listesi</h3><table class="list-table"><thead><tr><th>Ülke</th><th>Kategori</th><th>Fiyat</th></tr></thead><tbody id="pricingTableBody"></tbody></table></div>
     </div>
-    <div class="grid-2">
-      <form id="countryTranslationForm" class="panel"><h3>Ülke Çevirisi</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="country_id" placeholder="Ülke ID" required><select name="lang_code" required><?php foreach (supported_langs() as $l): ?><option><?= htmlspecialchars($l, ENT_QUOTES) ?></option><?php endforeach; ?></select><input name="name" placeholder="Çeviri ülke adı" required><button>Kaydet</button></form>
-      <form id="categoryTranslationForm" class="panel"><h3>Kategori Çevirisi</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="category_id" placeholder="Kategori ID" required><select name="lang_code" required><?php foreach (supported_langs() as $l): ?><option><?= htmlspecialchars($l, ENT_QUOTES) ?></option><?php endforeach; ?></select><input name="title" placeholder="Başlık" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form>
-    </div>
-    <form id="priceConfigForm" class="panel"><h3>Ülke + Kategori Ücret</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="country_id" placeholder="Ülke ID" required><input name="category_id" placeholder="Kategori ID" required><input name="price_amount" placeholder="Fiyat" required><button>Kaydet</button></form>
   <?php endif; ?>
 
   <?php if ($tab === 'settings'): ?>
-    <?php $cfg = settings(); ?>
-    <form id="settingsForm" class="panel">
-      <input type="hidden" name="csrf" value="<?= csrf_token() ?>">
-      <input name="site_name" value="<?= htmlspecialchars($cfg['site_name'] ?? '', ENT_QUOTES) ?>" placeholder="Site adı">
-      <input name="company_name" value="<?= htmlspecialchars($cfg['company_name'] ?? '', ENT_QUOTES) ?>" placeholder="Şirket adı">
-      <input name="company_email" value="<?= htmlspecialchars($cfg['company_email'] ?? '', ENT_QUOTES) ?>" placeholder="E-posta">
-      <input name="company_phone" value="<?= htmlspecialchars($cfg['company_phone'] ?? '', ENT_QUOTES) ?>" placeholder="Telefon">
-      <input name="company_address" value="<?= htmlspecialchars($cfg['company_address'] ?? '', ENT_QUOTES) ?>" placeholder="Adres">
-      <input name="meta_title" value="<?= htmlspecialchars($cfg['meta_title'] ?? '', ENT_QUOTES) ?>" placeholder="Meta title">
-      <input name="meta_description" value="<?= htmlspecialchars($cfg['meta_description'] ?? '', ENT_QUOTES) ?>" placeholder="Meta description">
-      <input name="logo_path" value="<?= htmlspecialchars($cfg['logo_path'] ?? '', ENT_QUOTES) ?>" placeholder="Logo URL">
-      <input name="favicon_path" value="<?= htmlspecialchars($cfg['favicon_path'] ?? '', ENT_QUOTES) ?>" placeholder="Favicon URL">
-      <input name="osm_embed_url" value="<?= htmlspecialchars($cfg['osm_embed_url'] ?? '', ENT_QUOTES) ?>" placeholder="OSM Embed URL">
-      <button>Kaydet</button>
-    </form>
-  <?php endif; ?>
+    <div class="admin-grid">
+      <div class="admin-card admin-full"><h3>Site Ayarları (Gruplu)</h3>
+        <form id="settingsForm" enctype="multipart/form-data">
+          <input type="hidden" name="csrf" value="<?= $csrf ?>">
+          <h4 class="admin-section-title">Genel</h4>
+          <input name="site_name" value="<?= htmlspecialchars($cfg['site_name'] ?? '', ENT_QUOTES) ?>" placeholder="Site adı">
+          <input name="meta_title" value="<?= htmlspecialchars($cfg['meta_title'] ?? '', ENT_QUOTES) ?>" placeholder="Meta title">
+          <input name="meta_description" value="<?= htmlspecialchars($cfg['meta_description'] ?? '', ENT_QUOTES) ?>" placeholder="Meta description">
 
-  <?php if ($tab === 'languages'): ?>
-    <div class="grid-2">
-      <form id="languageForm" class="panel"><h3>Dil Ekle / Aktif Et</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="code" placeholder="es" required><input name="name" placeholder="Español" required><input name="sort_order" type="number" value="10"><button>Dil Kaydet</button></form>
-      <form id="langForm" class="panel"><h3>Metin Çevirisi</h3><input type="hidden" name="csrf" value="<?= csrf_token() ?>"><input name="lang_code" placeholder="en"><input name="group_name" placeholder="front"><input name="key_name" placeholder="hero_title"><textarea name="text_value" placeholder="Metin"></textarea><button>Çeviri Kaydet</button></form>
+          <h4 class="admin-section-title">Kurumsal Bilgiler</h4>
+          <input name="company_name" value="<?= htmlspecialchars($cfg['company_name'] ?? '', ENT_QUOTES) ?>" placeholder="Şirket adı">
+          <input name="company_email" value="<?= htmlspecialchars($cfg['company_email'] ?? '', ENT_QUOTES) ?>" placeholder="E-posta">
+          <input name="company_phone" value="<?= htmlspecialchars($cfg['company_phone'] ?? '', ENT_QUOTES) ?>" placeholder="Telefon">
+          <input name="company_address" value="<?= htmlspecialchars($cfg['company_address'] ?? '', ENT_QUOTES) ?>" placeholder="Adres">
+
+          <h4 class="admin-section-title">Branding</h4>
+          <input type="file" name="logo_file" accept="image/*">
+          <input type="file" name="favicon_file" accept="image/*">
+          <input name="logo_path" value="<?= htmlspecialchars($cfg['logo_path'] ?? '', ENT_QUOTES) ?>" placeholder="Logo URL (opsiyonel)">
+          <input name="favicon_path" value="<?= htmlspecialchars($cfg['favicon_path'] ?? '', ENT_QUOTES) ?>" placeholder="Favicon URL (opsiyonel)">
+
+          <h4 class="admin-section-title">Yandex Map Konumu</h4>
+          <input id="companyLat" name="company_latitude" value="<?= htmlspecialchars($cfg['company_latitude'] ?? '41.01', ENT_QUOTES) ?>" placeholder="Company Lat">
+          <input id="companyLng" name="company_longitude" value="<?= htmlspecialchars($cfg['company_longitude'] ?? '28.97', ENT_QUOTES) ?>" placeholder="Company Lng">
+          <input name="yandex_api_key" value="<?= htmlspecialchars($cfg['yandex_api_key'] ?? 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6', ENT_QUOTES) ?>" placeholder="Yandex API Key">
+          <div id="settingsMap"></div>
+          <button>Ayarları Kaydet</button>
+        </form>
+      </div>
     </div>
   <?php endif; ?>
 
-</section>
+  <?php if ($tab === 'languages'): ?>
+    <div class="admin-grid">
+      <div class="admin-card"><h3>Dil Ekle</h3><form id="languageForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input name="code" placeholder="es" required><input name="name" placeholder="Español" required><input name="sort_order" type="number" value="10"><button>Kaydet</button></form></div>
+      <div class="admin-card"><h3>Tekil Çeviri Ekle</h3><form id="langForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select class="lang-options" name="lang_code"></select><input name="group_name" placeholder="front"><input name="key_name" placeholder="hero_title"><textarea name="text_value" placeholder="Metin"></textarea><button>Kaydet</button></form></div>
+      <div class="admin-card admin-full"><h3>JSON Çeviri Import/Export</h3><form id="translationJsonForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><textarea name="json_payload" rows="10" placeholder='{"en":{"front":{"hello":"Hello"}}}'></textarea><button>JSON Import</button></form><button id="exportTranslationsJson" type="button">JSON Export</button></div>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($tab === 'admin'): ?>
+    <div class="admin-grid">
+      <div class="admin-card"><h3>Admin Şifre Değiştir</h3><form id="adminPasswordForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input name="current_password" type="password" placeholder="Mevcut şifre" required><input name="new_password" type="password" placeholder="Yeni şifre" required><button>Şifreyi Güncelle</button></form></div>
+    </div>
+  <?php endif; ?>
+</div>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-<script>
-const endpoint = (name) => '/admin/api/' + name + '.php';
-const ajaxForm = (id, api) => $(id).on('submit', function(e){e.preventDefault();$.post(endpoint(api), $(this).serialize(), function(res){res.ok?toastr.success(res.message):toastr.error(res.message);}, 'json');});
-ajaxForm('#pageForm','page_save');ajaxForm('#menuForm','menu_save');ajaxForm('#shipmentForm','shipment_save');ajaxForm('#eventForm','event_save');ajaxForm('#countryForm','country_save');ajaxForm('#categoryForm','category_save');ajaxForm('#countryTranslationForm','country_translation_save');ajaxForm('#categoryTranslationForm','category_translation_save');ajaxForm('#priceConfigForm','price_save');ajaxForm('#settingsForm','settings_save');ajaxForm('#languageForm','language_save');ajaxForm('#langForm','lang_save');
-</script>
+<script src="/assets/admin/admin.js"></script>
 </body>
 </html>

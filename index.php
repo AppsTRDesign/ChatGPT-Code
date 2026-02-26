@@ -20,6 +20,8 @@ try {
         $page = 'pricing';
     } elseif (($segments[0] ?? '') === 'contact') {
         $page = 'contact';
+    } elseif (($segments[0] ?? '') === 'active-shipments') {
+        $page = 'active-shipments';
     } elseif (($segments[0] ?? '') === 'page' && isset($segments[1], $segments[2])) {
         $stmt = db()->prepare('SELECT p.id, pt.title, pt.content_html FROM pages p JOIN page_translations pt ON pt.page_id = p.id AND pt.lang_code = :lang WHERE p.id = :id AND p.slug = :slug AND p.is_active = 1');
         $stmt->execute(['lang' => $lang, 'id' => (int) $segments[1], 'slug' => $segments[2]]);

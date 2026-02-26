@@ -40,6 +40,19 @@ $(function () {
       toastr.success(res.message);
       const events = res.data.events.map((ev) => `<li><strong>${ev.status_code}</strong> - ${ev.status_note} (${ev.city}/${ev.country})</li>`).join('');
       $('#trackingResult').html(`<div class="panel"><h3>${res.data.shipment.tracking_number}</h3><p>${res.data.shipment.current_status}</p><ul>${events}</ul></div>`);
+
+      if (window.ymaps && document.getElementById('trackingMap')) {
+        ymaps.ready(function () {
+          const coords = res.data.events
+            .filter((ev) => ev.latitude && ev.longitude)
+            .map((ev) => [parseFloat(ev.latitude), parseFloat(ev.longitude)]);
+          if (!coords.length) return;
+          const map = new ymaps.Map('trackingMap', { center: coords[0], zoom: 5 });
+          const routeLine = new ymaps.Polyline(coords, {}, { strokeColor: '#1d4ed8', strokeWidth: 4, strokeOpacity: 0.8 });
+          map.geoObjects.add(routeLine);
+          coords.forEach((c) => map.geoObjects.add(new ymaps.Placemark(c)));
+        });
+      }
     }, 'json');
   });
 });
