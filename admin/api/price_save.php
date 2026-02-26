@@ -1,0 +1,1 @@
+<?php require_once __DIR__ . '/_init.php'; db()->prepare('INSERT INTO price_configs(country_id,category_id,price_amount) VALUES(:c,:k,:p) ON DUPLICATE KEY UPDATE price_amount=VALUES(price_amount)')->execute(['c'=>(int)$_POST['country_id'],'k'=>(int)$_POST['category_id'],'p'=>(float)$_POST['price_amount']]); json_response(true,'Fiyat kaydedildi');

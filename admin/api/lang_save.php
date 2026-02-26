@@ -1,0 +1,1 @@
+<?php require_once __DIR__ . '/_init.php'; db()->prepare('INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES(:l,:g,:k,:v) ON DUPLICATE KEY UPDATE text_value=VALUES(text_value)')->execute(['l'=>trim($_POST['lang_code']),'g'=>trim($_POST['group_name']),'k'=>trim($_POST['key_name']),'v'=>trim($_POST['text_value'])]); json_response(true,'Çeviri kaydedildi');

@@ -1,0 +1,15 @@
+RewriteEngine On
+RewriteBase /
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^admin$ /admin/index.php [L,QSA]
+RewriteRule ^admin/(.*)$ /admin/$1 [L,QSA]
+RewriteRule ^api/(.*)$ /api/$1 [L,QSA]
+RewriteRule ^kargo-takip$ /index.php [L,QSA]
+RewriteRule ^fiyat-hesapla$ /index.php [L,QSA]
+RewriteRule ^iletisim$ /index.php [L,QSA]
+RewriteRule ^sayfa/([0-9]+)/([a-zA-Z0-9-]+)$ /index.php [L,QSA]
+RewriteRule ^$ /index.php [L,QSA]

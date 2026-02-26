@@ -1,0 +1,1 @@
+<?php require_once __DIR__ . '/_init.php'; db()->prepare('INSERT INTO price_categories(title,description) VALUES(:t,:d)')->execute(['t'=>trim($_POST['title']),'d'=>trim($_POST['description']??'')]); json_response(true,'Kategori kaydedildi');

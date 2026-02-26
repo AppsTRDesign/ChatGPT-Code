@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../app/bootstrap.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    json_response(false, 'Invalid request');
+}
+
+if (!verify_csrf($_POST['csrf'] ?? null)) {
+    json_response(false, 'CSRF mismatch');
+}
+
+if (strcasecmp($_SESSION['captcha_text'] ?? '', trim($_POST['captcha'] ?? '')) !== 0) {
+    json_response(false, 'Doğrulama kodu hatalı');
+}
+
+$number = trim($_POST['tracking_number'] ?? '');
+$stmt = db()->prepare('SELECT * FROM shipments WHERE tracking_number = :num LIMIT 1');
+$stmt->execute(['num' => $number]);
+$shipment = $stmt->fetch();
+
+if (!$shipment) {
+    json_response(false, 'Takip numarası bulunamadı');
+}
+
+$events = db()->prepare('SELECT status_code, status_note, city, country, latitude, longitude, created_at FROM shipment_events WHERE shipment_id = :id ORDER BY created_at DESC');
+$events->execute(['id' => $shipment['id']]);
+
+json_response(true, 'Kargo bulundu', ['shipment' => $shipment, 'events' => $events->fetchAll()]);
