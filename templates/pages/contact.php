@@ -3,6 +3,7 @@ $cfg = settings();
 $lat = (float)($cfg['company_latitude'] ?? 41.01);
 $lng = (float)($cfg['company_longitude'] ?? 28.97);
 $ymKey = $cfg['yandex_api_key'] ?? '';
+$ymLang = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
 ?>
 <section class="container section">
   <h2><?= t('front', 'contact') ?></h2>
@@ -10,15 +11,15 @@ $ymKey = $cfg['yandex_api_key'] ?? '';
   <div class="contact-pro">
     <div class="panel contact-card">
       <h3><?= t('front', 'contact_card_title') ?></h3>
-      <p><strong><?= t('front', 'address') ?>:</strong> <?= htmlspecialchars($cfg['company_address'] ?? '-', ENT_QUOTES) ?></p>
-      <p><strong><?= t('front', 'phone') ?>:</strong> <?= htmlspecialchars($cfg['company_phone'] ?? '-', ENT_QUOTES) ?></p>
-      <p><strong><?= t('front', 'email') ?>:</strong> <?= htmlspecialchars($cfg['company_email'] ?? '-', ENT_QUOTES) ?></p>
-      <p><?= t('front', 'contact_card_desc') ?></p>
+      <div class="contact-row"><span class="label"><?= t('front', 'address') ?>:</span><span class="value"><?= htmlspecialchars($cfg['company_address'] ?? '-', ENT_QUOTES) ?></span></div>
+      <div class="contact-row"><span class="label"><?= t('front', 'phone') ?>:</span><span class="value"><?= htmlspecialchars($cfg['company_phone'] ?? '-', ENT_QUOTES) ?></span></div>
+      <div class="contact-row"><span class="label"><?= t('front', 'email') ?>:</span><span class="value"><?= htmlspecialchars($cfg['company_email'] ?? '-', ENT_QUOTES) ?></span></div>
+      <p class="contact-desc"><?= t('front', 'contact_card_desc') ?></p>
     </div>
     <div class="panel"><div id="contactMap" style="height:430px"></div></div>
   </div>
 </section>
-<script src="https://api-maps.yandex.ru/v3/?apikey=<?= htmlspecialchars($ymKey, ENT_QUOTES) ?>&lang=<?= htmlspecialchars($lang, ENT_QUOTES) ?>"></script>
+<script src="https://api-maps.yandex.ru/v3/?apikey=<?= htmlspecialchars($ymKey, ENT_QUOTES) ?>&lang=<?= htmlspecialchars($ymLang, ENT_QUOTES) ?>"></script>
 <script>
 (async function(){
   if(!window.ymaps3 || !document.getElementById('contactMap')) return;

@@ -58,6 +58,15 @@ CREATE TABLE IF NOT EXISTS menus (
   CONSTRAINT fk_menu_parent FOREIGN KEY (parent_id) REFERENCES menus(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS menu_translations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  menu_id INT NOT NULL,
+  lang_code VARCHAR(8) NOT NULL,
+  title VARCHAR(190) NOT NULL,
+  UNIQUE KEY uniq_menu_lang (menu_id, lang_code),
+  CONSTRAINT fk_menu_translations_menu FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS shipments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   tracking_number VARCHAR(60) UNIQUE NOT NULL,
@@ -109,6 +118,15 @@ CREATE TABLE IF NOT EXISTS country_translations (
   CONSTRAINT fk_country_translations_country FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE
 );
 
+
+CREATE TABLE IF NOT EXISTS transport_modes (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mode_key VARCHAR(50) NOT NULL UNIQUE,
+  title VARCHAR(120) NOT NULL,
+  multiplier DECIMAL(8,3) NOT NULL DEFAULT 1.000,
+  is_active TINYINT(1) NOT NULL DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS price_categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(190) NOT NULL,
@@ -136,11 +154,21 @@ CREATE TABLE IF NOT EXISTS price_configs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   country_id INT NOT NULL,
   category_id INT NOT NULL,
+  transport_mode_id INT NOT NULL,
   weight_prices_json TEXT NOT NULL,
-  UNIQUE KEY uniq_country_category(country_id, category_id),
+  UNIQUE KEY uniq_country_category_mode(country_id, category_id, transport_mode_id),
   CONSTRAINT fk_price_country FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE,
-  CONSTRAINT fk_price_category FOREIGN KEY (category_id) REFERENCES price_categories(id) ON DELETE CASCADE
+  CONSTRAINT fk_price_category FOREIGN KEY (category_id) REFERENCES price_categories(id) ON DELETE CASCADE,
+  CONSTRAINT fk_price_transport_mode FOREIGN KEY (transport_mode_id) REFERENCES transport_modes(id) ON DELETE CASCADE
 );
+
+
+INSERT INTO transport_modes (mode_key, title, multiplier, is_active) VALUES
+('road', 'Karayolu', 1.000, 1),
+('air', 'Havayolu', 1.800, 1),
+('sea', 'Denizyolu', 1.200, 1),
+('rail', 'Demiryolu', 1.400, 1)
+ON DUPLICATE KEY UPDATE title=VALUES(title), multiplier=VALUES(multiplier), is_active=VALUES(is_active);
 
 INSERT INTO languages (code, name, is_active, sort_order) VALUES
 ('tr', 'Türkçe', 1, 1),

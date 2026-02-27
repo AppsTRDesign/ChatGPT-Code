@@ -19,6 +19,19 @@
     </select>
     <label><?= t('front', 'category') ?></label>
     <select name="category_id" id="categorySelect" required></select>
+    <label>Taşıma Seçeneği</label>
+    <select name="transport_mode_id" id="transportModeSelect" required>
+      <option value="">--</option>
+      <?php
+      try {
+          $tmRows = db()->query('SELECT id,title FROM transport_modes WHERE is_active=1 ORDER BY id')->fetchAll();
+      } catch (Throwable $e) {
+          $tmRows = [];
+      }
+      foreach ($tmRows as $tm): ?>
+        <option value="<?= (int) $tm['id'] ?>"><?= htmlspecialchars($tm['title'], ENT_QUOTES) ?></option>
+      <?php endforeach; ?>
+    </select>
     <label>En (cm)</label><input type="number" step="0.01" name="en" required>
     <label>Boy (cm)</label><input type="number" step="0.01" name="boy" required>
     <label>Yükseklik (cm)</label><input type="number" step="0.01" name="yukseklik" required>

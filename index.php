@@ -41,18 +41,22 @@ try {
 
     $stmt = db()->prepare("SELECT m.id,m.item_type,m.page_id,m.system_key,m.title,m.url,m.parent_id,m.sort_order,
     p.slug,
-    COALESCE(pt.title, ptt.title) AS page_title
+    COALESCE(pt.title, ptt.title) AS page_title,
+    mt.title AS menu_title,
+    mtd.title AS menu_title_default
     FROM menus m
     LEFT JOIN pages p ON p.id = m.page_id AND p.is_active = 1
     LEFT JOIN page_translations pt ON pt.page_id = p.id AND pt.lang_code = :lang
     LEFT JOIN page_translations ptt ON ptt.page_id = p.id AND ptt.lang_code = :default_lang
+    LEFT JOIN menu_translations mt ON mt.menu_id = m.id AND mt.lang_code = :lang
+    LEFT JOIN menu_translations mtd ON mtd.menu_id = m.id AND mtd.lang_code = :default_lang
     WHERE m.is_active = 1
     ORDER BY COALESCE(m.parent_id,0), m.sort_order, m.id");
     $stmt->execute(['lang' => $lang, 'default_lang' => DEFAULT_LANG]);
     $menus = $stmt->fetchAll();
 
     foreach ($menus as &$menu) {
-        $menu['label'] = (string)($menu['title'] ?: $menu['page_title'] ?: ucfirst((string)$menu['system_key']));
+        $menu['label'] = (string)($menu['menu_title'] ?: $menu['menu_title_default'] ?: $menu['title'] ?: $menu['page_title'] ?: ucfirst((string)$menu['system_key']));
         if (($menu['item_type'] ?? '') === 'system') {
             $map = [
                 'tracking' => '/tracking',

@@ -29,14 +29,35 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
   <aside class="admin-sidebar" id="adminSidebar">
     <div class="brand-row"><div class="brand">CargoAfrik Admin</div><button type="button" id="mobileSideClose" class="mobile-side-close">✕</button></div>
     <a class="side-link <?= $tab==='dashboard'?'active':'' ?>" href="?tab=dashboard">Dashboard</a>
-    <a class="side-link <?= $tab==='pages'?'active':'' ?>" href="?tab=pages">Sayfa Ekle / Düzenle</a>
+    <div class="side-group <?= $tab==='pages'?'open':'' ?>">
+      <button type="button" class="side-toggle">Sayfa Yönetimi</button>
+      <div class="side-sub">
+        <a class="side-link <?= $tab==='pages' && ($sub===''||$sub==='list')?'active':'' ?>" href="?tab=pages&sub=list">Eklenen Sayfalar</a>
+        <a class="side-link <?= $tab==='pages' && $sub==='new'?'active':'' ?>" href="?tab=pages&sub=new">Yeni Sayfa Ekle</a>
+      </div>
+    </div>
     <a class="side-link <?= $tab==='menus'?'active':'' ?>" href="?tab=menus">Menü Yönetimi</a>
-    <a class="side-link <?= $tab==='shipments'?'active':'' ?>" href="?tab=shipments">Kargo Ekle / Yönet</a>
-    <a class="side-link <?= $tab==='countries'?'active':'' ?>" href="?tab=countries">Ülke Yönetimi</a>
+    <div class="side-group <?= $tab==='shipments'?'open':'' ?>">
+      <button type="button" class="side-toggle">Kargo Yönetimi</button>
+      <div class="side-sub">
+        <a class="side-link <?= $tab==='shipments' && ($sub===''||$sub==='list')?'active':'' ?>" href="?tab=shipments&sub=list">Eklenen Kargolar</a>
+        <a class="side-link <?= $tab==='shipments' && $sub==='new'?'active':'' ?>" href="?tab=shipments&sub=new">Yeni Kargo Ekle</a>
+        <a class="side-link <?= $tab==='shipments' && $sub==='status'?'active':'' ?>" href="?tab=shipments&sub=status">Durum Güncelle</a>
+      </div>
+    </div>
+    <div class="side-group <?= $tab==='countries'?'open':'' ?>">
+      <button type="button" class="side-toggle">Ülke Yönetimi</button>
+      <div class="side-sub">
+        <a class="side-link <?= $tab==='countries' && ($sub===''||$sub==='list')?'active':'' ?>" href="?tab=countries&sub=list">Eklenen Ülkeler</a>
+        <a class="side-link <?= $tab==='countries' && $sub==='new'?'active':'' ?>" href="?tab=countries&sub=new">Yeni Ülke Ekle</a>
+      </div>
+    </div>
     <div class="side-group <?= $tab==='pricing'?'open':'' ?>">
       <button type="button" class="side-toggle">Fiyatlama Yönetimi</button>
       <div class="side-sub">
-        <a class="side-link <?= $tab==='pricing' && ($sub===''||$sub==='category')?'active':'' ?>" href="?tab=pricing&sub=category">Kategori Ekle / Düzenle</a>
+        <a class="side-link <?= $tab==='pricing' && ($sub===''||$sub==='category-list')?'active':'' ?>" href="?tab=pricing&sub=category-list">Eklenen Kategoriler</a>
+        <a class="side-link <?= $tab==='pricing' && $sub==='category-new'?'active':'' ?>" href="?tab=pricing&sub=category-new">Kategori Ekle</a>
+        <a class="side-link <?= $tab==='pricing' && $sub==='transport'?'active':'' ?>" href="?tab=pricing&sub=transport">Taşıma Seçenekleri</a>
         <a class="side-link <?= $tab==='pricing' && $sub==='price'?'active':'' ?>" href="?tab=pricing&sub=price">Fiyat Ekle</a>
       </div>
     </div>
@@ -56,21 +77,24 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       </div>
     <?php endif; ?>
 
-    <?php if ($tab === 'pages'): ?>
+    <?php if ($tab === 'pages'): $pageSub = $sub ?: 'list'; ?>
       <div class="admin-grid">
-        <div class="admin-card admin-full"><h3>Dinamik Sayfa Ekle / Güncelle</h3>
-          <form id="pageForm">
-            <input type="hidden" name="csrf" value="<?= $csrf ?>">
-            <input type="number" name="page_id" placeholder="Sayfa ID (güncelleme)">
-            <input type="text" name="slug_source" placeholder="Slug başlığı" required>
-            <select class="lang-options" name="lang_code"></select>
-            <input type="text" name="title" placeholder="Başlık" required>
-            <div id="pageEditor" style="height:320px"></div>
-            <textarea id="pageEditorInput" name="content_html" style="display:none"></textarea>
-            <button>Kaydet</button>
-          </form>
-        </div>
-        <div class="admin-card admin-full"><h3>Eklenmiş Sayfalar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Başlık</th><th>Slug</th><th>Aksiyon</th></tr></thead><tbody id="pageTableBody"></tbody></table></div></div>
+        <?php if ($pageSub === 'list'): ?>
+          <div class="admin-card admin-full"><h3>Eklenmiş Sayfalar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Başlık</th><th>Slug</th><th>Aksiyon</th></tr></thead><tbody id="pageTableBody"></tbody></table></div></div>
+        <?php else: ?>
+          <div class="admin-card admin-full"><h3>Dinamik Sayfa Ekle / Güncelle</h3>
+            <form id="pageForm">
+              <input type="hidden" name="csrf" value="<?= $csrf ?>">
+              <label>Sayfa ID</label><input type="number" name="page_id" placeholder="Sayfa ID (güncelleme)">
+              <label>Slug Başlığı</label><input type="text" name="slug_source" placeholder="Slug başlığı" required>
+              <label>Dil</label><select class="lang-options" name="lang_code"></select>
+              <label>Başlık</label><input type="text" name="title" placeholder="Başlık" required>
+              <label>İçerik</label><div id="pageEditor" style="height:320px"></div>
+              <textarea id="pageEditorInput" name="content_html" style="display:none"></textarea>
+              <button>Kaydet</button>
+            </form>
+          </div>
+        <?php endif; ?>
       </div>
     <?php endif; ?>
 
@@ -100,6 +124,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
           <div id="menuTree" class="menu-tree"></div>
           <button id="saveMenuOrder" type="button">Menü Ağacını Kaydet</button>
         </div>
+        <div class="admin-card"><h3>Menü Dil Çevirisi</h3><form id="menuTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="menuTranslationId" name="menu_id"></select><select class="lang-options" name="lang_code"></select><label>Çeviri Başlığı</label><input name="title" placeholder="Menü başlığı çevirisi" required><button>Kaydet</button></form></div>
         <div class="admin-card">
           <h3>Eklenmiş Menü Öğeleri</h3>
           <div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Başlık</th><th>Tip</th><th>Üst Menü</th><th>Aksiyon</th></tr></thead><tbody id="menuTableBody"></tbody></table></div>
@@ -107,51 +132,61 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       </div>
     <?php endif; ?>
 
-    <?php if ($tab === 'shipments'): ?>
+    <?php if ($tab === 'shipments'): $shipSub = $sub ?: 'list'; ?>
       <div class="admin-grid">
-        <div class="admin-card">
-          <h3>Kargo Ekle / Düzenle</h3>
-          <form id="shipmentForm">
-            <input type="hidden" name="csrf" value="<?= $csrf ?>">
-            <select id="shipmentTrackingSelect" name="existing_tracking"><option value="">Yeni kayıt</option></select>
-            <input name="tracking_number" placeholder="Tracking no" required>
-            <div class="group-title">Rota</div>
-            <input name="origin_country" placeholder="Çıkış ülke" required><input name="origin_city" placeholder="Çıkış şehir" required>
-            <input name="destination_country" placeholder="Varış ülke" required><input name="destination_city" placeholder="Varış şehir" required>
-            <input name="current_status" placeholder="Durum" required><textarea name="description" placeholder="Açıklama"></textarea>
-            <div class="group-title">Gönderici</div>
-            <input name="sender_name" placeholder="Ad Soyad"><input name="sender_company" placeholder="Şirket"><input name="sender_phone" placeholder="Telefon">
-            <div class="group-title">Alıcı</div>
-            <input name="receiver_name" placeholder="Ad Soyad"><input name="receiver_phone" placeholder="Telefon"><input name="receiver_address" placeholder="Adres">
-            <input id="shipmentLat" name="current_latitude" placeholder="Lat"><input id="shipmentLng" name="current_longitude" placeholder="Lng">
-            <button>Kaydet / Güncelle</button>
-          </form>
-        </div>
-        <div class="admin-card"><h3>Yandex Konum Seçici</h3><div class="inline-2"><input id="mapSearchInput" placeholder="Adres ara"><button type="button" id="mapSearchBtn">Ara</button></div><div id="mapPicker"></div></div>
-        <div class="admin-card admin-full"><h3>Durum Güncelle</h3><form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="shipmentTrackingSelect2" name="tracking_number"></select><select name="status_code" id="statusCodeSelect" required></select><input name="status_note" placeholder="Açıklama"><input name="country" placeholder="Ülke"><input name="city" placeholder="Şehir"><input name="latitude" placeholder="Lat"><input name="longitude" placeholder="Lng"><button>Durum Ekle</button></form></div>
-        <div class="admin-card admin-full"><h3>Eklenmiş Kargolar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Tracking</th><th>Rota</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody id="shipmentTableBody"></tbody></table></div></div>
+        <?php if ($shipSub === 'list'): ?>
+          <div class="admin-card admin-full"><h3>Eklenmiş Kargolar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Tracking</th><th>Rota</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody id="shipmentTableBody"></tbody></table></div></div>
+        <?php elseif ($shipSub === 'status'): ?>
+          <div class="admin-card admin-full"><h3>Durum Güncelle</h3><form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Kargo</label><select id="shipmentTrackingSelect2" name="tracking_number"></select><label>Durum</label><select name="status_code" id="statusCodeSelect" required></select><label>Açıklama</label><input name="status_note" placeholder="Açıklama"><label>Ülke</label><input name="country" placeholder="Ülke"><label>Şehir</label><input name="city" placeholder="Şehir"><label>Lat</label><input id="eventLat" name="latitude" placeholder="Lat"><label>Lng</label><input id="eventLng" name="longitude" placeholder="Lng"><div class="inline-2"><input id="eventMapSearchInput" placeholder="Adres ara"><button type="button" id="eventMapSearchBtn">Ara</button></div><div id="eventMap"></div><button>Durum Ekle</button></form></div>
+        <?php else: ?>
+          <div class="admin-card"><h3>Kargo Ekle / Düzenle</h3>
+            <form id="shipmentForm">
+              <input type="hidden" name="csrf" value="<?= $csrf ?>">
+              <label>Kayıt Tipi</label><select id="shipmentTrackingSelect" name="existing_tracking"><option value="">Yeni kayıt</option></select>
+              <label>Tracking</label><input name="tracking_number" placeholder="Tracking no" required>
+              <div class="group-title">Rota</div>
+              <label>Çıkış Ülke</label><input name="origin_country" placeholder="Çıkış ülke" required><label>Çıkış Şehir</label><input name="origin_city" placeholder="Çıkış şehir" required>
+              <label>Varış Ülke</label><input name="destination_country" placeholder="Varış ülke" required><label>Varış Şehir</label><input name="destination_city" placeholder="Varış şehir" required>
+              <label>Durum</label><input name="current_status" placeholder="Durum" required><label>Açıklama</label><textarea name="description" placeholder="Açıklama"></textarea>
+              <div class="group-title">Gönderici</div>
+              <label>Ad Soyad</label><input name="sender_name" placeholder="Ad Soyad"><label>Şirket</label><input name="sender_company" placeholder="Şirket"><label>Telefon</label><input name="sender_phone" placeholder="Telefon">
+              <div class="group-title">Alıcı</div>
+              <label>Ad Soyad</label><input name="receiver_name" placeholder="Ad Soyad"><label>Telefon</label><input name="receiver_phone" placeholder="Telefon"><label>Adres</label><input name="receiver_address" placeholder="Adres">
+              <label>Lat</label><input id="shipmentLat" name="current_latitude" placeholder="Lat"><label>Lng</label><input id="shipmentLng" name="current_longitude" placeholder="Lng">
+              <button>Kaydet / Güncelle</button>
+            </form>
+          </div>
+          <div class="admin-card"><h3>Yandex Konum Seçici</h3><div class="inline-2"><input id="mapSearchInput" placeholder="Adres ara"><button type="button" id="mapSearchBtn">Ara</button></div><div id="mapPicker"></div></div>
+        <?php endif; ?>
       </div>
     <?php endif; ?>
 
-    <?php if ($tab === 'countries'): ?>
+    <?php if ($tab === 'countries'): $countrySub = $sub ?: 'list'; ?>
       <div class="admin-grid">
-        <div class="admin-card"><h3>Ülke Ekle / Düzenle</h3><form id="countryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="country_id"><input name="name" placeholder="Ülke adı" required><input name="currency_code" placeholder="Para birimi kodu (USD)" required><input name="currency_symbol" placeholder="Para birimi sembolü ($)" required><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select><button>Kaydet</button></form></div>
-        <div class="admin-card"><h3>Ülke Çevirisi</h3><form id="countryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="countrySelectAdmin2" name="country_id"></select><select class="lang-options" name="lang_code"></select><input name="name" placeholder="Çeviri ülke adı" required><button>Kaydet</button></form></div>
-        <div class="admin-card admin-full"><h3>Eklenen Ülkeler</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Ülke</th><th>Kod</th><th>Sembol</th><th>Aksiyon</th></tr></thead><tbody id="countryTableBody"></tbody></table></div></div>
+        <?php if ($countrySub === 'list'): ?>
+          <div class="admin-card admin-full"><h3>Eklenen Ülkeler</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Ülke</th><th>Kod</th><th>Sembol</th><th>Aksiyon</th></tr></thead><tbody id="countryTableBody"></tbody></table></div></div>
+        <?php else: ?>
+          <div class="admin-card"><h3>Ülke Ekle / Düzenle</h3><form id="countryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="country_id"><label>Ülke Adı</label><input name="name" placeholder="Ülke adı" required><label>Para Birimi Kodu</label><input name="currency_code" placeholder="Para birimi kodu (USD)" required><label>Para Birimi Sembolü</label><input name="currency_symbol" placeholder="Para birimi sembolü ($)" required><label>Durum</label><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select><button>Kaydet</button></form></div>
+          <div class="admin-card"><h3>Ülke Çevirisi</h3><form id="countryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Ülke</label><select id="countrySelectAdmin2" name="country_id"></select><label>Dil</label><select class="lang-options" name="lang_code"></select><label>Çeviri</label><input name="name" placeholder="Çeviri ülke adı" required><button>Kaydet</button></form></div>
+        <?php endif; ?>
       </div>
     <?php endif; ?>
 
-    <?php if ($tab === 'pricing'): $psub = $sub ?: 'category'; ?>
+    <?php if ($tab === 'pricing'): $psub = $sub ?: 'category-list'; ?>
       <div class="admin-grid">
-      <?php if ($psub === 'category'): ?>
-        <div class="admin-card"><h3>Kategori Ekle / Düzenle</h3><form id="categoryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin" name="category_id"><option value="">Yeni kategori</option></select><input name="title" placeholder="Kategori başlığı" required><textarea name="description" placeholder="Açıklama"></textarea><input name="mode_key" placeholder="Taşıma modu (air/sea/road/rail)" value="road" required><input type="number" step="0.001" name="mode_multiplier" placeholder="Çarpan" value="1" required><input type="number" step="0.01" name="divisor" placeholder="Divisor" value="3000" required><input type="number" step="0.001" name="fuel_rate" placeholder="Yakıt oranı (0.10)" value="0"><input type="number" step="0.01" name="cod_fee" placeholder="COD ücret" value="0"><input type="number" step="0.01" name="min_price" placeholder="Minimum ücret" value="0"><input type="number" step="0.01" name="extra_per_kg" placeholder="Ekstra kg ücreti" value="12"><button>Kaydet</button></form></div>
-        <div class="admin-card"><h3>Kategori Çevirisi</h3><form id="categoryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin2" name="category_id"></select><select class="lang-options" name="lang_code"></select><input name="title" placeholder="Başlık" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form></div>
-        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Kategori</th><th>Açıklama</th></tr></thead><tbody id="categoryTableBody"></tbody></table></div>
+      <?php if ($psub === 'category-list'): ?>
+        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Kategori</th><th>Açıklama</th><th>Aksiyon</th></tr></thead><tbody id="categoryTableBody"></tbody></table></div>
+      <?php elseif ($psub === 'category-new'): ?>
+        <div class="admin-card"><h3>Kategori Ekle / Düzenle</h3><form id="categoryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin" name="category_id"><option value="">Yeni kategori</option></select><label>Kategori Başlığı</label><input name="title" placeholder="Kategori başlığı" required><label>Açıklama</label><textarea name="description" placeholder="Açıklama"></textarea><input type="number" step="0.01" name="divisor" placeholder="Divisor" value="3000" required><input type="number" step="0.001" name="fuel_rate" placeholder="Yakıt oranı (0.10)" value="0"><input type="number" step="0.01" name="cod_fee" placeholder="COD ücret" value="0"><input type="number" step="0.01" name="min_price" placeholder="Minimum ücret" value="0"><input type="number" step="0.01" name="extra_per_kg" placeholder="Ekstra kg ücreti" value="12"><button>Kaydet</button></form></div>
+        <div class="admin-card"><h3>Kategori Çevirisi</h3><form id="categoryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin2" name="category_id"></select><select class="lang-options" name="lang_code"></select><input name="title" placeholder="Başlık" required><label>Açıklama</label><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form></div>
+              <?php elseif ($psub === 'transport'): ?>
+        <div class="admin-card"><h3>Taşıma Seçeneği Ekle / Düzenle</h3><form id="transportModeForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="mode_id"><label>Mode Key</label><input name="mode_key" placeholder="road" required><label>Başlık</label><input name="title" placeholder="Karayolu" required><label>Çarpan</label><input type="number" step="0.001" name="multiplier" value="1" required><label>Durum</label><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select><button>Kaydet</button></form></div>
+        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Key</th><th>Başlık</th><th>Çarpan</th><th>Aksiyon</th></tr></thead><tbody id="transportModeTableBody"></tbody></table></div>
       <?php else: ?>
-        <div class="admin-card admin-full"><h3>Fiyat Stratejisi Ekle</h3><form id="priceConfigForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="priceCountryId" name="country_id"></select><select id="priceCategoryId" name="category_id"></select><textarea name="weight_prices" placeholder="1:79
+        <div class="admin-card admin-full"><h3>Fiyat Stratejisi Ekle</h3><form id="priceConfigForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="priceCountryId" name="country_id"></select><select id="priceCategoryId" name="category_id"></select><select id="priceTransportModeId" name="transport_mode_id"></select><textarea name="weight_prices" placeholder="1:79
 2:89
 3:99" required></textarea><button>Kaydet</button></form></div>
-        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>Ülke</th><th>Para Birimi</th><th>Kategori</th><th>Tablo</th></tr></thead><tbody id="pricingTableBody"></tbody></table></div>
+        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>Ülke</th><th>Para Birimi</th><th>Kategori</th><th>Taşıma</th><th>Tablo</th></tr></thead><tbody id="pricingTableBody"></tbody></table></div>
       <?php endif; ?>
       </div>
     <?php endif; ?>

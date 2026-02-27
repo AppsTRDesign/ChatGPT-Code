@@ -1,7 +1,17 @@
 $(function () {
   const endpoint = (name) => '/admin/api/' + name + '.php';
   const statusOptions = [
-    'pending_approval','approved','preparing','prepared','in_transit_to_destination','arrived_destination','distribution_center','shipment_center','out_for_delivery','delivered','cancelled'
+    {code:'pending_approval',label:'Onay bekleniyor'},
+    {code:'approved',label:'Onaylandı'},
+    {code:'preparing',label:'Hazırlanıyor'},
+    {code:'prepared',label:'Hazırlandı'},
+    {code:'in_transit_to_destination',label:'Varış istikametinde'},
+    {code:'arrived_destination',label:'Varış noktasına ulaştı'},
+    {code:'distribution_center',label:'Dağıtım merkezinde'},
+    {code:'shipment_center',label:'Gönderi merkezinde'},
+    {code:'out_for_delivery',label:'Gönderiye çıkarıldı'},
+    {code:'delivered',label:'Teslim edildi'},
+    {code:'cancelled',label:'İptal edildi'}
   ];
 
   $('#mobileSideBtn').on('click', () => $('#adminSidebar').toggleClass('open'));
@@ -27,8 +37,8 @@ $(function () {
     });
   }
 
-  ['page_save','menu_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','language_save','lang_save','translations_import_json','admin_password'].forEach((api)=>{
-    const map={page_save:'#pageForm',menu_save:'#menuForm',shipment_save:'#shipmentForm',event_save:'#eventForm',country_save:'#countryForm',category_save:'#categoryForm',country_translation_save:'#countryTranslationForm',category_translation_save:'#categoryTranslationForm',price_save:'#priceConfigForm',language_save:'#languageForm',lang_save:'#langForm',translations_import_json:'#translationJsonForm',admin_password:'#adminPasswordForm'};
+  ['page_save','menu_save','menu_translation_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','language_save','lang_save','translations_import_json','admin_password','transport_mode_save'].forEach((api)=>{
+    const map={page_save:'#pageForm',menu_save:'#menuForm',shipment_save:'#shipmentForm',event_save:'#eventForm',country_save:'#countryForm',category_save:'#categoryForm',country_translation_save:'#countryTranslationForm',category_translation_save:'#categoryTranslationForm',price_save:'#priceConfigForm',language_save:'#languageForm',lang_save:'#langForm',translations_import_json:'#translationJsonForm',admin_password:'#adminPasswordForm',menu_translation_save:'#menuTranslationForm',transport_mode_save:'#transportModeForm'};
     if($(map[api]).length) submit(map[api],api,api==='settings_save');
   });
   submit('#settingsForm','settings_save',true);
@@ -45,6 +55,8 @@ $(function () {
       if(!res.ok) return;
       const d=res.data;
       fill('#menuPageId', d.pages, 'id', r=>`${r.id} - ${r.title}`);
+      fill('#menuTranslationId', d.menus || [], 'id', r=>`#${r.id} ${r.title || r.page_title || '-'}`);
+      fill('#priceTransportModeId', d.transport_modes || [], 'id', r=>`${r.title} (${r.multiplier})`);
 
       if ($('#menuSystemKey').length) {
         const sys = d.system_links || [];
@@ -58,16 +70,17 @@ $(function () {
       fill('#jsonLang', d.languages, 'code', r=>`${r.code}`);
 
       const statusSel=$('#statusCodeSelect').empty();
-      statusOptions.forEach(s=>statusSel.append(`<option value="${s}">${s}</option>`));
+      statusOptions.forEach(s=>statusSel.append(`<option value="${s.code}">${s.label}</option>`));
 
       const ctb=$('#countryTableBody').empty(); d.countries.forEach(c=>ctb.append(`<tr><td>${c.id}</td><td>${c.name}</td><td>${c.currency_code||''}</td><td>${c.currency_symbol||''}</td><td><button class='country-edit' data-id='${c.id}'>Düzenle</button> <button class='country-del' data-id='${c.id}'>Sil</button></td></tr>`));
-      const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td></tr>`));
+      const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td><td><button class='cat-edit' data-id='${c.id}'>Düzenle</button></td></tr>`));
       const ltb=$('#languageTableBody').empty(); d.languages.forEach(l=>ltb.append(`<tr><td>${l.code}</td><td>${l.name}</td><td>${l.sort_order||''}</td></tr>`));
+      const mtb=$('#transportModeTableBody').empty(); (d.transport_modes||[]).forEach(m=>mtb.append(`<tr><td>${m.id}</td><td>${m.mode_key}</td><td>${m.title}</td><td>${m.multiplier}</td><td><button class='mode-edit' data-id='${m.id}'>Düzenle</button> <button class='mode-del' data-id='${m.id}'>Sil</button></td></tr>`));
 
     });
   }
 
-  function loadPricing(){ $.getJSON(endpoint('pricing_list'),res=>{ if(!res.ok)return; const b=$('#pricingTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.country_name}</td><td>${r.currency_code||'-'}</td><td>${r.category_title}</td><td><pre>${r.weight_prices_json}</pre></td></tr>`));}); }
+  function loadPricing(){ $.getJSON(endpoint('pricing_list'),res=>{ if(!res.ok)return; const b=$('#pricingTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.country_name}</td><td>${r.currency_code||'-'}</td><td>${r.category_title}</td><td>${r.mode_title||r.mode_key||'-'}</td><td><pre>${r.weight_prices_json}</pre></td></tr>`));}); }
   function loadShipments(){ $.getJSON(endpoint('shipment_list'),res=>{ if(!res.ok)return; const b=$('#shipmentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.tracking_number}</td><td>${r.origin_country} → ${r.destination_country}</td><td>${r.current_status}</td><td><button class='act-edit' data-id='${r.id}'>Düzenle</button> <button class='act-del' data-id='${r.id}'>Sil</button> <button class='act-status' data-tr='${r.tracking_number}'>Durum</button></td></tr>`));}); }
   function loadPages(){ $.getJSON(endpoint('page_list'),res=>{ if(!res.ok)return; const b=$('#pageTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title}</td><td>${r.slug}</td><td><button class='page-edit' data-id='${r.id}'>Düzenle</button> <button class='page-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
   let menuRows = [];
@@ -137,6 +150,23 @@ $(function () {
   function loadAll(){ loadOptions(); loadPricing(); loadShipments(); loadPages(); loadMenus(); }
   loadAll();
 
+  const qp = new URLSearchParams(window.location.search);
+  const editShipmentId = qp.get('edit_id');
+  if (qp.get('tab') === 'shipments' && editShipmentId && $('#shipmentForm').length) {
+    $.getJSON(endpoint('shipment_get'), {id:editShipmentId}, (res)=>{ if(!res.ok)return; const d=res.data; Object.keys(d).forEach(k=>$('#shipmentForm [name='+k+']').val(d[k])); $('#shipmentForm [name=existing_tracking]').val(d.tracking_number); });
+  }
+  if (qp.get('tab') === 'shipments' && qp.get('tracking') && $('#shipmentTrackingSelect2').length) {
+    $('#shipmentTrackingSelect2').val(qp.get('tracking'));
+  }
+  if (qp.get('tab') === 'pricing' && qp.get('edit_id') && $('#categoryForm').length) {
+    const id=qp.get('edit_id');
+    setTimeout(()=>{ const row = ($('#categorySelectAdmin option[value=+id+]').length)?id:null; if(row){ $('#categorySelectAdmin').val(id).trigger('change'); } }, 400);
+  }
+  if (qp.get('tab') === 'countries' && qp.get('edit_id') && $('#countryForm').length) {
+    $.getJSON(endpoint('country_get'), {id:qp.get('edit_id')}, (res)=>{ if(!res.ok)return; const d=res.data; $('#countryForm [name=country_id]').val(d.id); $('#countryForm [name=name]').val(d.name); $('#countryForm [name=currency_code]').val(d.currency_code); $('#countryForm [name=currency_symbol]').val(d.currency_symbol||'$'); $('#countryForm [name=is_active]').val(String(d.is_active??1)); });
+  }
+
+
   $(document).on('change','#menuItemType',toggleMenuTypeFields);
 
   $(document).on('click','#saveMenuOrder',function(){
@@ -150,10 +180,10 @@ $(function () {
     $.post(endpoint('menu_reorder'), {csrf:window.CSRF_TOKEN, tree:tree}, (res)=>{toast(res);loadMenus();},'json');
   });
   $(document).on('click','.act-del',function(){ $.post(endpoint('shipment_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadShipments();}, 'json'); });
-  $(document).on('click','.act-edit',function(){ $.getJSON(endpoint('shipment_get'), {id:$(this).data('id')}, (res)=>{ if(!res.ok)return toast(res); const d=res.data; Object.keys(d).forEach(k=>$('#shipmentForm [name='+k+']').val(d[k])); $('#shipmentForm [name=existing_tracking]').val(d.tracking_number); $('html,body').animate({scrollTop:$('#shipmentForm').offset().top-80},300);}); });
-  $(document).on('click','.act-status',function(){ $('#shipmentTrackingSelect2').val($(this).data('tr')); $('html,body').animate({scrollTop:$('#eventForm').offset().top-80},300); });
+  $(document).on('click','.act-edit',function(){ window.location.href='?tab=shipments&sub=new&edit_id='+$(this).data('id'); });
+  $(document).on('click','.act-status',function(){ window.location.href='?tab=shipments&sub=status&tracking='+encodeURIComponent($(this).data('tr')); });
   $(document).on('click','.page-del',function(){ $.post(endpoint('page_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadPages();}, 'json');});
-  $(document).on('click','.page-edit',function(){ $('#pageForm [name=page_id]').val($(this).data('id')); $('html,body').animate({scrollTop:$('#pageForm').offset().top-80},300); });
+  $(document).on('click','.page-edit',function(){ window.location.href='?tab=pages&sub=new&edit_id='+$(this).data('id'); });
 
 
   $(document).on('click','.menu-edit',function(){
@@ -167,7 +197,9 @@ $(function () {
     $('#menuForm [name="url"]').val(m.url || '');
     $('#menuParentId').val(m.parent_id || '');
     $('#menuForm [name="is_active"]').val(String(m.is_active ?? 1));
-    toggleMenuTypeFields();
+    $('form').each(function(){ $(this).find('input,select,textarea').each(function(){ if($(this).prev('label').length) return; const ph=$(this).attr('placeholder'); const nm=$(this).attr('name'); if(ph||nm){ $(this).before('<label class=\'form-label\'>'+(ph||nm)+'</label>'); } }); });
+
+  toggleMenuTypeFields();
     $('html,body').animate({scrollTop:$('#menuForm').offset().top-80},300);
   });
   $(document).on('click','.menu-del',function(){
@@ -178,20 +210,25 @@ $(function () {
   });
 
 
-  $(document).on('click','.country-edit',function(){
-    $.getJSON(endpoint('country_get'), {id:$(this).data('id')}, (res)=>{
-      if(!res.ok) return toast(res);
-      const d=res.data;
-      $('#countryForm [name=country_id]').val(d.id);
-      $('#countryForm [name=name]').val(d.name);
-      $('#countryForm [name=currency_code]').val(d.currency_code);
-      $('#countryForm [name=currency_symbol]').val(d.currency_symbol || '$');
-      $('#countryForm [name=is_active]').val(String(d.is_active ?? 1));
-      $('html,body').animate({scrollTop:$('#countryForm').offset().top-80},300);
-    });
+  $(document).on('click','.cat-edit',function(){ window.location.href='?tab=pricing&sub=category-new&edit_id='+$(this).data('id'); });
+  $(document).on('change','#categorySelectAdmin',function(){
+    const id=$(this).val(); if(!id) return;
+    $.getJSON(endpoint('options'), (res)=>{ if(!res.ok) return; const c=(res.data.categories||[]).find(x=>String(x.id)===String(id)); if(!c) return; $('#categoryForm [name=title]').val(c.title); $('#categoryForm [name=description]').val(c.description||''); $('#categoryForm [name=divisor]').val(c.divisor); $('#categoryForm [name=fuel_rate]').val(c.fuel_rate); $('#categoryForm [name=cod_fee]').val(c.cod_fee); $('#categoryForm [name=min_price]').val(c.min_price); $('#categoryForm [name=extra_per_kg]').val(c.extra_per_kg); });
   });
+  $(document).on('click','.country-edit',function(){ window.location.href='?tab=countries&sub=new&edit_id='+$(this).data('id'); });
   $(document).on('click','.country-del',function(){
     $.post(endpoint('country_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadAll();}, 'json');
+  });
+
+
+  $(document).on('click','.mode-edit',function(){
+    $.getJSON(endpoint('transport_mode_get'), {id:$(this).data('id')}, (res)=>{
+      if(!res.ok) return toast(res);
+      const d=res.data; $('#transportModeForm [name=mode_id]').val(d.id); $('#transportModeForm [name=mode_key]').val(d.mode_key); $('#transportModeForm [name=title]').val(d.title); $('#transportModeForm [name=multiplier]').val(d.multiplier); $('#transportModeForm [name=is_active]').val(String(d.is_active ?? 1));
+    });
+  });
+  $(document).on('click','.mode-del',function(){
+    $.post(endpoint('transport_mode_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadAll();}, 'json');
   });
 
   $('#langJsonLoadForm').on('submit', function(e){ e.preventDefault(); $.getJSON(endpoint('translations_by_lang'), {lang:$('#jsonLang').val()}, (res)=>{ if(!res.ok)return toast(res); $('#jsonEditor').val(JSON.stringify({[$('#jsonLang').val()]:res.data},null,2)); });});
@@ -222,8 +259,11 @@ $(function () {
     }
   }
 
+  $('form').each(function(){ $(this).find('input,select,textarea').each(function(){ if($(this).prev('label').length) return; const ph=$(this).attr('placeholder'); const nm=$(this).attr('name'); if(ph||nm){ $(this).before('<label class=\'form-label\'>'+(ph||nm)+'</label>'); } }); });
+
   toggleMenuTypeFields();
 
   initV3Map('mapPicker','#shipmentLat','#shipmentLng','#mapSearchInput','#mapSearchBtn');
+  initV3Map('eventMap','#eventLat','#eventLng','#eventMapSearchInput','#eventMapSearchBtn');
   initV3Map('settingsMap','#companyLat','#companyLng','#settingsMapSearchInput','#settingsMapSearchBtn');
 });

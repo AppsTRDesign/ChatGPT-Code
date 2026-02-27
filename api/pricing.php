@@ -26,13 +26,14 @@ $en = (float)($_POST['en'] ?? 0);
 $boy = (float)($_POST['boy'] ?? 0);
 $yuk = (float)($_POST['yukseklik'] ?? 0);
 $kg = (float)($_POST['kilo'] ?? 0);
+$transportModeId = (int)($_POST['transport_mode_id'] ?? 0);
 
 if ($en <= 0 || $boy <= 0 || $yuk <= 0 || $kg <= 0) {
     json_response(false, 'Ölçüler ve kilo 0’dan büyük olmalı.');
 }
 
-$stmt = db()->prepare('SELECT pc.weight_prices_json, c.currency_code, c.currency_symbol, COALESCE(ctry_t.name, c.name) country_name, COALESCE(cat_t.title, cat.title) category_title, COALESCE(cat_t.description, cat.description) description, cat.mode_key, cat.mode_multiplier, cat.divisor, cat.fuel_rate, cat.cod_fee, cat.min_price, cat.extra_per_kg FROM price_configs pc JOIN countries c ON c.id = pc.country_id JOIN price_categories cat ON cat.id = pc.category_id LEFT JOIN country_translations ctry_t ON ctry_t.country_id = c.id AND ctry_t.lang_code = :lang LEFT JOIN price_category_translations cat_t ON cat_t.category_id = cat.id AND cat_t.lang_code = :lang2 WHERE pc.country_id = :country AND pc.category_id = :category LIMIT 1');
-$stmt->execute(['country' => $countryId, 'category' => $categoryId, 'lang' => $lang, 'lang2' => $lang]);
+$stmt = db()->prepare('SELECT pc.weight_prices_json, c.currency_code, c.currency_symbol, COALESCE(ctry_t.name, c.name) country_name, COALESCE(cat_t.title, cat.title) category_title, COALESCE(cat_t.description, cat.description) description, tm.mode_key, tm.multiplier AS mode_multiplier, cat.divisor, cat.fuel_rate, cat.cod_fee, cat.min_price, cat.extra_per_kg FROM price_configs pc JOIN countries c ON c.id = pc.country_id JOIN price_categories cat ON cat.id = pc.category_id JOIN transport_modes tm ON tm.id = pc.transport_mode_id LEFT JOIN country_translations ctry_t ON ctry_t.country_id = c.id AND ctry_t.lang_code = :lang LEFT JOIN price_category_translations cat_t ON cat_t.category_id = cat.id AND cat_t.lang_code = :lang2 WHERE pc.country_id = :country AND pc.category_id = :category AND pc.transport_mode_id = :mode LIMIT 1');
+$stmt->execute(['country' => $countryId, 'category' => $categoryId, 'mode'=>$transportModeId, 'lang' => $lang, 'lang2' => $lang]);
 $row = $stmt->fetch();
 if (!$row) json_response(false, t('front', 'pricing_not_found'));
 
