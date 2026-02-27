@@ -30,7 +30,7 @@ body.admin-body{margin:0;background:#eef2f7}
 .side-link{margin:5px 0}
 .side-sub{display:grid;gap:5px}
 
-.menu-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.menu-form-grid{display:grid;grid-template-columns:1fr;gap:8px}
 .menu-form-grid .menu-form-actions{grid-column:1/-1;display:flex;gap:8px}
 .btn-muted{background:#64748b!important}.btn-danger{background:#b91c1c!important}
 .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px}
@@ -55,3 +55,7 @@ body.admin-body{margin:0;background:#eef2f7}
 @media(max-width:1080px){.form-split-2,.filter-row{grid-template-columns:1fr}.inline-search{grid-template-columns:1fr}}
 
 .menu-children:empty{min-height:16px;border:1px dashed #cbd5e1;border-radius:8px;padding:4px}
+
+.search-row{display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;margin-bottom:8px}
+.search-row button{height:44px;white-space:nowrap}
+@media(max-width:1080px){.search-row{grid-template-columns:1fr auto}.search-row button{width:96px}}

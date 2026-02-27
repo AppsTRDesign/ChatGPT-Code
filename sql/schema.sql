@@ -347,7 +347,7 @@ INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES
 ('en','front','cta_desc','From pickup to final delivery, we manage every cargo milestone with full visibility.'),
 ('tr','front','cta_desc','Teslim almadan son teslimata kadar tüm kargo adımlarını tam görünürlükle yönetiyoruz.'),
 ('de','front','cta_desc','Von der Abholung bis zur Zustellung steuern wir jeden Meilenstein transparent.'),
-('fr','front','cta_desc','De l'enlèvement à la livraison finale, nous pilotons chaque étape en toute transparence.'),
+('fr','front','cta_desc','De l\'enlèvement à la livraison finale, nous pilotons chaque étape en toute transparence.'),
 ('en','front','hero_eyebrow','Global Cargo Network • 24/7 Monitoring Desk'),
 ('tr','front','hero_eyebrow','Global Kargo Ağı • 7/24 Operasyon Takibi'),
 ('de','front','hero_eyebrow','Globales Cargo-Netzwerk • 24/7 Leitstand'),

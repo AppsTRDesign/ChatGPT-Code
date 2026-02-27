@@ -37,8 +37,8 @@ $(function () {
     });
   }
 
-  ['page_save','menu_save','menu_translation_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','language_save','lang_save','translations_import_json','admin_password','transport_mode_save','weight_price_save','document_save'].forEach((api)=>{
-    const map={page_save:'#pageForm',menu_save:'#menuForm',shipment_save:'#shipmentForm',event_save:'#eventForm',country_save:'#countryForm',category_save:'#categoryForm',country_translation_save:'#countryTranslationForm',category_translation_save:'#categoryTranslationForm',price_save:'#priceConfigForm',language_save:'#languageForm',lang_save:'#langForm',translations_import_json:'#translationJsonForm',admin_password:'#adminPasswordForm',menu_translation_save:'#menuTranslationForm',transport_mode_save:'#transportModeForm',weight_price_save:'#weightPriceForm',document_save:'#documentForm'};
+  ['page_save','menu_save','menu_translation_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','translations_import_json','admin_password','transport_mode_save','weight_price_save','document_save'].forEach((api)=>{
+    const map={page_save:'#pageForm',menu_save:'#menuForm',shipment_save:'#shipmentForm',event_save:'#eventForm',country_save:'#countryForm',category_save:'#categoryForm',country_translation_save:'#countryTranslationForm',category_translation_save:'#categoryTranslationForm',price_save:'#priceConfigForm',translations_import_json:'#translationJsonForm',admin_password:'#adminPasswordForm',menu_translation_save:'#menuTranslationForm',transport_mode_save:'#transportModeForm',weight_price_save:'#weightPriceForm',document_save:'#documentForm'};
     if($(map[api]).length) submit(map[api],api,api==='settings_save' || api==='document_save');
   });
   submit('#settingsForm','settings_save',true);
@@ -74,9 +74,10 @@ $(function () {
       statusOptions.forEach(s=>{ statusSel.append(`<option value="${s.code}">${s.label}</option>`); shipmentStatusSel.append(`<option value="${s.code}">${s.label}</option>`); });
 
       const ctb=$('#countryTableBody').empty(); d.countries.forEach(c=>ctb.append(`<tr><td>${c.id}</td><td>${c.name}</td><td>${c.currency_code||''}</td><td>${c.currency_symbol||''}</td><td><button class='country-edit' data-id='${c.id}'>Düzenle</button> <button class='country-del' data-id='${c.id}'>Sil</button></td></tr>`));
-      const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td><td><button class='cat-edit' data-id='${c.id}'>Düzenle</button></td></tr>`));
-      const ltb=$('#languageTableBody').empty(); d.languages.forEach(l=>ltb.append(`<tr><td>${l.code}</td><td>${l.name}</td><td>${l.sort_order||''}</td></tr>`));
+      const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td><td>-</td></tr>`));
+      const ltb=$('#languageTableBody').empty(); d.languages.forEach(l=>ltb.append(`<tr><td>${l.code}</td><td>${l.name}</td><td>${l.sort_order||''}</td><td>${Number(l.is_active)===1?'Aktif':'Pasif'}</td><td><button class='lang-edit' data-code='${l.code}'>Düzenle</button> <button class='lang-del' data-code='${l.code}'>Sil</button></td></tr>`));
       if ($('#translationListLang').length && !$('#translationListLang option').length) { fill('#translationListLang', d.languages, 'code', r=>`${r.code} - ${r.name}`); }
+      if ($('#languageEditCode').length) { fill('#languageEditCode', d.languages, 'code', r=>`${r.code} - ${r.name}`); }
 
       const mtb=$('#transportModeTableBody').empty(); (d.transport_modes||[]).forEach(m=>mtb.append(`<tr><td>${m.id}</td><td>${m.mode_key}</td><td>${m.title}</td><td>${m.multiplier}</td><td><button class='mode-edit' data-id='${m.id}'>Düzenle</button> <button class='mode-del' data-id='${m.id}'>Sil</button></td></tr>`));
 
@@ -155,6 +156,21 @@ $(function () {
 
   function loadDocuments(){ $.getJSON(endpoint('document_list'),res=>{ if(!res.ok)return; const b=$('#documentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title||'-'}</td><td><a href='${r.file_path}' target='_blank'>${r.file_name||'Dosya'}</a></td><td><button class='doc-edit' data-id='${r.id}'>Düzenle</button> <button class='doc-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
 
+  const translationPager = {page:1,totalPages:1,lang:'en'};
+  function loadTranslationRows(resetPage=false){
+    if(!$('#translationTableBody').length) return;
+    if(resetPage) translationPager.page = 1;
+    translationPager.lang = $('#translationListLang').val() || 'en';
+    $.getJSON(endpoint('translations_list'), {lang:translationPager.lang, q:$('#translationSearch').val()||'', page:translationPager.page, per_page:20}, (res)=>{
+      if(!res.ok) return toast(res);
+      const b=$('#translationTableBody').empty();
+      (res.data.rows||[]).forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.group_name}</td><td>${r.key_name}</td><td>${(r.text_value||'').replace(/</g,'&lt;')}</td><td><button type='button' class='tr-edit' data-group='${r.group_name}' data-key='${r.key_name}' data-text="${String(r.text_value||'').replace(/"/g,'&quot;')}">Düzenle</button></td></tr>`));
+      translationPager.page = res.data.pagination.page;
+      translationPager.totalPages = res.data.pagination.total_pages;
+      $('#translationPageInfo').text(`${translationPager.page} / ${translationPager.totalPages}`);
+    });
+  }
+
   function loadAll(){ loadOptions(); loadPricing(); loadWeightPrices(); loadShipments(); loadPages(); loadMenus(); loadTranslationRows(); loadDocuments(); }
   loadAll();
 
@@ -172,12 +188,15 @@ $(function () {
 
   $(document).on('click','#saveMenuOrder',function(){
     const tree=[];
-    $('.menu-children').each(function(){
-      const parentId=parseInt($(this).data('parent'),10)||0;
-      $(this).children('.menu-node').each(function(idx){
-        tree.push({id:parseInt($(this).data('id'),10), parent_id: parentId || null, sort_order: idx+1});
+    const walk = ($ul, parentId=null) => {
+      $ul.children('.menu-node').each(function(idx){
+        const id=parseInt($(this).data('id'),10);
+        tree.push({id:id, parent_id: parentId, sort_order: idx+1});
+        const $child=$(this).children('.menu-children').first();
+        if($child.length){ walk($child, id); }
       });
-    });
+    };
+    walk($('#menuTree > .menu-children').first(), null);
     $.post(endpoint('menu_reorder'), {csrf:window.CSRF_TOKEN, tree:tree}, (res)=>{toast(res);loadMenus();},'json');
   });
   $(document).on('click','.act-del',function(){ $.post(endpoint('shipment_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadShipments();}, 'json'); });
@@ -207,31 +226,7 @@ $(function () {
     $('#menuForm')[0].reset(); $('#menuItemId').val(''); toggleMenuTypeFields();
   });
 
-  const translationPager = {page:1,totalPages:1,lang:'en'};
-  function loadTranslationRows(resetPage=false){
-    if(!$('#translationTableBody').length) return;
-    if(resetPage) translationPager.page = 1;
-    translationPager.lang = $('#translationListLang').val() || 'en';
-    $.getJSON(endpoint('translations_list'), {lang:translationPager.lang, q:$('#translationSearch').val()||'', page:translationPager.page, per_page:20}, (res)=>{
-      if(!res.ok) return toast(res);
-      const b=$('#translationTableBody').empty();
-      (res.data.rows||[]).forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.group_name}</td><td>${r.key_name}</td><td>${(r.text_value||'').replace(/</g,'&lt;')}</td><td><button type='button' class='tr-edit' data-group='${r.group_name}' data-key='${r.key_name}' data-text="${String(r.text_value||'').replace(/"/g,'&quot;')}">Düzenle</button></td></tr>`));
-      translationPager.page = res.data.pagination.page;
-      translationPager.totalPages = res.data.pagination.total_pages;
-      $('#translationPageInfo').text(`${translationPager.page} / ${translationPager.totalPages}`);
-    });
-  }
-  $(document).on('click','#translationSearchBtn',()=>loadTranslationRows(true));
-  $(document).on('change','#translationListLang',()=>loadTranslationRows(true));
-  $(document).on('click','#translationPrev',()=>{ if(translationPager.page>1){ translationPager.page--; loadTranslationRows(); }});
-  $(document).on('click','#translationNext',()=>{ if(translationPager.page<translationPager.totalPages){ translationPager.page++; loadTranslationRows(); }});
-  $(document).on('click','.tr-edit',function(){
-    $('#singleLangCode').val($('#translationListLang').val());
-    $('#langForm [name=group_name]').val($(this).data('group'));
-    $('#langForm [name=key_name]').val($(this).data('key'));
-    $('#langForm [name=text_value]').val($(this).data('text'));
-    $('html,body').animate({scrollTop:$('#langForm').offset().top-90},250);
-  });
+
 
 
   $(document).on('click','.country-edit',function(){ window.location.href='?tab=countries&sub=new&edit_id='+$(this).data('id'); });
@@ -266,6 +261,17 @@ $(function () {
   });
 
 
+
+  if (qp.get('tab') === 'languages' && qp.get('sub') === 'edit' && $('#languageEditForm').length) {
+    const code = qp.get('code') || $('#languageEditCode').val();
+    if(code){ setTimeout(()=>loadLanguageEditor(code), 250); }
+  }
+  if (qp.get('tab') === 'languages' && qp.get('sub') === 'new' && $('#newLanguageJson').length) {
+    $.getJSON(endpoint('translations_by_lang'), {lang:'en'}, (res)=>{
+      if(res.ok){ $('#newLanguageJson').val(JSON.stringify({en:res.data}, null, 2)); }
+    });
+  }
+
   if (qp.get('tab') === 'documents' && qp.get('sub') === 'new' && qp.get('edit_id') && $('#documentForm').length) {
     $.getJSON(endpoint('document_get'), {id:qp.get('edit_id')}, (res)=>{
       if(!res.ok) return toast(res);
@@ -291,6 +297,65 @@ $(function () {
     $('#settingsForm [name=favicon_path]').val('');
     toastr.info('Favicon silinmek üzere işaretlendi. Kaydet ile onaylayın.');
   });
+
+
+  $(document).on('click','.lang-edit',function(){ window.location.href='?tab=languages&sub=edit&code='+encodeURIComponent($(this).data('code')); });
+  $(document).on('click','.lang-del',function(){
+    $.post(endpoint('language_delete'), {csrf:window.CSRF_TOKEN,code:$(this).data('code')}, (res)=>{toast(res);loadAll();}, 'json');
+  });
+
+  function loadLanguageEditor(code){
+    if(!$('#languageEditForm').length || !code) return;
+    $.getJSON(endpoint('language_get'), {code:code}, (res)=>{
+      if(!res.ok) return toast(res);
+      $('#languageEditCode').val(res.data.code);
+      $('#languageEditName').val(res.data.name);
+      $('#languageEditSort').val(res.data.sort_order);
+      $('#languageEditActive').val(String(res.data.is_active ?? 1));
+      $.getJSON(endpoint('translations_by_lang'), {lang:res.data.code}, (r2)=>{
+        if(r2.ok){ $('#jsonEditor').val(JSON.stringify({[res.data.code]:r2.data}, null, 2)); }
+      });
+    });
+  }
+
+  $('#languageEditCode').on('change', function(){ loadLanguageEditor($(this).val()); });
+  $(document).on('submit','#languageEditForm', function(e){
+    e.preventDefault();
+    const formData = $(this).serializeArray();
+    $.post(endpoint('language_save'), formData, (res)=>{
+      toast(res);
+      if(!res.ok) return;
+      $.post(endpoint('translations_import_json'), {csrf:window.CSRF_TOKEN, json_payload:$('#jsonEditor').val()}, (r2)=>{ toast(r2); loadAll(); }, 'json');
+    }, 'json');
+  });
+  $(document).on('click','#deleteLanguageBtn', function(){
+    const code = $('#languageEditCode').val();
+    if(!code) return;
+    $.post(endpoint('language_delete'), {csrf:window.CSRF_TOKEN,code:code}, (res)=>{toast(res); if(res.ok) window.location.href='?tab=languages&sub=list';}, 'json');
+  });
+
+  $(document).on('submit','#languageForm', function(e){
+    if(!$('#newLanguageJson').length) return;
+    e.preventDefault();
+    const baseJson = $('#newLanguageJson').val().trim();
+    const code = ($(this).find('[name=code]').val()||'').toLowerCase();
+    const name = $(this).find('[name=name]').val()||'';
+    const sort = $(this).find('[name=sort_order]').val()||10;
+    const active = $(this).find('[name=is_active]').val()||1;
+    $.post(endpoint('language_save'), {csrf:window.CSRF_TOKEN,code:code,name:name,sort_order:sort,is_active:active}, (res)=>{
+      toast(res);
+      if(!res.ok) return;
+      if(baseJson){
+        let parsed={};
+        try{ parsed=JSON.parse(baseJson); }catch(_e){ toastr.error('JSON formatı hatalı'); return; }
+        if(parsed.en && !parsed[code]) parsed[code]=parsed.en;
+        $.post(endpoint('translations_import_json'), {csrf:window.CSRF_TOKEN, json_payload:JSON.stringify(parsed)}, (r2)=>{ toast(r2); window.location.href='?tab=languages&sub=list'; }, 'json');
+      } else {
+        window.location.href='?tab=languages&sub=list';
+      }
+    }, 'json');
+  });
+
 
   $('#langJsonLoadForm').on('submit', function(e){ e.preventDefault(); $.getJSON(endpoint('translations_by_lang'), {lang:$('#jsonLang').val()}, (res)=>{ if(!res.ok)return toast(res); $('#jsonEditor').val(JSON.stringify({[$('#jsonLang').val()]:res.data},null,2)); });});
   $('#exportTranslationsJson').on('click', ()=>window.open(endpoint('translations_export_json'),'_blank'));
