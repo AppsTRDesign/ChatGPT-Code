@@ -22,3 +22,14 @@ $prefill = trim((string) ($_GET['num'] ?? ''));
   </div>
 </section>
 <script src="https://api-maps.yandex.ru/v3/?apikey=<?= htmlspecialchars($ymKey, ENT_QUOTES) ?>&lang=<?= htmlspecialchars($lang, ENT_QUOTES) ?>"></script>
+
+<script>window.TRACK_LABELS = {
+  status: '<?= addslashes(t('front','status_label')) ?>',
+  current_location: '<?= addslashes(t('front','current_location')) ?>',
+  route: '<?= addslashes(t('front','route')) ?>',
+  sender: '<?= addslashes(t('front','sender')) ?>',
+  receiver: '<?= addslashes(t('front','receiver')) ?>',
+  timeline: '<?= addslashes(t('front','timeline')) ?>',
+  description: '<?= addslashes(t('front','description')) ?>',
+  no_event: '<?= addslashes(t('front','no_event')) ?>'
+};</script>

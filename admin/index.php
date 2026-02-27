@@ -27,7 +27,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
 <body class="admin-body">
 <div class="admin-layout">
   <aside class="admin-sidebar" id="adminSidebar">
-    <div class="brand">CargoAfrik Admin</div>
+    <div class="brand-row"><div class="brand">CargoAfrik Admin</div><button type="button" id="mobileSideClose" class="mobile-side-close">✕</button></div>
     <a class="side-link <?= $tab==='dashboard'?'active':'' ?>" href="?tab=dashboard">Dashboard</a>
     <a class="side-link <?= $tab==='pages'?'active':'' ?>" href="?tab=pages">Sayfa Ekle / Düzenle</a>
     <a class="side-link <?= $tab==='menus'?'active':'' ?>" href="?tab=menus">Menü Yönetimi</a>
