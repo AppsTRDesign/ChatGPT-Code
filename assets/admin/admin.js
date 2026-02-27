@@ -64,13 +64,14 @@ $(function () {
       }
       fill('#shipmentTrackingSelect', d.shipments, 'tracking_number', r=>r.tracking_number, true);
       fill('#shipmentTrackingSelect2', d.shipments, 'tracking_number', r=>r.tracking_number);
-      fill('#countrySelectAdmin,#countrySelectAdmin2,#priceCountryId', d.countries, 'id', r=>`${r.name} (${r.currency_code||'-'})`);
+      fill('#countrySelectAdmin,#countrySelectAdmin2,#priceCountryId,#shipmentOriginCountryId,#shipmentDestinationCountryId,#eventCountryId', d.countries, 'id', r=>`${r.name} (${r.currency_code||'-'})`);
       fill('#categorySelectAdmin,#categorySelectAdmin2,#priceCategoryId', d.categories, 'id', r=>r.title);
       $('.lang-options').each(function(){ fill(this, d.languages, 'code', r=>`${r.code} - ${r.name}`); });
       fill('#jsonLang', d.languages, 'code', r=>`${r.code}`);
 
       const statusSel=$('#statusCodeSelect').empty();
-      statusOptions.forEach(s=>statusSel.append(`<option value="${s.code}">${s.label}</option>`));
+      const shipmentStatusSel=$('#shipmentStatusCodeSelect').empty();
+      statusOptions.forEach(s=>{ statusSel.append(`<option value="${s.code}">${s.label}</option>`); shipmentStatusSel.append(`<option value="${s.code}">${s.label}</option>`); });
 
       const ctb=$('#countryTableBody').empty(); d.countries.forEach(c=>ctb.append(`<tr><td>${c.id}</td><td>${c.name}</td><td>${c.currency_code||''}</td><td>${c.currency_symbol||''}</td><td><button class='country-edit' data-id='${c.id}'>Düzenle</button> <button class='country-del' data-id='${c.id}'>Sil</button></td></tr>`));
       const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td><td><button class='cat-edit' data-id='${c.id}'>Düzenle</button></td></tr>`));
@@ -198,9 +199,8 @@ $(function () {
     $('#menuForm [name="url"]').val(m.url || '');
     $('#menuParentId').val(m.parent_id || '');
     $('#menuForm [name="is_active"]').val(String(m.is_active ?? 1));
-    $('form').each(function(){ $(this).find('input,select,textarea').each(function(){ if($(this).prev('label').length) return; const ph=$(this).attr('placeholder'); const nm=$(this).attr('name'); if(ph||nm){ $(this).before('<label class=\'form-label\'>'+(ph||nm)+'</label>'); } }); });
-
-  toggleMenuTypeFields();
+    applyAutoLabels();
+    toggleMenuTypeFields();
     $('html,body').animate({scrollTop:$('#menuForm').offset().top-80},300);
   });
   $(document).on('click','.menu-del',function(){
@@ -250,6 +250,9 @@ $(function () {
   $('#langJsonLoadForm').on('submit', function(e){ e.preventDefault(); $.getJSON(endpoint('translations_by_lang'), {lang:$('#jsonLang').val()}, (res)=>{ if(!res.ok)return toast(res); $('#jsonEditor').val(JSON.stringify({[$('#jsonLang').val()]:res.data},null,2)); });});
   $('#exportTranslationsJson').on('click', ()=>window.open(endpoint('translations_export_json'),'_blank'));
 
+  
+  function applyAutoLabels(){ $('form').each(function(){ $(this).find('input,select,textarea').each(function(){ if($(this).attr('type')==='hidden') return; if($(this).prev('label').length) return; const ph=$(this).attr('placeholder'); const nm=$(this).attr('name')||''; const clean=nm.replace(/_/g,' ').replace(/\b\w/g,(m)=>m.toUpperCase()); const txt=ph||clean; if(txt){ $(this).before('<label class=\'form-label\'>'+txt+'</label>'); } }); }); }
+
   async function initV3Map(mapId, latSel, lngSel, searchInputId, searchBtnId) {
     if (!window.ymaps3 || !document.getElementById(mapId)) return;
     await ymaps3.ready;
@@ -263,7 +266,7 @@ $(function () {
     if(searchInputId && searchBtnId){
       $(searchBtnId).off('click').on('click', function(){
         const q=$(searchInputId).val(); if(!q) return;
-        $.getJSON('/api/yandex_geocode.php', {address:q, lang:'tr_TR'}, function(resp){
+        $.getJSON('/api/yandex_geocode.php', {address:q, lang:(document.documentElement.lang||'en_US')}, function(resp){
           const pos = resp?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos;
           if(!pos) return toastr.error('Adres bulunamadı');
           const [x,y]=pos.split(' ').map(Number);
@@ -275,8 +278,7 @@ $(function () {
     }
   }
 
-  $('form').each(function(){ $(this).find('input,select,textarea').each(function(){ if($(this).prev('label').length) return; const ph=$(this).attr('placeholder'); const nm=$(this).attr('name'); if(ph||nm){ $(this).before('<label class=\'form-label\'>'+(ph||nm)+'</label>'); } }); });
-
+  applyAutoLabels();
   toggleMenuTypeFields();
 
   initV3Map('mapPicker','#shipmentLat','#shipmentLng','#mapSearchInput','#mapSearchBtn');

@@ -1,10 +1,11 @@
 <?php $cfg = settings(); $ymKey = (string)($cfg['yandex_api_key'] ?? ''); ?>
 <section class="container section">
-  <h2>Active Shipments</h2>
-  <p class="subtext">Live global shipment pins with route cards.</p>
+  <h2><?= t('front', 'active_shipments') ?></h2>
+  <p class="subtext"><?= t('front', 'active_shipments_desc') ?></p>
   <div class="panel"><div id="activeShipmentsMap" style="height:560px"></div><div id="shipmentPinCard" class="panel" style="display:none;margin-top:15px"></div></div>
 </section>
-<script src="https://api-maps.yandex.ru/v3/?apikey=<?= htmlspecialchars($ymKey, ENT_QUOTES) ?>&lang=en_US"></script>
+<script>window.ACTIVE_LABELS={from:'<?= addslashes(t('front','from')) ?>',to:'<?= addslashes(t('front','to')) ?>'};</script>
+<script src="https://api-maps.yandex.ru/v3/?apikey=<?= htmlspecialchars($ymKey, ENT_QUOTES) ?>&lang=<?= htmlspecialchars(yandex_locale(), ENT_QUOTES) ?>"></script>
 <script>
 (async function(){
   if(!window.ymaps3) return;

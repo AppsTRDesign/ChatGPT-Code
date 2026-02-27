@@ -21,7 +21,7 @@ $prefill = trim((string) ($_GET['num'] ?? ''));
     <div class="panel"><div id="trackingMap" style="height:420px"></div></div>
   </div>
 </section>
-<?php $ymLang = current_lang() === 'tr' ? 'tr_TR' : 'en_US'; ?>
+<?php $ymLang = yandex_locale(); ?>
 <script src="https://api-maps.yandex.ru/v3/?apikey=<?= htmlspecialchars($ymKey, ENT_QUOTES) ?>&lang=<?= htmlspecialchars($ymLang, ENT_QUOTES) ?>"></script>
 
 <script>window.TRACK_LABELS = {

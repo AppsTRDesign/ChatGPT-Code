@@ -71,8 +71,10 @@ CREATE TABLE IF NOT EXISTS shipments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   tracking_number VARCHAR(60) UNIQUE NOT NULL,
   origin_country VARCHAR(100),
+  origin_country_id INT NULL,
   origin_city VARCHAR(100),
   destination_country VARCHAR(100),
+  destination_country_id INT NULL,
   destination_city VARCHAR(100),
   current_status VARCHAR(120),
   description TEXT,
@@ -84,6 +86,10 @@ CREATE TABLE IF NOT EXISTS shipments (
   receiver_address TEXT,
   current_latitude DECIMAL(10,7) NULL,
   current_longitude DECIMAL(10,7) NULL,
+  origin_latitude DECIMAL(10,7) NULL,
+  origin_longitude DECIMAL(10,7) NULL,
+  destination_latitude DECIMAL(10,7) NULL,
+  destination_longitude DECIMAL(10,7) NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL
 );
@@ -94,6 +100,7 @@ CREATE TABLE IF NOT EXISTS shipment_events (
   status_code VARCHAR(100) NOT NULL,
   status_note TEXT,
   country VARCHAR(100),
+  country_id INT NULL,
   city VARCHAR(100),
   latitude DECIMAL(10,7) NULL,
   longitude DECIMAL(10,7) NULL,
@@ -325,4 +332,24 @@ INSERT INTO translations (lang_code, group_name, key_name, text_value) VALUES
 ('tr','status','pending_approval','Onay bekleniyor'),('tr','status','approved','Onaylandı'),('tr','status','preparing','Hazırlanıyor'),('tr','status','prepared','Hazırlandı'),('tr','status','in_transit_to_destination','Varış istikametinde'),('tr','status','arrived_destination','Varış noktasına ulaştı'),('tr','status','distribution_center','Dağıtım merkezinde'),('tr','status','shipment_center','Gönderi merkezinde'),('tr','status','out_for_delivery','Gönderiye çıkarıldı'),('tr','status','delivered','Teslim edildi'),('tr','status','cancelled','İptal edildi'),
 ('de','status','pending_approval','Wartet auf Freigabe'),('de','status','approved','Bestätigt'),('de','status','preparing','Wird vorbereitet'),('de','status','prepared','Vorbereitet'),('de','status','in_transit_to_destination','Auf dem Weg zum Ziel'),('de','status','arrived_destination','Am Ziel angekommen'),('de','status','distribution_center','Im Verteilzentrum'),('de','status','shipment_center','Im Versandzentrum'),('de','status','out_for_delivery','In Zustellung'),('de','status','delivered','Zugestellt'),('de','status','cancelled','Storniert'),
 ('fr','status','pending_approval','En attente de validation'),('fr','status','approved','Validé'),('fr','status','preparing','En préparation'),('fr','status','prepared','Préparé'),('fr','status','in_transit_to_destination','En route vers la destination'),('fr','status','arrived_destination','Arrivé à destination'),('fr','status','distribution_center','Au centre de distribution'),('fr','status','shipment_center','Au centre d’expédition'),('fr','status','out_for_delivery','En cours de livraison'),('fr','status','delivered','Livré'),('fr','status','cancelled','Annulé')
+ON DUPLICATE KEY UPDATE text_value=VALUES(text_value);
+
+
+INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES
+('en','front','active_shipments_desc','Track live vessel and line-haul locations across global cargo routes.'),
+('tr','front','active_shipments_desc','Küresel kargo rotalarında gemi ve hat taşıma konumlarını canlı izleyin.'),
+('de','front','active_shipments_desc','Verfolgen Sie Live-Standorte von Schiffen und Linienverkehren auf globalen Routen.'),
+('fr','front','active_shipments_desc','Suivez en direct les positions des navires et lignes de transport sur les routes mondiales.'),
+('en','front','service_2_desc','Dedicated route planning teams optimize each shipment for speed and safety.'),
+('tr','front','service_2_desc','Özel rota planlama ekiplerimiz her gönderiyi hız ve güvenlik için optimize eder.'),
+('de','front','service_2_desc','Spezialisierte Routenplanungsteams optimieren jede Sendung für Tempo und Sicherheit.'),
+('fr','front','service_2_desc','Nos équipes dédiées optimisent chaque expédition pour la rapidité et la sécurité.'),
+('en','front','cta_desc','From pickup to final delivery, we manage every cargo milestone with full visibility.'),
+('tr','front','cta_desc','Teslim almadan son teslimata kadar tüm kargo adımlarını tam görünürlükle yönetiyoruz.'),
+('de','front','cta_desc','Von der Abholung bis zur Zustellung steuern wir jeden Meilenstein transparent.'),
+('fr','front','cta_desc','De l'enlèvement à la livraison finale, nous pilotons chaque étape en toute transparence.'),
+('en','front','hero_eyebrow','Global Cargo Network • 24/7 Monitoring Desk'),
+('tr','front','hero_eyebrow','Global Kargo Ağı • 7/24 Operasyon Takibi'),
+('de','front','hero_eyebrow','Globales Cargo-Netzwerk • 24/7 Leitstand'),
+('fr','front','hero_eyebrow','Réseau Cargo Mondial • Supervision 24/7')
 ON DUPLICATE KEY UPDATE text_value=VALUES(text_value);

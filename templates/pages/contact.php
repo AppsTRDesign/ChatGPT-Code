@@ -3,7 +3,7 @@ $cfg = settings();
 $lat = (float)($cfg['company_latitude'] ?? 41.01);
 $lng = (float)($cfg['company_longitude'] ?? 28.97);
 $ymKey = $cfg['yandex_api_key'] ?? '';
-$ymLang = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
+$ymLang = yandex_locale();
 ?>
 <section class="container section">
   <h2><?= t('front', 'contact') ?></h2>

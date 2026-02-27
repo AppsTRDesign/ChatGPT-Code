@@ -11,8 +11,9 @@ if ($trackingNumber === '') {
     exit('tracking_number required');
 }
 
-$stmt = db()->prepare('SELECT * FROM shipments WHERE tracking_number=:n LIMIT 1');
-$stmt->execute(['n'=>$trackingNumber]);
+$lang=current_lang();
+$stmt = db()->prepare('SELECT s.*, COALESCE(oc_t.name, oc.name, s.origin_country) AS origin_country_name, COALESCE(dc_t.name, dc.name, s.destination_country) AS destination_country_name FROM shipments s LEFT JOIN countries oc ON oc.id = s.origin_country_id LEFT JOIN country_translations oc_t ON oc_t.country_id = oc.id AND oc_t.lang_code = :lang LEFT JOIN countries dc ON dc.id = s.destination_country_id LEFT JOIN country_translations dc_t ON dc_t.country_id = dc.id AND dc_t.lang_code = :lang2 WHERE s.tracking_number=:n LIMIT 1');
+$stmt->execute(['n'=>$trackingNumber,'lang'=>$lang,'lang2'=>$lang]);
 $shipment = $stmt->fetch();
 if (!$shipment) {
     http_response_code(404);
@@ -21,7 +22,6 @@ if (!$shipment) {
 $eventsStmt = db()->prepare('SELECT status_code,status_note,city,country,created_at FROM shipment_events WHERE shipment_id=:id ORDER BY created_at DESC');
 $eventsStmt->execute(['id'=>$shipment['id']]);
 $events=$eventsStmt->fetchAll();
-$lang = current_lang();
 $cfg = settings();
 
 $rows='';
@@ -34,11 +34,11 @@ $html = '<html><meta charset="utf-8"><body style="font-family:DejaVu Sans,sans-s
     .(!empty($cfg['logo_path']) ? '<img src="'.htmlspecialchars((string)$cfg['logo_path']).'" style="height:44px">' : '')
     .'</div>'
     .'<h3 style="margin:0 0 8px">'.htmlspecialchars(t('front','track',$lang)).' #'.htmlspecialchars($trackingNumber).'</h3>'
-    .'<p><strong>'.htmlspecialchars(t('front','route',$lang)).':</strong> '.htmlspecialchars((string)$shipment['origin_country']).' / '.htmlspecialchars((string)$shipment['origin_city']).' → '.htmlspecialchars((string)$shipment['destination_country']).' / '.htmlspecialchars((string)$shipment['destination_city']).'</p>'
+    .'<p><strong>'.htmlspecialchars(t('front','route',$lang)).':</strong> '.htmlspecialchars((string)$shipment['origin_country_name']).' / '.htmlspecialchars((string)$shipment['origin_city']).' → '.htmlspecialchars((string)$shipment['destination_country_name']).' / '.htmlspecialchars((string)$shipment['destination_city']).'</p>'
     .'<p><strong>'.htmlspecialchars(t('front','sender',$lang)).':</strong> '.htmlspecialchars((string)$shipment['sender_name']).' '.htmlspecialchars((string)$shipment['sender_company']).' - '.htmlspecialchars((string)$shipment['sender_phone']).'</p>'
     .'<p><strong>'.htmlspecialchars(t('front','receiver',$lang)).':</strong> '.htmlspecialchars((string)$shipment['receiver_name']).' - '.htmlspecialchars((string)$shipment['receiver_phone']).' / '.htmlspecialchars((string)$shipment['receiver_address']).'</p>'
     .'<p><strong>'.htmlspecialchars(t('front','description',$lang)).':</strong> '.htmlspecialchars((string)$shipment['description']).'</p>'
-    .'<table width="100%" cellpadding="6" cellspacing="0" border="1" style="border-collapse:collapse"><thead><tr><th>Tarih</th><th>Durum</th><th>Not</th><th>Konum</th></tr></thead><tbody>'.$rows.'</tbody></table>'
+    .'<table width="100%" cellpadding="6" cellspacing="0" border="1" style="border-collapse:collapse"><thead><tr><th>Tarih</th><th>Durum</th><th>Açıklama</th><th>Konum</th></tr></thead><tbody>'.$rows.'</tbody></table>'
     .'</body></html>';
 
 $filename = preg_replace('/[^A-Za-z0-9\-_]/','',$trackingNumber) ?: 'tracking';

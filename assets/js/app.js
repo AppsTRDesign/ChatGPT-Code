@@ -29,22 +29,36 @@ $(function () {
   async function renderTrackingMap(events, shipment) {
     if (!window.ymaps3 || !document.getElementById('trackingMap')) return;
     await ymaps3.ready;
-    const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker } = ymaps3;
+    const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker, YMapFeature } = ymaps3;
     let coords = events.filter((e) => e.latitude && e.longitude).map((e) => [parseFloat(e.longitude), parseFloat(e.latitude)]);
     if (!coords.length && shipment.current_latitude && shipment.current_longitude) {
       coords = [[parseFloat(shipment.current_longitude), parseFloat(shipment.current_latitude)]];
     }
+
+    const origin = shipment.origin_latitude && shipment.origin_longitude ? [parseFloat(shipment.origin_longitude), parseFloat(shipment.origin_latitude)] : null;
+    const destination = shipment.destination_latitude && shipment.destination_longitude ? [parseFloat(shipment.destination_longitude), parseFloat(shipment.destination_latitude)] : null;
+    if (origin) coords.push(origin);
+    if (destination) coords.unshift(destination);
     if (!coords.length) return;
 
     const mapRoot = document.getElementById('trackingMap');
     mapRoot.innerHTML = '';
-    const map = new YMap(mapRoot, { location: { center: coords[0], zoom: coords.length > 1 ? 5 : 8 } });
+    const map = new YMap(mapRoot, { location: { center: coords[0], zoom: coords.length > 1 ? 4 : 8 } });
     map.addChild(new YMapDefaultSchemeLayer());
     map.addChild(new YMapDefaultFeaturesLayer());
 
-    coords.forEach((c) => {
+    if (coords.length > 1) {
+      map.addChild(new YMapFeature({
+        geometry: { type: 'LineString', coordinates: coords },
+        style: { stroke: [{ color: '#1d4ed8', width: 4 }] }
+      }));
+    }
+
+    coords.forEach((c, idx) => {
       const el = document.createElement('div');
       el.className = 'map-pin';
+      if (idx === 0 && destination) el.classList.add('map-pin-destination');
+      if (idx === coords.length - 1 && origin) el.classList.add('map-pin-origin');
       map.addChild(new YMapMarker({ coordinates: c }, el));
     });
   }

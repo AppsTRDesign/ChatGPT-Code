@@ -76,6 +76,18 @@ function current_lang(): string
     return $lang;
 }
 
+function yandex_locale(?string $lang = null): string
+{
+    $code = strtolower((string)($lang ?? current_lang()));
+
+    return match ($code) {
+        'tr' => 'tr_TR',
+        'de' => 'de_DE',
+        'fr' => 'fr_FR',
+        default => 'en_US',
+    };
+}
+
 function seo_slug(string $text): string
 {
     $map = [
@@ -169,6 +181,7 @@ function fallback_translations(): array
                 'from' => 'From',
                 'to' => 'To',
                 'active_shipments' => 'Active Shipments',
+                'active_shipments_desc' => 'Track live vessel and line-haul locations across global cargo routes.',
             ],
         ],
         'tr' => [
@@ -198,6 +211,7 @@ function fallback_translations(): array
                 'from' => 'Çıkış',
                 'to' => 'Varış',
                 'active_shipments' => 'Aktif Gönderiler',
+                'active_shipments_desc' => 'Küresel kargo rotalarında gemi ve hat taşıma konumlarını canlı izleyin.',
             ],
         ],
     ];
