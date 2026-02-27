@@ -18,11 +18,13 @@ $prefill = trim((string) ($_GET['num'] ?? ''));
 
   <div id="trackingDetail" class="grid-2" style="display:none">
     <div class="panel" id="trackingInfo"></div>
-    <div class="panel"><div id="trackingMap" style="height:420px"></div></div>
+    <div class="panel"><div id="trackingMap" style="height:420px"></div><?php if (empty($ymKey)): ?><p class="subtext">Yandex API key ayarlanmadığı için harita gösterilemiyor.</p><?php endif; ?></div>
   </div>
 </section>
 <?php $ymLang = yandex_locale(); ?>
+<?php if (!empty($ymKey)): ?>
 <script src="https://api-maps.yandex.ru/v3/?apikey=<?= htmlspecialchars($ymKey, ENT_QUOTES) ?>&lang=<?= htmlspecialchars($ymLang, ENT_QUOTES) ?>"></script>
+<?php endif; ?>
 
 <script>window.TRACK_LABELS = {
   status: '<?= addslashes(t('front','status_label')) ?>',

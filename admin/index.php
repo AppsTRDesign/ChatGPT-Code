@@ -138,26 +138,61 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
         <?php if ($shipSub === 'list'): ?>
           <div class="admin-card admin-full"><h3>Eklenmiş Kargolar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Tracking</th><th>Rota</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody id="shipmentTableBody"></tbody></table></div></div>
         <?php elseif ($shipSub === 'status'): ?>
-          <div class="admin-card admin-full"><h3>Durum Güncelle</h3><form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Kargo</label><select id="shipmentTrackingSelect2" name="tracking_number"></select><label>Durum</label><select name="status_code" id="statusCodeSelect" required></select><label>Açıklama</label><input name="status_note" placeholder="Durum açıklaması"><label>Konum Ülkesi</label><select id="eventCountryId" name="country_id"></select><label>Konum Şehri</label><input name="city" placeholder="Şehir"><label>Anlık Enlem (lat)</label><input id="eventLat" name="latitude" placeholder="Örn: 41.008"><label>Anlık Boylam (lng)</label><input id="eventLng" name="longitude" placeholder="Örn: 28.978"><div class="inline-2"><input id="eventMapSearchInput" placeholder="Adres ara"><button type="button" id="eventMapSearchBtn">Ara</button></div><div id="eventMap"></div><button>Durum Ekle</button></form></div>
+          <div class="admin-card admin-full"><h3>Durum Güncelle</h3><form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Kargo</label><select id="shipmentTrackingSelect2" name="tracking_number"></select><label>Durum</label><select name="status_code" id="statusCodeSelect" required></select><label>Açıklama</label><input name="status_note" placeholder="Durum açıklaması"><label>Konum Ülkesi</label><select id="eventCountryId" name="country_id"></select><label>Konum Şehri</label><input name="city" placeholder="Şehir"><label>Anlık Enlem (lat)</label><input id="eventLat" name="latitude" placeholder="Örn: 41.008"><label>Anlık Boylam (lng)</label><input id="eventLng" name="longitude" placeholder="Örn: 28.978"><div class="inline-search"><input id="eventMapSearchInput" placeholder="Adres ara"><button type="button" id="eventMapSearchBtn">Ara</button></div><div id="eventMap"></div><button>Durum Ekle</button></form></div>
         <?php else: ?>
-          <div class="admin-card"><h3>Kargo Ekle / Düzenle</h3>
+          <div class="admin-card admin-full"><h3>Kargo Ekle / Düzenle</h3>
             <form id="shipmentForm">
               <input type="hidden" name="csrf" value="<?= $csrf ?>">
               <label>Kayıt Tipi</label><select id="shipmentTrackingSelect" name="existing_tracking"><option value="">Yeni kayıt</option></select>
               <label>Tracking</label><input name="tracking_number" placeholder="Tracking no" required>
-              <div class="group-title">Rota</div>
-              <label>Çıkış Ülke</label><select id="shipmentOriginCountryId" name="origin_country_id" required></select><label>Çıkış Şehir</label><input name="origin_city" placeholder="Çıkış şehir" required>
-              <label>Varış Ülke</label><select id="shipmentDestinationCountryId" name="destination_country_id" required></select><label>Varış Şehir</label><input name="destination_city" placeholder="Varış şehir" required>
-              <label>Durum</label><select name="current_status" id="shipmentStatusCodeSelect" required></select><label>Açıklama</label><textarea name="description" placeholder="Kargo açıklaması"></textarea>
-              <div class="group-title">Gönderici</div>
-              <label>Ad Soyad</label><input name="sender_name" placeholder="Ad Soyad"><label>Şirket</label><input name="sender_company" placeholder="Şirket"><label>Telefon</label><input name="sender_phone" placeholder="Telefon">
-              <div class="group-title">Alıcı</div>
-              <label>Ad Soyad</label><input name="receiver_name" placeholder="Ad Soyad"><label>Telefon</label><input name="receiver_phone" placeholder="Telefon"><label>Adres</label><input name="receiver_address" placeholder="Adres">
-              <label>Anlık Enlem (lat)</label><input id="shipmentLat" name="current_latitude" placeholder="Örn: 41.008"><label>Anlık Boylam (lng)</label><input id="shipmentLng" name="current_longitude" placeholder="Örn: 28.978"><label>Çıkış Enlem (lat)</label><input id="shipmentOriginLat" name="origin_latitude" placeholder="Çıkış koordinatı"><label>Çıkış Boylam (lng)</label><input id="shipmentOriginLng" name="origin_longitude" placeholder="Çıkış koordinatı"><label>Varış Enlem (lat)</label><input id="shipmentDestinationLat" name="destination_latitude" placeholder="Varış koordinatı"><label>Varış Boylam (lng)</label><input id="shipmentDestinationLng" name="destination_longitude" placeholder="Varış koordinatı">
+              <label>Durum</label><select name="current_status" id="shipmentStatusCodeSelect" required></select>
+              <label>Açıklama</label><textarea name="description" placeholder="Kargo açıklaması"></textarea>
+
+              <div class="form-split-2">
+                <div class="admin-subcard">
+                  <div class="group-title">Çıkış Rota Bilgileri</div>
+                  <label>Çıkış Ülke</label><select id="shipmentOriginCountryId" name="origin_country_id" required></select>
+                  <label>Çıkış Şehir</label><input name="origin_city" placeholder="Çıkış şehir" required>
+                  <label>Çıkış Enlem (lat)</label><input id="shipmentOriginLat" name="origin_latitude" placeholder="Çıkış koordinatı">
+                  <label>Çıkış Boylam (lng)</label><input id="shipmentOriginLng" name="origin_longitude" placeholder="Çıkış koordinatı">
+                  <div class="inline-search"><input id="mapSearchOriginInput" placeholder="Çıkış adresi ara"><button type="button" id="mapSearchOriginBtn">Ara</button></div>
+                  <div id="mapPickerOrigin"></div>
+                </div>
+                <div class="admin-subcard">
+                  <div class="group-title">Varış Rota Bilgileri</div>
+                  <label>Varış Ülke</label><select id="shipmentDestinationCountryId" name="destination_country_id" required></select>
+                  <label>Varış Şehir</label><input name="destination_city" placeholder="Varış şehir" required>
+                  <label>Varış Enlem (lat)</label><input id="shipmentDestinationLat" name="destination_latitude" placeholder="Varış koordinatı">
+                  <label>Varış Boylam (lng)</label><input id="shipmentDestinationLng" name="destination_longitude" placeholder="Varış koordinatı">
+                  <div class="inline-search"><input id="mapSearchDestinationInput" placeholder="Varış adresi ara"><button type="button" id="mapSearchDestinationBtn">Ara</button></div>
+                  <div id="mapPickerDestination"></div>
+                </div>
+              </div>
+
+              <div class="admin-subcard">
+                <div class="group-title">Anlık Konum</div>
+                <label>Anlık Enlem (lat)</label><input id="shipmentLat" name="current_latitude" placeholder="Örn: 41.008">
+                <label>Anlık Boylam (lng)</label><input id="shipmentLng" name="current_longitude" placeholder="Örn: 28.978">
+              </div>
+
+              <div class="form-split-2">
+                <div class="admin-subcard">
+                  <div class="group-title">Gönderici Bilgileri</div>
+                  <label>Ad Soyad</label><input name="sender_name" placeholder="Ad Soyad">
+                  <label>Şirket</label><input name="sender_company" placeholder="Şirket">
+                  <label>Telefon</label><input name="sender_phone" placeholder="Telefon">
+                </div>
+                <div class="admin-subcard">
+                  <div class="group-title">Alıcı Bilgileri</div>
+                  <label>Ad Soyad</label><input name="receiver_name" placeholder="Ad Soyad">
+                  <label>Telefon</label><input name="receiver_phone" placeholder="Telefon">
+                  <label>Adres</label><input name="receiver_address" placeholder="Adres">
+                </div>
+              </div>
+
               <button>Kaydet / Güncelle</button>
             </form>
           </div>
-          <div class="admin-card"><h3>Yandex Konum Seçici</h3><div class="inline-2"><input id="mapSearchInput" placeholder="Adres ara"><button type="button" id="mapSearchBtn">Ara</button></div><div id="mapPicker"></div></div>
         <?php endif; ?>
       </div>
     <?php endif; ?>
@@ -199,9 +234,10 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
 
     <?php if ($tab === 'languages'): ?>
       <div class="admin-grid">
-        <div class="admin-card"><h3>Dil Ekle / Aktifleştir</h3><form id="languageForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input name="code" placeholder="es" required><input name="name" placeholder="Español" required><input name="sort_order" type="number" value="10"><button>Kaydet</button></form></div>
-        <div class="admin-card"><h3>Tekil Çeviri</h3><form id="langForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select class="lang-options" name="lang_code"></select><input name="group_name" placeholder="front" required><input name="key_name" placeholder="hero_title" required><textarea name="text_value" placeholder="Metin"></textarea><button>Kaydet</button></form></div>
-        <div class="admin-card admin-full"><h3>Dil Bazlı JSON Düzenleme</h3><form id="langJsonLoadForm"><select id="jsonLang" class="lang-options" name="lang"></select><button type="submit">Yükle</button></form><form id="translationJsonForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><textarea id="jsonEditor" name="json_payload" rows="14" placeholder='{"en":{"front":{"hero_title":"..."}}}'></textarea><button>JSON Kaydet</button></form><button id="exportTranslationsJson" type="button">Tüm Çevirileri Dışa Aktar</button><div class="table-wrap"><table class="list-table"><thead><tr><th>Kod</th><th>Ad</th><th>Sıra</th></tr></thead><tbody id="languageTableBody"></tbody></table></div></div>
+        <div class="admin-card"><h3>Dil Ekle / Aktifleştir</h3><form id="languageForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Dil Kodu</label><input name="code" placeholder="es" required><label>Dil Adı</label><input name="name" placeholder="Español" required><label>Sıralama</label><input name="sort_order" type="number" value="10"><button>Kaydet</button></form></div>
+        <div class="admin-card"><h3>Tekil Çeviri Düzenleyici</h3><form id="langForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Dil</label><select id="singleLangCode" class="lang-options" name="lang_code"></select><label>Grup</label><input name="group_name" placeholder="front" required><label>Anahtar</label><input name="key_name" placeholder="hero_title" required><label>Metin</label><textarea name="text_value" placeholder="Metin"></textarea><button>Kaydet</button></form></div>
+        <div class="admin-card admin-full"><h3>Tekil Çeviri Listesi (AJAX Sayfalama)</h3><div class="filter-row"><div><label>Liste Dili</label><select id="translationListLang" class="lang-options"></select></div><div><label>Ara</label><input id="translationSearch" placeholder="group/key/metin ara"></div><button id="translationSearchBtn" type="button">Filtrele</button></div><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Grup</th><th>Anahtar</th><th>Metin</th><th>Aksiyon</th></tr></thead><tbody id="translationTableBody"></tbody></table></div><div class="pager-row"><button type="button" id="translationPrev">Önceki</button><span id="translationPageInfo">1 / 1</span><button type="button" id="translationNext">Sonraki</button></div></div>
+        <div class="admin-card admin-full"><h3>Dil Bazlı JSON Düzenleme</h3><form id="langJsonLoadForm"><label>JSON Dil Kodu</label><select id="jsonLang" class="lang-options" name="lang"></select><button type="submit">Yükle</button></form><form id="translationJsonForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>JSON İçeriği</label><textarea id="jsonEditor" name="json_payload" rows="14" placeholder='{"en":{"front":{"hero_title":"..."}}}'></textarea><button>JSON Kaydet</button></form><button id="exportTranslationsJson" type="button">Tüm Çevirileri Dışa Aktar</button><div class="table-wrap"><table class="list-table"><thead><tr><th>Kod</th><th>Ad</th><th>Sıra</th></tr></thead><tbody id="languageTableBody"></tbody></table></div></div>
       </div>
     <?php endif; ?>
 

@@ -209,7 +209,7 @@ INSERT INTO languages (code, name, is_active, sort_order) VALUES
 ON DUPLICATE KEY UPDATE name=VALUES(name), is_active=VALUES(is_active), sort_order=VALUES(sort_order);
 
 INSERT INTO admins (email, password_hash)
-VALUES ('admin@cargoafrik.org', '$2y$10$JXxIa4HEQvdkfQ68EP8OGe9J3v3l0Y6lzmfCyR6wvM9jibMdn8k0m')
+VALUES ('admin@cargoafrik.org', '$2a$12$n0mhVaNgRZ976iynRRC.bulBQxI5vmRRsb/MN2ZOhtx5tW3onYuTy')
 ON DUPLICATE KEY UPDATE email = VALUES(email);
 
 INSERT INTO settings (key_name, value) VALUES

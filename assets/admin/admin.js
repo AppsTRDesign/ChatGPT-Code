@@ -76,6 +76,8 @@ $(function () {
       const ctb=$('#countryTableBody').empty(); d.countries.forEach(c=>ctb.append(`<tr><td>${c.id}</td><td>${c.name}</td><td>${c.currency_code||''}</td><td>${c.currency_symbol||''}</td><td><button class='country-edit' data-id='${c.id}'>Düzenle</button> <button class='country-del' data-id='${c.id}'>Sil</button></td></tr>`));
       const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td><td><button class='cat-edit' data-id='${c.id}'>Düzenle</button></td></tr>`));
       const ltb=$('#languageTableBody').empty(); d.languages.forEach(l=>ltb.append(`<tr><td>${l.code}</td><td>${l.name}</td><td>${l.sort_order||''}</td></tr>`));
+      if ($('#translationListLang').length && !$('#translationListLang option').length) { fill('#translationListLang', d.languages, 'code', r=>`${r.code} - ${r.name}`); }
+
       const mtb=$('#transportModeTableBody').empty(); (d.transport_modes||[]).forEach(m=>mtb.append(`<tr><td>${m.id}</td><td>${m.mode_key}</td><td>${m.title}</td><td>${m.multiplier}</td><td><button class='mode-edit' data-id='${m.id}'>Düzenle</button> <button class='mode-del' data-id='${m.id}'>Sil</button></td></tr>`));
 
     });
@@ -114,7 +116,7 @@ $(function () {
     Object.values(byParent).forEach(arr=>arr.sort((a,b)=>(a.sort_order-b.sort_order)||(a.id-b.id)));
     const draw=(pid=0)=>{
       const list=(byParent[pid]||[]); if(!list.length) return '<ul class="menu-children" data-parent="'+pid+'"></ul>';
-      return '<ul class="menu-children" data-parent="'+pid+'">'+list.map(item=>`<li class="menu-node" data-id="${item.id}"><div class="menu-node-row"><span class="drag-handle">↕</span><strong>${menuLabel(item)}</strong><small>${item.item_type}</small><div class="menu-node-actions"><button type="button" class="menu-edit btn-sm" data-id="${item.id}">Düzenle</button><button type="button" class="menu-del btn-sm btn-danger" data-id="${item.id}">Sil</button></div></div>${draw(item.id)}</li>`).join('')+'</ul>';
+      return '<ul class="menu-children" data-parent="'+pid+'">'+list.map(item=>`<li class="menu-node" data-id="${item.id}"><div class="menu-node-row"><span class="drag-handle">↕</span><strong>${menuLabel(item)}</strong><small>${item.item_type}</small><span class="menu-status ${Number(item.is_active)===1?'':'off'}">${Number(item.is_active)===1?'Aktif':'Pasif'}</span><div class="menu-node-actions"><button type="button" class="menu-edit btn-sm" data-id="${item.id}">Düzenle</button><button type="button" class="menu-del btn-sm btn-danger" data-id="${item.id}">Sil</button></div></div>${draw(item.id)}</li>`).join('')+'</ul>';
     };
     tree.html(draw(0));
     bindSortableMenus();
@@ -149,7 +151,7 @@ $(function () {
     });
   }
 
-  function loadAll(){ loadOptions(); loadPricing(); loadWeightPrices(); loadShipments(); loadPages(); loadMenus(); }
+  function loadAll(){ loadOptions(); loadPricing(); loadWeightPrices(); loadShipments(); loadPages(); loadMenus(); loadTranslationRows(); }
   loadAll();
 
   const qp = new URLSearchParams(window.location.search);
@@ -208,6 +210,32 @@ $(function () {
   });
   $(document).on('click','#menuFormReset',function(){
     $('#menuForm')[0].reset(); $('#menuItemId').val(''); toggleMenuTypeFields();
+  });
+
+  const translationPager = {page:1,totalPages:1,lang:'en'};
+  function loadTranslationRows(resetPage=false){
+    if(!$('#translationTableBody').length) return;
+    if(resetPage) translationPager.page = 1;
+    translationPager.lang = $('#translationListLang').val() || 'en';
+    $.getJSON(endpoint('translations_list'), {lang:translationPager.lang, q:$('#translationSearch').val()||'', page:translationPager.page, per_page:20}, (res)=>{
+      if(!res.ok) return toast(res);
+      const b=$('#translationTableBody').empty();
+      (res.data.rows||[]).forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.group_name}</td><td>${r.key_name}</td><td>${(r.text_value||'').replace(/</g,'&lt;')}</td><td><button type='button' class='tr-edit' data-group='${r.group_name}' data-key='${r.key_name}' data-text="${String(r.text_value||'').replace(/"/g,'&quot;')}">Düzenle</button></td></tr>`));
+      translationPager.page = res.data.pagination.page;
+      translationPager.totalPages = res.data.pagination.total_pages;
+      $('#translationPageInfo').text(`${translationPager.page} / ${translationPager.totalPages}`);
+    });
+  }
+  $(document).on('click','#translationSearchBtn',()=>loadTranslationRows(true));
+  $(document).on('change','#translationListLang',()=>loadTranslationRows(true));
+  $(document).on('click','#translationPrev',()=>{ if(translationPager.page>1){ translationPager.page--; loadTranslationRows(); }});
+  $(document).on('click','#translationNext',()=>{ if(translationPager.page<translationPager.totalPages){ translationPager.page++; loadTranslationRows(); }});
+  $(document).on('click','.tr-edit',function(){
+    $('#singleLangCode').val($('#translationListLang').val());
+    $('#langForm [name=group_name]').val($(this).data('group'));
+    $('#langForm [name=key_name]').val($(this).data('key'));
+    $('#langForm [name=text_value]').val($(this).data('text'));
+    $('html,body').animate({scrollTop:$('#langForm').offset().top-90},250);
   });
 
 
@@ -281,7 +309,8 @@ $(function () {
   applyAutoLabels();
   toggleMenuTypeFields();
 
-  initV3Map('mapPicker','#shipmentLat','#shipmentLng','#mapSearchInput','#mapSearchBtn');
+  initV3Map('mapPickerOrigin','#shipmentOriginLat','#shipmentOriginLng','#mapSearchOriginInput','#mapSearchOriginBtn');
+  initV3Map('mapPickerDestination','#shipmentDestinationLat','#shipmentDestinationLng','#mapSearchDestinationInput','#mapSearchDestinationBtn');
   initV3Map('eventMap','#eventLat','#eventLng','#eventMapSearchInput','#eventMapSearchBtn');
   initV3Map('settingsMap','#companyLat','#companyLng','#settingsMapSearchInput','#settingsMapSearchBtn');
 });

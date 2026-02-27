@@ -1,6 +1,13 @@
 $(function(){ $('#langToggle').on('click', function(){ $('#langMenu').toggleClass('open'); }); });
 $(function () {
   $('#mobileToggle').on('click', function () { $('#mobileMenu').toggleClass('open'); });
+  $(document).on('click', '.desktop-menu .has-dropdown > a', function (e) {
+    if (window.matchMedia('(max-width: 980px)').matches) return;
+    e.preventDefault();
+    const item = $(this).parent();
+    item.toggleClass('open');
+    item.siblings('.has-dropdown').removeClass('open');
+  });
   $('#mobileSideClose').on('click', function(){ $('#adminSidebar').removeClass('open'); });
 
   $('#quickTrack').on('submit', function (e) {
