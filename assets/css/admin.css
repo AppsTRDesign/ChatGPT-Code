@@ -19,3 +19,10 @@ body.admin-body{margin:0;background:#eef2f7}
 .list-table{width:100%;border-collapse:collapse}.list-table th,.list-table td{padding:9px;border-bottom:1px solid #e2e8f0;text-align:left}
 #mapPicker,#settingsMap{width:100%;height:340px;border:1px solid #cbd5e1;border-radius:12px}
 @media(max-width:1080px){.admin-layout{grid-template-columns:1fr}.admin-sidebar{position:fixed;left:-290px;top:0;z-index:999;transition:.25s;width:280px}.admin-sidebar.open{left:0}.mobile-side-btn{display:inline-block}.admin-grid{grid-template-columns:1fr}}
+
+.inline-2{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.table-wrap{overflow:auto}
+.sortable-list{list-style:none;padding:0;margin:10px 0;display:grid;gap:5px}
+.sortable-list li{padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:grab}
+.side-link{margin:5px 0}
+.side-sub{display:grid;gap:5px}

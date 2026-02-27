@@ -10,10 +10,11 @@ if (!admin_auth()) {
 
 $out = [
     'countries' => db()->query('SELECT id, name, currency_code FROM countries ORDER BY name')->fetchAll(),
-    'categories' => db()->query('SELECT id, title FROM price_categories ORDER BY title')->fetchAll(),
+    'categories' => db()->query('SELECT id, title, description FROM price_categories ORDER BY title')->fetchAll(),
     'pages' => db()->query("SELECT p.id, COALESCE(pt.title, p.slug) title FROM pages p LEFT JOIN page_translations pt ON pt.page_id = p.id AND pt.lang_code = 'en' ORDER BY p.id DESC")->fetchAll(),
     'languages' => db()->query('SELECT code, name FROM languages WHERE is_active = 1 ORDER BY sort_order, code')->fetchAll(),
     'shipments' => db()->query('SELECT tracking_number FROM shipments ORDER BY id DESC LIMIT 300')->fetchAll(),
+    'menus' => db()->query("SELECT m.id,m.sort_order,COALESCE(pt.title,p.slug) title FROM menus m JOIN pages p ON p.id=m.page_id LEFT JOIN page_translations pt ON pt.page_id=p.id AND pt.lang_code='en' ORDER BY m.sort_order,m.id")->fetchAll(),
 ];
 
 json_response(true, 'ok', $out);

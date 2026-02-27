@@ -1,3 +1,4 @@
+$(function(){ $('#langToggle').on('click', function(){ $('#langMenu').toggleClass('open'); }); });
 $(function () {
   $('#mobileToggle').on('click', function () { $('#mobileMenu').toggleClass('open'); });
 
@@ -47,10 +48,11 @@ $(function () {
   function renderTrackingInfo(res) {
     const s = res.data.shipment;
     const events = res.data.events;
-    const list = events.map((ev) => `<li><strong>${ev.status_code}</strong> — ${ev.status_note || '-'} <small>${ev.city || ''}/${ev.country || ''}</small></li>`).join('');
+    const badge = (st,label)=>`<span class='status-badge status-${st}'>${label||st}</span>`;
+    const list = events.map((ev) => `<li>${badge(ev.status_code, ev.status_label)} ${ev.status_note || '-'} <small>${ev.city || ''}/${ev.country || ''}</small></li>`).join('');
     $('#trackingInfo').html(`
       <h3>${s.tracking_number}</h3>
-      <p><strong>Status:</strong> ${s.current_status}</p>
+      <p><strong>Status:</strong> ${s.status_label || s.current_status}</p>
       <p><strong>Current Location:</strong> ${s.current_latitude || '-'}, ${s.current_longitude || '-'}</p>
       <p><strong>Route:</strong> ${s.origin_country} / ${s.origin_city} → ${s.destination_country} / ${s.destination_city}</p>
       <div class="group-title">Sender</div>

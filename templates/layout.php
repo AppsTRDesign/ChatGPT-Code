@@ -13,15 +13,18 @@ $languages = available_languages();
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
   <link rel="stylesheet" href="/assets/css/style.css">
 </head>
-<body>
+<body><div class="page-shell">
 <header class="site-header">
   <div class="header-strip">
     <div class="container strip-inner">
       <p><?= t('front', 'top_message') ?></p>
-      <div class="lang-switch">
+      <div class="lang-switch dropdown">
+        <button type="button" id="langToggle"><?= htmlspecialchars(strtoupper($lang), ENT_QUOTES) ?> ▾</button>
+        <div id="langMenu" class="lang-menu">
         <?php foreach ($languages as $code => $name): ?>
-          <a class="<?= $code === $lang ? 'active' : '' ?>" href="?lang=<?= htmlspecialchars($code, ENT_QUOTES) ?>"><?= htmlspecialchars(strtoupper($code), ENT_QUOTES) ?></a>
+          <a class="<?= $code === $lang ? 'active' : '' ?>" href="?lang=<?= htmlspecialchars($code, ENT_QUOTES) ?>"><?= htmlspecialchars(strtoupper($code), ENT_QUOTES) ?> - <?= htmlspecialchars($name, ENT_QUOTES) ?></a>
         <?php endforeach; ?>
+        </div>
       </div>
     </div>
   </div>
@@ -31,7 +34,7 @@ $languages = available_languages();
       <a href="/tracking"><?= t('front', 'track') ?></a>
       <a href="/pricing"><?= t('front', 'pricing') ?></a>
       <a href="/contact"><?= t('front', 'contact') ?></a>
-    <a href="/active-shipments">Active Shipments</a>
+    <a href="/active-shipments"><?= t('front','active_shipments') ?></a>
       <?php foreach ($menus as $item): ?>
         <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
       <?php endforeach; ?>
@@ -42,7 +45,7 @@ $languages = available_languages();
     <a href="/tracking"><?= t('front', 'track') ?></a>
     <a href="/pricing"><?= t('front', 'pricing') ?></a>
     <a href="/contact"><?= t('front', 'contact') ?></a>
-    <a href="/active-shipments">Active Shipments</a>
+    <a href="/active-shipments"><?= t('front','active_shipments') ?></a>
     <?php foreach ($menus as $item): ?>
       <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
     <?php endforeach; ?>
@@ -63,6 +66,7 @@ $languages = available_languages();
     </div>
   </div>
 </footer>
+</div>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 <script>window.CSRF_TOKEN = '<?= csrf_token() ?>';</script>
