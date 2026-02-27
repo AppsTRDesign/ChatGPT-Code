@@ -1,12 +1,4 @@
 <?php
-
-declare(strict_types=1);
-
-require_once __DIR__ . '/../../app/bootstrap.php';
-
-if (!admin_auth()) {
-    json_response(false, 'Yetkisiz');
-}
-
-$rows = db()->query('SELECT c.name country_name, c.currency_code, cat.title category_title, pc.price_amount FROM price_configs pc JOIN countries c ON c.id = pc.country_id JOIN price_categories cat ON cat.id = pc.category_id ORDER BY c.name, cat.title')->fetchAll();
-json_response(true, 'ok', $rows);
+require_once __DIR__ . '/_init.php';
+$rows = db()->query('SELECT pc.id,c.name country_name,c.currency_code,c.currency_symbol,cat.title category_title,cat.mode_key,cat.mode_multiplier,cat.divisor,pc.weight_prices_json FROM price_configs pc JOIN countries c ON c.id = pc.country_id JOIN price_categories cat ON cat.id = pc.category_id ORDER BY c.name, cat.title')->fetchAll();
+json_response(true,'ok',$rows);

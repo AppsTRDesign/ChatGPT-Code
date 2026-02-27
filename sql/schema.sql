@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS countries (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   currency_code VARCHAR(10) NOT NULL DEFAULT "USD",
+  currency_symbol VARCHAR(10) NOT NULL DEFAULT '$',
   is_active TINYINT(1) NOT NULL DEFAULT 1
 );
 
@@ -111,7 +112,14 @@ CREATE TABLE IF NOT EXISTS country_translations (
 CREATE TABLE IF NOT EXISTS price_categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(190) NOT NULL,
-  description TEXT
+  description TEXT,
+  mode_key VARCHAR(30) NOT NULL DEFAULT 'road',
+  mode_multiplier DECIMAL(8,3) NOT NULL DEFAULT 1.000,
+  divisor DECIMAL(10,2) NOT NULL DEFAULT 3000,
+  fuel_rate DECIMAL(8,3) NOT NULL DEFAULT 0.000,
+  cod_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  min_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  extra_per_kg DECIMAL(10,2) NOT NULL DEFAULT 12.00
 );
 
 CREATE TABLE IF NOT EXISTS price_category_translations (
@@ -128,7 +136,7 @@ CREATE TABLE IF NOT EXISTS price_configs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   country_id INT NOT NULL,
   category_id INT NOT NULL,
-  price_amount DECIMAL(10,2) NOT NULL,
+  weight_prices_json TEXT NOT NULL,
   UNIQUE KEY uniq_country_category(country_id, category_id),
   CONSTRAINT fk_price_country FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE,
   CONSTRAINT fk_price_category FOREIGN KEY (category_id) REFERENCES price_categories(id) ON DELETE CASCADE
@@ -157,7 +165,8 @@ INSERT INTO settings (key_name, value) VALUES
 ('favicon_path', 'https://dummyimage.com/32x32/ffcc00/111&text=C'),
 ('company_latitude', '41.015137'),
 ('company_longitude', '28.979530'),
-('yandex_api_key', 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6')
+('yandex_api_key', 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6'),
+('pdf_primary_color', '#0f172a')
 ON DUPLICATE KEY UPDATE value=VALUES(value);
 
 

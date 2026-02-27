@@ -1,0 +1,7 @@
+{
+  "name": "cargoafrik/inc",
+  "description": "PDF infrastructure for CargoAfrik",
+  "require": {
+    "mpdf/mpdf": "^8.2"
+  }
+}

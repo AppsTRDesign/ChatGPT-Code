@@ -60,14 +60,14 @@ $(function () {
       const statusSel=$('#statusCodeSelect').empty();
       statusOptions.forEach(s=>statusSel.append(`<option value="${s}">${s}</option>`));
 
-      const ctb=$('#countryTableBody').empty(); d.countries.forEach(c=>ctb.append(`<tr><td>${c.id}</td><td>${c.name}</td><td>${c.currency_code||''}</td></tr>`));
+      const ctb=$('#countryTableBody').empty(); d.countries.forEach(c=>ctb.append(`<tr><td>${c.id}</td><td>${c.name}</td><td>${c.currency_code||''}</td><td>${c.currency_symbol||''}</td><td><button class='country-edit' data-id='${c.id}'>Düzenle</button> <button class='country-del' data-id='${c.id}'>Sil</button></td></tr>`));
       const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td></tr>`));
       const ltb=$('#languageTableBody').empty(); d.languages.forEach(l=>ltb.append(`<tr><td>${l.code}</td><td>${l.name}</td><td>${l.sort_order||''}</td></tr>`));
 
     });
   }
 
-  function loadPricing(){ $.getJSON(endpoint('pricing_list'),res=>{ if(!res.ok)return; const b=$('#pricingTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.country_name}</td><td>${r.currency_code||'-'}</td><td>${r.category_title}</td><td>${r.price_amount}</td></tr>`));}); }
+  function loadPricing(){ $.getJSON(endpoint('pricing_list'),res=>{ if(!res.ok)return; const b=$('#pricingTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.country_name}</td><td>${r.currency_code||'-'}</td><td>${r.category_title}</td><td><pre>${r.weight_prices_json}</pre></td></tr>`));}); }
   function loadShipments(){ $.getJSON(endpoint('shipment_list'),res=>{ if(!res.ok)return; const b=$('#shipmentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.tracking_number}</td><td>${r.origin_country} → ${r.destination_country}</td><td>${r.current_status}</td><td><button class='act-edit' data-id='${r.id}'>Düzenle</button> <button class='act-del' data-id='${r.id}'>Sil</button> <button class='act-status' data-tr='${r.tracking_number}'>Durum</button></td></tr>`));}); }
   function loadPages(){ $.getJSON(endpoint('page_list'),res=>{ if(!res.ok)return; const b=$('#pageTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title}</td><td>${r.slug}</td><td><button class='page-edit' data-id='${r.id}'>Düzenle</button> <button class='page-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
   let menuRows = [];
@@ -175,6 +175,23 @@ $(function () {
   });
   $(document).on('click','#menuFormReset',function(){
     $('#menuForm')[0].reset(); $('#menuItemId').val(''); toggleMenuTypeFields();
+  });
+
+
+  $(document).on('click','.country-edit',function(){
+    $.getJSON(endpoint('country_get'), {id:$(this).data('id')}, (res)=>{
+      if(!res.ok) return toast(res);
+      const d=res.data;
+      $('#countryForm [name=country_id]').val(d.id);
+      $('#countryForm [name=name]').val(d.name);
+      $('#countryForm [name=currency_code]').val(d.currency_code);
+      $('#countryForm [name=currency_symbol]').val(d.currency_symbol || '$');
+      $('#countryForm [name=is_active]').val(String(d.is_active ?? 1));
+      $('html,body').animate({scrollTop:$('#countryForm').offset().top-80},300);
+    });
+  });
+  $(document).on('click','.country-del',function(){
+    $.post(endpoint('country_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadAll();}, 'json');
   });
 
   $('#langJsonLoadForm').on('submit', function(e){ e.preventDefault(); $.getJSON(endpoint('translations_by_lang'), {lang:$('#jsonLang').val()}, (res)=>{ if(!res.ok)return toast(res); $('#jsonEditor').val(JSON.stringify({[$('#jsonLang').val()]:res.data},null,2)); });});

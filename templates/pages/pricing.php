@@ -19,6 +19,10 @@
     </select>
     <label><?= t('front', 'category') ?></label>
     <select name="category_id" id="categorySelect" required></select>
+    <label>En (cm)</label><input type="number" step="0.01" name="en" required>
+    <label>Boy (cm)</label><input type="number" step="0.01" name="boy" required>
+    <label>Yükseklik (cm)</label><input type="number" step="0.01" name="yukseklik" required>
+    <label>Ağırlık (kg)</label><input type="number" step="0.01" name="kilo" required>
     <button type="submit"><?= t('front', 'calculate') ?></button>
   </form>
   <div id="pricingResult"></div>

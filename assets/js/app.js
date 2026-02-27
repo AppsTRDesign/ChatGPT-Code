@@ -22,7 +22,7 @@ $(function () {
     $.post('/api/pricing.php', $(this).serialize() + '&csrf=' + window.CSRF_TOKEN, function (res) {
       if (!res.ok) return toastr.error(res.message);
       toastr.success(res.message);
-      $('#pricingResult').html(`<div class="panel"><h3>${res.data.category_title}</h3><p>${res.data.country_name}</p><p><strong>${res.data.price_amount} ${res.data.currency_code || 'EUR'}</strong></p><p>${res.data.description || ''}</p></div>`);
+      $('#pricingResult').html(`<div class="panel"><h3>${res.data.category_title}</h3><p>${res.data.country_name}</p><p><strong>${res.data.ucret_usd} USD</strong></p><p>Chargeable: ${res.data.ucret_kilo} kg | Volumetric: ${res.data.hacimsel_kilo} kg</p><p>${res.data.description || ''}</p><p>Local Currency: ${res.data.local_currency_symbol || ''} ${res.data.local_currency_code || ''}</p></div>`);
     }, 'json');
   });
 
@@ -57,6 +57,7 @@ $(function () {
     const list = events.map((ev) => `<li>${badge(ev.status_code, ev.status_label)} ${ev.status_note || '-'} <small>${ev.city || ''}/${ev.country || ''}</small></li>`).join('');
     $('#trackingInfo').html(`
       <h3>${s.tracking_number}</h3>
+      <p><button id='downloadTrackPdf' data-tr='${s.tracking_number}' type='button'>PDF İndir</button></p>
       <p><strong>${L.status || 'Status'}:</strong> ${s.status_label || s.current_status}</p>
       <p><strong>${L.current_location || 'Current Location'}:</strong> ${s.current_latitude || '-'}, ${s.current_longitude || '-'}</p>
       <p><strong>${L.route || 'Route'}:</strong> ${s.origin_country} / ${s.origin_city} → ${s.destination_country} / ${s.destination_city}</p>
@@ -86,3 +87,5 @@ $(function () {
     $('#trackingForm input[name="tracking_number"]').val(num);
   }
 });
+
+$(document).on('click','#downloadTrackPdf',function(){ const tr=$(this).data('tr'); window.location.href='/api/track_pdf.php?tracking_number='+encodeURIComponent(tr); });

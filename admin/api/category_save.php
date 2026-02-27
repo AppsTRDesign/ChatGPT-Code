@@ -4,14 +4,21 @@ require_once __DIR__ . '/_init.php';
 $id = (int) ($_POST['category_id'] ?? 0);
 $title = trim((string) ($_POST['title'] ?? ''));
 $desc = trim((string) ($_POST['description'] ?? ''));
-if ($title === '') {
-    json_response(false, 'Kategori başlığı gerekli');
-}
+$modeKey = trim((string)($_POST['mode_key'] ?? 'road')) ?: 'road';
+$multiplier = (float)($_POST['mode_multiplier'] ?? 1);
+$divisor = (float)($_POST['divisor'] ?? 3000);
+$fuelRate = (float)($_POST['fuel_rate'] ?? 0);
+$codFee = (float)($_POST['cod_fee'] ?? 0);
+$minPrice = (float)($_POST['min_price'] ?? 0);
+$extraPerKg = (float)($_POST['extra_per_kg'] ?? 12);
+if ($title === '') json_response(false, 'Kategori başlığı gerekli');
 
+$params=['t'=>$title,'d'=>$desc,'mk'=>$modeKey,'mm'=>$multiplier,'dv'=>$divisor,'fr'=>$fuelRate,'cf'=>$codFee,'mp'=>$minPrice,'ek'=>$extraPerKg];
 if ($id > 0) {
-    db()->prepare('UPDATE price_categories SET title=:t, description=:d WHERE id=:id')->execute(['t' => $title, 'd' => $desc, 'id' => $id]);
+    $params['id']=$id;
+    db()->prepare('UPDATE price_categories SET title=:t, description=:d, mode_key=:mk, mode_multiplier=:mm, divisor=:dv, fuel_rate=:fr, cod_fee=:cf, min_price=:mp, extra_per_kg=:ek WHERE id=:id')->execute($params);
     json_response(true, 'Kategori güncellendi');
 }
 
-db()->prepare('INSERT INTO price_categories(title,description) VALUES(:t,:d)')->execute(['t' => $title, 'd' => $desc]);
+db()->prepare('INSERT INTO price_categories(title,description,mode_key,mode_multiplier,divisor,fuel_rate,cod_fee,min_price,extra_per_kg) VALUES(:t,:d,:mk,:mm,:dv,:fr,:cf,:mp,:ek)')->execute($params);
 json_response(true, 'Kategori kaydedildi');

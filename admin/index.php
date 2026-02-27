@@ -32,11 +32,11 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
     <a class="side-link <?= $tab==='pages'?'active':'' ?>" href="?tab=pages">Sayfa Ekle / Düzenle</a>
     <a class="side-link <?= $tab==='menus'?'active':'' ?>" href="?tab=menus">Menü Yönetimi</a>
     <a class="side-link <?= $tab==='shipments'?'active':'' ?>" href="?tab=shipments">Kargo Ekle / Yönet</a>
+    <a class="side-link <?= $tab==='countries'?'active':'' ?>" href="?tab=countries">Ülke Yönetimi</a>
     <div class="side-group <?= $tab==='pricing'?'open':'' ?>">
       <button type="button" class="side-toggle">Fiyatlama Yönetimi</button>
       <div class="side-sub">
-        <a class="side-link <?= $tab==='pricing' && ($sub===''||$sub==='country')?'active':'' ?>" href="?tab=pricing&sub=country">Ülke Ekle / Düzenle</a>
-        <a class="side-link <?= $tab==='pricing' && $sub==='category'?'active':'' ?>" href="?tab=pricing&sub=category">Kategori Ekle / Düzenle</a>
+        <a class="side-link <?= $tab==='pricing' && ($sub===''||$sub==='category')?'active':'' ?>" href="?tab=pricing&sub=category">Kategori Ekle / Düzenle</a>
         <a class="side-link <?= $tab==='pricing' && $sub==='price'?'active':'' ?>" href="?tab=pricing&sub=price">Fiyat Ekle</a>
       </div>
     </div>
@@ -133,24 +133,30 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       </div>
     <?php endif; ?>
 
-    <?php if ($tab === 'pricing'): $psub = $sub ?: 'country'; ?>
+    <?php if ($tab === 'countries'): ?>
       <div class="admin-grid">
-      <?php if ($psub === 'country'): ?>
-        <div class="admin-card"><h3>Ülke Ekle / Düzenle</h3><form id="countryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="countrySelectAdmin" name="country_id"><option value="">Yeni ülke</option></select><input name="name" placeholder="Country name (EN)" required><input name="currency_code" placeholder="Currency" required><button>Kaydet</button></form></div>
-        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Ülke</th><th>Currency</th></tr></thead><tbody id="countryTableBody"></tbody></table></div>
-      <?php elseif ($psub === 'category'): ?>
-        <div class="admin-card"><h3>Kategori Ekle / Düzenle</h3><form id="categoryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin" name="category_id"><option value="">Yeni kategori</option></select><input name="title" placeholder="Category title (EN)" required><textarea name="description" placeholder="Description"></textarea><button>Kaydet</button></form></div>
+        <div class="admin-card"><h3>Ülke Ekle / Düzenle</h3><form id="countryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="country_id"><input name="name" placeholder="Ülke adı" required><input name="currency_code" placeholder="Para birimi kodu (USD)" required><input name="currency_symbol" placeholder="Para birimi sembolü ($)" required><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select><button>Kaydet</button></form></div>
         <div class="admin-card"><h3>Ülke Çevirisi</h3><form id="countryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="countrySelectAdmin2" name="country_id"></select><select class="lang-options" name="lang_code"></select><input name="name" placeholder="Çeviri ülke adı" required><button>Kaydet</button></form></div>
+        <div class="admin-card admin-full"><h3>Eklenen Ülkeler</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Ülke</th><th>Kod</th><th>Sembol</th><th>Aksiyon</th></tr></thead><tbody id="countryTableBody"></tbody></table></div></div>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($tab === 'pricing'): $psub = $sub ?: 'category'; ?>
+      <div class="admin-grid">
+      <?php if ($psub === 'category'): ?>
+        <div class="admin-card"><h3>Kategori Ekle / Düzenle</h3><form id="categoryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin" name="category_id"><option value="">Yeni kategori</option></select><input name="title" placeholder="Kategori başlığı" required><textarea name="description" placeholder="Açıklama"></textarea><input name="mode_key" placeholder="Taşıma modu (air/sea/road/rail)" value="road" required><input type="number" step="0.001" name="mode_multiplier" placeholder="Çarpan" value="1" required><input type="number" step="0.01" name="divisor" placeholder="Divisor" value="3000" required><input type="number" step="0.001" name="fuel_rate" placeholder="Yakıt oranı (0.10)" value="0"><input type="number" step="0.01" name="cod_fee" placeholder="COD ücret" value="0"><input type="number" step="0.01" name="min_price" placeholder="Minimum ücret" value="0"><input type="number" step="0.01" name="extra_per_kg" placeholder="Ekstra kg ücreti" value="12"><button>Kaydet</button></form></div>
         <div class="admin-card"><h3>Kategori Çevirisi</h3><form id="categoryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin2" name="category_id"></select><select class="lang-options" name="lang_code"></select><input name="title" placeholder="Başlık" required><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form></div>
         <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Kategori</th><th>Açıklama</th></tr></thead><tbody id="categoryTableBody"></tbody></table></div>
       <?php else: ?>
-        <div class="admin-card admin-full"><h3>Fiyat Ekle</h3><form id="priceConfigForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="priceCountryId" name="country_id"></select><select id="priceCategoryId" name="category_id"></select><input type="number" step="0.01" name="price_amount" placeholder="Ücret" required><button>Kaydet</button></form></div>
-        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>Ülke</th><th>Para Birimi</th><th>Kategori</th><th>Fiyat</th></tr></thead><tbody id="pricingTableBody"></tbody></table></div>
+        <div class="admin-card admin-full"><h3>Fiyat Stratejisi Ekle</h3><form id="priceConfigForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="priceCountryId" name="country_id"></select><select id="priceCategoryId" name="category_id"></select><textarea name="weight_prices" placeholder="1:79
+2:89
+3:99" required></textarea><button>Kaydet</button></form></div>
+        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>Ülke</th><th>Para Birimi</th><th>Kategori</th><th>Tablo</th></tr></thead><tbody id="pricingTableBody"></tbody></table></div>
       <?php endif; ?>
       </div>
     <?php endif; ?>
 
-    <?php if ($tab === 'settings'): ?>
+<?php if ($tab === 'settings'): ?>
       <div class="admin-grid"><div class="admin-card admin-full"><h3>Site Ayarları</h3><form id="settingsForm" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input name="site_name" value="<?= htmlspecialchars($cfg['site_name'] ?? '', ENT_QUOTES) ?>" placeholder="Site adı"><input name="meta_title" value="<?= htmlspecialchars($cfg['meta_title'] ?? '', ENT_QUOTES) ?>" placeholder="Meta title"><input name="meta_description" value="<?= htmlspecialchars($cfg['meta_description'] ?? '', ENT_QUOTES) ?>" placeholder="Meta description"><input name="company_name" value="<?= htmlspecialchars($cfg['company_name'] ?? '', ENT_QUOTES) ?>" placeholder="Şirket adı"><input name="company_email" value="<?= htmlspecialchars($cfg['company_email'] ?? '', ENT_QUOTES) ?>" placeholder="E-posta"><input name="company_phone" value="<?= htmlspecialchars($cfg['company_phone'] ?? '', ENT_QUOTES) ?>" placeholder="Telefon"><input name="company_address" value="<?= htmlspecialchars($cfg['company_address'] ?? '', ENT_QUOTES) ?>" placeholder="Adres"><input type="file" name="logo_file" accept="image/*"><input type="file" name="favicon_file" accept="image/*"><input name="logo_path" value="<?= htmlspecialchars($cfg['logo_path'] ?? '', ENT_QUOTES) ?>" placeholder="Logo URL"><input name="favicon_path" value="<?= htmlspecialchars($cfg['favicon_path'] ?? '', ENT_QUOTES) ?>" placeholder="Favicon URL"><input id="companyLat" name="company_latitude" value="<?= htmlspecialchars($cfg['company_latitude'] ?? '41.01', ENT_QUOTES) ?>" placeholder="Lat"><input id="companyLng" name="company_longitude" value="<?= htmlspecialchars($cfg['company_longitude'] ?? '28.97', ENT_QUOTES) ?>" placeholder="Lng"><input name="yandex_api_key" value="<?= htmlspecialchars($cfg['yandex_api_key'] ?? '', ENT_QUOTES) ?>" placeholder="Yandex API Key"><div class="inline-2"><input id="settingsMapSearchInput" placeholder="Adres ara"><button type="button" id="settingsMapSearchBtn">Ara</button></div><div id="settingsMap"></div><button>Kaydet</button></form></div></div>
     <?php endif; ?>
 
