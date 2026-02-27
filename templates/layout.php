@@ -52,7 +52,9 @@ $renderMenuMobile = function (array $items) use (&$renderMenuMobile): void {
     <div class="container strip-inner">
       <p><?= t('front', 'top_message') ?></p>
       <div class="lang-switch dropdown">
-        <button type="button" id="langToggle"><?= htmlspecialchars(strtoupper($lang), ENT_QUOTES) ?> ▾</button>
+        <button type="button" id="langToggle">
+           <?= htmlspecialchars(strtoupper($lang), ENT_QUOTES) ?>
+         </button>
         <div id="langMenu" class="lang-menu">
         <?php foreach ($languages as $code => $name): ?>
           <a class="<?= $code === $lang ? 'active' : '' ?>" href="?lang=<?= htmlspecialchars($code, ENT_QUOTES) ?>"><?= htmlspecialchars(strtoupper($code), ENT_QUOTES) ?> - <?= htmlspecialchars($name, ENT_QUOTES) ?></a>

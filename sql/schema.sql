@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS page_translations (
   CONSTRAINT fk_page_translations_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS menus (
+DROP TABLE IF EXISTS menus;
+
+CREATE TABLE menus (
   id INT AUTO_INCREMENT PRIMARY KEY,
   item_type ENUM('page','system','custom') NOT NULL DEFAULT 'page',
   page_id INT NULL,
@@ -54,9 +56,20 @@ CREATE TABLE IF NOT EXISTS menus (
   parent_id INT NULL,
   sort_order INT NOT NULL DEFAULT 1,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
-  CONSTRAINT fk_menu_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
-  CONSTRAINT fk_menu_parent FOREIGN KEY (parent_id) REFERENCES menus(id) ON DELETE SET NULL
-);
+
+  CONSTRAINT fk_menu_page
+    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+
+  CONSTRAINT fk_menu_parent
+    FOREIGN KEY (parent_id) REFERENCES menus(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO menus (item_type, system_key, title, parent_id, sort_order, is_active) VALUES
+('system', 'tracking',         'Tracking',         NULL, 1, 1),
+('system', 'pricing',          'Pricing',          NULL, 2, 1),
+('system', 'contact',          'Contact',          NULL, 3, 1),
+('system', 'active-shipments', 'Active Shipments', NULL, 4, 1),
+('system', 'documents',        'Documents',        NULL, 5, 1);
 
 CREATE TABLE IF NOT EXISTS menu_translations (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -229,18 +242,6 @@ INSERT INTO settings (key_name, value) VALUES
 ON DUPLICATE KEY UPDATE value=VALUES(value);
 
 
-INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
-SELECT 'system', 'tracking', 'Tracking', 1, 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'tracking');
-INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
-SELECT 'system', 'pricing', 'Pricing', 2, 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'pricing');
-INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
-SELECT 'system', 'contact', 'Contact', 3, 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'contact');
-INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
-SELECT 'system', 'active-shipments', 'Active Shipments', 4, 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'active-shipments');
 
 INSERT INTO translations (lang_code, group_name, key_name, text_value) VALUES
 ('en','front','top_message','Global Cargo Operations • 24/7 Monitoring Center'),
@@ -372,9 +373,6 @@ CREATE TABLE IF NOT EXISTS document_translations (
   CONSTRAINT fk_document_translations_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 );
 
-INSERT INTO menus(item_type, system_key, title, sort_order, is_active)
-SELECT 'system', 'documents', 'Documents', 5, 1 FROM DUAL
-WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'documents');
 
 INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES
 ('en','front','documents','Documents'),

@@ -168,7 +168,30 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
         <?php if ($shipSub === 'list'): ?>
           <div class="admin-card admin-full"><h3>Eklenmiş Kargolar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Tracking</th><th>Rota</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody id="shipmentTableBody"></tbody></table></div></div>
         <?php elseif ($shipSub === 'status'): ?>
-          <div class="admin-card admin-full"><h3>Durum Güncelle</h3><form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Kargo</label><select id="shipmentTrackingSelect2" name="tracking_number"></select><label>Durum</label><select name="status_code" id="statusCodeSelect" required></select><label>Açıklama</label><input name="status_note" placeholder="Durum açıklaması"><label>Konum Ülkesi</label><select id="eventCountryId" name="country_id"></select><label>Konum Şehri</label><input name="city" placeholder="Şehir"><label>Anlık Enlem (lat)</label><input id="eventLat" name="latitude" placeholder="Örn: 41.008"><label>Anlık Boylam (lng)</label><input id="eventLng" name="longitude" placeholder="Örn: 28.978"><label class="form-label">Konum adresi ara</label><div class="search-row"><input id="eventMapSearchInput" placeholder="Konum adresi ara"><button type="button" id="eventMapSearchBtn">Ara</button></div><div id="eventMap"></div><button>Durum Ekle</button></form></div>
+          <div class="admin-card admin-full"><h3>Durum Güncelle</h3>
+            <form id="eventForm">
+              <input type="hidden" name="csrf" value="<?= $csrf ?>">
+              <div class="form-split-2 status-update-grid">
+                <div class="admin-subcard">
+                  <div class="group-title">Durum Bilgileri</div>
+                  <label>Kargo</label><select id="shipmentTrackingSelect2" name="tracking_number"></select>
+                  <label>Durum</label><select name="status_code" id="statusCodeSelect" required></select>
+                  <label>Açıklama</label><input name="status_note" placeholder="Durum açıklaması">
+                  <label>Konum Ülkesi</label><select id="eventCountryId" name="country_id"></select>
+                  <label>Konum Şehri</label><input name="city" placeholder="Şehir">
+                  <label>Anlık Enlem (lat)</label><input id="eventLat" name="latitude" placeholder="Örn: 41.008">
+                  <label>Anlık Boylam (lng)</label><input id="eventLng" name="longitude" placeholder="Örn: 28.978">
+                </div>
+                <div class="admin-subcard">
+                  <div class="group-title">Harita Konum Seçici</div>
+                  <label class="form-label">Konum adresi ara</label>
+                  <div class="search-row"><input id="eventMapSearchInput" placeholder="Konum adresi ara"><button type="button" id="eventMapSearchBtn">Ara</button></div>
+                  <div id="eventMap"></div>
+                </div>
+              </div>
+              <button>Durum Ekle</button>
+            </form>
+          </div>
         <?php else: ?>
           <div class="admin-card admin-full"><h3>Yeni Kargo Ekle</h3>
             <form id="shipmentForm">

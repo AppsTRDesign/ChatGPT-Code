@@ -1,47 +1,153 @@
-$(function(){ $('#langToggle').on('click', function(){ $('#langMenu').toggleClass('open'); }); });
 $(function () {
-  $('#mobileToggle').on('click', function () { $('#mobileMenu').toggleClass('open'); });
-  $(document).on('click', '.desktop-menu .has-dropdown > a', function (e) {
-    if (window.matchMedia('(max-width: 980px)').matches) return;
-    e.preventDefault();
-    const item = $(this).parent();
-    item.toggleClass('open');
-    item.siblings('.has-dropdown').removeClass('open');
-  });
-  $('#mobileSideClose').on('click', function(){ $('#adminSidebar').removeClass('open'); });
 
-  $('#newsletterForm').on('submit', function(e){
+  /* ==========================================================
+   * LANGUAGE DROPDOWN (Desktop + Mobile)
+   * ========================================================== */
+  const $langToggle = $('#langToggle');
+  const $langMenu   = $('#langMenu');
+
+  $langToggle.on('click', function (e) {
+    e.stopPropagation();
+    $langMenu.toggleClass('open');
+  });
+
+  // dışarı tıklanınca kapat
+  $(document).on('click', function () {
+    $langMenu.removeClass('open');
+  });
+
+  // menü içi tıklamalar kapanmasın
+  $langMenu.on('click', function (e) {
+    e.stopPropagation();
+  });
+
+  /* ==========================================================
+   * MOBILE MENU
+   * ========================================================== */
+  const $mobileToggle = $('#mobileToggle');
+  const $mobileMenu   = $('#mobileMenu');
+
+  $mobileToggle.on('click', function (e) {
+    e.stopPropagation();
+    $mobileMenu.toggleClass('open');
+    $('body').toggleClass('menu-open');
+  });
+
+  // mobil menü dışına tıklanınca kapat
+  $(document).on('click', function (e) {
+    if (
+      !$(e.target).closest('#mobileMenu').length &&
+      !$(e.target).closest('#mobileToggle').length
+    ) {
+      $mobileMenu.removeClass('open');
+      $('body').removeClass('menu-open');
+    }
+  });
+
+  /* ==========================================================
+   * DESKTOP DROPDOWN MENU (PRO MODE)
+   * ========================================================== */
+  const DESKTOP_BP = 980;
+
+  $('.desktop-menu .has-dropdown > a').on('click', function (e) {
+    if (window.innerWidth <= DESKTOP_BP) return;
+
     e.preventDefault();
+    e.stopPropagation();
+
+    const $item = $(this).parent();
+
+    // diğerlerini kapat
+    $('.desktop-menu .has-dropdown').not($item).removeClass('open');
+
+    // toggle current
+    $item.toggleClass('open');
+  });
+
+  // dropdown dışına tıklanınca kapat
+  $(document).on('click', function () {
+    if (window.innerWidth > DESKTOP_BP) {
+      $('.desktop-menu .has-dropdown').removeClass('open');
+    }
+  });
+
+  // dropdown içine tıklanınca kapanmasın
+  $('.desktop-menu .menu-dropdown').on('mouseenter', function () {
+    $(this).closest('.menu-item').addClass('open');
+  });
+
+  /* ==========================================================
+   * NEWSLETTER
+   * ========================================================== */
+  $('#newsletterForm').on('submit', function (e) {
+    e.preventDefault();
+
     const email = ($(this).find('[name=email]').val() || '').trim();
-    if(!/^\S+@\S+\.\S+$/.test(email)){ toastr.error('Geçerli bir e-posta girin'); return; }
-    $.post('/api/subscribe.php', {csrf:window.CSRF_TOKEN, email:email}, function(res){
-      if(!res.ok) return toastr.error(res.message);
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      toastr.error('Geçerli bir e-posta girin');
+      return;
+    }
+
+    $.post('/api/subscribe.php', {
+      csrf: window.CSRF_TOKEN,
+      email: email
+    }, function (res) {
+      if (!res.ok) return toastr.error(res.message);
       toastr.success(res.message);
       $('#newsletterForm')[0].reset();
     }, 'json');
   });
 
+  /* ==========================================================
+   * QUICK TRACK
+   * ========================================================== */
   $('#quickTrack').on('submit', function (e) {
     e.preventDefault();
     const no = $(this).find('input[name="tracking_number"]').val();
+    if (!no) return;
     window.location.href = '/tracking?num=' + encodeURIComponent(no);
   });
 
+  /* ==========================================================
+   * PRICING FORM
+   * ========================================================== */
   $('#countrySelect').on('change', function () {
     const countryId = $(this).val();
+    if (!countryId) return;
+
     $.getJSON('/api/categories.php', { country_id: countryId }, function (rows) {
-      const target = $('#categorySelect').empty().append('<option value="">--</option>');
-      rows.forEach((r) => target.append(`<option value="${r.id}">${r.title}</option>`));
+      const $target = $('#categorySelect').empty()
+        .append('<option value="">--</option>');
+
+      rows.forEach(r => {
+        $target.append(`<option value="${r.id}">${r.title}</option>`);
+      });
     });
   });
 
   $('#pricingForm').on('submit', function (e) {
     e.preventDefault();
-    $.post('/api/pricing.php', $(this).serialize() + '&csrf=' + window.CSRF_TOKEN, function (res) {
-      if (!res.ok) return toastr.error(res.message);
-      toastr.success(res.message);
-      $('#pricingResult').html(`<div class="panel"><h3>${res.data.category_title}</h3><p>${res.data.country_name}</p><p><strong>${res.data.ucret_usd} USD</strong></p><p>Chargeable: ${res.data.ucret_kilo} kg | Volumetric: ${res.data.hacimsel_kilo} kg</p><p>${res.data.description || ''}</p><p>Local Currency: ${res.data.local_currency_symbol || ''} ${res.data.local_currency_code || ''}</p></div>`);
-    }, 'json');
+
+    $.post(
+      '/api/pricing.php',
+      $(this).serialize() + '&csrf=' + window.CSRF_TOKEN,
+      function (res) {
+        if (!res.ok) return toastr.error(res.message);
+
+        toastr.success(res.message);
+        $('#pricingResult').html(`
+          <div class="panel">
+            <h3>${res.data.category_title}</h3>
+            <p>${res.data.country_name}</p>
+            <p><strong>${res.data.ucret_usd} USD</strong></p>
+            <p>Chargeable: ${res.data.ucret_kilo} kg |
+               Volumetric: ${res.data.hacimsel_kilo} kg</p>
+            <p>${res.data.description || ''}</p>
+          </div>
+        `);
+      },
+      'json'
+    );
   });
 
   async function renderTrackingMap(events, shipment) {
@@ -72,11 +178,9 @@ $(function () {
       }));
     }
 
-    coords.forEach((c, idx) => {
+    coords.forEach((c) => {
       const el = document.createElement('div');
       el.className = 'map-pin';
-      if (idx === 0 && destination) el.classList.add('map-pin-destination');
-      if (idx === coords.length - 1 && origin) el.classList.add('map-pin-origin');
       map.addChild(new YMapMarker({ coordinates: c }, el));
     });
   }
@@ -102,16 +206,26 @@ $(function () {
     `);
   }
 
+  /* ==========================================================
+   * TRACKING
+   * ========================================================== */
   $('#trackingForm').on('submit', function (e) {
     e.preventDefault();
-    $.post('/api/track.php', $(this).serialize() + '&csrf=' + window.CSRF_TOKEN, function (res) {
-      if (!res.ok) return toastr.error(res.message);
-      toastr.success(res.message);
-      $('#trackingEmpty').hide();
-      $('#trackingDetail').show();
-      renderTrackingInfo(res);
-      renderTrackingMap(res.data.events, res.data.shipment);
-    }, 'json');
+
+    $.post(
+      '/api/track.php',
+      $(this).serialize() + '&csrf=' + window.CSRF_TOKEN,
+      function (res) {
+        if (!res.ok) return toastr.error(res.message);
+
+        toastr.success(res.message);
+        $('#trackingEmpty').hide();
+        $('#trackingDetail').show();
+        renderTrackingInfo(res);
+        renderTrackingMap(res.data.events, res.data.shipment);
+      },
+      'json'
+    );
   });
 
   const num = new URLSearchParams(window.location.search).get('num');
@@ -137,4 +251,11 @@ $(function () {
 
 });
 
-$(document).on('click','#downloadTrackPdf',function(){ const tr=$(this).data('tr'); window.location.href='/api/track_pdf.php?tracking_number='+encodeURIComponent(tr); });
+/* ==========================================================
+ * PDF DOWNLOAD
+ * ========================================================== */
+$(document).on('click', '#downloadTrackPdf', function () {
+  const tr = $(this).data('tr');
+  window.location.href =
+    '/api/track_pdf.php?tracking_number=' + encodeURIComponent(tr);
+});
