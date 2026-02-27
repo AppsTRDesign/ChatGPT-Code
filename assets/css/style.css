@@ -86,3 +86,15 @@ h1,h2,h3,h4,h5,h6{margin:0 0 10px;line-height:1.25}
 p{margin:0 0 10px;line-height:1.45}
 br{line-height:1.2}
 table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:8px 10px;border-bottom:1px solid #e2e8f0}
+
+.desktop-menu{gap:10px}
+.desktop-menu .menu-item{position:relative}
+.desktop-menu .menu-item>a{display:inline-flex;padding:8px 10px;border-radius:8px}
+.desktop-menu .menu-item.has-dropdown>a::after{content:'▾';margin-left:6px;font-size:11px}
+.menu-dropdown{display:none;position:absolute;left:0;top:100%;min-width:230px;background:#fff;border:1px solid #dbe2ea;border-radius:12px;box-shadow:0 18px 30px rgba(15,23,42,.15);padding:8px;z-index:220}
+.menu-dropdown .menu-item{display:block}
+.menu-dropdown .menu-item>a{width:100%;justify-content:space-between}
+.menu-item:hover>.menu-dropdown{display:block}
+.menu-dropdown .menu-dropdown{left:100%;top:0}
+.mobile-menu-link{font-weight:700;text-decoration:none;color:#0f172a;padding:6px 0}
+.mobile-submenu{padding-left:12px;border-left:2px solid #e2e8f0;display:grid;gap:4px}

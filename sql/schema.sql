@@ -46,9 +46,16 @@ CREATE TABLE IF NOT EXISTS page_translations (
 
 CREATE TABLE IF NOT EXISTS menus (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  page_id INT NOT NULL,
+  item_type ENUM('page','system','custom') NOT NULL DEFAULT 'page',
+  page_id INT NULL,
+  system_key VARCHAR(100) NULL,
+  title VARCHAR(190) NULL,
+  url VARCHAR(255) NULL,
+  parent_id INT NULL,
   sort_order INT NOT NULL DEFAULT 1,
-  CONSTRAINT fk_menu_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  CONSTRAINT fk_menu_page FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
+  CONSTRAINT fk_menu_parent FOREIGN KEY (parent_id) REFERENCES menus(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS shipments (
@@ -152,6 +159,20 @@ INSERT INTO settings (key_name, value) VALUES
 ('company_longitude', '28.979530'),
 ('yandex_api_key', 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6')
 ON DUPLICATE KEY UPDATE value=VALUES(value);
+
+
+INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
+SELECT 'system', 'tracking', 'Tracking', 1, 1 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'tracking');
+INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
+SELECT 'system', 'pricing', 'Pricing', 2, 1 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'pricing');
+INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
+SELECT 'system', 'contact', 'Contact', 3, 1 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'contact');
+INSERT INTO menus (item_type, system_key, title, sort_order, is_active)
+SELECT 'system', 'active-shipments', 'Active Shipments', 4, 1 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'active-shipments');
 
 INSERT INTO translations (lang_code, group_name, key_name, text_value) VALUES
 ('en','front','top_message','Global Cargo Operations • 24/7 Monitoring Center'),

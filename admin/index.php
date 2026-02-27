@@ -76,8 +76,34 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
 
     <?php if ($tab === 'menus'): ?>
       <div class="admin-grid">
-        <div class="admin-card"><h3>Dinamik Menü Ekle</h3><form id="menuForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="menuPageId" name="page_id"></select><input type="number" name="sort_order" value="1"><button>Ekle</button></form></div>
-        <div class="admin-card"><h3>Drag & Drop Menü Sırası</h3><ul id="menuSortable" class="sortable-list"></ul><button id="saveMenuOrder" type="button">Sırayı Kaydet</button></div>
+        <div class="admin-card admin-full"><h3>WordPress Tarzı Menü Yönetimi</h3>
+          <form id="menuForm" class="menu-form-grid">
+            <input type="hidden" name="csrf" value="<?= $csrf ?>">
+            <input type="hidden" name="id" id="menuItemId">
+            <select id="menuItemType" name="item_type">
+              <option value="page">Dinamik Sayfa</option>
+              <option value="system">Sistem Linki</option>
+              <option value="custom">Özel Link</option>
+            </select>
+            <select id="menuPageId" name="page_id"></select>
+            <select id="menuSystemKey" name="system_key"></select>
+            <input type="text" name="title" placeholder="Menü başlığı (opsiyonel - boşsa varsayılan)">
+            <input type="text" name="url" placeholder="https://... veya /kurumsal-link">
+            <select id="menuParentId" name="parent_id"><option value="">Üst Menü Yok (Ana Menü)</option></select>
+            <select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select>
+            <div class="menu-form-actions"><button type="submit">Kaydet</button><button type="button" id="menuFormReset" class="btn-muted">Temizle</button></div>
+          </form>
+        </div>
+        <div class="admin-card">
+          <h3>Menü Ağacı (Drag & Drop)</h3>
+          <p class="subtext">Menü öğelerini sürükleyerek sırala ve alt menü oluştur.</p>
+          <div id="menuTree" class="menu-tree"></div>
+          <button id="saveMenuOrder" type="button">Menü Ağacını Kaydet</button>
+        </div>
+        <div class="admin-card">
+          <h3>Eklenmiş Menü Öğeleri</h3>
+          <div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Başlık</th><th>Tip</th><th>Üst Menü</th><th>Aksiyon</th></tr></thead><tbody id="menuTableBody"></tbody></table></div>
+        </div>
       </div>
     <?php endif; ?>
 
@@ -143,6 +169,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
 </div>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+<script>window.CSRF_TOKEN = '<?= $csrf ?>';</script>
 <script src="/assets/admin/admin.js"></script>
 </body>
 </html>

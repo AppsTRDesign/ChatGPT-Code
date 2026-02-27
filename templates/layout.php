@@ -2,6 +2,35 @@
 /** @var array<string,string> $settings */
 $languages = available_languages();
 ?>
+<?php
+$renderMenuDesktop = function (array $items, bool $isSub = false) use (&$renderMenuDesktop): void {
+  if (!$items) return;
+  echo $isSub ? '<div class="menu-dropdown">' : '';
+  foreach ($items as $item) {
+    $hasChildren = !empty($item['children']);
+    echo '<div class="menu-item'.($hasChildren ? ' has-dropdown' : '').'">';
+    echo '<a href="'.htmlspecialchars((string)$item['href'], ENT_QUOTES).'">'.htmlspecialchars((string)$item['label'], ENT_QUOTES).'</a>';
+    if ($hasChildren) {
+      $renderMenuDesktop($item['children'], true);
+    }
+    echo '</div>';
+  }
+  echo $isSub ? '</div>' : '';
+};
+
+$renderMenuMobile = function (array $items) use (&$renderMenuMobile): void {
+  foreach ($items as $item) {
+    $hasChildren = !empty($item['children']);
+    echo '<a class="mobile-menu-link" href="'.htmlspecialchars((string)$item['href'], ENT_QUOTES).'">'.htmlspecialchars((string)$item['label'], ENT_QUOTES).'</a>';
+    if ($hasChildren) {
+      echo '<div class="mobile-submenu">';
+      $renderMenuMobile($item['children']);
+      echo '</div>';
+    }
+  }
+};
+?>
+
 <!doctype html>
 <html lang="<?= htmlspecialchars($lang, ENT_QUOTES) ?>">
 <head>
@@ -31,24 +60,12 @@ $languages = available_languages();
   <div class="container nav-shell">
     <a class="logo" href="/"><img src="<?= htmlspecialchars($settings['logo_path'] ?? 'https://dummyimage.com/180x45/ffcc00/111&text=CargoAfrik', ENT_QUOTES) ?>" alt="logo"></a>
     <nav class="desktop-menu">
-      <a href="/tracking"><?= t('front', 'track') ?></a>
-      <a href="/pricing"><?= t('front', 'pricing') ?></a>
-      <a href="/contact"><?= t('front', 'contact') ?></a>
-    <a href="/active-shipments"><?= t('front','active_shipments') ?></a>
-      <?php foreach ($menus as $item): ?>
-        <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
-      <?php endforeach; ?>
+      <?php $renderMenuDesktop($menuTree); ?>
     </nav>
     <button id="mobileToggle" class="mobile-toggle">☰</button>
   </div>
   <div class="mobile-menu" id="mobileMenu">
-    <a href="/tracking"><?= t('front', 'track') ?></a>
-    <a href="/pricing"><?= t('front', 'pricing') ?></a>
-    <a href="/contact"><?= t('front', 'contact') ?></a>
-    <a href="/active-shipments"><?= t('front','active_shipments') ?></a>
-    <?php foreach ($menus as $item): ?>
-      <a href="/page/<?= (int) $item['page_id'] ?>/<?= htmlspecialchars($item['slug'], ENT_QUOTES) ?>"><?= htmlspecialchars($item['title'], ENT_QUOTES) ?></a>
-    <?php endforeach; ?>
+    <?php $renderMenuMobile($menuTree); ?>
   </div>
 </header>
 <main>

@@ -27,3 +27,15 @@ body.admin-body{margin:0;background:#eef2f7}
 .sortable-list li{padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:grab}
 .side-link{margin:5px 0}
 .side-sub{display:grid;gap:5px}
+
+.menu-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.menu-form-grid .menu-form-actions{grid-column:1/-1;display:flex;gap:8px}
+.btn-muted{background:#64748b!important}.btn-danger{background:#b91c1c!important}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:8px}
+.menu-tree{border:1px solid #dbe2ea;border-radius:12px;padding:10px;max-height:520px;overflow:auto;background:#f8fafc}
+.menu-children{list-style:none;margin:0;padding-left:18px;display:grid;gap:6px}
+.menu-node-row{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px}
+.menu-node-row .drag-handle{cursor:grab;color:#475569}
+.menu-node-row small{margin-left:auto;margin-right:8px;background:#e2e8f0;border-radius:999px;padding:2px 8px;text-transform:uppercase;font-size:11px}
+.menu-node-actions{display:flex;gap:6px}
+@media(max-width:1080px){.menu-form-grid{grid-template-columns:1fr}}
