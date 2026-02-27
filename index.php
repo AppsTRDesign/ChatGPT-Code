@@ -25,7 +25,22 @@ if (isset($routes[$segments[0] ?? ''])) {
 }
 
 /* MENÜLER */
-$stmt = db()->prepare("\n    SELECT\n      m.id, m.item_type, m.page_id, m.system_key, m.title,\n      m.url, m.parent_id, m.sort_order,\n      p.slug,\n      COALESCE(mt.title, m.title) AS label\n    FROM menus m\n    LEFT JOIN pages p ON p.id = m.page_id AND p.is_active = 1\n    LEFT JOIN menu_translations mt ON mt.menu_id = m.id AND mt.lang_code = :lang\n    WHERE m.is_active = 1\n    ORDER BY\n      m.parent_id IS NOT NULL,\n      m.parent_id,\n      m.sort_order\n");
+$stmt = db()->prepare(<<<SQL
+    SELECT
+      m.id, m.item_type, m.page_id, m.system_key, m.title,
+      m.url, m.parent_id, m.sort_order,
+      p.slug,
+      COALESCE(mt.title, m.title) AS label
+    FROM menus m
+    LEFT JOIN pages p ON p.id = m.page_id AND p.is_active = 1
+    LEFT JOIN menu_translations mt ON mt.menu_id = m.id AND mt.lang_code = :lang
+    WHERE m.is_active = 1
+    ORDER BY
+      m.parent_id IS NOT NULL,
+      m.parent_id,
+      m.sort_order
+SQL
+);
 $stmt->execute(['lang' => $lang]);
 $rows = $stmt->fetchAll();
 
