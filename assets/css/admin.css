@@ -48,7 +48,7 @@ body.admin-body{margin:0;background:#eef2f7}
 .form-split-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .admin-subcard{border:1px solid #dbe2ea;border-radius:12px;padding:12px;display:grid;gap:8px;align-content:start;background:#f8fafc}
 #mapPickerOrigin,#mapPickerDestination,#eventMap,#settingsMap{width:100%;height:260px;border:1px solid #cbd5e1;border-radius:12px;margin-bottom:8px}
-.filter-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end}
+.filter-row{display:grid;grid-template-columns:1fr 180px;gap:10px;align-items:end}
 .pager-row{display:flex;justify-content:flex-end;gap:10px;align-items:center}
 .menu-node-row .menu-status{font-size:11px;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534}
 .menu-node-row .menu-status.off{background:#fee2e2;color:#991b1b}

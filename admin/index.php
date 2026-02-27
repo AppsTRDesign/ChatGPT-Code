@@ -75,8 +75,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       <div class="side-sub">
         <a class="side-link <?= $tab==='languages' && ($sub===''||$sub==='list')?'active':'' ?>" href="?tab=languages&sub=list">Eklenen Diller</a>
         <a class="side-link <?= $tab==='languages' && $sub==='new'?'active':'' ?>" href="?tab=languages&sub=new">Yeni Dil Ekle</a>
-        <a class="side-link <?= $tab==='languages' && $sub==='edit'?'active':'' ?>" href="?tab=languages&sub=edit">Dil Düzenle</a>
-      </div>
+              </div>
     </div>
     <a class="side-link <?= $tab==='admin'?'active':'' ?>" href="?tab=admin">Admin Ayarları</a>
     <a class="side-link danger" href="/admin/logout.php">Çıkış</a>
@@ -97,11 +96,10 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
         <?php if ($pageSub === 'list'): ?>
           <div class="admin-card admin-full"><h3>Eklenmiş Sayfalar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Başlık</th><th>Slug</th><th>Aksiyon</th></tr></thead><tbody id="pageTableBody"></tbody></table></div></div>
         <?php else: ?>
-          <div class="admin-card admin-full"><h3>Sayfa Ekle</h3>
+          <div class="admin-card admin-full"><h3><?= $pageSub === 'edit' ? 'Sayfa Düzenle' : 'Sayfa Ekle' ?></h3>
             <form id="pageForm">
               <input type="hidden" name="csrf" value="<?= $csrf ?>">
-              
-              <label>Slug Başlığı</label><input type="text" name="slug_source" placeholder="Slug başlığı" required>
+              <input type="hidden" name="page_id" id="pageId">
               <label>Dil</label><select class="lang-options" name="lang_code"></select>
               <label>Başlık</label><input type="text" name="title" placeholder="Başlık" required>
               <label>İçerik</label><div id="pageEditor" style="height:320px"></div>
@@ -119,15 +117,28 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
           <form id="menuForm" class="menu-form-grid">
             <input type="hidden" name="csrf" value="<?= $csrf ?>">
             <input type="hidden" name="id" id="menuItemId">
-            <label>Menü Tipi</label><select id="menuItemType" name="item_type">
+            <label>Menü Tipi</label>
+            <select id="menuItemType" name="item_type">
               <option value="page">Dinamik Sayfa</option>
               <option value="system">Sistem Linki</option>
               <option value="custom">Özel Link</option>
             </select>
-            <label>Dinamik Sayfa</label><select id="menuPageId" name="page_id"></select>
-            <label>Sistem Linki</label><select id="menuSystemKey" name="system_key"></select>
-            <label>Menü Başlığı</label><input type="text" name="title" placeholder="Menü başlığı (opsiyonel)">
-            <label>Özel URL</label><input type="text" name="url" placeholder="https://... veya /kurumsal-link">
+            <div id="menuPageField">
+              <label>Dinamik Sayfa</label>
+              <select id="menuPageId" name="page_id"></select>
+            </div>
+            <div id="menuSystemField">
+              <label>Sistem Linki</label>
+              <select id="menuSystemKey" name="system_key"></select>
+            </div>
+            <div id="menuTitleField">
+              <label>Menü Başlığı</label>
+              <input type="text" name="title" placeholder="Menü başlığı (opsiyonel)">
+            </div>
+            <div id="menuUrlField">
+              <label>Özel URL</label>
+              <input type="text" name="url" placeholder="https://... veya /kurumsal-link">
+            </div>
             <label>Üst Menü</label><select id="menuParentId" name="parent_id"><option value="">Üst Menü Yok (Ana Menü)</option></select>
             <label>Durum</label><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select>
             <div class="menu-form-actions"><button type="submit">Kaydet</button><button type="button" id="menuFormReset" class="btn-muted">Temizle</button></div>
@@ -152,7 +163,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
         <?php if ($shipSub === 'list'): ?>
           <div class="admin-card admin-full"><h3>Eklenmiş Kargolar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Tracking</th><th>Rota</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody id="shipmentTableBody"></tbody></table></div></div>
         <?php elseif ($shipSub === 'status'): ?>
-          <div class="admin-card admin-full"><h3>Durum Güncelle</h3><form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Kargo</label><select id="shipmentTrackingSelect2" name="tracking_number"></select><label>Durum</label><select name="status_code" id="statusCodeSelect" required></select><label>Açıklama</label><input name="status_note" placeholder="Durum açıklaması"><label>Konum Ülkesi</label><select id="eventCountryId" name="country_id"></select><label>Konum Şehri</label><input name="city" placeholder="Şehir"><label>Anlık Enlem (lat)</label><input id="eventLat" name="latitude" placeholder="Örn: 41.008"><label>Anlık Boylam (lng)</label><input id="eventLng" name="longitude" placeholder="Örn: 28.978"><label>Adres Arama</label><div class="search-row"><input id="eventMapSearchInput" placeholder="Adres ara"><button type="button" id="eventMapSearchBtn">Ara</button></div><div id="eventMap"></div><button>Durum Ekle</button></form></div>
+          <div class="admin-card admin-full"><h3>Durum Güncelle</h3><form id="eventForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Kargo</label><select id="shipmentTrackingSelect2" name="tracking_number"></select><label>Durum</label><select name="status_code" id="statusCodeSelect" required></select><label>Açıklama</label><input name="status_note" placeholder="Durum açıklaması"><label>Konum Ülkesi</label><select id="eventCountryId" name="country_id"></select><label>Konum Şehri</label><input name="city" placeholder="Şehir"><label>Anlık Enlem (lat)</label><input id="eventLat" name="latitude" placeholder="Örn: 41.008"><label>Anlık Boylam (lng)</label><input id="eventLng" name="longitude" placeholder="Örn: 28.978"><label class="form-label">Konum adresi ara</label><div class="search-row"><input id="eventMapSearchInput" placeholder="Konum adresi ara"><button type="button" id="eventMapSearchBtn">Ara</button></div><div id="eventMap"></div><button>Durum Ekle</button></form></div>
         <?php else: ?>
           <div class="admin-card admin-full"><h3>Yeni Kargo Ekle</h3>
             <form id="shipmentForm">
@@ -168,7 +179,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
                   <label>Çıkış Şehir</label><input name="origin_city" placeholder="Çıkış şehir" required>
                   <label>Çıkış Enlem (lat)</label><input id="shipmentOriginLat" name="origin_latitude" placeholder="Çıkış koordinatı">
                   <label>Çıkış Boylam (lng)</label><input id="shipmentOriginLng" name="origin_longitude" placeholder="Çıkış koordinatı">
-                  <label>Adres Arama</label><div class="search-row"><input id="mapSearchOriginInput" placeholder="Çıkış adresi ara"><button type="button" id="mapSearchOriginBtn">Ara</button></div>
+                  <label class="form-label">Çıkış adresi ara</label><div class="search-row"><input id="mapSearchOriginInput" placeholder="Çıkış adresi ara"><button type="button" id="mapSearchOriginBtn">Ara</button></div>
                   <div id="mapPickerOrigin"></div>
                 </div>
                 <div class="admin-subcard">
@@ -177,7 +188,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
                   <label>Varış Şehir</label><input name="destination_city" placeholder="Varış şehir" required>
                   <label>Varış Enlem (lat)</label><input id="shipmentDestinationLat" name="destination_latitude" placeholder="Varış koordinatı">
                   <label>Varış Boylam (lng)</label><input id="shipmentDestinationLng" name="destination_longitude" placeholder="Varış koordinatı">
-                  <label>Adres Arama</label><div class="search-row"><input id="mapSearchDestinationInput" placeholder="Varış adresi ara"><button type="button" id="mapSearchDestinationBtn">Ara</button></div>
+                  <label class="form-label">Varış adresi ara</label><div class="search-row"><input id="mapSearchDestinationInput" placeholder="Varış adresi ara"><button type="button" id="mapSearchDestinationBtn">Ara</button></div>
                   <div id="mapPickerDestination"></div>
                 </div>
               </div>
@@ -286,7 +297,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
                 <div class="group-title">Konum</div>
                 <label>Şirket Enlem</label><input id="companyLat" name="company_latitude" value="<?= htmlspecialchars($cfg['company_latitude'] ?? '41.01', ENT_QUOTES) ?>" placeholder="Lat">
                 <label>Şirket Boylam</label><input id="companyLng" name="company_longitude" value="<?= htmlspecialchars($cfg['company_longitude'] ?? '28.97', ENT_QUOTES) ?>" placeholder="Lng">
-                <label>Adres Arama</label><div class="search-row"><input id="settingsMapSearchInput" placeholder="Adres ara"><button type="button" id="settingsMapSearchBtn">Ara</button></div>
+                <label class="form-label">Adres ara</label><div class="search-row"><input id="settingsMapSearchInput" placeholder="Adres ara"><button type="button" id="settingsMapSearchBtn">Ara</button></div>
                 <div id="settingsMap"></div>
               </div>
             </div>
@@ -300,14 +311,15 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       <div class="admin-grid">
         <?php if ($langSub === 'list'): ?>
           <div class="admin-card admin-full"><h3>Eklenen Diller</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>Kod</th><th>Dil Adı</th><th>Sıra</th><th>Durum</th><th>Aksiyon</th></tr></thead><tbody id="languageTableBody"></tbody></table></div></div>
-          <div class="admin-card admin-full"><h3>Tekil Çeviri Listesi (AJAX Sayfalama)</h3><div class="filter-row"><div><label>Liste Dili</label><select id="translationListLang" class="lang-options"></select></div><div><label>Ara</label><input id="translationSearch" placeholder="group/key/metin ara"></div><button id="translationSearchBtn" type="button">Filtrele</button></div><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Grup</th><th>Anahtar</th><th>Metin</th><th>Aksiyon</th></tr></thead><tbody id="translationTableBody"></tbody></table></div><div class="pager-row"><button type="button" id="translationPrev">Önceki</button><span id="translationPageInfo">1 / 1</span><button type="button" id="translationNext">Sonraki</button></div></div>
         <?php elseif ($langSub === 'new'): ?>
           <div class="admin-card admin-full"><h3>Yeni Dil Ekle</h3><form id="languageForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Dil Kodu</label><input name="code" placeholder="es" required><label>Dil Adı</label><input name="name" placeholder="Español" required><label>Sıralama</label><input name="sort_order" type="number" value="10"><label>Durum</label><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select><label>JSON İçeriği (varsayılan en)</label><textarea id="newLanguageJson" rows="14" placeholder='{"en":{"front":{"key":"value"}}}'></textarea><button>Dili Kaydet</button></form></div>
         <?php else: ?>
-          <div class="admin-card admin-full"><h3>Dil Düzenle</h3><form id="languageEditForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Dil Kodu</label><select id="languageEditCode" name="code"></select><label>Dil Adı</label><input name="name" id="languageEditName" required><label>Sıralama</label><input name="sort_order" id="languageEditSort" type="number" value="10"><label>Durum</label><select name="is_active" id="languageEditActive"><option value="1">Aktif</option><option value="0">Pasif</option></select><label>JSON İçeriği</label><textarea id="jsonEditor" name="json_payload" rows="14" placeholder='{"fr":{"front":{"hero_title":"..."}}}'></textarea><button>Dili ve Çevirileri Kaydet</button></form><button id="deleteLanguageBtn" type="button" class="btn-danger">Dili Sil</button></div>
+          <div class="admin-card admin-full"><h3>Dil Düzenle</h3><form id="languageEditForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="code" id="languageEditCode"><label>Dil Adı</label><input name="name" id="languageEditName" required><label>Sıralama</label><input name="sort_order" id="languageEditSort" type="number" value="10"><label>Durum</label><select name="is_active" id="languageEditActive"><option value="1">Aktif</option><option value="0">Pasif</option></select><label>JSON İçeriği</label><textarea id="jsonEditor" name="json_payload" rows="14" placeholder='{"fr":{"front":{"hero_title":"..."}}}'></textarea><button>Dili ve Çevirileri Kaydet</button></form><button id="deleteLanguageBtn" type="button" class="btn-danger">Dili Sil</button></div>
+          <div class="admin-card admin-full"><h3>Tekil Çeviri Listesi (AJAX Sayfalama)</h3><div class="filter-row"><div><label>Ara</label><input id="translationSearch" placeholder="group/key/metin ara"></div><button id="translationSearchBtn" type="button">Filtrele</button></div><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Grup</th><th>Anahtar</th><th>Metin</th><th>Aksiyon</th></tr></thead><tbody id="translationTableBody"></tbody></table></div><div class="pager-row"><button type="button" id="translationPrev">Önceki</button><span id="translationPageInfo">1 / 1</span><button type="button" id="translationNext">Sonraki</button></div></div>
         <?php endif; ?>
       </div>
     <?php endif; ?>
+
 
 
     <?php if ($tab === 'admin'): ?>

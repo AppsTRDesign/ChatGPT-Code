@@ -65,7 +65,7 @@ $(function () {
       fill('#shipmentTrackingSelect', d.shipments, 'tracking_number', r=>r.tracking_number, true);
       fill('#shipmentTrackingSelect2', d.shipments, 'tracking_number', r=>r.tracking_number);
       fill('#countrySelectAdmin,#countrySelectAdmin2,#priceCountryId,#shipmentOriginCountryId,#shipmentDestinationCountryId,#eventCountryId', d.countries, 'id', r=>`${r.name} (${r.currency_code||'-'})`);
-      fill('#categorySelectAdmin,#categorySelectAdmin2,#priceCategoryId', d.categories, 'id', r=>r.title);
+      fill('#categorySelectAdmin2,#priceCategoryId', d.categories, 'id', r=>r.title);
       $('.lang-options').each(function(){ fill(this, d.languages, 'code', r=>`${r.code} - ${r.name}`); });
       fill('#jsonLang', d.languages, 'code', r=>`${r.code}`);
 
@@ -76,8 +76,6 @@ $(function () {
       const ctb=$('#countryTableBody').empty(); d.countries.forEach(c=>ctb.append(`<tr><td>${c.id}</td><td>${c.name}</td><td>${c.currency_code||''}</td><td>${c.currency_symbol||''}</td><td><button class='country-edit' data-id='${c.id}'>Düzenle</button> <button class='country-del' data-id='${c.id}'>Sil</button></td></tr>`));
       const catb=$('#categoryTableBody').empty(); d.categories.forEach(c=>catb.append(`<tr><td>${c.id}</td><td>${c.title}</td><td>${c.description||''}</td><td>-</td></tr>`));
       const ltb=$('#languageTableBody').empty(); d.languages.forEach(l=>ltb.append(`<tr><td>${l.code}</td><td>${l.name}</td><td>${l.sort_order||''}</td><td>${Number(l.is_active)===1?'Aktif':'Pasif'}</td><td><button class='lang-edit' data-code='${l.code}'>Düzenle</button> <button class='lang-del' data-code='${l.code}'>Sil</button></td></tr>`));
-      if ($('#translationListLang').length && !$('#translationListLang option').length) { fill('#translationListLang', d.languages, 'code', r=>`${r.code} - ${r.name}`); }
-      if ($('#languageEditCode').length) { fill('#languageEditCode', d.languages, 'code', r=>`${r.code} - ${r.name}`); }
 
       const mtb=$('#transportModeTableBody').empty(); (d.transport_modes||[]).forEach(m=>mtb.append(`<tr><td>${m.id}</td><td>${m.mode_key}</td><td>${m.title}</td><td>${m.multiplier}</td><td><button class='mode-edit' data-id='${m.id}'>Düzenle</button> <button class='mode-del' data-id='${m.id}'>Sil</button></td></tr>`));
 
@@ -87,7 +85,7 @@ $(function () {
   function loadPricing(){ $.getJSON(endpoint('pricing_list'),res=>{ if(!res.ok)return; const b=$('#pricingTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.country_name}</td><td>${r.currency_code||'-'}</td><td>${r.category_title}</td><td>${r.mode_title||r.mode_key||'-'}</td><td>${r.weight_count||0}</td></tr>`));}); }
   function loadWeightPrices(){ $.getJSON(endpoint('weight_price_list'),res=>{ if(!res.ok)return; const b=$('#weightPriceTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.mode_title}</td><td>${r.weight_limit}</td><td>${r.price_amount}</td><td><button class='wp-edit' data-id='${r.id}'>Düzenle</button> <button class='wp-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
   function loadShipments(){ $.getJSON(endpoint('shipment_list'),res=>{ if(!res.ok)return; const b=$('#shipmentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.tracking_number}</td><td>${r.origin_country} → ${r.destination_country}</td><td>${r.current_status}</td><td><button class='act-del' data-id='${r.id}'>Sil</button> <button class='act-status' data-tr='${r.tracking_number}'>Durum</button></td></tr>`));}); }
-  function loadPages(){ $.getJSON(endpoint('page_list'),res=>{ if(!res.ok)return; const b=$('#pageTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title}</td><td>${r.slug}</td><td><button class='page-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
+  function loadPages(){ $.getJSON(endpoint('page_list'),res=>{ if(!res.ok)return; const b=$('#pageTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title}</td><td>${r.slug}</td><td><button class='page-edit' data-id='${r.id}'>Düzenle</button> <button class='page-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
   let menuRows = [];
   const systemLinkMap = {
     tracking: {label:'Tracking',url:'/tracking'},
@@ -99,9 +97,9 @@ $(function () {
 
   function menuLabel(row){
     if (row.title) return row.title;
-    if (row.item_type === 'page') return row.page_title || ('Page #' + row.page_id);
+    if (row.item_type === 'page') return row.page_title || ('Sayfa #' + row.page_id);
     if (row.item_type === 'system') return (systemLinkMap[row.system_key]||{}).label || row.system_key;
-    return row.url || 'Custom';
+    return row.url || 'Özel Link';
   }
 
   function bindSortableMenus(){
@@ -140,9 +138,10 @@ $(function () {
 
   function toggleMenuTypeFields(){
     const type=$('#menuItemType').val();
-    $('#menuPageId').closest('select, .field').toggle(type==='page');
-    $('#menuSystemKey').closest('select, .field').toggle(type==='system');
-    $('#menuForm input[name="url"]').toggle(type==='custom');
+    $('#menuPageField').toggle(type==='page');
+    $('#menuSystemField').toggle(type==='system');
+    $('#menuUrlField').toggle(type==='custom');
+    $('#menuTitleField').show();
   }
 
   function loadMenus(){
@@ -156,11 +155,12 @@ $(function () {
 
   function loadDocuments(){ $.getJSON(endpoint('document_list'),res=>{ if(!res.ok)return; const b=$('#documentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title||'-'}</td><td><a href='${r.file_path}' target='_blank'>${r.file_name||'Dosya'}</a></td><td><button class='doc-edit' data-id='${r.id}'>Düzenle</button> <button class='doc-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
 
-  const translationPager = {page:1,totalPages:1,lang:'en'};
+  const translationPager = {page:1,totalPages:1,lang:''};
   function loadTranslationRows(resetPage=false){
     if(!$('#translationTableBody').length) return;
     if(resetPage) translationPager.page = 1;
-    translationPager.lang = $('#translationListLang').val() || 'en';
+    translationPager.lang = $('#languageEditCode').val() || '';
+    if(!translationPager.lang) return;
     $.getJSON(endpoint('translations_list'), {lang:translationPager.lang, q:$('#translationSearch').val()||'', page:translationPager.page, per_page:20}, (res)=>{
       if(!res.ok) return toast(res);
       const b=$('#translationTableBody').empty();
@@ -202,6 +202,7 @@ $(function () {
   $(document).on('click','.act-del',function(){ $.post(endpoint('shipment_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadShipments();}, 'json'); });
   $(document).on('click','.act-status',function(){ window.location.href='?tab=shipments&sub=status&tracking='+encodeURIComponent($(this).data('tr')); });
   $(document).on('click','.page-del',function(){ $.post(endpoint('page_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadPages();}, 'json');});
+  $(document).on('click','.page-edit',function(){ window.location.href='?tab=pages&sub=edit&id='+$(this).data('id'); });
 
 
   $(document).on('click','.menu-edit',function(){
@@ -262,8 +263,21 @@ $(function () {
 
 
 
+  if (qp.get('tab') === 'pages' && qp.get('sub') === 'edit' && $('#pageForm').length) {
+    const id=qp.get('id');
+    if(id){
+      $.getJSON(endpoint('page_get'), {id:id}, (res)=>{
+        if(!res.ok) return toast(res);
+        $('#pageId').val(res.data.id);
+        $('#pageForm [name=lang_code]').val(res.data.lang_code || 'en');
+        $('#pageForm [name=title]').val(res.data.title || '');
+        if(quill){ quill.root.innerHTML = res.data.content_html || ''; }
+      });
+    }
+  }
+
   if (qp.get('tab') === 'languages' && qp.get('sub') === 'edit' && $('#languageEditForm').length) {
-    const code = qp.get('code') || $('#languageEditCode').val();
+    const code = qp.get('code');
     if(code){ setTimeout(()=>loadLanguageEditor(code), 250); }
   }
   if (qp.get('tab') === 'languages' && qp.get('sub') === 'new' && $('#newLanguageJson').length) {
@@ -313,12 +327,11 @@ $(function () {
       $('#languageEditSort').val(res.data.sort_order);
       $('#languageEditActive').val(String(res.data.is_active ?? 1));
       $.getJSON(endpoint('translations_by_lang'), {lang:res.data.code}, (r2)=>{
-        if(r2.ok){ $('#jsonEditor').val(JSON.stringify({[res.data.code]:r2.data}, null, 2)); }
+        if(r2.ok){ $('#jsonEditor').val(JSON.stringify({[res.data.code]:r2.data}, null, 2)); loadTranslationRows(true); }
       });
     });
   }
 
-  $('#languageEditCode').on('change', function(){ loadLanguageEditor($(this).val()); });
   $(document).on('submit','#languageEditForm', function(e){
     e.preventDefault();
     const formData = $(this).serializeArray();
@@ -356,9 +369,6 @@ $(function () {
     }, 'json');
   });
 
-
-  $('#langJsonLoadForm').on('submit', function(e){ e.preventDefault(); $.getJSON(endpoint('translations_by_lang'), {lang:$('#jsonLang').val()}, (res)=>{ if(!res.ok)return toast(res); $('#jsonEditor').val(JSON.stringify({[$('#jsonLang').val()]:res.data},null,2)); });});
-  $('#exportTranslationsJson').on('click', ()=>window.open(endpoint('translations_export_json'),'_blank'));
 
   
   function applyAutoLabels(){ $('form').each(function(){ $(this).find('input,select,textarea').each(function(){ if($(this).attr('type')==='hidden') return; if($(this).prev('label').length) return; const ph=$(this).attr('placeholder'); const nm=$(this).attr('name')||''; const clean=nm.replace(/_/g,' ').replace(/\b\w/g,(m)=>m.toUpperCase()); const txt=ph||clean; if(txt){ $(this).before('<label class=\'form-label\'>'+txt+'</label>'); } }); }); }
