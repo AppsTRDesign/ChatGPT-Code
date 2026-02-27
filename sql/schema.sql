@@ -353,3 +353,36 @@ INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES
 ('de','front','hero_eyebrow','Globales Cargo-Netzwerk • 24/7 Leitstand'),
 ('fr','front','hero_eyebrow','Réseau Cargo Mondial • Supervision 24/7')
 ON DUPLICATE KEY UPDATE text_value=VALUES(text_value);
+
+CREATE TABLE IF NOT EXISTS documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(255) NOT NULL,
+  mime_type VARCHAR(120) NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS document_translations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  document_id INT NOT NULL,
+  lang_code VARCHAR(8) NOT NULL,
+  title VARCHAR(190) NOT NULL,
+  UNIQUE KEY uniq_document_lang (document_id, lang_code),
+  CONSTRAINT fk_document_translations_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+INSERT INTO menus(item_type, system_key, title, sort_order, is_active)
+SELECT 'system', 'documents', 'Documents', 5, 1 FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM menus WHERE system_key = 'documents');
+
+INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES
+('en','front','documents','Documents'),
+('tr','front','documents','Belgelerimiz'),
+('de','front','documents','Dokumente'),
+('fr','front','documents','Documents'),
+('en','front','documents_desc','Access shipping documents, declarations and operation files.'),
+('tr','front','documents_desc','Kargo belgeleri, beyanlar ve operasyon dosyalarına erişin.'),
+('de','front','documents_desc','Greifen Sie auf Versanddokumente und Betriebsdateien zu.'),
+('fr','front','documents_desc','Accédez aux documents d''expédition et fichiers opérationnels.')
+ON DUPLICATE KEY UPDATE text_value=VALUES(text_value);

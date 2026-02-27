@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/_init.php';
 
-$existing = trim((string) ($_POST['existing_tracking'] ?? ''));
 $params = [
     'tracking'=>trim((string)$_POST['tracking_number']),
     'ocid'=>(int)($_POST['origin_country_id'] ?? 0),
@@ -26,11 +25,6 @@ $params = [
 
 if ($params['ocid'] <= 0 || $params['dcid'] <= 0) {
     json_response(false, 'Çıkış ve varış ülkesi seçmelisiniz.');
-}
-
-if ($existing !== '') {
-    db()->prepare('UPDATE shipments SET tracking_number=:tracking,origin_country_id=:ocid,origin_city=:oci,destination_country_id=:dcid,destination_city=:dci,current_status=:status,description=:desc,sender_name=:sn,sender_company=:sc,sender_phone=:sp,receiver_name=:rn,receiver_phone=:rp,receiver_address=:ra,current_latitude=:lat,current_longitude=:lng,origin_latitude=:olat,origin_longitude=:olng,destination_latitude=:dlat,destination_longitude=:dlng,updated_at=NOW() WHERE tracking_number=:existing')->execute($params + ['existing' => $existing]);
-    json_response(true,'Kargo güncellendi');
 }
 
 db()->prepare('INSERT INTO shipments(tracking_number,origin_country_id,origin_city,destination_country_id,destination_city,current_status,description,sender_name,sender_company,sender_phone,receiver_name,receiver_phone,receiver_address,current_latitude,current_longitude,origin_latitude,origin_longitude,destination_latitude,destination_longitude,created_at,updated_at) VALUES(:tracking,:ocid,:oci,:dcid,:dci,:status,:desc,:sn,:sc,:sp,:rn,:rp,:ra,:lat,:lng,:olat,:olng,:dlat,:dlng,NOW(),NOW())')->execute($params);

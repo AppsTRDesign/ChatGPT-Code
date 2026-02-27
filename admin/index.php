@@ -37,6 +37,13 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       </div>
     </div>
     <a class="side-link <?= $tab==='menus'?'active':'' ?>" href="?tab=menus">Menü Yönetimi</a>
+    <div class="side-group <?= $tab==='documents'?'open':'' ?>">
+      <button type="button" class="side-toggle">Belgelerimiz</button>
+      <div class="side-sub">
+        <a class="side-link <?= $tab==='documents' && ($sub===''||$sub==='list')?'active':'' ?>" href="?tab=documents&sub=list">Eklenen Belgeler</a>
+        <a class="side-link <?= $tab==='documents' && $sub==='new'?'active':'' ?>" href="?tab=documents&sub=new">Belge Ekle</a>
+      </div>
+    </div>
     <div class="side-group <?= $tab==='shipments'?'open':'' ?>">
       <button type="button" class="side-toggle">Kargo Yönetimi</button>
       <div class="side-sub">
@@ -83,10 +90,10 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
         <?php if ($pageSub === 'list'): ?>
           <div class="admin-card admin-full"><h3>Eklenmiş Sayfalar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Başlık</th><th>Slug</th><th>Aksiyon</th></tr></thead><tbody id="pageTableBody"></tbody></table></div></div>
         <?php else: ?>
-          <div class="admin-card admin-full"><h3>Dinamik Sayfa Ekle / Güncelle</h3>
+          <div class="admin-card admin-full"><h3>Sayfa Ekle</h3>
             <form id="pageForm">
               <input type="hidden" name="csrf" value="<?= $csrf ?>">
-              <label>Sayfa ID</label><input type="number" name="page_id" placeholder="Sayfa ID (güncelleme)">
+              
               <label>Slug Başlığı</label><input type="text" name="slug_source" placeholder="Slug başlığı" required>
               <label>Dil</label><select class="lang-options" name="lang_code"></select>
               <label>Başlık</label><input type="text" name="title" placeholder="Başlık" required>
@@ -143,8 +150,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
           <div class="admin-card admin-full"><h3>Kargo Ekle / Düzenle</h3>
             <form id="shipmentForm">
               <input type="hidden" name="csrf" value="<?= $csrf ?>">
-              <label>Kayıt Tipi</label><select id="shipmentTrackingSelect" name="existing_tracking"><option value="">Yeni kayıt</option></select>
-              <label>Tracking</label><input name="tracking_number" placeholder="Tracking no" required>
+                            <label>Tracking</label><input name="tracking_number" placeholder="Tracking no" required>
               <label>Durum</label><select name="current_status" id="shipmentStatusCodeSelect" required></select>
               <label>Açıklama</label><textarea name="description" placeholder="Kargo açıklaması"></textarea>
 
@@ -213,7 +219,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       <?php if ($psub === 'category-list'): ?>
         <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Kategori</th><th>Açıklama</th><th>Aksiyon</th></tr></thead><tbody id="categoryTableBody"></tbody></table></div>
       <?php elseif ($psub === 'category-new'): ?>
-        <div class="admin-card"><h3>Kategori Ekle / Düzenle</h3><form id="categoryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin" name="category_id"><option value="">Yeni kategori</option></select><label>Kategori Başlığı</label><input name="title" placeholder="Kategori başlığı" required><label>Açıklama</label><textarea name="description" placeholder="Açıklama"></textarea><input type="number" step="0.01" name="divisor" placeholder="Divisor" value="3000" required><input type="number" step="0.001" name="fuel_rate" placeholder="Yakıt oranı (0.10)" value="0"><input type="number" step="0.01" name="cod_fee" placeholder="COD ücret" value="0"><input type="number" step="0.01" name="min_price" placeholder="Minimum ücret" value="0"><input type="number" step="0.01" name="extra_per_kg" placeholder="Ekstra kg ücreti" value="12"><button>Kaydet</button></form></div>
+        <div class="admin-card"><h3>Kategori Ekle</h3><form id="categoryForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Kategori Başlığı</label><input name="title" placeholder="Kategori başlığı" required><label>Açıklama</label><textarea name="description" placeholder="Açıklama"></textarea><input type="number" step="0.01" name="divisor" placeholder="Divisor" value="3000" required><input type="number" step="0.001" name="fuel_rate" placeholder="Yakıt oranı (0.10)" value="0"><input type="number" step="0.01" name="cod_fee" placeholder="COD ücret" value="0"><input type="number" step="0.01" name="min_price" placeholder="Minimum ücret" value="0"><input type="number" step="0.01" name="extra_per_kg" placeholder="Ekstra kg ücreti" value="12"><button>Kaydet</button></form></div>
         <div class="admin-card"><h3>Kategori Çevirisi</h3><form id="categoryTranslationForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="categorySelectAdmin2" name="category_id"></select><select class="lang-options" name="lang_code"></select><input name="title" placeholder="Başlık" required><label>Açıklama</label><textarea name="description" placeholder="Açıklama"></textarea><button>Kaydet</button></form></div>
               <?php elseif ($psub === 'transport'): ?>
         <div class="admin-card"><h3>Taşıma Seçeneği Ekle / Düzenle</h3><form id="transportModeForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="mode_id"><label>Mode Key</label><input name="mode_key" placeholder="road" required><label>Başlık</label><input name="title" placeholder="Karayolu" required><label>Çarpan</label><input type="number" step="0.001" name="multiplier" value="1" required><label>Durum</label><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select><button>Kaydet</button></form></div>
@@ -228,8 +234,63 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       </div>
     <?php endif; ?>
 
+
+    <?php if ($tab === 'documents'): $dsub = $sub ?: 'list'; ?>
+      <div class="admin-grid">
+        <?php if ($dsub === 'list'): ?>
+          <div class="admin-card admin-full"><h3>Eklenen Belgeler</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Belge Adı</th><th>Dosya</th><th>Aksiyon</th></tr></thead><tbody id="documentTableBody"></tbody></table></div></div>
+        <?php else: ?>
+          <div class="admin-card admin-full"><h3>Belge Ekle / Düzenle</h3><form id="documentForm" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="document_id" id="documentId"><label>Dil</label><select class="lang-options" name="lang_code"></select><label>Belge Adı</label><input name="title" placeholder="Belge adı" required><label>Belge Dosyası</label><input type="file" name="document_file" accept="application/pdf,image/*"><small id="documentCurrentFile"></small><button>Kaydet</button></form></div>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+
 <?php if ($tab === 'settings'): ?>
-      <div class="admin-grid"><div class="admin-card admin-full"><h3>Site Ayarları</h3><form id="settingsForm" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Site Adı</label><input name="site_name" value="<?= htmlspecialchars($cfg['site_name'] ?? '', ENT_QUOTES) ?>" placeholder="Site adı"><label>Meta Başlık</label><input name="meta_title" value="<?= htmlspecialchars($cfg['meta_title'] ?? '', ENT_QUOTES) ?>" placeholder="Meta title"><label>Meta Açıklama</label><input name="meta_description" value="<?= htmlspecialchars($cfg['meta_description'] ?? '', ENT_QUOTES) ?>" placeholder="Meta description"><label>Şirket Adı</label><input name="company_name" value="<?= htmlspecialchars($cfg['company_name'] ?? '', ENT_QUOTES) ?>" placeholder="Şirket adı"><label>Şirket E-posta</label><input name="company_email" value="<?= htmlspecialchars($cfg['company_email'] ?? '', ENT_QUOTES) ?>" placeholder="E-posta"><label>Şirket Telefon</label><input name="company_phone" value="<?= htmlspecialchars($cfg['company_phone'] ?? '', ENT_QUOTES) ?>" placeholder="Telefon"><label>Şirket Adres</label><input name="company_address" value="<?= htmlspecialchars($cfg['company_address'] ?? '', ENT_QUOTES) ?>" placeholder="Adres"><label>Logo Yükle</label><input type="file" name="logo_file" accept="image/*"><label>Favicon Yükle</label><input type="file" name="favicon_file" accept="image/*"><label>Logo URL</label><input name="logo_path" value="<?= htmlspecialchars($cfg['logo_path'] ?? '', ENT_QUOTES) ?>" placeholder="Logo URL"><label>Favicon URL</label><input name="favicon_path" value="<?= htmlspecialchars($cfg['favicon_path'] ?? '', ENT_QUOTES) ?>" placeholder="Favicon URL"><label>Şirket Enlem</label><input id="companyLat" name="company_latitude" value="<?= htmlspecialchars($cfg['company_latitude'] ?? '41.01', ENT_QUOTES) ?>" placeholder="Lat"><label>Şirket Boylam</label><input id="companyLng" name="company_longitude" value="<?= htmlspecialchars($cfg['company_longitude'] ?? '28.97', ENT_QUOTES) ?>" placeholder="Lng"><label>Yandex API Key</label><input name="yandex_api_key" value="<?= htmlspecialchars($cfg['yandex_api_key'] ?? '', ENT_QUOTES) ?>" placeholder="Yandex API Key"><div class="inline-2"><input id="settingsMapSearchInput" placeholder="Adres ara"><button type="button" id="settingsMapSearchBtn">Ara</button></div><div id="settingsMap"></div><button>Kaydet</button></form></div></div>
+      <div class="admin-grid">
+        <div class="admin-card admin-full">
+          <h3>Site Ayarları</h3>
+          <form id="settingsForm" enctype="multipart/form-data">
+            <input type="hidden" name="csrf" value="<?= $csrf ?>">
+            <div class="form-split-2">
+              <div class="admin-subcard">
+                <div class="group-title">Genel Bilgiler</div>
+                <label>Site Adı</label><input name="site_name" value="<?= htmlspecialchars($cfg['site_name'] ?? '', ENT_QUOTES) ?>" placeholder="Site adı">
+                <label>Meta Başlık</label><input name="meta_title" value="<?= htmlspecialchars($cfg['meta_title'] ?? '', ENT_QUOTES) ?>" placeholder="Meta title">
+                <label>Meta Açıklama</label><input name="meta_description" value="<?= htmlspecialchars($cfg['meta_description'] ?? '', ENT_QUOTES) ?>" placeholder="Meta description">
+                <label>Yandex API Key</label><input name="yandex_api_key" value="<?= htmlspecialchars($cfg['yandex_api_key'] ?? '', ENT_QUOTES) ?>" placeholder="Yandex API Key">
+              </div>
+              <div class="admin-subcard">
+                <div class="group-title">Şirket İletişim</div>
+                <label>Şirket Adı</label><input name="company_name" value="<?= htmlspecialchars($cfg['company_name'] ?? '', ENT_QUOTES) ?>" placeholder="Şirket adı">
+                <label>Şirket E-posta</label><input name="company_email" value="<?= htmlspecialchars($cfg['company_email'] ?? '', ENT_QUOTES) ?>" placeholder="E-posta">
+                <label>Şirket Telefon</label><input name="company_phone" value="<?= htmlspecialchars($cfg['company_phone'] ?? '', ENT_QUOTES) ?>" placeholder="Telefon">
+                <label>Şirket Adres</label><input name="company_address" value="<?= htmlspecialchars($cfg['company_address'] ?? '', ENT_QUOTES) ?>" placeholder="Adres">
+              </div>
+            </div>
+            <div class="form-split-2">
+              <div class="admin-subcard">
+                <div class="group-title">Kurumsal Kimlik</div>
+                <label>Logo Yükle</label><input type="file" name="logo_file" accept="image/*">
+                <label>Favicon Yükle</label><input type="file" name="favicon_file" accept="image/*">
+                <label>Logo URL</label><input name="logo_path" value="<?= htmlspecialchars($cfg['logo_path'] ?? '', ENT_QUOTES) ?>" placeholder="Logo URL">
+                <label>Favicon URL</label><input name="favicon_path" value="<?= htmlspecialchars($cfg['favicon_path'] ?? '', ENT_QUOTES) ?>" placeholder="Favicon URL">
+                <div class="inline-2">
+                  <button type="button" id="deleteLogoBtn" class="btn-danger">Logoyu Sil</button>
+                  <button type="button" id="deleteFaviconBtn" class="btn-danger">Favicon Sil</button>
+                </div>
+              </div>
+              <div class="admin-subcard">
+                <div class="group-title">Konum</div>
+                <label>Şirket Enlem</label><input id="companyLat" name="company_latitude" value="<?= htmlspecialchars($cfg['company_latitude'] ?? '41.01', ENT_QUOTES) ?>" placeholder="Lat">
+                <label>Şirket Boylam</label><input id="companyLng" name="company_longitude" value="<?= htmlspecialchars($cfg['company_longitude'] ?? '28.97', ENT_QUOTES) ?>" placeholder="Lng">
+                <div class="inline-search"><input id="settingsMapSearchInput" placeholder="Adres ara"><button type="button" id="settingsMapSearchBtn">Ara</button></div>
+                <div id="settingsMap"></div>
+              </div>
+            </div>
+            <button>Kaydet</button>
+          </form>
+        </div>
+      </div>
     <?php endif; ?>
 
     <?php if ($tab === 'languages'): ?>

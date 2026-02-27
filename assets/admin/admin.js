@@ -37,9 +37,9 @@ $(function () {
     });
   }
 
-  ['page_save','menu_save','menu_translation_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','language_save','lang_save','translations_import_json','admin_password','transport_mode_save','weight_price_save'].forEach((api)=>{
-    const map={page_save:'#pageForm',menu_save:'#menuForm',shipment_save:'#shipmentForm',event_save:'#eventForm',country_save:'#countryForm',category_save:'#categoryForm',country_translation_save:'#countryTranslationForm',category_translation_save:'#categoryTranslationForm',price_save:'#priceConfigForm',language_save:'#languageForm',lang_save:'#langForm',translations_import_json:'#translationJsonForm',admin_password:'#adminPasswordForm',menu_translation_save:'#menuTranslationForm',transport_mode_save:'#transportModeForm',weight_price_save:'#weightPriceForm'};
-    if($(map[api]).length) submit(map[api],api,api==='settings_save');
+  ['page_save','menu_save','menu_translation_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','language_save','lang_save','translations_import_json','admin_password','transport_mode_save','weight_price_save','document_save'].forEach((api)=>{
+    const map={page_save:'#pageForm',menu_save:'#menuForm',shipment_save:'#shipmentForm',event_save:'#eventForm',country_save:'#countryForm',category_save:'#categoryForm',country_translation_save:'#countryTranslationForm',category_translation_save:'#categoryTranslationForm',price_save:'#priceConfigForm',language_save:'#languageForm',lang_save:'#langForm',translations_import_json:'#translationJsonForm',admin_password:'#adminPasswordForm',menu_translation_save:'#menuTranslationForm',transport_mode_save:'#transportModeForm',weight_price_save:'#weightPriceForm',document_save:'#documentForm'};
+    if($(map[api]).length) submit(map[api],api,api==='settings_save' || api==='document_save');
   });
   submit('#settingsForm','settings_save',true);
 
@@ -85,14 +85,15 @@ $(function () {
 
   function loadPricing(){ $.getJSON(endpoint('pricing_list'),res=>{ if(!res.ok)return; const b=$('#pricingTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.country_name}</td><td>${r.currency_code||'-'}</td><td>${r.category_title}</td><td>${r.mode_title||r.mode_key||'-'}</td><td>${r.weight_count||0}</td></tr>`));}); }
   function loadWeightPrices(){ $.getJSON(endpoint('weight_price_list'),res=>{ if(!res.ok)return; const b=$('#weightPriceTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.mode_title}</td><td>${r.weight_limit}</td><td>${r.price_amount}</td><td><button class='wp-edit' data-id='${r.id}'>Düzenle</button> <button class='wp-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
-  function loadShipments(){ $.getJSON(endpoint('shipment_list'),res=>{ if(!res.ok)return; const b=$('#shipmentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.tracking_number}</td><td>${r.origin_country} → ${r.destination_country}</td><td>${r.current_status}</td><td><button class='act-edit' data-id='${r.id}'>Düzenle</button> <button class='act-del' data-id='${r.id}'>Sil</button> <button class='act-status' data-tr='${r.tracking_number}'>Durum</button></td></tr>`));}); }
-  function loadPages(){ $.getJSON(endpoint('page_list'),res=>{ if(!res.ok)return; const b=$('#pageTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title}</td><td>${r.slug}</td><td><button class='page-edit' data-id='${r.id}'>Düzenle</button> <button class='page-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
+  function loadShipments(){ $.getJSON(endpoint('shipment_list'),res=>{ if(!res.ok)return; const b=$('#shipmentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.tracking_number}</td><td>${r.origin_country} → ${r.destination_country}</td><td>${r.current_status}</td><td><button class='act-del' data-id='${r.id}'>Sil</button> <button class='act-status' data-tr='${r.tracking_number}'>Durum</button></td></tr>`));}); }
+  function loadPages(){ $.getJSON(endpoint('page_list'),res=>{ if(!res.ok)return; const b=$('#pageTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title}</td><td>${r.slug}</td><td><button class='page-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
   let menuRows = [];
   const systemLinkMap = {
     tracking: {label:'Tracking',url:'/tracking'},
     pricing: {label:'Pricing',url:'/pricing'},
     contact: {label:'Contact',url:'/contact'},
-    'active-shipments': {label:'Active Shipments',url:'/active-shipments'}
+    'active-shipments': {label:'Active Shipments',url:'/active-shipments'},
+    'documents': {label:'Documents',url:'/documents'}
   };
 
   function menuLabel(row){
@@ -151,20 +152,16 @@ $(function () {
     });
   }
 
-  function loadAll(){ loadOptions(); loadPricing(); loadWeightPrices(); loadShipments(); loadPages(); loadMenus(); loadTranslationRows(); }
+
+  function loadDocuments(){ $.getJSON(endpoint('document_list'),res=>{ if(!res.ok)return; const b=$('#documentTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title||'-'}</td><td><a href='${r.file_path}' target='_blank'>${r.file_name||'Dosya'}</a></td><td><button class='doc-edit' data-id='${r.id}'>Düzenle</button> <button class='doc-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
+
+  function loadAll(){ loadOptions(); loadPricing(); loadWeightPrices(); loadShipments(); loadPages(); loadMenus(); loadTranslationRows(); loadDocuments(); }
   loadAll();
 
   const qp = new URLSearchParams(window.location.search);
   const editShipmentId = qp.get('edit_id');
-  if (qp.get('tab') === 'shipments' && editShipmentId && $('#shipmentForm').length) {
-    $.getJSON(endpoint('shipment_get'), {id:editShipmentId}, (res)=>{ if(!res.ok)return; const d=res.data; Object.keys(d).forEach(k=>$('#shipmentForm [name='+k+']').val(d[k])); $('#shipmentForm [name=existing_tracking]').val(d.tracking_number); });
-  }
   if (qp.get('tab') === 'shipments' && qp.get('tracking') && $('#shipmentTrackingSelect2').length) {
     $('#shipmentTrackingSelect2').val(qp.get('tracking'));
-  }
-  if (qp.get('tab') === 'pricing' && qp.get('edit_id') && $('#categoryForm').length) {
-    const id=qp.get('edit_id');
-    setTimeout(()=>{ const row = ($('#categorySelectAdmin option[value=+id+]').length)?id:null; if(row){ $('#categorySelectAdmin').val(id).trigger('change'); } }, 400);
   }
   if (qp.get('tab') === 'countries' && qp.get('edit_id') && $('#countryForm').length) {
     $.getJSON(endpoint('country_get'), {id:qp.get('edit_id')}, (res)=>{ if(!res.ok)return; const d=res.data; $('#countryForm [name=country_id]').val(d.id); $('#countryForm [name=name]').val(d.name); $('#countryForm [name=currency_code]').val(d.currency_code); $('#countryForm [name=currency_symbol]').val(d.currency_symbol||'$'); $('#countryForm [name=is_active]').val(String(d.is_active??1)); });
@@ -184,10 +181,8 @@ $(function () {
     $.post(endpoint('menu_reorder'), {csrf:window.CSRF_TOKEN, tree:tree}, (res)=>{toast(res);loadMenus();},'json');
   });
   $(document).on('click','.act-del',function(){ $.post(endpoint('shipment_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadShipments();}, 'json'); });
-  $(document).on('click','.act-edit',function(){ window.location.href='?tab=shipments&sub=new&edit_id='+$(this).data('id'); });
   $(document).on('click','.act-status',function(){ window.location.href='?tab=shipments&sub=status&tracking='+encodeURIComponent($(this).data('tr')); });
   $(document).on('click','.page-del',function(){ $.post(endpoint('page_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadPages();}, 'json');});
-  $(document).on('click','.page-edit',function(){ window.location.href='?tab=pages&sub=new&edit_id='+$(this).data('id'); });
 
 
   $(document).on('click','.menu-edit',function(){
@@ -239,11 +234,6 @@ $(function () {
   });
 
 
-  $(document).on('click','.cat-edit',function(){ window.location.href='?tab=pricing&sub=category-new&edit_id='+$(this).data('id'); });
-  $(document).on('change','#categorySelectAdmin',function(){
-    const id=$(this).val(); if(!id) return;
-    $.getJSON(endpoint('options'), (res)=>{ if(!res.ok) return; const c=(res.data.categories||[]).find(x=>String(x.id)===String(id)); if(!c) return; $('#categoryForm [name=title]').val(c.title); $('#categoryForm [name=description]').val(c.description||''); $('#categoryForm [name=divisor]').val(c.divisor); $('#categoryForm [name=fuel_rate]').val(c.fuel_rate); $('#categoryForm [name=cod_fee]').val(c.cod_fee); $('#categoryForm [name=min_price]').val(c.min_price); $('#categoryForm [name=extra_per_kg]').val(c.extra_per_kg); });
-  });
   $(document).on('click','.country-edit',function(){ window.location.href='?tab=countries&sub=new&edit_id='+$(this).data('id'); });
   $(document).on('click','.country-del',function(){
     $.post(endpoint('country_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadAll();}, 'json');
@@ -273,6 +263,33 @@ $(function () {
   });
   $(document).on('click','.mode-del',function(){
     $.post(endpoint('transport_mode_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadAll();}, 'json');
+  });
+
+
+  if (qp.get('tab') === 'documents' && qp.get('sub') === 'new' && qp.get('edit_id') && $('#documentForm').length) {
+    $.getJSON(endpoint('document_get'), {id:qp.get('edit_id')}, (res)=>{
+      if(!res.ok) return toast(res);
+      $('#documentId').val(res.data.id);
+      $('#documentCurrentFile').text('Mevcut dosya: ' + (res.data.file_name || '-'));
+    });
+  }
+
+  $(document).on('click','.doc-edit',function(){ window.location.href='?tab=documents&sub=new&edit_id='+$(this).data('id'); });
+  $(document).on('click','.doc-del',function(){
+    $.post(endpoint('document_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res);loadDocuments();}, 'json');
+  });
+
+  $(document).on('click','#deleteLogoBtn',function(){
+    $('#settingsForm [name=delete_logo]').remove();
+    $('#settingsForm').append('<input type="hidden" name="delete_logo" value="1">');
+    $('#settingsForm [name=logo_path]').val('');
+    toastr.info('Logo silinmek üzere işaretlendi. Kaydet ile onaylayın.');
+  });
+  $(document).on('click','#deleteFaviconBtn',function(){
+    $('#settingsForm [name=delete_favicon]').remove();
+    $('#settingsForm').append('<input type="hidden" name="delete_favicon" value="1">');
+    $('#settingsForm [name=favicon_path]').val('');
+    toastr.info('Favicon silinmek üzere işaretlendi. Kaydet ile onaylayın.');
   });
 
   $('#langJsonLoadForm').on('submit', function(e){ e.preventDefault(); $.getJSON(endpoint('translations_by_lang'), {lang:$('#jsonLang').val()}, (res)=>{ if(!res.ok)return toast(res); $('#jsonEditor').val(JSON.stringify({[$('#jsonLang').val()]:res.data},null,2)); });});

@@ -107,6 +107,23 @@ $(function () {
   if (num && $('#trackingForm').length) {
     $('#trackingForm input[name="tracking_number"]').val(num);
   }
+
+  if ($('#documentsList').length) {
+    $.getJSON('/api/documents.php', function(rows){
+      const box = $('#documentsList').empty();
+      rows.forEach((d)=>{
+        const isPdf = (d.mime_type || '').includes('pdf') || String(d.file_path||'').toLowerCase().endsWith('.pdf');
+        const preview = isPdf
+          ? `<iframe src="${d.file_path}" title="${d.title}"></iframe>`
+          : `<a data-fancybox="docs" href="${d.file_path}"><img src="${d.file_path}" alt="${d.title}"></a>`;
+        box.append(`<article class="panel doc-card"><h3>${d.title}</h3>${preview}</article>`);
+      });
+      if (window.Fancybox) {
+        Fancybox.bind('[data-fancybox="docs"]', {});
+      }
+    });
+  }
+
 });
 
 $(document).on('click','#downloadTrackPdf',function(){ const tr=$(this).data('tr'); window.location.href='/api/track_pdf.php?tracking_number='+encodeURIComponent(tr); });

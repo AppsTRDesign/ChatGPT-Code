@@ -182,6 +182,20 @@ function fallback_translations(): array
                 'to' => 'To',
                 'active_shipments' => 'Active Shipments',
                 'active_shipments_desc' => 'Track live vessel and line-haul locations across global cargo routes.',
+                'documents' => 'Documents',
+                'documents_desc' => 'Access shipping documents, declarations and operation files.',
+            ],
+        ],
+        'de' => [
+            'front' => [
+                'documents' => 'Dokumente',
+                'documents_desc' => 'Greifen Sie auf Versanddokumente und Betriebsdateien zu.',
+            ],
+        ],
+        'fr' => [
+            'front' => [
+                'documents' => 'Documents',
+                'documents_desc' => 'Accédez aux documents d\'expédition et fichiers opérationnels.',
             ],
         ],
         'tr' => [
@@ -212,6 +226,8 @@ function fallback_translations(): array
                 'to' => 'Varış',
                 'active_shipments' => 'Aktif Gönderiler',
                 'active_shipments_desc' => 'Küresel kargo rotalarında gemi ve hat taşıma konumlarını canlı izleyin.',
+                'documents' => 'Belgelerimiz',
+                'documents_desc' => 'Kargo belgeleri, beyanlar ve operasyon dosyalarına erişin.',
             ],
         ],
     ];

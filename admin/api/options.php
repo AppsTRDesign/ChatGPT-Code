@@ -21,6 +21,7 @@ $out = [
         ['key'=>'pricing','label'=>'Pricing','url'=>'/pricing'],
         ['key'=>'contact','label'=>'Contact','url'=>'/contact'],
         ['key'=>'active-shipments','label'=>'Active Shipments','url'=>'/active-shipments'],
+        ['key'=>'documents','label'=>'Documents','url'=>'/documents'],
     ],
 ];
 

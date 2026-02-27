@@ -41,6 +41,7 @@ $renderMenuMobile = function (array $items) use (&$renderMenuMobile): void {
   <link rel="icon" href="<?= htmlspecialchars($settings['favicon_path'] ?? '/assets/favicon.ico', ENT_QUOTES) ?>">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
   <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css">
 </head>
 <body><div class="page-shell">
 <header class="site-header">
@@ -87,6 +88,7 @@ $renderMenuMobile = function (array $items) use (&$renderMenuMobile): void {
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 <script>window.CSRF_TOKEN = '<?= csrf_token() ?>';</script>
+<script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

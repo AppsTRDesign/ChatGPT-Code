@@ -23,6 +23,29 @@ if (!empty($_FILES['favicon_file']['tmp_name']) && is_uploaded_file($_FILES['fav
     $_POST['favicon_path'] = '/uploads/' . $name;
 }
 
+
+if (!empty($_POST['delete_logo'])) {
+    $old = (string)(settings()['logo_path'] ?? '');
+    $_POST['logo_path'] = '';
+    if ($old !== '' && str_starts_with($old, '/uploads/')) {
+        $oldAbs = __DIR__ . '/../../' . ltrim($old, '/');
+        if (is_file($oldAbs)) {
+            @unlink($oldAbs);
+        }
+    }
+}
+
+if (!empty($_POST['delete_favicon'])) {
+    $old = (string)(settings()['favicon_path'] ?? '');
+    $_POST['favicon_path'] = '';
+    if ($old !== '' && str_starts_with($old, '/uploads/')) {
+        $oldAbs = __DIR__ . '/../../' . ltrim($old, '/');
+        if (is_file($oldAbs)) {
+            @unlink($oldAbs);
+        }
+    }
+}
+
 foreach ($keys as $k) {
     $stmt->execute(['k' => $k, 'v' => trim((string) ($_POST[$k] ?? ''))]);
 }

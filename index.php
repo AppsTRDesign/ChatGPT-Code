@@ -23,6 +23,8 @@ try {
         $page = 'contact';
     } elseif (($segments[0] ?? '') === 'active-shipments') {
         $page = 'active-shipments';
+    } elseif (($segments[0] ?? '') === 'documents') {
+        $page = 'documents';
     } elseif (($segments[0] ?? '') === 'page' && isset($segments[1], $segments[2])) {
         $stmt = db()->prepare('SELECT p.id, pt.title, pt.content_html FROM pages p JOIN page_translations pt ON pt.page_id = p.id AND pt.lang_code = :lang WHERE p.id = :id AND p.slug = :slug AND p.is_active = 1');
         $stmt->execute(['lang' => $lang, 'id' => (int) $segments[1], 'slug' => $segments[2]]);
@@ -63,6 +65,7 @@ try {
                 'pricing' => '/pricing',
                 'contact' => '/contact',
                 'active-shipments' => '/active-shipments',
+                'documents' => '/documents',
             ];
             $menu['href'] = $map[$menu['system_key']] ?? '/';
         } elseif (($menu['item_type'] ?? '') === 'custom') {
@@ -92,6 +95,7 @@ try {
             ['label' => t('front','pricing', $lang), 'href' => '/pricing', 'children' => []],
             ['label' => t('front','contact', $lang), 'href' => '/contact', 'children' => []],
             ['label' => t('front','active_shipments', $lang), 'href' => '/active-shipments', 'children' => []],
+            ['label' => t('front','documents', $lang), 'href' => '/documents', 'children' => []],
         ];
     }
 } catch (Throwable $e) {
@@ -101,6 +105,7 @@ try {
         ['label' => t('front','pricing', $lang), 'href' => '/pricing', 'children' => []],
         ['label' => t('front','contact', $lang), 'href' => '/contact', 'children' => []],
         ['label' => t('front','active_shipments', $lang), 'href' => '/active-shipments', 'children' => []],
+        ['label' => t('front','documents', $lang), 'href' => '/documents', 'children' => []],
     ];
 }
 
