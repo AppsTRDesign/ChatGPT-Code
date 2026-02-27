@@ -100,10 +100,9 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
             <form id="pageForm">
               <input type="hidden" name="csrf" value="<?= $csrf ?>">
               <input type="hidden" name="page_id" id="pageId">
-              <label>Dil</label><select class="lang-options" name="lang_code"></select>
-              <label>Başlık</label><input type="text" name="title" placeholder="Başlık" required>
-              <label>İçerik</label><div id="pageEditor" style="height:320px"></div>
-              <textarea id="pageEditorInput" name="content_html" style="display:none"></textarea>
+              <input type="hidden" name="translations_json" id="pageTranslationsJson">
+              <p class="subtext">Tek sayfa kaydında tüm dillerin başlık/içerik alanlarını yönetin. SEO slug otomatik olarak İngilizce başlıktan üretilir.</p>
+              <div id="pageTranslationsWrap" class="form-split-2"></div>
               <button>Kaydet</button>
             </form>
           </div>

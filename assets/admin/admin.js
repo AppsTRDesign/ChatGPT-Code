@@ -17,17 +17,12 @@ $(function () {
   $('#mobileSideBtn').on('click', () => $('#adminSidebar').toggleClass('open'));
   $('.side-toggle').on('click', function(){ $(this).parent().toggleClass('open'); });
 
-  let quill = null;
-  if ($('#pageEditor').length && window.Quill) {
-    quill = new Quill('#pageEditor', { theme: 'snow' });
-  }
 
   function toast(res){res.ok?toastr.success(res.message):toastr.error(res.message)}
 
   function submit(selector, api, multipart=false) {
     $(document).on('submit', selector, function(e){
       e.preventDefault();
-      if(selector==='#pageForm' && quill){ $('#pageEditorInput').val(quill.root.innerHTML); }
       if(multipart){
         const fd=new FormData(this);
         $.ajax({url:endpoint(api),method:'POST',data:fd,processData:false,contentType:false,dataType:'json'}).done((res)=>{toast(res);loadAll();});
@@ -36,6 +31,18 @@ $(function () {
       }
     });
   }
+
+
+  $(document).on('submit','#pageForm', function(){
+    const out={};
+    $('#pageTranslationsWrap').find('[data-lang]').each(function(){
+      const lang=$(this).data('lang');
+      const field=$(this).data('field');
+      out[lang]=out[lang]||{};
+      out[lang][field]=$(this).val();
+    });
+    $('#pageTranslationsJson').val(JSON.stringify(out));
+  });
 
   ['page_save','menu_save','menu_translation_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','translations_import_json','admin_password','transport_mode_save','weight_price_save','document_save'].forEach((api)=>{
     const map={page_save:'#pageForm',menu_save:'#menuForm',shipment_save:'#shipmentForm',event_save:'#eventForm',country_save:'#countryForm',category_save:'#categoryForm',country_translation_save:'#countryTranslationForm',category_translation_save:'#categoryTranslationForm',price_save:'#priceConfigForm',translations_import_json:'#translationJsonForm',admin_password:'#adminPasswordForm',menu_translation_save:'#menuTranslationForm',transport_mode_save:'#transportModeForm',weight_price_save:'#weightPriceForm',document_save:'#documentForm'};
@@ -50,10 +57,22 @@ $(function () {
     rows.forEach(r=>e.append(`<option value="${r[val]}">${label(r)}</option>`));
   }
 
+
+  function renderPageTranslationFields(langs, data={}){
+    const wrap = $('#pageTranslationsWrap');
+    if(!wrap.length) return;
+    const arr = (langs||[]).slice().sort((a,b)=> (a.code==='en'?-1:b.code==='en'?1:0));
+    wrap.empty();
+    arr.forEach(l=>{
+      const d=data[l.code] || {};
+      wrap.append(`<div class="admin-subcard"><div class="group-title">${l.code.toUpperCase()} - ${l.name}</div><label>Başlık (${l.code})</label><input type="text" data-lang="${l.code}" data-field="title" value="${(d.title||'').replace(/"/g,'&quot;')}" placeholder="Başlık"><label>İçerik (${l.code})</label><textarea data-lang="${l.code}" data-field="content_html" rows="8" placeholder="İçerik">${d.content_html||''}</textarea></div>`);
+    });
+  }
+
   function loadOptions(){
     $.getJSON(endpoint('options'), (res)=>{
       if(!res.ok) return;
-      const d=res.data;
+      const d=res.data; window.__adminOptions = d;
       fill('#menuPageId', d.pages, 'id', r=>`${r.id} - ${r.title}`);
       fill('#menuTranslationId', d.menus || [], 'id', r=>`#${r.id} ${r.title || r.page_title || '-'}`);
       fill('#priceTransportModeId,#weightModeId', d.transport_modes || [], 'id', r=>`${r.title} (${r.multiplier})`);
@@ -67,6 +86,7 @@ $(function () {
       fill('#countrySelectAdmin,#countrySelectAdmin2,#priceCountryId,#shipmentOriginCountryId,#shipmentDestinationCountryId,#eventCountryId', d.countries, 'id', r=>`${r.name} (${r.currency_code||'-'})`);
       fill('#categorySelectAdmin2,#priceCategoryId', d.categories, 'id', r=>r.title);
       $('.lang-options').each(function(){ fill(this, d.languages, 'code', r=>`${r.code} - ${r.name}`); });
+      renderPageTranslationFields(d.languages || []);
       fill('#jsonLang', d.languages, 'code', r=>`${r.code}`);
 
       const statusSel=$('#statusCodeSelect').empty();
@@ -240,7 +260,7 @@ $(function () {
   $(document).on('click','.wp-edit',function(){
     $.getJSON(endpoint('weight_price_get'), {id:$(this).data('id')}, (res)=>{
       if(!res.ok) return toast(res);
-      const d=res.data;
+      const d=res.data; window.__adminOptions = d;
       $('#weightPriceForm [name=id]').val(d.id);
       $('#weightPriceForm [name=transport_mode_id]').val(d.transport_mode_id);
       $('#weightPriceForm [name=weight_limit]').val(d.weight_limit);
@@ -254,7 +274,7 @@ $(function () {
   $(document).on('click','.mode-edit',function(){
     $.getJSON(endpoint('transport_mode_get'), {id:$(this).data('id')}, (res)=>{
       if(!res.ok) return toast(res);
-      const d=res.data; $('#transportModeForm [name=mode_id]').val(d.id); $('#transportModeForm [name=mode_key]').val(d.mode_key); $('#transportModeForm [name=title]').val(d.title); $('#transportModeForm [name=multiplier]').val(d.multiplier); $('#transportModeForm [name=is_active]').val(String(d.is_active ?? 1));
+      const d=res.data; window.__adminOptions = d; $('#transportModeForm [name=mode_id]').val(d.id); $('#transportModeForm [name=mode_key]').val(d.mode_key); $('#transportModeForm [name=title]').val(d.title); $('#transportModeForm [name=multiplier]').val(d.multiplier); $('#transportModeForm [name=is_active]').val(String(d.is_active ?? 1));
     });
   });
   $(document).on('click','.mode-del',function(){
@@ -269,9 +289,7 @@ $(function () {
       $.getJSON(endpoint('page_get'), {id:id}, (res)=>{
         if(!res.ok) return toast(res);
         $('#pageId').val(res.data.id);
-        $('#pageForm [name=lang_code]').val(res.data.lang_code || 'en');
-        $('#pageForm [name=title]').val(res.data.title || '');
-        if(quill){ quill.root.innerHTML = res.data.content_html || ''; }
+        renderPageTranslationFields((window.__adminOptions && window.__adminOptions.languages) || [], res.data.translations || {});
       });
     }
   }

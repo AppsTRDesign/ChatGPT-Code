@@ -81,11 +81,19 @@ try {
         $parent = (int)($item['parent_id'] ?? 0);
         $grouped[$parent][] = $item;
     }
+    foreach ($grouped as &$grp) {
+        usort($grp, static function (array $a, array $b): int {
+            return ((int)$a['sort_order'] <=> (int)$b['sort_order']) ?: ((int)$a['id'] <=> (int)$b['id']);
+        });
+    }
+    unset($grp);
+
     $buildTree = function (int $parentId) use (&$buildTree, $grouped): array {
         $list = $grouped[$parentId] ?? [];
         foreach ($list as &$item) {
             $item['children'] = $buildTree((int)$item['id']);
         }
+        unset($item);
         return $list;
     };
     $menuTree = $buildTree(0);
