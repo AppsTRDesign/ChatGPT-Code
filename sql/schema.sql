@@ -127,6 +127,15 @@ CREATE TABLE IF NOT EXISTS transport_modes (
   is_active TINYINT(1) NOT NULL DEFAULT 1
 );
 
+CREATE TABLE IF NOT EXISTS transport_mode_weight_prices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  transport_mode_id INT NOT NULL,
+  weight_limit DECIMAL(10,2) NOT NULL,
+  price_amount DECIMAL(10,2) NOT NULL,
+  UNIQUE KEY uniq_mode_weight (transport_mode_id, weight_limit),
+  CONSTRAINT fk_mode_weight_mode FOREIGN KEY (transport_mode_id) REFERENCES transport_modes(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS price_categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(190) NOT NULL,
@@ -169,6 +178,21 @@ INSERT INTO transport_modes (mode_key, title, multiplier, is_active) VALUES
 ('sea', 'Denizyolu', 1.200, 1),
 ('rail', 'Demiryolu', 1.400, 1)
 ON DUPLICATE KEY UPDATE title=VALUES(title), multiplier=VALUES(multiplier), is_active=VALUES(is_active);
+
+
+INSERT INTO transport_mode_weight_prices (transport_mode_id, weight_limit, price_amount)
+SELECT tm.id, x.w, x.p FROM transport_modes tm
+JOIN (
+  SELECT 'road' mk, 1 w, 79 p UNION ALL
+  SELECT 'road', 2, 89 UNION ALL
+  SELECT 'road', 3, 99 UNION ALL
+  SELECT 'road', 5, 129 UNION ALL
+  SELECT 'air', 1, 99 UNION ALL
+  SELECT 'air', 2, 129 UNION ALL
+  SELECT 'sea', 1, 69 UNION ALL
+  SELECT 'rail', 1, 85
+) x ON x.mk = tm.mode_key
+ON DUPLICATE KEY UPDATE price_amount=VALUES(price_amount);
 
 INSERT INTO languages (code, name, is_active, sort_order) VALUES
 ('tr', 'Türkçe', 1, 1),

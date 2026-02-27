@@ -58,6 +58,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
         <a class="side-link <?= $tab==='pricing' && ($sub===''||$sub==='category-list')?'active':'' ?>" href="?tab=pricing&sub=category-list">Eklenen Kategoriler</a>
         <a class="side-link <?= $tab==='pricing' && $sub==='category-new'?'active':'' ?>" href="?tab=pricing&sub=category-new">Kategori Ekle</a>
         <a class="side-link <?= $tab==='pricing' && $sub==='transport'?'active':'' ?>" href="?tab=pricing&sub=transport">Taşıma Seçenekleri</a>
+        <a class="side-link <?= $tab==='pricing' && $sub==='weights'?'active':'' ?>" href="?tab=pricing&sub=weights">Kilo Fiyatları</a>
         <a class="side-link <?= $tab==='pricing' && $sub==='price'?'active':'' ?>" href="?tab=pricing&sub=price">Fiyat Ekle</a>
       </div>
     </div>
@@ -182,11 +183,12 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
               <?php elseif ($psub === 'transport'): ?>
         <div class="admin-card"><h3>Taşıma Seçeneği Ekle / Düzenle</h3><form id="transportModeForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="mode_id"><label>Mode Key</label><input name="mode_key" placeholder="road" required><label>Başlık</label><input name="title" placeholder="Karayolu" required><label>Çarpan</label><input type="number" step="0.001" name="multiplier" value="1" required><label>Durum</label><select name="is_active"><option value="1">Aktif</option><option value="0">Pasif</option></select><button>Kaydet</button></form></div>
         <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Key</th><th>Başlık</th><th>Çarpan</th><th>Aksiyon</th></tr></thead><tbody id="transportModeTableBody"></tbody></table></div>
+      <?php elseif ($psub === 'weights'): ?>
+        <div class="admin-card"><h3>Kilo Fiyatı Ekle / Düzenle</h3><form id="weightPriceForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="id"><label>Taşıma Seçeneği</label><select id="weightModeId" name="transport_mode_id"></select><label>Kilo Limiti</label><input type="number" step="0.01" name="weight_limit" placeholder="1" required><label>Fiyat (USD)</label><input type="number" step="0.01" name="price_amount" placeholder="79" required><button>Kaydet</button></form></div>
+        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>ID</th><th>Taşıma</th><th>Kilo Limiti</th><th>Fiyat</th><th>Aksiyon</th></tr></thead><tbody id="weightPriceTableBody"></tbody></table></div>
       <?php else: ?>
-        <div class="admin-card admin-full"><h3>Fiyat Stratejisi Ekle</h3><form id="priceConfigForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><select id="priceCountryId" name="country_id"></select><select id="priceCategoryId" name="category_id"></select><select id="priceTransportModeId" name="transport_mode_id"></select><textarea name="weight_prices" placeholder="1:79
-2:89
-3:99" required></textarea><button>Kaydet</button></form></div>
-        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>Ülke</th><th>Para Birimi</th><th>Kategori</th><th>Taşıma</th><th>Tablo</th></tr></thead><tbody id="pricingTableBody"></tbody></table></div>
+        <div class="admin-card admin-full"><h3>Fiyat Stratejisi Ekle</h3><form id="priceConfigForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><label>Ülke</label><select id="priceCountryId" name="country_id"></select><label>Kategori</label><select id="priceCategoryId" name="category_id"></select><label>Taşıma Seçeneği</label><select id="priceTransportModeId" name="transport_mode_id"></select><button>Kaydet</button></form></div>
+        <div class="admin-card admin-full"><table class="list-table"><thead><tr><th>Ülke</th><th>Para Birimi</th><th>Kategori</th><th>Taşıma</th><th>Kilo Basamağı</th></tr></thead><tbody id="pricingTableBody"></tbody></table></div>
       <?php endif; ?>
       </div>
     <?php endif; ?>
