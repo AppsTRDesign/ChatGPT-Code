@@ -10,7 +10,7 @@ $sub = $_GET['sub'] ?? '';
 $cfg = settings();
 $csrf = csrf_token();
 $ymLang = current_lang() === 'tr' ? 'tr_TR' : 'en_US';
-$ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6'), ENT_QUOTES);
+$ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
 ?>
 <!doctype html>
 <html lang="tr">
@@ -155,7 +155,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? 'd0b1a4c0-60eb-4a39
             <div class="group-title">Yandex Konum</div>
             <input id="companyLat" name="company_latitude" value="<?= htmlspecialchars($cfg['company_latitude'] ?? '41.01', ENT_QUOTES) ?>" placeholder="Lat">
             <input id="companyLng" name="company_longitude" value="<?= htmlspecialchars($cfg['company_longitude'] ?? '28.97', ENT_QUOTES) ?>" placeholder="Lng">
-            <input name="yandex_api_key" value="<?= htmlspecialchars($cfg['yandex_api_key'] ?? 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6', ENT_QUOTES) ?>" placeholder="Yandex API Key">
+            <input name="yandex_api_key" value="<?= htmlspecialchars($cfg['yandex_api_key'] ?? '', ENT_QUOTES) ?>" placeholder="Yandex API Key">
             <div id="settingsMap"></div>
             <button>Kaydet</button>
           </form>

@@ -2,7 +2,7 @@
 $cfg = settings();
 $lat = (float)($cfg['company_latitude'] ?? 41.01);
 $lng = (float)($cfg['company_longitude'] ?? 28.97);
-$ymKey = $cfg['yandex_api_key'] ?? 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6';
+$ymKey = $cfg['yandex_api_key'] ?? '';
 ?>
 <section class="container section">
   <h2><?= t('front', 'contact') ?></h2>

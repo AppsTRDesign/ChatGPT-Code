@@ -10,9 +10,13 @@ $lng = trim((string) ($_GET['lng'] ?? ''));
 $address = trim((string) ($_GET['address'] ?? ''));
 
 try {
-    $key = settings()['yandex_api_key'] ?? 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6';
+    $key = (string)(settings()['yandex_api_key'] ?? '');
 } catch (Throwable $e) {
-    $key = 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6';
+    $key = '';
+}
+
+if ($key === '') {
+    json_response(false, 'Yandex API key tanımlı değil');
 }
 
 if ($address !== '') {

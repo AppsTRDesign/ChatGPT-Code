@@ -1,6 +1,6 @@
 <?php
 $cfg = settings();
-$ymKey = $cfg['yandex_api_key'] ?? 'd0b1a4c0-60eb-4a39-b34a-61c68fffc2d6';
+$ymKey = $cfg['yandex_api_key'] ?? '';
 $prefill = trim((string) ($_GET['num'] ?? ''));
 ?>
 <section class="container section">

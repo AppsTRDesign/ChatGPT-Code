@@ -138,9 +138,53 @@ function settings(): array
     return $out;
 }
 
+
+function fallback_translations(): array
+{
+    return [
+        'en' => [
+            'front' => [
+                'top_message' => 'Integrated Global Cargo Operations',
+                'track' => 'Track',
+                'pricing' => 'Pricing',
+                'contact' => 'Contact',
+                'tracking_number' => 'Tracking Number',
+                'captcha' => 'Verification',
+                'track_desc' => 'Enter your tracking number to view shipment details, status timeline and live location.',
+                'tracking_waiting' => 'No query yet. Enter a tracking number to display shipment details.',
+                'contact_desc' => 'Contact our corporate cargo desk for route planning and account support.',
+                'contact_card_title' => 'Corporate Contact Office',
+                'contact_card_desc' => 'Fast response for customs, route and contract operations.',
+                'address' => 'Address',
+                'phone' => 'Phone',
+                'email' => 'Email',
+            ],
+        ],
+        'tr' => [
+            'front' => [
+                'top_message' => 'Entegre Global Kargo Operasyonları',
+                'track' => 'Kargo Takip',
+                'pricing' => 'Fiyatlama',
+                'contact' => 'İletişim',
+                'tracking_number' => 'Takip Numarası',
+                'captcha' => 'Doğrulama',
+                'track_desc' => 'Takip numarası ile gönderi detayını, durum zaman çizelgesini ve canlı konumu görüntüleyin.',
+                'tracking_waiting' => 'Henüz sorgu yapılmadı. Takip numarası girerek detayları görüntüleyin.',
+                'contact_desc' => 'Rota planlama ve kurumsal hesap desteği için kargo masamıza ulaşın.',
+                'contact_card_title' => 'Kurumsal İletişim Ofisi',
+                'contact_card_desc' => 'Gümrük, rota ve sözleşme operasyonlarında hızlı geri dönüş.',
+                'address' => 'Adres',
+                'phone' => 'Telefon',
+                'email' => 'E-posta',
+            ],
+        ],
+    ];
+}
+
 function t(string $group, string $key, ?string $lang = null): string
 {
     $lang ??= current_lang();
+    $fallback = false;
 
     try {
         $stmt = db()->prepare('SELECT text_value FROM translations WHERE lang_code = :lang AND `group_name` = :grp AND `key_name` = :k LIMIT 1');
@@ -154,10 +198,21 @@ function t(string $group, string $key, ?string $lang = null): string
         $stmt->execute(['lang' => DEFAULT_LANG, 'grp' => $group, 'k' => $key]);
         $fallback = $stmt->fetchColumn();
     } catch (Throwable $e) {
-        return $key;
     }
 
-    return $fallback !== false ? (string) $fallback : $key;
+    if ($fallback !== false) {
+        return (string) $fallback;
+    }
+
+    $map = fallback_translations();
+    if (isset($map[$lang][$group][$key])) {
+        return $map[$lang][$group][$key];
+    }
+    if (isset($map[DEFAULT_LANG][$group][$key])) {
+        return $map[DEFAULT_LANG][$group][$key];
+    }
+
+    return $key;
 }
 
 function admin_auth(): bool
