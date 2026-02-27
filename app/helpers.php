@@ -184,12 +184,20 @@ function fallback_translations(): array
                 'active_shipments_desc' => 'Track live vessel and line-haul locations across global cargo routes.',
                 'documents' => 'Documents',
                 'documents_desc' => 'Access shipping documents, declarations and operation files.',
+                'newsletter_title' => 'Newsletter Subscription',
+                'newsletter_desc' => 'Get logistics updates and campaign announcements by e-mail.',
+                'newsletter_btn' => 'Subscribe',
+                'newsletter_success' => 'Your subscription has been saved.',
             ],
         ],
         'de' => [
             'front' => [
                 'documents' => 'Dokumente',
                 'documents_desc' => 'Greifen Sie auf Versanddokumente und Betriebsdateien zu.',
+                'newsletter_title' => 'Newsletter-Abonnement',
+                'newsletter_desc' => 'Erhalten Sie Logistik-Updates und Kampagnen per E-Mail.',
+                'newsletter_btn' => 'Abonnieren',
+                'newsletter_success' => 'Ihre Anmeldung wurde gespeichert.',
             ],
         ],
         'fr' => [
@@ -228,6 +236,10 @@ function fallback_translations(): array
                 'active_shipments_desc' => 'Küresel kargo rotalarında gemi ve hat taşıma konumlarını canlı izleyin.',
                 'documents' => 'Belgelerimiz',
                 'documents_desc' => 'Kargo belgeleri, beyanlar ve operasyon dosyalarına erişin.',
+                'newsletter_title' => 'Bülten Aboneliği',
+                'newsletter_desc' => 'Lojistik güncellemeleri ve kampanya duyurularını e-posta ile alın.',
+                'newsletter_btn' => 'Abone Ol',
+                'newsletter_success' => 'Aboneliğiniz kaydedildi.',
             ],
         ],
     ];

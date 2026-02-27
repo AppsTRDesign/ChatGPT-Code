@@ -386,3 +386,29 @@ INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES
 ('de','front','documents_desc','Greifen Sie auf Versanddokumente und Betriebsdateien zu.'),
 ('fr','front','documents_desc','Accédez aux documents d''expédition et fichiers opérationnels.')
 ON DUPLICATE KEY UPDATE text_value=VALUES(text_value);
+
+
+CREATE TABLE IF NOT EXISTS subscribers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO translations(lang_code,group_name,key_name,text_value) VALUES
+('en','front','newsletter_title','Newsletter Subscription'),
+('tr','front','newsletter_title','Bülten Aboneliği'),
+('de','front','newsletter_title','Newsletter-Abonnement'),
+('fr','front','newsletter_title','Abonnement à la newsletter'),
+('en','front','newsletter_desc','Get logistics updates and campaign announcements by e-mail.'),
+('tr','front','newsletter_desc','Lojistik güncellemeleri ve kampanya duyurularını e-posta ile alın.'),
+('de','front','newsletter_desc','Erhalten Sie Logistik-Updates und Kampagnen per E-Mail.'),
+('fr','front','newsletter_desc','Recevez les mises à jour logistiques et annonces par e-mail.'),
+('en','front','newsletter_btn','Subscribe'),
+('tr','front','newsletter_btn','Abone Ol'),
+('de','front','newsletter_btn','Abonnieren'),
+('fr','front','newsletter_btn','S\'abonner'),
+('en','front','newsletter_success','Your subscription has been saved.'),
+('tr','front','newsletter_success','Aboneliğiniz kaydedildi.'),
+('de','front','newsletter_success','Ihre Anmeldung wurde gespeichert.'),
+('fr','front','newsletter_success','Votre abonnement a été enregistré.')
+ON DUPLICATE KEY UPDATE text_value=VALUES(text_value);

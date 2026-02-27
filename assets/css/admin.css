@@ -59,3 +59,6 @@ body.admin-body{margin:0;background:#eef2f7}
 .search-row{display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;margin-bottom:8px}
 .search-row button{height:44px;white-space:nowrap}
 @media(max-width:1080px){.search-row{grid-template-columns:1fr auto}.search-row button{width:96px}}
+
+.quill-editor{background:#fff;border:1px solid #cbd5e1;border-radius:10px;min-height:220px}
+.quill-editor .ql-editor{min-height:170px}

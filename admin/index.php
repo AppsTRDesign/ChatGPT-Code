@@ -70,6 +70,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
       </div>
     </div>
     <a class="side-link <?= $tab==='settings'?'active':'' ?>" href="?tab=settings">Site Ayarları</a>
+    <a class="side-link <?= $tab==='subscribers'?'active':'' ?>" href="?tab=subscribers">Bülten Aboneleri</a>
     <div class="side-group <?= $tab==='languages'?'open':'' ?>">
       <button type="button" class="side-toggle">Dil Yönetimi</button>
       <div class="side-sub">
@@ -96,13 +97,18 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
         <?php if ($pageSub === 'list'): ?>
           <div class="admin-card admin-full"><h3>Eklenmiş Sayfalar</h3><div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>Başlık</th><th>Slug</th><th>Aksiyon</th></tr></thead><tbody id="pageTableBody"></tbody></table></div></div>
         <?php else: ?>
-          <div class="admin-card admin-full"><h3><?= $pageSub === 'edit' ? 'Sayfa Düzenle' : 'Sayfa Ekle' ?></h3>
+          <div class="admin-card admin-full"><h3><?= $pageSub === 'edit' ? 'Sayfa Düzenleme' : 'Sayfa Ekle' ?></h3>
             <form id="pageForm">
               <input type="hidden" name="csrf" value="<?= $csrf ?>">
               <input type="hidden" name="page_id" id="pageId">
               <input type="hidden" name="translations_json" id="pageTranslationsJson">
-              <p class="subtext">Tek sayfa kaydında tüm dillerin başlık/içerik alanlarını yönetin. SEO slug otomatik olarak İngilizce başlıktan üretilir.</p>
-              <div id="pageTranslationsWrap" class="form-split-2"></div>
+              <p class="subtext">Tek kayıt üzerinden tüm dilleri yönetin. SEO slug yalnızca İngilizce başlıktan otomatik üretilir.</p>
+              <label>Dil Seçimi</label>
+              <select id="pageLangSelect" class="lang-options"></select>
+              <label>Başlık</label>
+              <input type="text" id="pageTitleInput" placeholder="Sayfa başlığı" required>
+              <label>İçerik</label>
+              <div id="pageContentEditor" class="quill-editor"></div>
               <button>Kaydet</button>
             </form>
           </div>
@@ -320,6 +326,21 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
     <?php endif; ?>
 
 
+
+
+    <?php if ($tab === 'subscribers'): ?>
+      <div class="admin-grid">
+        <div class="admin-card admin-full">
+          <h3>Bülten Aboneleri</h3>
+          <div class="filter-row">
+            <div><label>Ara</label><input id="subscriberSearch" placeholder="e-posta ara"></div>
+            <button type="button" id="subscriberSearchBtn">Filtrele</button>
+          </div>
+          <div class="table-wrap"><table class="list-table"><thead><tr><th>ID</th><th>E-posta</th><th>Tarih</th><th>Aksiyon</th></tr></thead><tbody id="subscriberTableBody"></tbody></table></div>
+          <div class="pager-row"><button type="button" id="subscriberPrev">Önceki</button><span id="subscriberPageInfo">1 / 1</span><button type="button" id="subscriberNext">Sonraki</button></div>
+        </div>
+      </div>
+    <?php endif; ?>
 
     <?php if ($tab === 'admin'): ?>
       <div class="admin-grid"><div class="admin-card"><h3>Şifre Değiştir</h3><form id="adminPasswordForm"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input name="current_password" type="password" placeholder="Mevcut şifre" required><input name="new_password" type="password" placeholder="Yeni şifre" required><button>Güncelle</button></form></div></div>

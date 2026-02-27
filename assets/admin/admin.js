@@ -33,15 +33,51 @@ $(function () {
   }
 
 
-  $(document).on('submit','#pageForm', function(){
-    const out={};
-    $('#pageTranslationsWrap').find('[data-lang]').each(function(){
-      const lang=$(this).data('lang');
-      const field=$(this).data('field');
-      out[lang]=out[lang]||{};
-      out[lang][field]=$(this).val();
+  const pageTranslationsState = {};
+  let pageEditor = null;
+  let pageCurrentLang = 'en';
+
+  function pageEnsureEditor(){
+    if (!document.getElementById('pageContentEditor') || pageEditor) return;
+    pageEditor = new Quill('#pageContentEditor', { theme:'snow' });
+    pageEditor.on('text-change', () => {
+      const lang = $('#pageLangSelect').val() || pageCurrentLang;
+      pageCurrentLang = lang;
+      pageTranslationsState[lang] = pageTranslationsState[lang] || {};
+      pageTranslationsState[lang].content_html = pageEditor.root.innerHTML;
+      pageTranslationsState[lang].title = $('#pageTitleInput').val() || '';
     });
-    $('#pageTranslationsJson').val(JSON.stringify(out));
+  }
+
+  function pageSyncUIFromState(lang){
+    pageCurrentLang = lang;
+    const row = pageTranslationsState[lang] || {};
+    $('#pageTitleInput').val(row.title || '');
+    if (pageEditor) pageEditor.root.innerHTML = row.content_html || '';
+  }
+
+  $(document).on('change','#pageLangSelect', function(){
+    const prev = pageCurrentLang;
+    pageTranslationsState[prev] = pageTranslationsState[prev] || {};
+    pageTranslationsState[prev].title = $('#pageTitleInput').val() || '';
+    pageTranslationsState[prev].content_html = pageEditor ? pageEditor.root.innerHTML : '';
+    pageSyncUIFromState($(this).val() || 'en');
+  });
+
+  $(document).on('input','#pageTitleInput', function(){
+    const lang = $('#pageLangSelect').val() || pageCurrentLang;
+    pageTranslationsState[lang] = pageTranslationsState[lang] || {};
+    pageTranslationsState[lang].title = $(this).val();
+  });
+
+  $(document).on('submit','#pageForm', function(){
+    if (pageEditor) {
+      const lang = $('#pageLangSelect').val() || pageCurrentLang;
+      pageTranslationsState[lang] = pageTranslationsState[lang] || {};
+      pageTranslationsState[lang].title = $('#pageTitleInput').val() || '';
+      pageTranslationsState[lang].content_html = pageEditor.root.innerHTML;
+    }
+    $('#pageTranslationsJson').val(JSON.stringify(pageTranslationsState));
   });
 
   ['page_save','menu_save','menu_translation_save','shipment_save','event_save','country_save','category_save','country_translation_save','category_translation_save','price_save','translations_import_json','admin_password','transport_mode_save','weight_price_save','document_save'].forEach((api)=>{
@@ -59,14 +95,17 @@ $(function () {
 
 
   function renderPageTranslationFields(langs, data={}){
-    const wrap = $('#pageTranslationsWrap');
-    if(!wrap.length) return;
+    const sel = $('#pageLangSelect');
+    if(!sel.length) return;
+    pageEnsureEditor();
     const arr = (langs||[]).slice().sort((a,b)=> (a.code==='en'?-1:b.code==='en'?1:0));
-    wrap.empty();
-    arr.forEach(l=>{
-      const d=data[l.code] || {};
-      wrap.append(`<div class="admin-subcard"><div class="group-title">${l.code.toUpperCase()} - ${l.name}</div><label>Başlık (${l.code})</label><input type="text" data-lang="${l.code}" data-field="title" value="${(d.title||'').replace(/"/g,'&quot;')}" placeholder="Başlık"><label>İçerik (${l.code})</label><textarea data-lang="${l.code}" data-field="content_html" rows="8" placeholder="İçerik">${d.content_html||''}</textarea></div>`);
-    });
+    sel.empty();
+    arr.forEach(l=> sel.append(`<option value="${l.code}">${l.code.toUpperCase()} - ${l.name}</option>`));
+    Object.keys(pageTranslationsState).forEach(k=>delete pageTranslationsState[k]);
+    arr.forEach(l=>{ pageTranslationsState[l.code] = Object.assign({title:'',content_html:''}, data[l.code]||{}); });
+    if (!pageTranslationsState.en && arr.length) pageTranslationsState[arr[0].code] = pageTranslationsState[arr[0].code] || {title:'',content_html:''};
+    sel.val(pageTranslationsState.en ? 'en' : (arr[0] ? arr[0].code : 'en'));
+    pageSyncUIFromState(sel.val() || 'en');
   }
 
   function loadOptions(){
@@ -108,11 +147,11 @@ $(function () {
   function loadPages(){ $.getJSON(endpoint('page_list'),res=>{ if(!res.ok)return; const b=$('#pageTableBody').empty(); res.data.forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.title}</td><td>${r.slug}</td><td><button class='page-edit' data-id='${r.id}'>Düzenle</button> <button class='page-del' data-id='${r.id}'>Sil</button></td></tr>`));}); }
   let menuRows = [];
   const systemLinkMap = {
-    tracking: {label:'Tracking',url:'/tracking'},
-    pricing: {label:'Pricing',url:'/pricing'},
-    contact: {label:'Contact',url:'/contact'},
-    'active-shipments': {label:'Active Shipments',url:'/active-shipments'},
-    'documents': {label:'Documents',url:'/documents'}
+    tracking: {label:'Kargo Takip',url:'/tracking'},
+    pricing: {label:'Fiyat Hesaplama',url:'/pricing'},
+    contact: {label:'İletişim',url:'/contact'},
+    'active-shipments': {label:'Aktif Kargolar',url:'/active-shipments'},
+    'documents': {label:'Belgelerimiz',url:'/documents'}
   };
 
   function menuLabel(row){
@@ -158,9 +197,12 @@ $(function () {
 
   function toggleMenuTypeFields(){
     const type=$('#menuItemType').val();
-    $('#menuPageField').toggle(type==='page');
-    $('#menuSystemField').toggle(type==='system');
-    $('#menuUrlField').toggle(type==='custom');
+    const page = $('#menuPageField').toggle(type==='page');
+    const system = $('#menuSystemField').toggle(type==='system');
+    const custom = $('#menuUrlField').toggle(type==='custom');
+    page.find('select,input').prop('disabled', type!=='page');
+    system.find('select,input').prop('disabled', type!=='system');
+    custom.find('select,input').prop('disabled', type!=='custom');
     $('#menuTitleField').show();
   }
 
@@ -191,7 +233,22 @@ $(function () {
     });
   }
 
-  function loadAll(){ loadOptions(); loadPricing(); loadWeightPrices(); loadShipments(); loadPages(); loadMenus(); loadTranslationRows(); loadDocuments(); }
+
+  const subscriberPager = {page:1,totalPages:1};
+  function loadSubscribers(reset=false){
+    if(!$('#subscriberTableBody').length) return;
+    if(reset) subscriberPager.page = 1;
+    $.getJSON(endpoint('subscriber_list'), {q:$('#subscriberSearch').val()||'', page:subscriberPager.page, per_page:20}, (res)=>{
+      if(!res.ok) return toast(res);
+      const b=$('#subscriberTableBody').empty();
+      (res.data.rows||[]).forEach(r=>b.append(`<tr><td>${r.id}</td><td>${r.email}</td><td>${r.created_at}</td><td><button type='button' class='sub-del btn-danger' data-id='${r.id}'>Sil</button></td></tr>`));
+      subscriberPager.page = res.data.pagination.page;
+      subscriberPager.totalPages = res.data.pagination.total_pages;
+      $('#subscriberPageInfo').text(`${subscriberPager.page} / ${subscriberPager.totalPages}`);
+    });
+  }
+
+  function loadAll(){ loadOptions(); loadPricing(); loadWeightPrices(); loadShipments(); loadPages(); loadMenus(); loadTranslationRows(); loadDocuments(); loadSubscribers(); }
   loadAll();
 
   const qp = new URLSearchParams(window.location.search);
@@ -415,6 +472,26 @@ $(function () {
       });
     }
   }
+
+
+  $(document).on('click','#translationSearchBtn',()=>loadTranslationRows(true));
+  $(document).on('keyup','#translationSearch',function(e){ if(e.key==='Enter') loadTranslationRows(true); });
+  $(document).on('click','#translationPrev',()=>{ if(translationPager.page>1){ translationPager.page--; loadTranslationRows(false);} });
+  $(document).on('click','#translationNext',()=>{ if(translationPager.page<translationPager.totalPages){ translationPager.page++; loadTranslationRows(false);} });
+  $(document).on('click','.tr-edit',function(){
+    const group=$(this).data('group'); const key=$(this).data('key');
+    const current=$(this).data('text')||'';
+    const value=prompt(`${group}.${key}`, current);
+    if(value===null) return;
+    const lang=$('#languageEditCode').val();
+    $.post(endpoint('lang_save'), {csrf:window.CSRF_TOKEN, lang_code:lang, group_name:group, key_name:key, text_value:value}, (res)=>{toast(res); if(res.ok) loadTranslationRows(false);}, 'json');
+  });
+
+  $(document).on('click','#subscriberSearchBtn',()=>loadSubscribers(true));
+  $(document).on('keyup','#subscriberSearch',function(e){ if(e.key==='Enter') loadSubscribers(true); });
+  $(document).on('click','#subscriberPrev',()=>{ if(subscriberPager.page>1){ subscriberPager.page--; loadSubscribers(false);} });
+  $(document).on('click','#subscriberNext',()=>{ if(subscriberPager.page<subscriberPager.totalPages){ subscriberPager.page++; loadSubscribers(false);} });
+  $(document).on('click','.sub-del',function(){ $.post(endpoint('subscriber_delete'), {csrf:window.CSRF_TOKEN,id:$(this).data('id')}, (res)=>{toast(res); loadSubscribers(false);}, 'json'); });
 
   applyAutoLabels();
   toggleMenuTypeFields();

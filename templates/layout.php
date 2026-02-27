@@ -21,11 +21,14 @@ $renderMenuDesktop = function (array $items, bool $isSub = false) use (&$renderM
 $renderMenuMobile = function (array $items) use (&$renderMenuMobile): void {
   foreach ($items as $item) {
     $hasChildren = !empty($item['children']);
-    echo '<a class="mobile-menu-link" href="'.htmlspecialchars((string)$item['href'], ENT_QUOTES).'">'.htmlspecialchars((string)$item['label'], ENT_QUOTES).'</a>';
     if ($hasChildren) {
+      echo '<details class="mobile-dropdown"><summary>'.htmlspecialchars((string)$item['label'], ENT_QUOTES).'</summary>';
+      echo '<a class="mobile-menu-link is-parent" href="'.htmlspecialchars((string)$item['href'], ENT_QUOTES).'">'.htmlspecialchars((string)$item['label'], ENT_QUOTES).'</a>';
       echo '<div class="mobile-submenu">';
       $renderMenuMobile($item['children']);
-      echo '</div>';
+      echo '</div></details>';
+    } else {
+      echo '<a class="mobile-menu-link" href="'.htmlspecialchars((string)$item['href'], ENT_QUOTES).'">'.htmlspecialchars((string)$item['label'], ENT_QUOTES).'</a>';
     }
   }
 };
@@ -73,14 +76,20 @@ $renderMenuMobile = function (array $items) use (&$renderMenuMobile): void {
   <?php include __DIR__ . '/pages/' . $page . '.php'; ?>
 </main>
 <footer class="footer">
-  <div class="container footer-grid">
+  <div class="container footer-grid footer-grid-pro">
     <div>
       <strong><?= htmlspecialchars($settings['company_name'] ?? 'CargoAfrik Logistics', ENT_QUOTES) ?></strong>
       <p><?= htmlspecialchars($settings['company_address'] ?? '-', ENT_QUOTES) ?></p>
-    </div>
-    <div>
       <p><?= t('front', 'email') ?>: <?= htmlspecialchars($settings['company_email'] ?? '-', ENT_QUOTES) ?></p>
       <p><?= t('front', 'phone') ?>: <?= htmlspecialchars($settings['company_phone'] ?? '-', ENT_QUOTES) ?></p>
+    </div>
+    <div>
+      <h4><?= t('front','newsletter_title') ?></h4>
+      <p class="subtext"><?= t('front','newsletter_desc') ?></p>
+      <form id="newsletterForm" class="newsletter-form">
+        <input type="email" name="email" placeholder="name@company.com" required>
+        <button type="submit"><?= t('front','newsletter_btn') ?></button>
+      </form>
     </div>
   </div>
 </footer>

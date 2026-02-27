@@ -10,6 +10,17 @@ $(function () {
   });
   $('#mobileSideClose').on('click', function(){ $('#adminSidebar').removeClass('open'); });
 
+  $('#newsletterForm').on('submit', function(e){
+    e.preventDefault();
+    const email = ($(this).find('[name=email]').val() || '').trim();
+    if(!/^\S+@\S+\.\S+$/.test(email)){ toastr.error('Geçerli bir e-posta girin'); return; }
+    $.post('/api/subscribe.php', {csrf:window.CSRF_TOKEN, email:email}, function(res){
+      if(!res.ok) return toastr.error(res.message);
+      toastr.success(res.message);
+      $('#newsletterForm')[0].reset();
+    }, 'json');
+  });
+
   $('#quickTrack').on('submit', function (e) {
     e.preventDefault();
     const no = $(this).find('input[name="tracking_number"]').val();
