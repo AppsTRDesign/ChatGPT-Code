@@ -19,8 +19,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
   <link rel="stylesheet" href="/assets/css/style.css">
   <link rel="stylesheet" href="/assets/css/admin.css">
-  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-  <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="https://api-maps.yandex.ru/v3/?apikey=<?= $ymKey ?>&lang=<?= htmlspecialchars($ymLang, ENT_QUOTES) ?>"></script>
 </head>
@@ -108,7 +107,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
               <label>Başlık</label>
               <input type="text" id="pageTitleInput" placeholder="Sayfa başlığı" required>
               <label>İçerik</label>
-              <div id="pageContentEditor" class="quill-editor"></div>
+              <textarea id="pageContentEditor" class="summernote-editor"></textarea>
               <button>Kaydet</button>
             </form>
           </div>
@@ -372,6 +371,7 @@ $ymKey = htmlspecialchars((string)($cfg['yandex_api_key'] ?? ''), ENT_QUOTES);
 </div>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.js"></script>
 <script>window.CSRF_TOKEN = '<?= $csrf ?>';</script>
 <script src="/assets/admin/admin.js"></script>
 </body>

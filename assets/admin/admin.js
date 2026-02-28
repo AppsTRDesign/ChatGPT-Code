@@ -39,12 +39,28 @@ $(function () {
 
   function pageEnsureEditor(){
     if (!document.getElementById('pageContentEditor') || pageEditor) return;
-    pageEditor = new Quill('#pageContentEditor', { theme:'snow' });
-    pageEditor.on('text-change', () => {
+    pageEditor = $('#pageContentEditor');
+    pageEditor.summernote({
+      height: 320,
+      minHeight: 220,
+      toolbar: [
+        ['style', ['style']],
+        ['font', ['bold', 'italic', 'underline', 'clear']],
+        ['fontname', ['fontname']],
+        ['fontsize', ['fontsize']],
+        ['color', ['color']],
+        ['para', ['ul', 'ol', 'paragraph']],
+        ['table', ['table']],
+        ['insert', ['link', 'picture', 'video', 'hr']],
+        ['view', ['fullscreen', 'codeview', 'help']],
+        ['misc', ['undo', 'redo']]
+      ]
+    });
+    pageEditor.on('summernote.change', function(_we, contents){
       const lang = $('#pageLangSelect').val() || pageCurrentLang;
       pageCurrentLang = lang;
       pageTranslationsState[lang] = pageTranslationsState[lang] || {};
-      pageTranslationsState[lang].content_html = pageEditor.root.innerHTML;
+      pageTranslationsState[lang].content_html = contents || '';
       pageTranslationsState[lang].title = $('#pageTitleInput').val() || '';
     });
   }
@@ -53,14 +69,14 @@ $(function () {
     pageCurrentLang = lang;
     const row = pageTranslationsState[lang] || {};
     $('#pageTitleInput').val(row.title || '');
-    if (pageEditor) pageEditor.root.innerHTML = row.content_html || '';
+    if (pageEditor) pageEditor.summernote('code', row.content_html || '');
   }
 
   $(document).on('change','#pageLangSelect', function(){
     const prev = pageCurrentLang;
     pageTranslationsState[prev] = pageTranslationsState[prev] || {};
     pageTranslationsState[prev].title = $('#pageTitleInput').val() || '';
-    pageTranslationsState[prev].content_html = pageEditor ? pageEditor.root.innerHTML : '';
+    pageTranslationsState[prev].content_html = pageEditor ? pageEditor.summernote('code') : '';
     pageSyncUIFromState($(this).val() || 'en');
   });
 
@@ -75,7 +91,7 @@ $(function () {
       const lang = $('#pageLangSelect').val() || pageCurrentLang;
       pageTranslationsState[lang] = pageTranslationsState[lang] || {};
       pageTranslationsState[lang].title = $('#pageTitleInput').val() || '';
-      pageTranslationsState[lang].content_html = pageEditor.root.innerHTML;
+      pageTranslationsState[lang].content_html = pageEditor.summernote('code');
     }
     $('#pageTranslationsJson').val(JSON.stringify(pageTranslationsState));
   });

@@ -11,7 +11,6 @@ $segments = $uri === '' ? [] : explode('/', $uri);
 $page = 'home';
 $payload = [];
 
-/* ROUTING */
 $routes = [
     'tracking' => 'track',
     'pricing' => 'pricing',
@@ -23,6 +22,21 @@ $routes = [
 if (isset($routes[$segments[0] ?? ''])) {
     $page = $routes[$segments[0]];
 }
+if (($segments[0] ?? '') === 'page' && isset($segments[1], $segments[2])) {
+        $stmt = db()->prepare('SELECT p.id, pt.title, pt.content_html FROM pages p JOIN page_translations pt ON pt.page_id = p.id AND pt.lang_code = :lang WHERE p.id = :id AND p.slug = :slug AND p.is_active = 1');
+        $stmt->execute(['lang' => $lang, 'id' => (int) $segments[1], 'slug' => $segments[2]]);
+        $pageRow = $stmt->fetch();
+
+        if (!$pageRow) {
+            $stmt->execute(['lang' => DEFAULT_LANG, 'id' => (int) $segments[1], 'slug' => $segments[2]]);
+            $pageRow = $stmt->fetch();
+        }
+
+        if ($pageRow) {
+            $page = 'dynamic';
+            $payload['page'] = $pageRow;
+        }
+	}
 
 /* MENÜLER */
 $stmt = db()->prepare(<<<SQL
@@ -56,10 +70,19 @@ $systemMap = [
 /* TREE */
 $items = [];
 foreach ($rows as $row) {
-    $row['href'] =
-        $row['item_type'] === 'system'
-            ? ($systemMap[$row['system_key']] ?? '/')
-            : ($row['url'] ?? '#');
+
+    if ($row['item_type'] === 'system') {
+        // Sistem menüsü
+        $row['href'] = $systemMap[$row['system_key']] ?? '/';
+
+    } elseif ($row['item_type'] === 'page' && !empty($row['slug'])) {
+        // Page menüsü → slug'tan URL
+       $row['href'] = !empty($row['page_id']) ? '/page/' . (int)$row['page_id'] . '/' . (string)$row['slug'] : '#';
+
+    } else {
+        // Custom / external URL
+        $row['href'] = !empty($row['url']) ? $row['url'] : '#';
+    }
 
     $row['children'] = [];
     $items[$row['id']] = $row;
