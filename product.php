@@ -112,18 +112,29 @@ render_header($product['name'], ['image' => $metaImage]);
         <?php
         $hasDiscount = product_has_discount($product);
         $displayCurrencyCode = product_display_currency_code($product);
-                    $finalPrice = product_discounted_price($product, $displayCurrencyCode);
+        $displayCurrency = find_currency($displayCurrencyCode) ?? [];
+        $displayCurrencySymbol = (string) ($displayCurrency['symbol'] ?? $displayCurrencyCode);
+        $displayCurrencyLabel = strtoupper($displayCurrencyCode);
+        $baseDisplayPrice = price_for_currency($product, $displayCurrencyCode);
+        $finalPrice = product_discounted_price($product, $displayCurrencyCode);
         ?>
         <h1><?= htmlspecialchars($product['name']) ?></h1>
         <?php if ($hasDiscount): ?>
             <span class="discount-pill">İndirimli</span>
         <?php endif; ?>
         <div class="product-purchase">
-            <p class="price" data-product-price data-unit-price="<?= htmlspecialchars((string) $finalPrice) ?>">
+            <p
+                class="price"
+                data-product-price
+                data-unit-price="<?= htmlspecialchars((string) $finalPrice) ?>"
+                data-unit-old-price="<?= htmlspecialchars((string) $baseDisplayPrice) ?>"
+                data-currency-symbol="<?= htmlspecialchars($displayCurrencySymbol) ?>"
+                data-currency-code="<?= htmlspecialchars($displayCurrencyLabel) ?>"
+            >
                 <?php if ($hasDiscount): ?>
-                    <span class="price-old"><?= currency(price_for_currency($product, $displayCurrencyCode), $displayCurrencyCode) ?></span>
+                    <span class="price-old" data-price-old><?= currency($baseDisplayPrice, $displayCurrencyCode) ?> (<?= htmlspecialchars($displayCurrencyLabel) ?>)</span>
                 <?php endif; ?>
-                <span class="price-new"><?= currency($finalPrice, $displayCurrencyCode) ?></span>
+                <span class="price-new" data-price-new><?= currency($finalPrice, $displayCurrencyCode) ?> (<?= htmlspecialchars($displayCurrencyLabel) ?>)</span>
             </p>
             <label class="product-quantity">
                 Adet

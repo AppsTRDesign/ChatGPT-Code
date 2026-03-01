@@ -427,11 +427,26 @@ if (productQuantityInput) {
   const priceEl = document.querySelector('[data-product-price]');
   const checkoutLink = document.querySelector('[data-checkout-link]');
   const unitPrice = priceEl ? Number(priceEl.dataset.unitPrice || 0) : 0;
+  const unitOldPrice = priceEl ? Number(priceEl.dataset.unitOldPrice || 0) : 0;
+  const currencySymbol = priceEl?.dataset.currencySymbol || '₺';
+  const currencyCode = priceEl?.dataset.currencyCode || '';
+
+  const formatPrice = (amount) => {
+    const formattedAmount = amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return currencyCode ? `${formattedAmount} ${currencySymbol} (${currencyCode})` : `${formattedAmount} ${currencySymbol}`;
+  };
+
   const updateProductTotal = () => {
     const qty = Math.max(1, Number(productQuantityInput.value || 1));
     if (priceEl) {
-      const total = unitPrice * qty;
-      priceEl.textContent = `${total.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
+      const newPriceEl = priceEl.querySelector('[data-price-new]');
+      if (newPriceEl) {
+        newPriceEl.textContent = formatPrice(unitPrice * qty);
+      }
+      const oldPriceEl = priceEl.querySelector('[data-price-old]');
+      if (oldPriceEl) {
+        oldPriceEl.textContent = formatPrice(unitOldPrice * qty);
+      }
     }
     if (checkoutLink) {
       const url = new URL(checkoutLink.href, window.location.origin);
