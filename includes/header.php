@@ -133,7 +133,7 @@ function render_header(string $title = '', array $meta = []): void
         echo "<div class=\"nav-dropdown\">\n";
         echo "<span>Kategoriler</span>\n";
         echo "<div class=\"dropdown-menu\">\n";
-        echo "<a href=\"/kategoriler\" title=\"Tüm Kategoriler\">Tüm Kategoriler</a>\n";
+        echo "<a href=\"/categories\" title=\"Tüm Kategoriler\">Tüm Kategoriler</a>\n";
         foreach ($categoryChildren[0] as $category) {
             $categoryName = htmlspecialchars($category['name']);
             echo "<a href=\"" . category_url($category) . "\" title=\"{$categoryName}\">{$categoryName}</a>\n";
@@ -144,7 +144,7 @@ function render_header(string $title = '', array $meta = []): void
         }
         echo "</div>\n</div>\n";
     }
-    echo "<a href=\"/icerikler\" title=\"İçerikler\">İçerikler</a>\n";
+    echo "<a href=\"/contents\" title=\"İçerikler\">İçerikler</a>\n";
     echo '<div class="nav-dropdown">' . "\n";
     echo '<span>Para Birimi</span>' . "\n";
     echo '<div class="dropdown-menu">' . "\n";
@@ -163,15 +163,15 @@ function render_header(string $title = '', array $meta = []): void
     echo '<a href="#" title="Deutsch">Deutsch</a>' . "\n";
     echo '<a href="#" title="Français">Français</a>' . "\n";
     echo "</div>\n</div>\n";
-    echo "<a href=\"/sepet\" title=\"Sepet\">Sepet <span class=\"cart-count\" data-cart-count>" . (int) $cartCount . "</span></a>\n";
-    echo "<a href=\"/sss\" title=\"SSS\">SSS</a>\n";
-    echo "<a href=\"/iletisim\" title=\"İletişim\">İletişim</a>\n";
+    echo "<a href=\"/cart\" title=\"Sepet\">Sepet <span class=\"cart-count\" data-cart-count>" . (int) $cartCount . "</span></a>\n";
+    echo "<a href=\"/faq\" title=\"SSS\">SSS</a>\n";
+    echo "<a href=\"/contact\" title=\"İletişim\">İletişim</a>\n";
     if ($user) {
-        echo "<a href=\"/profil\" title=\"Profil\">Profil</a>\n";
-        echo "<a href=\"/cikis\" title=\"Çıkış\">Çıkış</a>\n";
+        echo "<a href=\"/profile\" title=\"Profil\">Profil</a>\n";
+        echo "<a href=\"/logout\" title=\"Çıkış\">Çıkış</a>\n";
     } else {
-        echo "<a href=\"/giris\" title=\"Giriş Yap\">Giriş Yap</a>\n";
-        echo "<a href=\"/kayit\" title=\"Kayıt Ol\">Kayıt Ol</a>\n";
+        echo "<a href=\"/login\" title=\"Giriş Yap\">Giriş Yap</a>\n";
+        echo "<a href=\"/register\" title=\"Kayıt Ol\">Kayıt Ol</a>\n";
     }
     if ($user) {
         $userName = htmlspecialchars($user['name'] ?? '');

@@ -3,11 +3,11 @@
 function render_account_nav(string $active): void
 {
     $items = [
-        'profil' => ['label' => 'Profil', 'url' => '/profil'],
-        'adresler' => ['label' => 'Adresler', 'url' => '/adresler'],
-        'siparisler' => ['label' => 'Siparişler', 'url' => '/siparisler'],
-        'favoriler' => ['label' => 'Favoriler', 'url' => '/favoriler'],
-        'yorumlar' => ['label' => 'Yorumlar', 'url' => '/yorumlar'],
+        'profil' => ['label' => 'Profil', 'url' => '/profile'],
+        'adresler' => ['label' => 'Adresler', 'url' => '/addresses'],
+        'siparisler' => ['label' => 'Siparişler', 'url' => '/orders'],
+        'favoriler' => ['label' => 'Favoriler', 'url' => '/favorites'],
+        'yorumlar' => ['label' => 'Yorumlar', 'url' => '/reviews'],
     ];
 
     echo "<nav class=\"account-nav\">\n";

@@ -34,8 +34,8 @@ render_header('Yorumlar');
     <?php if (!$user): ?>
         <p>Yorumlarınızı görüntülemek için giriş yapın.</p>
         <div class="button-row">
-            <a class="btn" href="/giris">Giriş Yap</a>
-            <a class="btn primary" href="/kayit">Üye Ol</a>
+            <a class="btn" href="/login">Giriş Yap</a>
+            <a class="btn primary" href="/register">Üye Ol</a>
         </div>
     <?php else: ?>
         <?php render_account_nav('yorumlar'); ?>
@@ -48,7 +48,7 @@ render_header('Yorumlar');
                     <?php foreach ($reviews as $review): ?>
                         <div class="review-card">
                             <div class="review-header">
-                                <strong><a href="/urun/<?= urlencode($review['slug']) ?>"><?= htmlspecialchars($review['product_name']) ?></a></strong>
+                                <strong><a href="/product/<?= urlencode($review['slug']) ?>"><?= htmlspecialchars($review['product_name']) ?></a></strong>
                                 <span class="stars"><?= render_stars((int) $review['rating']) ?></span>
                             </div>
                             <form class="review-edit-form" data-ajax="review-update" method="post">
@@ -76,7 +76,7 @@ render_header('Yorumlar');
             <?php if ($totalPages > 1): ?>
                 <div class="pagination">
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/yorumlar?page=<?= $i ?>"><?= $i ?></a>
+                        <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/reviews?page=<?= $i ?>"><?= $i ?></a>
                     <?php endfor; ?>
                 </div>
             <?php endif; ?>

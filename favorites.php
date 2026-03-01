@@ -31,8 +31,8 @@ render_header('Favoriler');
     <?php if (!$user): ?>
         <p>Favori ürünlerinizi görüntülemek için giriş yapın.</p>
         <div class="button-row">
-            <a class="btn" href="/giris">Giriş Yap</a>
-            <a class="btn primary" href="/kayit">Üye Ol</a>
+            <a class="btn" href="/login">Giriş Yap</a>
+            <a class="btn primary" href="/register">Üye Ol</a>
         </div>
     <?php else: ?>
         <?php render_account_nav('favoriler'); ?>
@@ -69,7 +69,7 @@ render_header('Favoriler');
             <?php if ($totalPages > 1): ?>
                 <div class="pagination">
                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                        <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/favoriler?page=<?= $i ?>"><?= $i ?></a>
+                        <a class="btn <?= $i === $page ? 'primary' : '' ?>" href="/favorites?page=<?= $i ?>"><?= $i ?></a>
                     <?php endfor; ?>
                 </div>
             <?php endif; ?>

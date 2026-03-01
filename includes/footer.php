@@ -23,7 +23,7 @@ function render_footer(): void
     echo "<div class=\"footer-links\">\n<h4>Sayfalar</h4>\n<ul>\n";
     foreach ($pages as $page) {
         $title = htmlspecialchars($page['title']);
-        echo "<li><a href=\"/icerik/{$page['slug']}\">{$title}</a></li>\n";
+        echo "<li><a href=\"/page/{$page['slug']}\">{$title}</a></li>\n";
     }
     echo "</ul>\n</div>\n";
     echo "<div class=\"footer-social\">\n<h4>Bizi Takip Edin</h4>\n<div class=\"social-icons\">\n";

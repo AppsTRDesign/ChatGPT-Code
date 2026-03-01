@@ -7,64 +7,37 @@ RewriteRule ^sitemap-([0-9]+)\.xml$ includes/sitemap.php?section=products&page=$
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^contents/?$ content.php [L,QSA]
+RewriteRule ^cart/?$ cart.php [L,QSA]
+RewriteRule ^faq/?$ faq.php [L,QSA]
+RewriteRule ^contact/?$ contact.php [L,QSA]
+RewriteRule ^login/?$ login.php [L,QSA]
+RewriteRule ^register/?$ register.php [L,QSA]
+RewriteRule ^profile/?$ profile.php [L,QSA]
+RewriteRule ^addresses/?$ addresses.php [L,QSA]
+RewriteRule ^orders/?$ orders.php [L,QSA]
+RewriteRule ^favorites/?$ favorites.php [L,QSA]
+RewriteRule ^reviews/?$ reviews.php [L,QSA]
+RewriteRule ^logout/?$ logout.php [L,QSA]
+RewriteRule ^product/([^/]+)/?$ product.php?slug=$1 [L,QSA]
+RewriteRule ^category/([^/]+)/?$ category.php?slug=$1 [L,QSA]
+RewriteRule ^categories/?$ categories.php [L,QSA]
+RewriteRule ^page/([^/]+)/?$ page.php?slug=$1 [L,QSA]
+
+# Legacy Turkish aliases
 RewriteRule ^icerikler/?$ content.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^sepet/?$ cart.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^sss/?$ faq.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^iletisim/?$ contact.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^giris/?$ login.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^kayit/?$ register.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^profil/?$ profile.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^adresler/?$ addresses.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^siparisler/?$ orders.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^favoriler/?$ favorites.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^yorumlar/?$ reviews.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^cikis/?$ logout.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^urun/([^/]+)/?$ product.php?slug=$1 [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^kategori/([^/]+)/?$ category.php?slug=$1 [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^kategoriler/?$ categories.php [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^sayfa/([^/]+)/?$ page.php?slug=$1 [L,QSA]

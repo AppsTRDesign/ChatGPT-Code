@@ -13,8 +13,8 @@ render_header('Profil');
     <?php if (!$user): ?>
         <p>Profil bilgilerinizi görüntülemek için giriş yapın.</p>
         <div class="button-row">
-            <a class="btn" href="/giris">Giriş Yap</a>
-            <a class="btn primary" href="/kayit">Üye Ol</a>
+            <a class="btn" href="/login">Giriş Yap</a>
+            <a class="btn primary" href="/register">Üye Ol</a>
         </div>
     <?php else: ?>
         <div class="account-info">

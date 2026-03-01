@@ -20,7 +20,7 @@ if ($user) {
         foreach ($itemsStmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
             $name = htmlspecialchars($item['name']);
             $slug = urlencode($item['slug']);
-            $orderItems[(int) $item['order_id']][] = '<a href="/urun/' . $slug . '">' . $name . '</a> x' . (int) $item['quantity'];
+            $orderItems[(int) $item['order_id']][] = '<a href="/product/' . $slug . '">' . $name . '</a> x' . (int) $item['quantity'];
         }
     }
 }
@@ -32,8 +32,8 @@ render_header('Siparişler');
     <?php if (!$user): ?>
         <p>Siparişlerinizi görüntülemek için giriş yapın.</p>
         <div class="button-row">
-            <a class="btn" href="/giris">Giriş Yap</a>
-            <a class="btn primary" href="/kayit">Üye Ol</a>
+            <a class="btn" href="/login">Giriş Yap</a>
+            <a class="btn primary" href="/register">Üye Ol</a>
         </div>
     <?php else: ?>
         <?php render_account_nav('siparisler'); ?>

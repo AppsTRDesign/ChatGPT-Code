@@ -189,12 +189,12 @@ function excerpt_words(string $text, int $limit = 120): string
 
 function product_url(array $product): string
 {
-    return '/urun/' . urlencode($product['slug']);
+    return '/product/' . urlencode($product['slug']);
 }
 
 function category_url(array $category): string
 {
-    return '/kategori/' . urlencode($category['slug']);
+    return '/category/' . urlencode($category['slug']);
 }
 
 function order_status_label(string $status): string
