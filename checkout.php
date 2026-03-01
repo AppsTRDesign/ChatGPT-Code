@@ -23,6 +23,7 @@ if ($cryptoActive) {
     $availableChannels[] = 'crypto';
 }
 $availableChannels = array_values(array_unique($availableChannels));
+$summaryCurrencyCode = current_display_currency_code();
 
 if ($isCartCheckout) {
     $cart = $_SESSION['cart'] ?? [];
@@ -46,7 +47,7 @@ if ($isCartCheckout) {
     $hasNonFreeShipping = false;
     foreach ($cartProducts as $cartProduct) {
         $quantity = max(1, (int) ($cart[$cartProduct['id']] ?? 1));
-        $subtotal += $quantity * product_discounted_price($cartProduct);
+        $subtotal += $quantity * product_discounted_price($cartProduct, $summaryCurrencyCode);
         if (empty($cartProduct['free_shipping'])) {
             $hasNonFreeShipping = true;
         }
@@ -68,7 +69,8 @@ if ($isCartCheckout) {
         exit;
     }
     $quantity = max(1, (int) ($_GET['qty'] ?? 1));
-    $unitPrice = product_discounted_price($product);
+    $unitPrice = product_discounted_price($product, product_display_currency_code($product));
+    $summaryCurrencyCode = product_display_currency_code($product);
     $shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
     $subtotal = $quantity * $unitPrice;
     $vatAmount = $subtotal * ($vatRate / 100);
@@ -165,12 +167,12 @@ render_header($title);
                             <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <span>Birim Fiyat: <?= currency($unitPrice) ?></span>
+                        <span>Birim Fiyat: <?= currency($unitPrice, $summaryCurrencyCode) ?></span>
                         <span>Adet: <?= $quantity ?></span>
                     <?php endif; ?>
-                    <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount) ?></span>
-                    <span>Teslimat Ücreti: <?= currency($shippingFeeApplied) ?></span>
-                    <strong>Toplam: <?= currency($grandTotal) ?></strong>
+                    <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount, $summaryCurrencyCode) ?></span>
+                    <span>Teslimat Ücreti: <?= currency($shippingFeeApplied, $summaryCurrencyCode) ?></span>
+                    <strong>Toplam: <?= currency($grandTotal, $summaryCurrencyCode) ?></strong>
                 </div>
                 <button class="btn primary" type="submit">Siparişi Onayla</button>
             </form>

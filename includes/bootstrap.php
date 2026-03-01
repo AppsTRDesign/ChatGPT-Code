@@ -39,3 +39,23 @@ function ensure_dynamic_schema(): void
 }
 
 ensure_dynamic_schema();
+
+
+function apply_currency_selection_from_query(): void
+{
+    $currencyCode = strtoupper(trim((string) ($_GET['currency'] ?? '')));
+    if ($currencyCode === '') {
+        return;
+    }
+
+    try {
+        $stmt = db()->prepare('SELECT code FROM currencies WHERE code = :code LIMIT 1');
+        $stmt->execute(['code' => $currencyCode]);
+        if ($stmt->fetchColumn()) {
+            $_SESSION['currency_code'] = $currencyCode;
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+apply_currency_selection_from_query();

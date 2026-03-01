@@ -111,7 +111,8 @@ render_header($product['name'], ['image' => $metaImage]);
     <div class="product-info">
         <?php
         $hasDiscount = product_has_discount($product);
-        $finalPrice = product_discounted_price($product);
+        $displayCurrencyCode = product_display_currency_code($product);
+                    $finalPrice = product_discounted_price($product, $displayCurrencyCode);
         ?>
         <h1><?= htmlspecialchars($product['name']) ?></h1>
         <?php if ($hasDiscount): ?>
@@ -120,9 +121,9 @@ render_header($product['name'], ['image' => $metaImage]);
         <div class="product-purchase">
             <p class="price" data-product-price data-unit-price="<?= htmlspecialchars((string) $finalPrice) ?>">
                 <?php if ($hasDiscount): ?>
-                    <span class="price-old"><?= currency((float) $product['price']) ?></span>
+                    <span class="price-old"><?= currency(price_for_currency($product, $displayCurrencyCode), $displayCurrencyCode) ?></span>
                 <?php endif; ?>
-                <span class="price-new"><?= currency($finalPrice) ?></span>
+                <span class="price-new"><?= currency($finalPrice, $displayCurrencyCode) ?></span>
             </p>
             <label class="product-quantity">
                 Adet

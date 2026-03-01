@@ -152,7 +152,7 @@ function render_header(string $title = '', array $meta = []): void
         $currencyCode = htmlspecialchars($currencyOption['code']);
         $currencyTitle = htmlspecialchars($currencyOption['name'] . ' (' . $currencyOption['symbol'] . ')');
         $activeClass = strtoupper((string) $currencyOption['code']) === strtoupper((string) $activeCurrency['code']) ? ' class="is-active"' : '';
-        echo '<a href="#" data-currency-code="' . $currencyCode . '"' . $activeClass . ' title="' . $currencyTitle . '">' . $currencyTitle . '</a>' . "\n";
+        echo '<a href="/?currency=' . rawurlencode($currencyCode) . '" data-currency-code="' . $currencyCode . '"' . $activeClass . ' title="' . $currencyTitle . '">' . $currencyTitle . '</a>' . "\n";
     }
     echo "</div>\n</div>\n";
     echo '<div class="nav-dropdown">' . "\n";

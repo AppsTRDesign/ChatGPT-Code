@@ -23,10 +23,15 @@ function update_setting(string $key, string $value): void
     $stmt->execute(['key' => $key, 'value' => $value]);
 }
 
-function currency(float $amount): string
+function currency(float $amount, ?string $currencyCode = null): string
 {
-    $activeCurrency = active_currency();
-    $symbol = $activeCurrency['symbol'] ?? '₺';
+    $code = strtoupper((string) ($currencyCode ?? ''));
+    if ($code === '') {
+        $activeCurrency = active_currency();
+        $code = strtoupper((string) ($activeCurrency['code'] ?? 'TRY'));
+    }
+    $currency = find_currency($code);
+    $symbol = $currency['symbol'] ?? $code;
     return number_format($amount, 2, ',', '.') . ' ' . $symbol;
 }
 
@@ -64,27 +69,56 @@ function default_currency(): array
     return currencies()[0];
 }
 
-function active_currency(): array
+function find_currency(string $code): ?array
 {
-    $requested = strtoupper((string) ($_SESSION['currency_code'] ?? ''));
+    $code = strtoupper(trim($code));
     foreach (currencies() as $currency) {
-        if (strtoupper((string) ($currency['code'] ?? '')) === $requested) {
+        if (strtoupper((string) ($currency['code'] ?? '')) === $code) {
             return $currency;
         }
     }
-    $default = default_currency();
-    $_SESSION['currency_code'] = strtoupper((string) ($default['code'] ?? 'TRY'));
-    return $default;
+    return null;
 }
 
 function selected_currency_code(): string
 {
-    return strtoupper((string) (active_currency()['code'] ?? 'TRY'));
+    $requested = strtoupper((string) ($_SESSION['currency_code'] ?? ''));
+    if ($requested === '') {
+        return '';
+    }
+    return find_currency($requested) ? $requested : '';
+}
+
+function active_currency(): array
+{
+    $selectedCode = selected_currency_code();
+    if ($selectedCode !== '') {
+        return find_currency($selectedCode) ?? default_currency();
+    }
+    return default_currency();
+}
+
+function current_display_currency_code(): string
+{
+    $selectedCode = selected_currency_code();
+    if ($selectedCode !== '') {
+        return $selectedCode;
+    }
+    return strtoupper((string) (default_currency()['code'] ?? 'TRY'));
+}
+
+function product_display_currency_code(array $product): string
+{
+    $selectedCode = selected_currency_code();
+    if ($selectedCode !== '') {
+        return $selectedCode;
+    }
+    return strtoupper((string) ($product['price_currency'] ?? default_currency()['code'] ?? 'TRY'));
 }
 
 function price_for_currency(array $product, ?string $currencyCode = null): float
 {
-    $targetCode = strtoupper((string) ($currencyCode ?: selected_currency_code()));
+    $targetCode = strtoupper((string) ($currencyCode ?? selected_currency_code()));
     $basePrice = (float) ($product['price'] ?? 0);
     $baseCode = strtoupper((string) ($product['price_currency'] ?? default_currency()['code'] ?? 'TRY'));
 
@@ -105,6 +139,10 @@ function price_for_currency(array $product, ?string $currencyCode = null): float
         if ($priceCache[$cacheKey] !== null) {
             return (float) $priceCache[$cacheKey];
         }
+    }
+
+    if ($targetCode === '') {
+        return $basePrice;
     }
 
     if ($baseCode === $targetCode) {

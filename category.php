@@ -189,7 +189,8 @@ render_header($category['name'], [
             <?php
             $isFavorited = isset($favoriteMap[$product['id']]);
             $hasDiscount = product_has_discount($product);
-            $finalPrice = product_discounted_price($product);
+            $displayCurrencyCode = product_display_currency_code($product);
+                    $finalPrice = product_discounted_price($product, $displayCurrencyCode);
             ?>
             <article class="card">
                 <div class="card-media">
@@ -218,9 +219,9 @@ render_header($category['name'], [
                     <p><?= htmlspecialchars($summaryFor($product)) ?></p>
                     <p class="price">
                         <?php if ($hasDiscount): ?>
-                            <span class="price-old"><?= currency((float) $product['price']) ?></span>
+                            <span class="price-old"><?= currency(price_for_currency($product, $displayCurrencyCode), $displayCurrencyCode) ?></span>
                         <?php endif; ?>
-                        <span class="price-new"><?= currency($finalPrice) ?></span>
+                        <span class="price-new"><?= currency($finalPrice, $displayCurrencyCode) ?></span>
                     </p>
                     <a class="btn" href="<?= product_url($product) ?>" title="<?= htmlspecialchars($product['name']) ?>">Ürünü İncele</a>
                 </div>

@@ -60,12 +60,21 @@ document.addEventListener('click', async (event) => {
   const link = event.target.closest('[data-currency-code]');
   if (!link) return;
   event.preventDefault();
+
+  const fallbackHref = link.getAttribute('href') || '/';
   const formData = new FormData();
   formData.append('csrf_token', getCsrfToken());
   formData.append('currency_code', link.dataset.currencyCode || '');
-  const response = await fetch('/api/handler.php?action=set-currency', { method: 'POST', body: formData });
-  if (response.ok) {
+
+  try {
+    const response = await fetch('/api/handler.php?action=set-currency', { method: 'POST', body: formData });
+    if (!response.ok) {
+      window.location.href = fallbackHref;
+      return;
+    }
     window.location.reload();
+  } catch (error) {
+    window.location.href = fallbackHref;
   }
 });
 

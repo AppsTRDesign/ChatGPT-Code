@@ -166,7 +166,8 @@ switch ($action) {
         }
 
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
-        $unitPrice = product_discounted_price($product);
+        $displayCurrencyCode = product_display_currency_code($product);
+        $unitPrice = product_discounted_price($product, $displayCurrencyCode);
         $vatRate = (float) settings('vat_rate', '0');
         $shippingFee = (float) settings('shipping_fee', '0');
         $shippingFeeApplied = !empty($product['free_shipping']) ? 0.0 : $shippingFee;
@@ -224,7 +225,8 @@ switch ($action) {
             break;
         }
         $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
-        $unitPrice = product_discounted_price($product);
+        $displayCurrencyCode = product_display_currency_code($product);
+        $unitPrice = product_discounted_price($product, $displayCurrencyCode);
         $stock = (int) ($product['stock'] ?? 0);
         if ($stock > 0 && $quantity > $stock) {
             http_response_code(422);
@@ -343,6 +345,7 @@ switch ($action) {
         $vatRate = (float) settings('vat_rate', '0');
         $shippingFee = (float) settings('shipping_fee', '0');
         $subtotal = 0.0;
+        $summaryCurrencyCode = current_display_currency_code();
         $hasNonFreeShipping = false;
         foreach ($products as $product) {
             $quantity = max(1, (int) ($cart[$product['id']] ?? 1));
@@ -352,7 +355,7 @@ switch ($action) {
                 echo json_encode(['success' => false, 'message' => 'Stokta yeterli ürün yok.']);
                 break 2;
             }
-            $subtotal += $quantity * product_discounted_price($product);
+            $subtotal += $quantity * product_discounted_price($product, $summaryCurrencyCode);
             if (empty($product['free_shipping'])) {
                 $hasNonFreeShipping = true;
             }
@@ -397,7 +400,7 @@ switch ($action) {
         $itemsMessage = [];
         foreach ($products as $product) {
             $quantity = max(1, (int) ($cart[$product['id']] ?? 1));
-            $unitPrice = product_discounted_price($product);
+            $unitPrice = product_discounted_price($product, $summaryCurrencyCode);
             db()->prepare('INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (:order_id, :product_id, :quantity, :unit_price)')
                 ->execute([
                     'order_id' => $orderId,

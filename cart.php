@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/footer.php';
 $cart = $_SESSION['cart'] ?? [];
 $products = [];
 $subtotal = 0.0;
+$summaryCurrencyCode = current_display_currency_code();
 if ($cart) {
     $placeholders = implode(',', array_fill(0, count($cart), '?'));
     $stmt = db()->prepare("SELECT * FROM products WHERE id IN ($placeholders)");
@@ -13,7 +14,7 @@ if ($cart) {
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($products as $product) {
         $quantity = (int) ($cart[$product['id']] ?? 1);
-        $subtotal += $quantity * product_discounted_price($product);
+        $subtotal += $quantity * product_discounted_price($product, $summaryCurrencyCode);
     }
 }
 $vatRate = (float) settings('vat_rate', '0');
@@ -50,12 +51,14 @@ render_header('Sepetim');
             <tbody>
                 <?php foreach ($products as $product): ?>
                     <?php $quantity = (int) ($cart[$product['id']] ?? 1); ?>
-                    <?php $lineTotal = $quantity * product_discounted_price($product); ?>
+                    <?php $lineCurrencyCode = product_display_currency_code($product); ?>
+                    <?php $unitPrice = product_discounted_price($product, $lineCurrencyCode); ?>
+                    <?php $lineTotal = $quantity * $unitPrice; ?>
                     <tr>
                         <td><?= htmlspecialchars($product['name']) ?></td>
                         <td><?= $quantity ?></td>
-                        <td><?= currency(product_discounted_price($product)) ?></td>
-                        <td><?= currency($lineTotal) ?></td>
+                        <td><?= currency($unitPrice, $lineCurrencyCode) ?></td>
+                        <td><?= currency($lineTotal, $lineCurrencyCode) ?></td>
                         <td>
                             <button class="btn danger" data-cart-remove="<?= (int) $product['id'] ?>">Sil</button>
                         </td>
@@ -64,10 +67,10 @@ render_header('Sepetim');
             </tbody>
         </table>
         <div class="order-summary">
-            <span>Ürünler Toplamı: <?= currency($subtotal) ?></span>
-            <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount) ?></span>
-            <span>Teslimat Ücreti: <?= currency($shippingFeeApplied) ?></span>
-            <strong>Genel Toplam: <?= currency($grandTotal) ?></strong>
+            <span>Ürünler Toplamı: <?= currency($subtotal, $summaryCurrencyCode) ?></span>
+            <span>KDV (%<?= number_format($vatRate, 2, ',', '.') ?>): <?= currency($vatAmount, $summaryCurrencyCode) ?></span>
+            <span>Teslimat Ücreti: <?= currency($shippingFeeApplied, $summaryCurrencyCode) ?></span>
+            <strong>Genel Toplam: <?= currency($grandTotal, $summaryCurrencyCode) ?></strong>
         </div>
         <div class="button-row">
             <a class="btn primary" href="/checkout.php?cart=1">Siparişi Tamamla</a>
