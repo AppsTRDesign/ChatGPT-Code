@@ -18,6 +18,7 @@ function ensure_dynamic_schema(): void
         "CREATE TABLE IF NOT EXISTS product_prices (id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, currency_code VARCHAR(10) NOT NULL, price DECIMAL(18,2) NOT NULL DEFAULT 0, UNIQUE KEY uniq_product_currency (product_id, currency_code), FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE)",
         "CREATE TABLE IF NOT EXISTS crypto_wallets (id INT AUTO_INCREMENT PRIMARY KEY, wallet_name VARCHAR(150) NOT NULL, wallet_address VARCHAR(255) NOT NULL, created_at DATETIME NOT NULL)",
         "CREATE TABLE IF NOT EXISTS crypto_notifications (id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, user_id INT NULL, full_name VARCHAR(190) NOT NULL, transaction_no VARCHAR(190) NOT NULL, wallet_name VARCHAR(150) NULL, status VARCHAR(30) NOT NULL DEFAULT 'pending', created_at DATETIME NOT NULL, FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL)",
+        "CREATE TABLE IF NOT EXISTS shippers (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(190) NOT NULL, address VARCHAR(255), website VARCHAR(255), api_url VARCHAR(255), logo VARCHAR(255), created_at DATETIME NOT NULL)",
     ];
     foreach ($queries as $query) {
         try { $pdo->exec($query); } catch (Throwable $e) { }
@@ -29,6 +30,24 @@ function ensure_dynamic_schema(): void
             $pdo->exec("ALTER TABLE products ADD COLUMN price_currency VARCHAR(10) NOT NULL DEFAULT 'TRY' AFTER price");
         }
     } catch (Throwable $e) { }
+
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM orders')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('shipper_id', $columns, true)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN shipper_id INT NULL AFTER channel");
+        }
+        if (!in_array('tracking_number', $columns, true)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN tracking_number VARCHAR(190) NULL AFTER shipper_id");
+        }
+    } catch (Throwable $e) { }
+
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM reviews')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('approved', $columns, true)) {
+            $pdo->exec("ALTER TABLE reviews ADD COLUMN approved TINYINT(1) NOT NULL DEFAULT 0 AFTER likes");
+        }
+    } catch (Throwable $e) { }
+
     try {
         $count = (int) $pdo->query('SELECT COUNT(*) FROM currencies')->fetchColumn();
         if ($count === 0) {

@@ -10,7 +10,7 @@ $perPage = 10;
 $offset = ($page - 1) * $perPage;
 $total = (int) db()->query('SELECT COUNT(*) FROM orders')->fetchColumn();
 $totalPages = max(1, (int) ceil($total / $perPage));
-$ordersStmt = db()->prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT :limit OFFSET :offset');
+$ordersStmt = db()->prepare('SELECT orders.*, shippers.name AS shipper_name FROM orders LEFT JOIN shippers ON shippers.id = orders.shipper_id ORDER BY orders.created_at DESC LIMIT :limit OFFSET :offset');
 $ordersStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
 $ordersStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $ordersStmt->execute();
@@ -19,7 +19,7 @@ $orderId = (int) ($_GET['view'] ?? 0);
 $orderDetail = null;
 $orderItems = [];
 if ($orderId) {
-    $stmt = db()->prepare('SELECT * FROM orders WHERE id = :id');
+    $stmt = db()->prepare('SELECT orders.*, shippers.name AS shipper_name, shippers.api_url AS shipper_api_url FROM orders LEFT JOIN shippers ON shippers.id = orders.shipper_id WHERE orders.id = :id');
     $stmt->execute(['id' => $orderId]);
     $orderDetail = $stmt->fetch(PDO::FETCH_ASSOC);
     $itemsStmt = db()->prepare('SELECT products.name, order_items.unit_price, order_items.quantity FROM order_items INNER JOIN products ON products.id = order_items.product_id WHERE order_items.order_id = :order_id');
@@ -38,6 +38,9 @@ admin_header('Sipariş Yönetimi');
     <p><strong>Adres:</strong> <?= htmlspecialchars($orderDetail['address']) ?></p>
     <p><strong>Sipariş Notu:</strong> <?= htmlspecialchars($orderDetail['order_note'] ?? '-') ?></p>
     <p><strong>Durum:</strong> <span class="badge badge-<?= htmlspecialchars($orderDetail['status']) ?>"><?= order_status_label($orderDetail['status']) ?></span></p>
+    <p><strong>Kargo Firması:</strong> <?= htmlspecialchars($orderDetail['shipper_name'] ?? '-') ?></p>
+    <p><strong>Takip Numarası:</strong> <?= htmlspecialchars($orderDetail['tracking_number'] ?? '-') ?></p>
+    <p><a class="btn" href="/admin/order-shipping.php?id=<?= (int) $orderDetail['id'] ?>">Kargo Durumu Düzenle</a></p>
     <h3>Ürünler</h3>
     <table>
         <thead>
@@ -76,6 +79,7 @@ admin_header('Sipariş Yönetimi');
                 <th>Telefon</th>
                 <th>Kanal</th>
                 <th>Durum</th>
+                <th>Kargo</th>
                 <th>İşlem</th>
             </tr>
         </thead>
@@ -88,6 +92,7 @@ admin_header('Sipariş Yönetimi');
                     <td><?= htmlspecialchars($order['phone']) ?></td>
                     <td><?= htmlspecialchars($order['channel']) ?></td>
                     <td><span class="badge badge-<?= htmlspecialchars($order['status']) ?>"><?= order_status_label($order['status']) ?></span></td>
+                    <td><?= htmlspecialchars(($order['shipper_name'] ?? '-') . (!empty($order['tracking_number']) ? ' / ' . $order['tracking_number'] : '')) ?></td>
                     <td>
                         <select data-order-status="<?= (int) $order['id'] ?>">
                             <option value="pending" <?= $order['status'] === 'pending' ? 'selected' : '' ?>>Bekleniyor</option>
@@ -98,6 +103,7 @@ admin_header('Sipariş Yönetimi');
                             <option value="rejected" <?= $order['status'] === 'rejected' ? 'selected' : '' ?>>Reddedildi</option>
                         </select>
                         <a class="btn" href="/admin/orders.php?view=<?= (int) $order['id'] ?>">Detay</a>
+                        <a class="btn" href="/admin/order-shipping.php?id=<?= (int) $order['id'] ?>">Kargo Durumu</a>
                         <button class="btn danger" data-delete-order="<?= (int) $order['id'] ?>">Sil</button>
                     </td>
                 </tr>

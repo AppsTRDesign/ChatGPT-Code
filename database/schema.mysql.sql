@@ -80,6 +80,18 @@ CREATE TABLE reviews (
     CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+
+CREATE TABLE shippers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(190) NOT NULL,
+    address VARCHAR(255),
+    website VARCHAR(255),
+    api_url VARCHAR(255),
+    logo VARCHAR(255),
+    created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE orders (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NULL,
@@ -90,9 +102,12 @@ CREATE TABLE orders (
     order_note TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     channel VARCHAR(50) NOT NULL DEFAULT 'whatsapp',
+    shipper_id INT NULL,
+    tracking_number VARCHAR(190) NULL,
     total_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL,
-    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_orders_shipper FOREIGN KEY (shipper_id) REFERENCES shippers(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE order_items (

@@ -1550,6 +1550,26 @@ switch ($action) {
         update_setting('paytr_fail_url', trim($_POST['paytr_fail_url'] ?? ''));
         echo json_encode(['success' => true, 'message' => 'PayTR ayarları kaydedildi.']);
         break;
+
+    case 'delete-order':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $orderId = (int) ($_POST['id'] ?? 0);
+        if (!$orderId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Sipariş bulunamadı.']);
+            break;
+        }
+        db()->prepare('DELETE FROM bank_transfer_notifications WHERE order_id = :order_id')->execute(['order_id' => $orderId]);
+        db()->prepare('DELETE FROM crypto_notifications WHERE order_id = :order_id')->execute(['order_id' => $orderId]);
+        db()->prepare('DELETE FROM order_items WHERE order_id = :order_id')->execute(['order_id' => $orderId]);
+        db()->prepare('DELETE FROM orders WHERE id = :id')->execute(['id' => $orderId]);
+        echo json_encode(['success' => true, 'message' => 'Sipariş silindi.']);
+        break;
+
     case 'order-status':
         if (!is_admin()) {
             http_response_code(401);
@@ -1567,6 +1587,239 @@ switch ($action) {
         }
         echo json_encode(['success' => true, 'message' => 'Durum güncellendi.']);
         break;
+
+    case 'review-admin-approve':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $reviewId = (int) ($_POST['review_id'] ?? 0);
+        if (!$reviewId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Yorum bulunamadı.']);
+            break;
+        }
+        db()->prepare('UPDATE reviews SET approved = 1 WHERE id = :id')->execute(['id' => $reviewId]);
+        echo json_encode(['success' => true, 'message' => 'Yorum onaylandı.']);
+        break;
+    case 'review-admin-delete':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $reviewId = (int) ($_POST['review_id'] ?? 0);
+        if (!$reviewId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Yorum bulunamadı.']);
+            break;
+        }
+        db()->prepare('DELETE FROM reviews WHERE id = :id')->execute(['id' => $reviewId]);
+        echo json_encode(['success' => true, 'message' => 'Yorum silindi.']);
+        break;
+    case 'review-admin-update':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $reviewId = (int) ($_POST['review_id'] ?? 0);
+        if (!$reviewId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Yorum bulunamadı.']);
+            break;
+        }
+        $rating = max(1, min(5, (int) ($_POST['rating'] ?? 5)));
+        $comment = trim($_POST['comment'] ?? '');
+        $reviewerName = trim($_POST['reviewer_name'] ?? 'Müşteri');
+        $approved = isset($_POST['approved']) ? 1 : 0;
+        db()->prepare('UPDATE reviews SET reviewer_name = :reviewer_name, rating = :rating, comment = :comment, approved = :approved WHERE id = :id')
+            ->execute([
+                'reviewer_name' => $reviewerName,
+                'rating' => $rating,
+                'comment' => $comment,
+                'approved' => $approved,
+                'id' => $reviewId,
+            ]);
+        echo json_encode(['success' => true, 'message' => 'Yorum güncellendi.', 'redirect' => '/admin/reviews.php']);
+        break;
+    case 'user-admin-update':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $userId = (int) ($_POST['id'] ?? 0);
+        if (!$userId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Kullanıcı bulunamadı.']);
+            break;
+        }
+        $params = [
+            'id' => $userId,
+            'name' => trim($_POST['name'] ?? ''),
+            'email' => trim($_POST['email'] ?? ''),
+            'phone' => trim($_POST['phone'] ?? ''),
+            'address' => trim($_POST['address'] ?? ''),
+            'role' => in_array($_POST['role'] ?? 'customer', ['admin', 'customer'], true) ? $_POST['role'] : 'customer',
+        ];
+        db()->prepare('UPDATE users SET name = :name, email = :email, phone = :phone, address = :address, role = :role WHERE id = :id')->execute($params);
+        $password = trim($_POST['password'] ?? '');
+        if ($password !== '') {
+            db()->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id')->execute([
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'id' => $userId,
+            ]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Kullanıcı güncellendi.', 'redirect' => '/admin/users.php']);
+        break;
+    case 'delete-user':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $userId = (int) ($_POST['id'] ?? 0);
+        if (!$userId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Kullanıcı bulunamadı.']);
+            break;
+        }
+        $userStmt = db()->prepare('SELECT avatar, email FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $userData = $userStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$userData) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Kullanıcı bulunamadı.']);
+            break;
+        }
+        delete_upload($userData['avatar'] ?? null);
+
+        $orderIdsStmt = db()->prepare('SELECT id FROM orders WHERE user_id = :user_id OR email = :email');
+        $orderIdsStmt->execute(['user_id' => $userId, 'email' => $userData['email']]);
+        $orderIds = array_map('intval', $orderIdsStmt->fetchAll(PDO::FETCH_COLUMN));
+        if ($orderIds) {
+            $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
+            db()->prepare("DELETE FROM bank_transfer_notifications WHERE order_id IN ($placeholders)")->execute($orderIds);
+            db()->prepare("DELETE FROM crypto_notifications WHERE order_id IN ($placeholders)")->execute($orderIds);
+            db()->prepare("DELETE FROM order_items WHERE order_id IN ($placeholders)")->execute($orderIds);
+            db()->prepare("DELETE FROM orders WHERE id IN ($placeholders)")->execute($orderIds);
+        }
+
+        db()->prepare('DELETE FROM favorites WHERE user_id = :user_id')->execute(['user_id' => $userId]);
+        db()->prepare('DELETE FROM reviews WHERE user_id = :user_id')->execute(['user_id' => $userId]);
+        db()->prepare('DELETE FROM bank_transfer_notifications WHERE user_id = :user_id')->execute(['user_id' => $userId]);
+        db()->prepare('DELETE FROM crypto_notifications WHERE user_id = :user_id')->execute(['user_id' => $userId]);
+        db()->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => $userId]);
+        echo json_encode(['success' => true, 'message' => 'Kullanıcı ve ilişkili kayıtları silindi.']);
+        break;
+    case 'shipper':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $shipperId = (int) ($_POST['id'] ?? 0);
+        $name = trim($_POST['name'] ?? '');
+        if ($name === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Firma adı zorunludur.']);
+            break;
+        }
+        $logo = handle_upload('logo');
+        if ($shipperId) {
+            if ($logo) {
+                $old = db()->prepare('SELECT logo FROM shippers WHERE id = :id');
+                $old->execute(['id' => $shipperId]);
+                delete_upload($old->fetchColumn() ?: null);
+            }
+            db()->prepare('UPDATE shippers SET name = :name, address = :address, website = :website, api_url = :api_url, logo = COALESCE(:logo, logo) WHERE id = :id')
+                ->execute([
+                    'id' => $shipperId,
+                    'name' => $name,
+                    'address' => trim($_POST['address'] ?? ''),
+                    'website' => trim($_POST['website'] ?? ''),
+                    'api_url' => trim($_POST['api_url'] ?? ''),
+                    'logo' => $logo,
+                ]);
+        } else {
+            db()->prepare('INSERT INTO shippers (name, address, website, api_url, logo, created_at) VALUES (:name, :address, :website, :api_url, :logo, :created_at)')
+                ->execute([
+                    'name' => $name,
+                    'address' => trim($_POST['address'] ?? ''),
+                    'website' => trim($_POST['website'] ?? ''),
+                    'api_url' => trim($_POST['api_url'] ?? ''),
+                    'logo' => $logo,
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Kargo firması kaydedildi.', 'redirect' => '/admin/shippers.php']);
+        break;
+    case 'shipper-logo-delete':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $shipperId = (int) ($_POST['id'] ?? 0);
+        if (!$shipperId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Kargo firması bulunamadı.']);
+            break;
+        }
+        $stmt = db()->prepare('SELECT logo FROM shippers WHERE id = :id');
+        $stmt->execute(['id' => $shipperId]);
+        $logo = $stmt->fetchColumn();
+        delete_upload($logo ?: null);
+        db()->prepare('UPDATE shippers SET logo = NULL WHERE id = :id')->execute(['id' => $shipperId]);
+        echo json_encode(['success' => true, 'message' => 'Logo silindi.']);
+        break;
+    case 'delete-shipper':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $shipperId = (int) ($_POST['id'] ?? 0);
+        if (!$shipperId) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Kargo firması bulunamadı.']);
+            break;
+        }
+        $stmt = db()->prepare('SELECT logo FROM shippers WHERE id = :id');
+        $stmt->execute(['id' => $shipperId]);
+        $logo = $stmt->fetchColumn();
+        delete_upload($logo ?: null);
+        db()->prepare('UPDATE orders SET shipper_id = NULL, tracking_number = NULL WHERE shipper_id = :id')->execute(['id' => $shipperId]);
+        db()->prepare('DELETE FROM shippers WHERE id = :id')->execute(['id' => $shipperId]);
+        echo json_encode(['success' => true, 'message' => 'Kargo firması silindi.']);
+        break;
+    case 'order-shipping':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $orderId = (int) ($_POST['order_id'] ?? 0);
+        $shipperId = (int) ($_POST['shipper_id'] ?? 0);
+        $trackingNumber = trim($_POST['tracking_number'] ?? '');
+        $status = trim($_POST['status'] ?? 'shipping');
+        if (!$orderId || !$shipperId || $trackingNumber === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Kargo firması ve takip numarası zorunludur.']);
+            break;
+        }
+        db()->prepare('UPDATE orders SET shipper_id = :shipper_id, tracking_number = :tracking_number, status = :status WHERE id = :id')
+            ->execute([
+                'shipper_id' => $shipperId,
+                'tracking_number' => $trackingNumber,
+                'status' => $status,
+                'id' => $orderId,
+            ]);
+        echo json_encode(['success' => true, 'message' => 'Kargo bilgisi güncellendi.', 'redirect' => '/admin/orders.php?view=' . $orderId]);
+        break;
+
     case 'stats':
         if (!is_admin()) {
             http_response_code(401);

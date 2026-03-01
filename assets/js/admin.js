@@ -420,6 +420,15 @@ document.querySelectorAll('[data-delete-currency]').forEach((button) => {
 document.querySelectorAll('[data-delete-crypto-wallet]').forEach((button) => {
   button.dataset.deleteId = button.dataset.deleteCryptoWallet;
 });
+document.querySelectorAll('[data-delete-order]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteOrder;
+});
+document.querySelectorAll('[data-delete-user]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteUser;
+});
+document.querySelectorAll('[data-delete-shipper]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteShipper;
+});
 
 bindDeleteButtons('[data-delete-product]', 'delete-product');
 bindDeleteButtons('[data-delete-page]', 'delete-page');
@@ -429,6 +438,9 @@ bindDeleteButtons('[data-delete-slider]', 'delete-slider');
 bindDeleteButtons('[data-delete-campaign]', 'delete-campaign');
 bindDeleteButtons('[data-delete-currency]', 'delete-currency');
 bindDeleteButtons('[data-delete-crypto-wallet]', 'delete-crypto-wallet');
+bindDeleteButtons('[data-delete-order]', 'delete-order');
+bindDeleteButtons('[data-delete-user]', 'delete-user');
+bindDeleteButtons('[data-delete-shipper]', 'delete-shipper');
 
 const bindMediaDeleteButtons = (selector, action, payloadKey) => {
   document.querySelectorAll(selector).forEach((button) => {
@@ -468,6 +480,7 @@ bindMediaDeleteButtons('[data-delete-product-image]', 'product-image-delete', 'd
 bindMediaDeleteButtons('[data-delete-product-gallery]', 'product-gallery-delete', 'deleteProductGallery');
 bindMediaDeleteButtons('[data-delete-setting-image]', 'setting-image-delete', 'deleteSettingImage');
 bindMediaDeleteButtons('[data-delete-campaign-image]', 'campaign-image-delete', 'deleteCampaignImage');
+bindMediaDeleteButtons('[data-delete-shipper-logo]', 'shipper-logo-delete', 'deleteShipperLogo');
 
 const orderModal = document.getElementById('orderModal');
 const orderModalBody = document.getElementById('orderModalBody');
@@ -613,3 +626,38 @@ if (currencySelect && currencyPriceInput && currencyPricesInput) {
   normalize();
   syncHidden();
 }
+
+
+document.querySelectorAll('[data-review-approve]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const reviewId = button.dataset.reviewApprove;
+    const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    formData.append('review_id', reviewId || '0');
+    const response = await fetch('/api/handler.php?action=review-admin-approve', { method: 'POST', body: formData });
+    const data = await response.json();
+    if (response.ok) {
+      if (window.toastr) toastr.success(data.message || 'Yorum onaylandı.');
+      window.location.reload();
+    } else if (window.toastr) {
+      toastr.error(data.message || 'İşlem başarısız.');
+    }
+  });
+});
+
+document.querySelectorAll('[data-review-delete-admin]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const reviewId = button.dataset.reviewDeleteAdmin;
+    const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    formData.append('review_id', reviewId || '0');
+    const response = await fetch('/api/handler.php?action=review-admin-delete', { method: 'POST', body: formData });
+    const data = await response.json();
+    if (response.ok) {
+      if (window.toastr) toastr.success(data.message || 'Yorum silindi.');
+      button.closest('tr')?.remove();
+    } else if (window.toastr) {
+      toastr.error(data.message || 'İşlem başarısız.');
+    }
+  });
+});

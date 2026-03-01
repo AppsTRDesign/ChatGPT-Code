@@ -82,6 +82,18 @@ CREATE TABLE reviews (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+
+
+CREATE TABLE shippers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    address TEXT,
+    website TEXT,
+    api_url TEXT,
+    logo TEXT,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -92,9 +104,12 @@ CREATE TABLE orders (
     order_note TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     channel TEXT NOT NULL DEFAULT 'whatsapp',
+    shipper_id INTEGER,
+    tracking_number TEXT,
     total_amount REAL NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (shipper_id) REFERENCES shippers(id) ON DELETE SET NULL
 );
 
 CREATE TABLE order_items (

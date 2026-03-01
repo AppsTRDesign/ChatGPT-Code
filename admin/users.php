@@ -16,8 +16,30 @@ $usersStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $usersStmt->execute();
 $users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
 
+$viewId = (int) ($_GET['view'] ?? 0);
+$viewUser = null;
+if ($viewId > 0) {
+    $viewStmt = db()->prepare('SELECT id, name, email, phone, address, role, avatar, created_at FROM users WHERE id = :id');
+    $viewStmt->execute(['id' => $viewId]);
+    $viewUser = $viewStmt->fetch(PDO::FETCH_ASSOC);
+}
+
 admin_header('Kullanıcı Yönetimi');
 ?>
+<?php if ($viewUser): ?>
+<section class="panel">
+    <h2>Kullanıcı Detayı #<?= (int) $viewUser['id'] ?></h2>
+    <p><strong>Ad Soyad:</strong> <?= htmlspecialchars($viewUser['name']) ?></p>
+    <p><strong>E-posta:</strong> <?= htmlspecialchars($viewUser['email']) ?></p>
+    <p><strong>Telefon:</strong> <?= htmlspecialchars($viewUser['phone'] ?? '-') ?></p>
+    <p><strong>Adres:</strong> <?= htmlspecialchars($viewUser['address'] ?? '-') ?></p>
+    <p><strong>Rol:</strong> <?= htmlspecialchars($viewUser['role']) ?></p>
+    <p><strong>Kayıt Tarihi:</strong> <?= htmlspecialchars($viewUser['created_at']) ?></p>
+    <?php if (!empty($viewUser['avatar'])): ?>
+        <p><img src="<?= htmlspecialchars($viewUser['avatar']) ?>" alt="<?= htmlspecialchars($viewUser['name']) ?>" style="max-width:90px;border-radius:50%"></p>
+    <?php endif; ?>
+</section>
+<?php endif; ?>
 <section class="panel">
     <table>
         <thead>
@@ -37,7 +59,8 @@ admin_header('Kullanıcı Yönetimi');
                     <td><?= htmlspecialchars($user['phone']) ?></td>
                     <td><?= htmlspecialchars($user['role']) ?></td>
                     <td>
-                        <button class="btn" data-view-user="<?= (int) $user['id'] ?>">Detay</button>
+                        <a class="btn" href="/admin/users.php?view=<?= (int) $user['id'] ?>">Detay</a>
+                        <a class="btn" href="/admin/user-edit.php?id=<?= (int) $user['id'] ?>">Düzenle</a>
                         <button class="btn danger" data-delete-user="<?= (int) $user['id'] ?>">Sil</button>
                     </td>
                 </tr>

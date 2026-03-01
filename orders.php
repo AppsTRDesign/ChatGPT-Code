@@ -9,7 +9,7 @@ $user = current_user();
 $orders = [];
 $orderItems = [];
 if ($user) {
-    $stmt = db()->prepare('SELECT * FROM orders WHERE user_id = :id OR email = :email ORDER BY created_at DESC');
+    $stmt = db()->prepare('SELECT orders.*, shippers.name AS shipper_name FROM orders LEFT JOIN shippers ON shippers.id = orders.shipper_id WHERE orders.user_id = :id OR orders.email = :email ORDER BY orders.created_at DESC');
     $stmt->execute(['id' => $user['id'], 'email' => $user['email']]);
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     if ($orders) {
@@ -50,6 +50,7 @@ render_header('Siparişler');
                             <th>Durum</th>
                             <th>Kanal</th>
                             <th>Tutar</th>
+                            <th>Kargo</th>
                             <th>Tarih</th>
                         </tr>
                     </thead>
@@ -66,6 +67,13 @@ render_header('Siparişler');
                                     <?php endif; ?>
                                 </td>
                                 <td><?= currency((float) $order['total_amount']) ?></td>
+                                <td>
+                                    <?php if (!empty($order['shipper_id']) && !empty($order['tracking_number'])): ?>
+                                        <a class="btn" href="/order-tracking.php?order_id=<?= (int) $order['id'] ?>" target="_blank">Kargo Bilgisi</a>
+                                    <?php else: ?>
+                                        <span class="text-muted">Kargo bilgisi bekleniyor</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= htmlspecialchars($order['created_at']) ?></td>
                             </tr>
                         <?php endforeach; ?>

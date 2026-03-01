@@ -36,6 +36,7 @@ function admin_header(string $title): void
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Siparişler</span>\n";
     echo "<a href=\"/admin/orders.php\">Siparişler</a>\n";
+    echo "<a href=\"/admin/shippers.php\">Kargolar</a>\n";
     echo "<a href=\"/admin/bank-transfer-notifications.php\">Havale Bildirimleri</a>\n";
     echo "<a href=\"/admin/crypto-notifications.php\">Kripto Bildirimleri</a>\n";
     echo "</div>\n";
@@ -46,6 +47,7 @@ function admin_header(string $title): void
     echo "<a href=\"/admin/pages.php\">Sayfa Ekle</a>\n";
     echo "<a href=\"/admin/pages-list.php\">Eklenen Sayfalar</a>\n";
     echo "<a href=\"/admin/faqs.php\">SSS</a>\n";
+    echo "<a href=\"/admin/reviews.php\">Yorum Onayı</a>\n";
     echo "<a href=\"/admin/social-links.php\">Sosyal Medya</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Ödeme</span>\n";
