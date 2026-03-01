@@ -239,6 +239,7 @@ switch ($action) {
         $total = $subtotal + $vatAmount + $shippingFeeApplied;
         $paytrActive = settings('paytr_active') === '1';
         $bankTransferActive = settings('bank_transfer_active') === '1';
+        $cryptoActive = settings('crypto_active', '0') === '1';
         $requestedChannel = $_POST['payment_method'] ?? $product['order_channel'];
         $availableChannels = [];
         if ($product['order_channel'] === 'whatsapp') {
@@ -249,6 +250,9 @@ switch ($action) {
         }
         if ($bankTransferActive) {
             $availableChannels[] = 'bank_transfer';
+        }
+        if ($cryptoActive) {
+            $availableChannels[] = 'crypto';
         }
         if ($product['order_channel'] === 'paytr' && $paytrActive) {
             $availableChannels[] = 'paytr';
@@ -358,6 +362,7 @@ switch ($action) {
         $total = $subtotal + $vatAmount + $shippingFeeApplied;
         $paytrActive = settings('paytr_active') === '1';
         $bankTransferActive = settings('bank_transfer_active') === '1';
+        $cryptoActive = settings('crypto_active', '0') === '1';
         $requestedChannel = $_POST['payment_method'] ?? 'whatsapp';
         $availableChannels = ['whatsapp'];
         if ($paytrActive) {
@@ -365,6 +370,9 @@ switch ($action) {
         }
         if ($bankTransferActive) {
             $availableChannels[] = 'bank_transfer';
+        }
+        if ($cryptoActive) {
+            $availableChannels[] = 'crypto';
         }
         if (!in_array($requestedChannel, $availableChannels, true)) {
             $requestedChannel = $availableChannels[0] ?? 'whatsapp';
@@ -530,6 +538,79 @@ switch ($action) {
             unlink(__DIR__ . '/..' . $receiptPath);
         }
         db()->prepare('DELETE FROM bank_transfer_notifications WHERE id = :id')->execute(['id' => $notificationId]);
+        echo json_encode(['success' => true, 'message' => 'Bildirim silindi.']);
+        break;
+    case 'crypto-notify':
+        $user = current_user();
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Bildirim için giriş yapın.']);
+            break;
+        }
+        $orderId = (int) ($_POST['order_id'] ?? 0);
+        $fullName = trim($_POST['full_name'] ?? '');
+        $transactionNo = trim($_POST['transaction_no'] ?? '');
+        $walletName = trim($_POST['wallet_name'] ?? '');
+        if (!$orderId || $fullName === '' || $transactionNo === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Sipariş, ad soyad ve işlem no zorunlu.']);
+            break;
+        }
+        $orderStmt = db()->prepare('SELECT id, user_id, channel FROM orders WHERE id = :id');
+        $orderStmt->execute(['id' => $orderId]);
+        $order = $orderStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$order || $order['channel'] !== 'crypto') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Bu sipariş için kripto bildirimi yapılamaz.']);
+            break;
+        }
+        if ($order['user_id'] && (int) $order['user_id'] !== (int) $user['id']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Bu sipariş size ait değil.']);
+            break;
+        }
+        db()->prepare('INSERT INTO crypto_notifications (order_id, user_id, full_name, transaction_no, wallet_name, status, created_at) VALUES (:order_id,:user_id,:full_name,:transaction_no,:wallet_name,:status,:created_at)')
+            ->execute(['order_id'=>$orderId,'user_id'=>$user['id'],'full_name'=>$fullName,'transaction_no'=>$transactionNo,'wallet_name'=>$walletName,'status'=>'pending','created_at'=>date('Y-m-d H:i:s')]);
+        echo json_encode(['success' => true, 'message' => 'Kripto ödeme bildirimi alındı.']);
+        break;
+    case 'crypto-approve':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        $stmt = db()->prepare('SELECT * FROM crypto_notifications WHERE id = :id');
+        $stmt->execute(['id' => $notificationId]);
+        $notification = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$notification) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Bildirim bulunamadı.']); break; }
+        db()->prepare('UPDATE crypto_notifications SET status = :status WHERE id = :id')->execute(['status' => 'approved', 'id' => $notificationId]);
+        db()->prepare('UPDATE orders SET status = :status WHERE id = :id')->execute(['status' => 'approved', 'id' => $notification['order_id']]);
+        echo json_encode(['success' => true, 'message' => 'Sipariş onaylandı.']);
+        break;
+    case 'crypto-reject':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        $stmt = db()->prepare('SELECT * FROM crypto_notifications WHERE id = :id');
+        $stmt->execute(['id' => $notificationId]);
+        $notification = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$notification) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Bildirim bulunamadı.']); break; }
+        db()->prepare('UPDATE crypto_notifications SET status = :status WHERE id = :id')->execute(['status' => 'rejected', 'id' => $notificationId]);
+        db()->prepare('UPDATE orders SET status = :status WHERE id = :id')->execute(['status' => 'rejected', 'id' => $notification['order_id']]);
+        echo json_encode(['success' => true, 'message' => 'Sipariş reddedildi.']);
+        break;
+    case 'crypto-delete':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        db()->prepare('DELETE FROM crypto_notifications WHERE id = :id')->execute(['id' => $notificationId]);
         echo json_encode(['success' => true, 'message' => 'Bildirim silindi.']);
         break;
     case 'review':
@@ -717,6 +798,18 @@ switch ($action) {
     case 'contact':
         echo json_encode(['success' => true, 'message' => 'Mesajınız alındı.']);
         break;
+    case 'set-currency':
+        $currencyCode = strtoupper(trim($_POST['currency_code'] ?? ''));
+        $stmt = db()->prepare('SELECT code FROM currencies WHERE code = :code LIMIT 1');
+        $stmt->execute(['code' => $currencyCode]);
+        if (!$stmt->fetchColumn()) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Para birimi bulunamadı.']);
+            break;
+        }
+        $_SESSION['currency_code'] = $currencyCode;
+        echo json_encode(['success' => true, 'message' => 'Para birimi güncellendi.']);
+        break;
     case 'settings':
         if (!is_admin()) {
             http_response_code(401);
@@ -789,6 +882,85 @@ switch ($action) {
 
         echo json_encode(['success' => true, 'message' => 'Ayarlar kaydedildi.']);
         break;
+    case 'currency':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $currencyId = (int) ($_POST['id'] ?? 0);
+        $code = strtoupper(trim($_POST['code'] ?? ''));
+        $name = trim($_POST['name'] ?? '');
+        $symbol = trim($_POST['symbol'] ?? '');
+        $rate = (float) ($_POST['rate'] ?? 0);
+        $isDefault = isset($_POST['is_default']) ? (int) $_POST['is_default'] : 0;
+        if ($code === '' || $name === '' || $symbol === '' || $rate <= 0) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Kod, ad, sembol ve kur zorunlu.']);
+            break;
+        }
+        if ($isDefault === 1) {
+            db()->exec('UPDATE currencies SET is_default = 0');
+        }
+        if ($currencyId) {
+            $stmt = db()->prepare('UPDATE currencies SET code=:code, name=:name, symbol=:symbol, rate=:rate, is_default=:is_default WHERE id=:id');
+            $stmt->execute(['code'=>$code,'name'=>$name,'symbol'=>$symbol,'rate'=>$rate,'is_default'=>$isDefault,'id'=>$currencyId]);
+        } else {
+            $stmt = db()->prepare('INSERT INTO currencies (code, name, symbol, rate, is_default, created_at) VALUES (:code,:name,:symbol,:rate,:is_default,:created_at)');
+            $stmt->execute(['code'=>$code,'name'=>$name,'symbol'=>$symbol,'rate'=>$rate,'is_default'=>$isDefault,'created_at'=>date('Y-m-d H:i:s')]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Para birimi kaydedildi.']);
+        break;
+    case 'delete-currency':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $id = (int) ($_POST['id'] ?? 0);
+        db()->prepare('DELETE FROM currencies WHERE id = :id')->execute(['id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Para birimi silindi.']);
+        break;
+    case 'crypto-settings':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        update_setting('crypto_active', trim($_POST['crypto_active'] ?? '0'));
+        echo json_encode(['success' => true, 'message' => 'Kripto ayarı kaydedildi.']);
+        break;
+    case 'crypto-wallet':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $id = (int) ($_POST['id'] ?? 0);
+        $walletName = trim($_POST['wallet_name'] ?? '');
+        $walletAddress = trim($_POST['wallet_address'] ?? '');
+        if ($walletName === '' || $walletAddress === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Cüzdan adı ve adresi zorunlu.']);
+            break;
+        }
+        if ($id) {
+            db()->prepare('UPDATE crypto_wallets SET wallet_name=:wallet_name, wallet_address=:wallet_address WHERE id=:id')->execute(['wallet_name'=>$walletName,'wallet_address'=>$walletAddress,'id'=>$id]);
+        } else {
+            db()->prepare('INSERT INTO crypto_wallets (wallet_name, wallet_address, created_at) VALUES (:wallet_name,:wallet_address,:created_at)')->execute(['wallet_name'=>$walletName,'wallet_address'=>$walletAddress,'created_at'=>date('Y-m-d H:i:s')]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Cüzdan kaydedildi.']);
+        break;
+    case 'delete-crypto-wallet':
+        if (!is_admin()) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Yetkisiz.']);
+            break;
+        }
+        $id = (int) ($_POST['id'] ?? 0);
+        db()->prepare('DELETE FROM crypto_wallets WHERE id = :id')->execute(['id' => $id]);
+        echo json_encode(['success' => true, 'message' => 'Cüzdan silindi.']);
+        break;
     case 'social-link':
         if (!is_admin()) {
             http_response_code(401);
@@ -859,7 +1031,7 @@ switch ($action) {
             $discountType = null;
             $discountValue = 0;
         }
-        $slug = permalink($name);
+        $slug = permalink(trim($_POST['slug'] ?? '') ?: $name);
         $mainImage = handle_upload('main_image');
         if ($productId) {
             if ($mainImage) {
@@ -922,8 +1094,8 @@ switch ($action) {
             }
         }
         $featuresRaw = trim($_POST['features'] ?? '');
+        db()->prepare('DELETE FROM product_features WHERE product_id = :product_id')->execute(['product_id' => $productId]);
         if ($featuresRaw !== '') {
-            db()->prepare('DELETE FROM product_features WHERE product_id = :product_id')->execute(['product_id' => $productId]);
             foreach (explode("\n", $featuresRaw) as $line) {
                 $line = trim($line);
                 if ($line === '' || !str_contains($line, ':')) {
@@ -935,6 +1107,22 @@ switch ($action) {
                         ->execute(['product_id' => $productId, 'feature_name' => $name, 'feature_value' => $value]);
                 }
             }
+        }
+
+        $currencyPricesRaw = trim($_POST['currency_prices'] ?? '{}');
+        $currencyPrices = json_decode($currencyPricesRaw, true);
+        if (!is_array($currencyPrices)) {
+            $currencyPrices = [];
+        }
+        db()->prepare('DELETE FROM product_prices WHERE product_id = :product_id')->execute(['product_id' => $productId]);
+        foreach ($currencyPrices as $currencyCode => $priceValue) {
+            $currencyCode = strtoupper(trim((string) $currencyCode));
+            $priceFloat = (float) $priceValue;
+            if ($currencyCode === '' || $priceFloat <= 0) {
+                continue;
+            }
+            db()->prepare('INSERT INTO product_prices (product_id, currency_code, price) VALUES (:product_id, :currency_code, :price)')
+                ->execute(['product_id' => $productId, 'currency_code' => $currencyCode, 'price' => $priceFloat]);
         }
 
         echo json_encode(['success' => true, 'message' => 'Ürün kaydedildi.']);
@@ -1060,7 +1248,7 @@ switch ($action) {
         $categoryId = (int) ($_POST['id'] ?? 0);
         $name = trim($_POST['name'] ?? '');
         $description = trim($_POST['description'] ?? '');
-        $slug = permalink($name);
+        $slug = permalink(trim($_POST['slug'] ?? '') ?: $name);
         $image = handle_upload('image');
         if ($categoryId) {
             $stmt = db()->prepare('UPDATE categories SET name = :name, slug = :slug, description = :description, parent_id = :parent_id, icon = :icon, image = COALESCE(:image, image) WHERE id = :id');

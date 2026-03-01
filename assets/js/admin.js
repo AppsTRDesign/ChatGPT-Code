@@ -414,6 +414,12 @@ document.querySelectorAll('[data-delete-slider]').forEach((button) => {
 document.querySelectorAll('[data-delete-campaign]').forEach((button) => {
   button.dataset.deleteId = button.dataset.deleteCampaign;
 });
+document.querySelectorAll('[data-delete-currency]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteCurrency;
+});
+document.querySelectorAll('[data-delete-crypto-wallet]').forEach((button) => {
+  button.dataset.deleteId = button.dataset.deleteCryptoWallet;
+});
 
 bindDeleteButtons('[data-delete-product]', 'delete-product');
 bindDeleteButtons('[data-delete-page]', 'delete-page');
@@ -421,6 +427,8 @@ bindDeleteButtons('[data-delete-category]', 'delete-category');
 bindDeleteButtons('[data-delete-faq]', 'delete-faq');
 bindDeleteButtons('[data-delete-slider]', 'delete-slider');
 bindDeleteButtons('[data-delete-campaign]', 'delete-campaign');
+bindDeleteButtons('[data-delete-currency]', 'delete-currency');
+bindDeleteButtons('[data-delete-crypto-wallet]', 'delete-crypto-wallet');
 
 const bindMediaDeleteButtons = (selector, action, payloadKey) => {
   document.querySelectorAll(selector).forEach((button) => {
@@ -538,3 +546,41 @@ document.querySelectorAll('[data-order-detail]').forEach((button) => {
     orderModal.classList.add('open');
   });
 });
+
+
+document.querySelectorAll('[data-crypto-approve], [data-crypto-reject], [data-crypto-delete]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    const id = button.dataset.cryptoApprove || button.dataset.cryptoReject || button.dataset.cryptoDelete;
+    const action = button.dataset.cryptoApprove ? 'crypto-approve' : (button.dataset.cryptoReject ? 'crypto-reject' : 'crypto-delete');
+    const formData = new FormData();
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]')?.value || '');
+    formData.append('notification_id', id);
+    const response = await fetch(`/api/handler.php?action=${action}`, { method: 'POST', body: formData });
+    const data = await response.json().catch(() => ({}));
+    if (window.toastr) {
+      response.ok ? toastr.success(data.message || 'İşlem başarılı.') : toastr.error(data.message || 'İşlem başarısız.');
+    }
+    if (response.ok) {
+      button.closest('tr')?.remove();
+    }
+  });
+});
+
+const currencySelect = document.querySelector('[data-product-currency-select]');
+const currencyPriceInput = document.querySelector('[data-product-currency-price]');
+const currencyPricesInput = document.querySelector('input[name="currency_prices"]');
+if (currencySelect && currencyPriceInput && currencyPricesInput) {
+  let prices = {};
+  try { prices = JSON.parse(currencyPricesInput.value || '{}'); } catch (error) { prices = {}; }
+  const normalize = () => {
+    const code = currencySelect.value;
+    const current = prices[code] ?? '';
+    currencyPriceInput.value = current;
+  };
+  currencySelect.addEventListener('change', normalize);
+  currencyPriceInput.addEventListener('input', () => {
+    prices[currencySelect.value] = currencyPriceInput.value;
+    currencyPricesInput.value = JSON.stringify(prices);
+  });
+  normalize();
+}

@@ -25,7 +25,103 @@ function update_setting(string $key, string $value): void
 
 function currency(float $amount): string
 {
-    return number_format($amount, 2, ',', '.') . ' ₺';
+    $activeCurrency = active_currency();
+    $symbol = $activeCurrency['symbol'] ?? '₺';
+    return number_format($amount, 2, ',', '.') . ' ' . $symbol;
+}
+
+function currencies(): array
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    try {
+        $cache = db()->query('SELECT * FROM currencies ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        $cache = [];
+    }
+    if (!$cache) {
+        $cache = [[
+            'id' => 0,
+            'code' => 'TRY',
+            'name' => 'Türk Lirası',
+            'symbol' => '₺',
+            'rate' => 1,
+            'is_default' => 1,
+        ]];
+    }
+    return $cache;
+}
+
+function default_currency(): array
+{
+    foreach (currencies() as $currency) {
+        if ((int) ($currency['is_default'] ?? 0) === 1) {
+            return $currency;
+        }
+    }
+    return currencies()[0];
+}
+
+function active_currency(): array
+{
+    $requested = strtoupper((string) ($_SESSION['currency_code'] ?? ''));
+    foreach (currencies() as $currency) {
+        if (strtoupper((string) ($currency['code'] ?? '')) === $requested) {
+            return $currency;
+        }
+    }
+    $default = default_currency();
+    $_SESSION['currency_code'] = strtoupper((string) ($default['code'] ?? 'TRY'));
+    return $default;
+}
+
+function selected_currency_code(): string
+{
+    return strtoupper((string) (active_currency()['code'] ?? 'TRY'));
+}
+
+function price_for_currency(array $product, ?string $currencyCode = null): float
+{
+    $code = strtoupper((string) ($currencyCode ?: selected_currency_code()));
+    $default = default_currency();
+    $defaultCode = strtoupper((string) ($default['code'] ?? 'TRY'));
+    $basePrice = (float) ($product['price'] ?? 0);
+    if ($code === $defaultCode) {
+        return $basePrice;
+    }
+
+    static $priceCache = [];
+    $productId = (int) ($product['id'] ?? 0);
+    if ($productId > 0) {
+        $cacheKey = $productId . ':' . $code;
+        if (!array_key_exists($cacheKey, $priceCache)) {
+            try {
+                $stmt = db()->prepare('SELECT price FROM product_prices WHERE product_id = :product_id AND currency_code = :currency_code LIMIT 1');
+                $stmt->execute(['product_id' => $productId, 'currency_code' => $code]);
+                $value = $stmt->fetchColumn();
+                $priceCache[$cacheKey] = $value !== false ? (float) $value : null;
+            } catch (Throwable $e) {
+                $priceCache[$cacheKey] = null;
+            }
+        }
+        if ($priceCache[$cacheKey] !== null) {
+            return (float) $priceCache[$cacheKey];
+        }
+    }
+
+    $rates = [];
+    foreach (currencies() as $currency) {
+        $rates[strtoupper((string) $currency['code'])] = (float) ($currency['rate'] ?? 0);
+    }
+    $defaultRate = $rates[$defaultCode] ?? 1;
+    $targetRate = $rates[$code] ?? 0;
+    if ($defaultRate > 0 && $targetRate > 0) {
+        return $basePrice * ($targetRate / $defaultRate);
+    }
+
+    return $basePrice;
 }
 
 function base_url(string $path = ''): string
@@ -109,6 +205,7 @@ function order_status_label(string $status): string
         'preparing' => 'Hazırlanıyor',
         'shipping' => 'Yola Çıktı',
         'delivered' => 'Teslim Edildi',
+        'rejected' => 'Reddedildi',
     ];
     return $labels[$status] ?? $status;
 }
@@ -119,6 +216,7 @@ function order_channel_label(string $channel): string
         'whatsapp' => 'WhatsApp',
         'paytr' => 'Kredi Kartı',
         'bank_transfer' => 'Banka Havalesi',
+        'crypto' => 'Kripto',
     ];
     return $labels[$channel] ?? $channel;
 }
@@ -135,9 +233,9 @@ function product_has_discount(array $product): bool
     return product_discount_value($product) > 0;
 }
 
-function product_discounted_price(array $product): float
+function product_discounted_price(array $product, ?string $currencyCode = null): float
 {
-    $price = (float) ($product['price'] ?? 0);
+    $price = price_for_currency($product, $currencyCode);
     $type = $product['discount_type'] ?? '';
     $value = product_discount_value($product);
     if ($value <= 0) {

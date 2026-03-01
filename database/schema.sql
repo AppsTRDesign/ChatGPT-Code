@@ -178,6 +178,45 @@ CREATE TABLE campaign_banners (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE currencies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    rate REAL NOT NULL DEFAULT 1,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE product_prices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    currency_code TEXT NOT NULL,
+    price REAL NOT NULL DEFAULT 0,
+    UNIQUE (product_id, currency_code),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE crypto_wallets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wallet_name TEXT NOT NULL,
+    wallet_address TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE crypto_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    user_id INTEGER,
+    full_name TEXT NOT NULL,
+    transaction_no TEXT NOT NULL,
+    wallet_name TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),

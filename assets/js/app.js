@@ -55,6 +55,20 @@ const getCsrfToken = () => (
   || ''
 );
 
+
+document.addEventListener('click', async (event) => {
+  const link = event.target.closest('[data-currency-code]');
+  if (!link) return;
+  event.preventDefault();
+  const formData = new FormData();
+  formData.append('csrf_token', getCsrfToken());
+  formData.append('currency_code', link.dataset.currencyCode || '');
+  const response = await fetch('/api/handler.php?action=set-currency', { method: 'POST', body: formData });
+  if (response.ok) {
+    window.location.reload();
+  }
+});
+
 document.querySelectorAll('[data-ajax]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
     if (form.closest('.checkout')) {

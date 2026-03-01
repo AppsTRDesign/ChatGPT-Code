@@ -8,6 +8,7 @@ $isCartCheckout = isset($_GET['cart']);
 $user = current_user();
 $paytrActive = settings('paytr_active') === '1';
 $bankTransferActive = settings('bank_transfer_active') === '1';
+$cryptoActive = settings('crypto_active', '0') === '1';
 $vatRate = (float) settings('vat_rate', '0');
 $shippingFee = (float) settings('shipping_fee', '0');
 $defaultChannel = 'whatsapp';
@@ -17,6 +18,9 @@ if ($paytrActive) {
 }
 if ($bankTransferActive) {
     $availableChannels[] = 'bank_transfer';
+}
+if ($cryptoActive) {
+    $availableChannels[] = 'crypto';
 }
 $availableChannels = array_values(array_unique($availableChannels));
 
@@ -145,6 +149,9 @@ render_header($title);
                             <?php endif; ?>
                             <?php if ($bankTransferActive && in_array('bank_transfer', $availableChannels, true) && $defaultChannel !== 'bank_transfer'): ?>
                                 <option value="bank_transfer">Banka Havalesi</option>
+                            <?php endif; ?>
+                            <?php if ($cryptoActive && in_array('crypto', $availableChannels, true) && $defaultChannel !== 'crypto'): ?>
+                                <option value="crypto">Kripto</option>
                             <?php endif; ?>
                         </select>
                     </label>

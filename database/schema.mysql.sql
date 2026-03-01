@@ -176,6 +176,46 @@ CREATE TABLE campaign_banners (
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+CREATE TABLE currencies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(10) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    rate DECIMAL(18,6) NOT NULL DEFAULT 1,
+    is_default TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE product_prices (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL,
+    currency_code VARCHAR(10) NOT NULL,
+    price DECIMAL(18,2) NOT NULL DEFAULT 0,
+    UNIQUE KEY uniq_product_currency (product_id, currency_code),
+    CONSTRAINT fk_product_prices_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE crypto_wallets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    wallet_name VARCHAR(150) NOT NULL,
+    wallet_address VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE crypto_notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    user_id INT NULL,
+    full_name VARCHAR(190) NOT NULL,
+    transaction_no VARCHAR(190) NOT NULL,
+    wallet_name VARCHAR(150) NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'pending',
+    created_at DATETIME NOT NULL,
+    CONSTRAINT fk_crypto_notifications_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_crypto_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO settings (setting_key, setting_value) VALUES
 ('base_url', 'https://cicek.noasoft.org'),
 ('site_name', 'NoaSoft Çiçek'),

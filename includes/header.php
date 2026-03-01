@@ -124,6 +124,9 @@ function render_header(string $title = '', array $meta = []): void
     $cartCount = array_sum($_SESSION['cart'] ?? []);
     $userAvatar = $user['avatar'] ?? '';
     $avatarSrc = $userAvatar ?: ($favicon ?: '/assets/images/placeholder.svg');
+
+    $activeCurrency = active_currency();
+    $allCurrencies = currencies();
     echo "<nav class=\"main-nav\" id=\"mainNav\">\n";
     echo "<a href=\"/\" title=\"Ana Sayfa\">Ana Sayfa</a>\n";
     if (!empty($categoryChildren[0])) {
@@ -142,6 +145,24 @@ function render_header(string $title = '', array $meta = []): void
         echo "</div>\n</div>\n";
     }
     echo "<a href=\"/icerikler\" title=\"İçerikler\">İçerikler</a>\n";
+    echo '<div class="nav-dropdown">' . "\n";
+    echo '<span>Para Birimi</span>' . "\n";
+    echo '<div class="dropdown-menu">' . "\n";
+    foreach ($allCurrencies as $currencyOption) {
+        $currencyCode = htmlspecialchars($currencyOption['code']);
+        $currencyTitle = htmlspecialchars($currencyOption['name'] . ' (' . $currencyOption['symbol'] . ')');
+        $activeClass = strtoupper((string) $currencyOption['code']) === strtoupper((string) $activeCurrency['code']) ? ' class="is-active"' : '';
+        echo '<a href="#" data-currency-code="' . $currencyCode . '"' . $activeClass . ' title="' . $currencyTitle . '">' . $currencyTitle . '</a>' . "\n";
+    }
+    echo "</div>\n</div>\n";
+    echo '<div class="nav-dropdown">' . "\n";
+    echo '<span>Dil</span>' . "\n";
+    echo '<div class="dropdown-menu">' . "\n";
+    echo '<a href="#" title="Türkçe">Türkçe</a>' . "\n";
+    echo '<a href="#" title="English">English</a>' . "\n";
+    echo '<a href="#" title="Deutsch">Deutsch</a>' . "\n";
+    echo '<a href="#" title="Français">Français</a>' . "\n";
+    echo "</div>\n</div>\n";
     echo "<a href=\"/sepet\" title=\"Sepet\">Sepet <span class=\"cart-count\" data-cart-count>" . (int) $cartCount . "</span></a>\n";
     echo "<a href=\"/sss\" title=\"SSS\">SSS</a>\n";
     echo "<a href=\"/iletisim\" title=\"İletişim\">İletişim</a>\n";

@@ -7,6 +7,7 @@ require_admin();
 
 $pdo = db();
 $categories = $pdo->query('SELECT * FROM categories ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC);
+$currencies = $pdo->query('SELECT * FROM currencies ORDER BY is_default DESC, name ASC')->fetchAll(PDO::FETCH_ASSOC);
 $categoryMap = [];
 $categoryChildren = [];
 foreach ($categories as $category) {
@@ -18,6 +19,7 @@ $editId = (int) ($_GET['edit'] ?? 0);
 $productData = null;
 $featureText = '';
 $galleryImages = [];
+$currencyPriceMap = [];
 if ($editId) {
     $stmt = $pdo->prepare('SELECT * FROM products WHERE id = :id');
     $stmt->execute(['id' => $editId]);
@@ -32,6 +34,11 @@ if ($editId) {
     $galleryStmt = $pdo->prepare('SELECT id, image_path FROM product_images WHERE product_id = :product_id ORDER BY id DESC');
     $galleryStmt->execute(['product_id' => $editId]);
     $galleryImages = $galleryStmt->fetchAll(PDO::FETCH_ASSOC);
+    $priceStmt = $pdo->prepare('SELECT currency_code, price FROM product_prices WHERE product_id = :product_id');
+    $priceStmt->execute(['product_id' => $editId]);
+    foreach ($priceStmt->fetchAll(PDO::FETCH_ASSOC) as $priceRow) {
+        $currencyPriceMap[$priceRow['currency_code']] = (float) $priceRow['price'];
+    }
 }
 admin_header('Ürün Yönetimi');
 ?>
@@ -42,6 +49,7 @@ admin_header('Ürün Yönetimi');
         <input type="hidden" name="id" value="<?= (int) ($productData['id'] ?? 0) ?>">
         <label>Ürün Adı<input type="text" name="name" value="<?= htmlspecialchars($productData['name'] ?? '') ?>" required></label>
         <label>Ürün Kodu<input type="text" name="sku" value="<?= htmlspecialchars($productData['sku'] ?? '') ?>"></label>
+        <label>Slug<input type="text" name="slug" value="<?= htmlspecialchars($productData['slug'] ?? '') ?>" placeholder="urun-slug"></label>
         <label>Stok Adeti<input type="number" name="stock" min="0" value="<?= htmlspecialchars((string) ($productData['stock'] ?? 0)) ?>"></label>
         <label>Kategori
             <select name="category_id">
@@ -75,7 +83,19 @@ admin_header('Ürün Yönetimi');
         </label>
         <label>İndirim Değeri<input type="number" step="0.01" min="0" name="discount_value" value="<?= htmlspecialchars($productData['discount_value'] ?? '') ?>" placeholder="Örn: 10"></label>
         <label>Açıklama<textarea class="tinymce" name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
-        <label>Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
+        <label>Varsayılan Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
+        <label>Para Birimi
+            <select data-product-currency-select>
+                <?php foreach ($currencies as $currency): ?>
+                    <option value="<?= htmlspecialchars($currency['code']) ?>"><?= htmlspecialchars($currency['name'] . ' (' . $currency['code'] . ')') ?></option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label>Seçili Para Birimi Fiyatı
+            <input type="number" step="0.01" data-product-currency-price>
+            <small>Para birimi değiştiğinde bu alan ilgili para birimi fiyatını gösterir.</small>
+        </label>
+        <input type="hidden" name="currency_prices" value='<?= htmlspecialchars(json_encode($currencyPriceMap, JSON_UNESCAPED_UNICODE)) ?>'>
         <label>Ürün Görseli<input type="file" name="main_image"></label>
         <?php if (!empty($productData['main_image'])): ?>
             <div class="media-preview" data-remove-on-delete>

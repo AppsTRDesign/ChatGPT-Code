@@ -77,3 +77,19 @@ document.querySelectorAll('[data-order-summary]').forEach((summary) => {
   quantityInput.addEventListener('input', updateTotal);
   updateTotal();
 });
+
+
+document.addEventListener('submit', async (event) => {
+  const form = event.target.closest('.checkout [data-ajax="crypto-notify"]');
+  if (!form) return;
+  event.preventDefault();
+  const formData = new FormData(form);
+  const response = await fetch('/api/handler.php?action=crypto-notify', { method: 'POST', body: formData });
+  const data = await response.json().catch(() => ({}));
+  if (window.toastr) {
+    response.ok ? toastr.success(data.message || 'Bildiriminiz alındı.') : toastr.error(data.message || 'İşlem başarısız.');
+  }
+  if (response.ok) {
+    form.reset();
+  }
+});

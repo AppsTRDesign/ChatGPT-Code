@@ -20,6 +20,7 @@ function admin_header(string $title): void
     echo "<div class=\"admin-nav-group\"><span>Genel</span>\n";
     echo "<a href=\"/admin/index.php\">Dashboard</a>\n";
     echo "<a href=\"/admin/settings.php\">Ayarlar</a>\n";
+    echo "<a href=\"/admin/currencies.php\">Para Birimleri</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Ürünler</span>\n";
     echo "<a href=\"/admin/products.php\">Ürün Ekle</a>\n";
@@ -36,6 +37,7 @@ function admin_header(string $title): void
     echo "<div class=\"admin-nav-group\"><span>Siparişler</span>\n";
     echo "<a href=\"/admin/orders.php\">Siparişler</a>\n";
     echo "<a href=\"/admin/bank-transfer-notifications.php\">Havale Bildirimleri</a>\n";
+    echo "<a href=\"/admin/crypto-notifications.php\">Kripto Bildirimleri</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Kullanıcılar</span>\n";
     echo "<a href=\"/admin/users.php\">Kullanıcılar</a>\n";
@@ -48,6 +50,7 @@ function admin_header(string $title): void
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Ödeme</span>\n";
     echo "<a href=\"/admin/paytr.php\">PayTR Ayarları</a>\n";
+    echo "<a href=\"/admin/crypto.php\">Kripto Ödeme</a>\n";
     echo "</div>\n";
     echo "<div class=\"admin-nav-group\"><span>Çıkış</span>\n";
     echo "<a href=\"/logout.php\">Çıkış</a>\n";

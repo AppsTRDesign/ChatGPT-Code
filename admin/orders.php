@@ -95,6 +95,7 @@ admin_header('Sipariş Yönetimi');
                             <option value="preparing" <?= $order['status'] === 'preparing' ? 'selected' : '' ?>>Hazırlanıyor</option>
                             <option value="shipping" <?= $order['status'] === 'shipping' ? 'selected' : '' ?>>Yola Çıktı</option>
                             <option value="delivered" <?= $order['status'] === 'delivered' ? 'selected' : '' ?>>Teslim Edildi</option>
+                            <option value="rejected" <?= $order['status'] === 'rejected' ? 'selected' : '' ?>>Reddedildi</option>
                         </select>
                         <a class="btn" href="/admin/orders.php?view=<?= (int) $order['id'] ?>">Detay</a>
                         <button class="btn danger" data-delete-order="<?= (int) $order['id'] ?>">Sil</button>
