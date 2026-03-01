@@ -1,0 +1,87 @@
+<?php
+
+session_start();
+
+require_once __DIR__ . '/helpers.php';
+
+
+function ensure_dynamic_schema(): void
+{
+    static $initialized = false;
+    if ($initialized) {
+        return;
+    }
+    $initialized = true;
+    $pdo = db();
+    $queries = [
+        "CREATE TABLE IF NOT EXISTS currencies (id INT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(10) NOT NULL UNIQUE, name VARCHAR(100) NOT NULL, symbol VARCHAR(20) NOT NULL, rate DECIMAL(18,6) NOT NULL DEFAULT 1, is_default TINYINT(1) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS product_prices (id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, currency_code VARCHAR(10) NOT NULL, price DECIMAL(18,2) NOT NULL DEFAULT 0, UNIQUE KEY uniq_product_currency (product_id, currency_code), FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE)",
+        "CREATE TABLE IF NOT EXISTS crypto_wallets (id INT AUTO_INCREMENT PRIMARY KEY, wallet_name VARCHAR(150) NOT NULL, wallet_address VARCHAR(255) NOT NULL, created_at DATETIME NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS crypto_notifications (id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, user_id INT NULL, full_name VARCHAR(190) NOT NULL, transaction_no VARCHAR(190) NOT NULL, wallet_name VARCHAR(150) NULL, status VARCHAR(30) NOT NULL DEFAULT 'pending', created_at DATETIME NOT NULL, FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL)",
+        "CREATE TABLE IF NOT EXISTS shippers (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(190) NOT NULL, address VARCHAR(255), website VARCHAR(255), query_url VARCHAR(255), api_url VARCHAR(255), logo VARCHAR(255), created_at DATETIME NOT NULL)",
+    ];
+    foreach ($queries as $query) {
+        try { $pdo->exec($query); } catch (Throwable $e) { }
+    }
+
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM products')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('price_currency', $columns, true)) {
+            $pdo->exec("ALTER TABLE products ADD COLUMN price_currency VARCHAR(10) NOT NULL DEFAULT 'TRY' AFTER price");
+        }
+    } catch (Throwable $e) { }
+
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM orders')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('shipper_id', $columns, true)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN shipper_id INT NULL AFTER channel");
+        }
+        if (!in_array('tracking_number', $columns, true)) {
+            $pdo->exec("ALTER TABLE orders ADD COLUMN tracking_number VARCHAR(190) NULL AFTER shipper_id");
+        }
+    } catch (Throwable $e) { }
+
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM shippers')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('query_url', $columns, true)) {
+            $pdo->exec("ALTER TABLE shippers ADD COLUMN query_url VARCHAR(255) NULL AFTER website");
+        }
+    } catch (Throwable $e) { }
+
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM reviews')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('approved', $columns, true)) {
+            $pdo->exec("ALTER TABLE reviews ADD COLUMN approved TINYINT(1) NOT NULL DEFAULT 0 AFTER likes");
+        }
+    } catch (Throwable $e) { }
+
+    try {
+        $count = (int) $pdo->query('SELECT COUNT(*) FROM currencies')->fetchColumn();
+        if ($count === 0) {
+            $pdo->prepare('INSERT INTO currencies (code, name, symbol, rate, is_default, created_at) VALUES (:code,:name,:symbol,:rate,:is_default,:created_at)')
+                ->execute(['code' => 'TRY', 'name' => 'Türk Lirası', 'symbol' => '₺', 'rate' => 1, 'is_default' => 1, 'created_at' => date('Y-m-d H:i:s')]);
+        }
+    } catch (Throwable $e) { }
+}
+
+ensure_dynamic_schema();
+
+
+function apply_currency_selection_from_query(): void
+{
+    $currencyCode = strtoupper(trim((string) ($_GET['currency'] ?? '')));
+    if ($currencyCode === '') {
+        return;
+    }
+
+    try {
+        $stmt = db()->prepare('SELECT code FROM currencies WHERE code = :code LIMIT 1');
+        $stmt->execute(['code' => $currencyCode]);
+        if ($stmt->fetchColumn()) {
+            $_SESSION['currency_code'] = $currencyCode;
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+apply_currency_selection_from_query();
