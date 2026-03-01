@@ -242,6 +242,11 @@ a {
   color: var(--site-header-text-color, var(--text-color));
 }
 
+.nav-dropdown .dropdown-menu a.is-active {
+  font-weight: 600;
+  color: var(--theme-color);
+}
+
 .nav-child {
   padding-left: 12px;
   font-size: 0.95rem;

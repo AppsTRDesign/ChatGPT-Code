@@ -38,6 +38,7 @@ CREATE TABLE products (
     short_description TEXT,
     description TEXT,
     price REAL NOT NULL DEFAULT 0,
+    price_currency TEXT NOT NULL DEFAULT 'TRY',
     stock INTEGER NOT NULL DEFAULT 0,
     badge_text TEXT,
     free_shipping INTEGER NOT NULL DEFAULT 0,
@@ -193,6 +194,7 @@ CREATE TABLE product_prices (
     product_id INTEGER NOT NULL,
     currency_code TEXT NOT NULL,
     price REAL NOT NULL DEFAULT 0,
+    price_currency TEXT NOT NULL DEFAULT 'TRY',
     UNIQUE (product_id, currency_code),
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );

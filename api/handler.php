@@ -1031,6 +1031,25 @@ switch ($action) {
             $discountType = null;
             $discountValue = 0;
         }
+
+        $priceCurrency = strtoupper(trim($_POST['price_currency'] ?? ''));
+        if ($priceCurrency === '') {
+            $priceCurrency = strtoupper((string) (default_currency()['code'] ?? 'TRY'));
+        }
+
+        $currencyPricesRaw = trim($_POST['currency_prices'] ?? '{}');
+        $currencyPrices = json_decode($currencyPricesRaw, true);
+        if (!is_array($currencyPrices)) {
+            $currencyPrices = [];
+        }
+
+        $basePrice = (float) ($_POST['base_price'] ?? ($currencyPrices[$priceCurrency] ?? 0));
+        if ($basePrice <= 0) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Ürün fiyatını girin.']);
+            break;
+        }
+
         $slug = permalink(trim($_POST['slug'] ?? '') ?: $name);
         $mainImage = handle_upload('main_image');
         if ($productId) {
@@ -1042,14 +1061,14 @@ switch ($action) {
                     unlink(__DIR__ . '/..' . $oldPath);
                 }
             }
-            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, short_description = :short_description, description = :description, price = :price, stock = :stock, badge_text = :badge_text, free_shipping = :free_shipping, discount_type = :discount_type, discount_value = :discount_value, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
+            $stmt = db()->prepare('UPDATE products SET name = :name, slug = :slug, sku = :sku, short_description = :short_description, description = :description, price = :price, price_currency = :price_currency, stock = :stock, badge_text = :badge_text, free_shipping = :free_shipping, discount_type = :discount_type, discount_value = :discount_value, category_id = :category_id, main_image = COALESCE(:main_image, main_image), order_channel = :order_channel, order_link = :order_link WHERE id = :id');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
                 'sku' => $sku,
                 'short_description' => $shortDescription,
                 'description' => trim($_POST['description'] ?? ''),
-                'price' => (float) ($_POST['price'] ?? 0),
+                'price' => $basePrice,
                 'stock' => $stock,
                 'badge_text' => $badgeText,
                 'free_shipping' => $freeShipping,
@@ -1059,17 +1078,18 @@ switch ($action) {
                 'main_image' => $mainImage,
                 'order_channel' => $orderChannel,
                 'order_link' => $orderLink,
+                'price_currency' => $priceCurrency,
                 'id' => $productId,
             ]);
         } else {
-            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, short_description, description, price, stock, badge_text, free_shipping, discount_type, discount_value, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :short_description, :description, :price, :stock, :badge_text, :free_shipping, :discount_type, :discount_value, :main_image, :category_id, :order_channel, :order_link, :created_at)');
+            $stmt = db()->prepare('INSERT INTO products (name, slug, sku, short_description, description, price, price_currency, stock, badge_text, free_shipping, discount_type, discount_value, main_image, category_id, order_channel, order_link, created_at) VALUES (:name, :slug, :sku, :short_description, :description, :price, :price_currency, :stock, :badge_text, :free_shipping, :discount_type, :discount_value, :main_image, :category_id, :order_channel, :order_link, :created_at)');
             $stmt->execute([
                 'name' => $name,
                 'slug' => $slug,
                 'sku' => $sku,
                 'short_description' => $shortDescription,
                 'description' => trim($_POST['description'] ?? ''),
-                'price' => (float) ($_POST['price'] ?? 0),
+                'price' => $basePrice,
                 'stock' => $stock,
                 'badge_text' => $badgeText,
                 'free_shipping' => $freeShipping,
@@ -1079,6 +1099,7 @@ switch ($action) {
                 'category_id' => $_POST['category_id'] ?: null,
                 'order_channel' => $orderChannel,
                 'order_link' => $orderLink,
+                'price_currency' => $priceCurrency,
                 'created_at' => date('Y-m-d H:i:s'),
             ]);
             $productId = (int) db()->lastInsertId();
@@ -1109,12 +1130,8 @@ switch ($action) {
             }
         }
 
-        $currencyPricesRaw = trim($_POST['currency_prices'] ?? '{}');
-        $currencyPrices = json_decode($currencyPricesRaw, true);
-        if (!is_array($currencyPrices)) {
-            $currencyPrices = [];
-        }
         db()->prepare('DELETE FROM product_prices WHERE product_id = :product_id')->execute(['product_id' => $productId]);
+        $currencyPrices[$priceCurrency] = $basePrice;
         foreach ($currencyPrices as $currencyCode => $priceValue) {
             $currencyCode = strtoupper(trim((string) $currencyCode));
             $priceFloat = (float) $priceValue;

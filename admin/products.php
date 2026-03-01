@@ -20,6 +20,7 @@ $productData = null;
 $featureText = '';
 $galleryImages = [];
 $currencyPriceMap = [];
+$selectedPriceCurrency = strtoupper((string) (default_currency()['code'] ?? 'TRY'));
 if ($editId) {
     $stmt = $pdo->prepare('SELECT * FROM products WHERE id = :id');
     $stmt->execute(['id' => $editId]);
@@ -39,7 +40,13 @@ if ($editId) {
     foreach ($priceStmt->fetchAll(PDO::FETCH_ASSOC) as $priceRow) {
         $currencyPriceMap[$priceRow['currency_code']] = (float) $priceRow['price'];
     }
+    $selectedPriceCurrency = strtoupper((string) ($productData['price_currency'] ?? $selectedPriceCurrency));
 }
+
+if ($productData && !isset($currencyPriceMap[$selectedPriceCurrency])) {
+    $currencyPriceMap[$selectedPriceCurrency] = (float) ($productData['price'] ?? 0);
+}
+
 admin_header('Ürün Yönetimi');
 ?>
 <section class="panel">
@@ -83,17 +90,25 @@ admin_header('Ürün Yönetimi');
         </label>
         <label>İndirim Değeri<input type="number" step="0.01" min="0" name="discount_value" value="<?= htmlspecialchars($productData['discount_value'] ?? '') ?>" placeholder="Örn: 10"></label>
         <label>Açıklama<textarea class="tinymce" name="description" rows="4"><?= htmlspecialchars($productData['description'] ?? '') ?></textarea></label>
-        <label>Varsayılan Fiyat<input type="number" step="0.01" name="price" value="<?= htmlspecialchars($productData['price'] ?? '') ?>" required></label>
-        <label>Para Birimi
-            <select data-product-currency-select>
+        <label>Ana Para Birimi
+            <select name="price_currency" data-product-base-currency>
                 <?php foreach ($currencies as $currency): ?>
-                    <option value="<?= htmlspecialchars($currency['code']) ?>"><?= htmlspecialchars($currency['name'] . ' (' . $currency['code'] . ')') ?></option>
+                    <?php $code = strtoupper((string) $currency['code']); ?>
+                    <option value="<?= htmlspecialchars($code) ?>" <?= $code === $selectedPriceCurrency ? 'selected' : '' ?>><?= htmlspecialchars($currency['name'] . ' (' . $code . ')') ?></option>
                 <?php endforeach; ?>
             </select>
         </label>
         <label>Seçili Para Birimi Fiyatı
-            <input type="number" step="0.01" data-product-currency-price>
-            <small>Para birimi değiştiğinde bu alan ilgili para birimi fiyatını gösterir.</small>
+            <input type="number" step="0.01" min="0" name="base_price" data-product-currency-price value="<?= htmlspecialchars((string) ($currencyPriceMap[$selectedPriceCurrency] ?? '')) ?>" required>
+            <small>Ürünü hangi para biriminden giriyorsanız onu seçip fiyatı yazın. İsterseniz diğer para birimleri için de fiyat girebilirsiniz.</small>
+        </label>
+        <label>Fiyat Girişi İçin Para Birimi
+            <select data-product-currency-select>
+                <?php foreach ($currencies as $currency): ?>
+                    <?php $code = strtoupper((string) $currency['code']); ?>
+                    <option value="<?= htmlspecialchars($code) ?>" <?= $code === $selectedPriceCurrency ? 'selected' : '' ?>><?= htmlspecialchars($currency['name'] . ' (' . $code . ')') ?></option>
+                <?php endforeach; ?>
+            </select>
         </label>
         <input type="hidden" name="currency_prices" value='<?= htmlspecialchars(json_encode($currencyPriceMap, JSON_UNESCAPED_UNICODE)) ?>'>
         <label>Ürün Görseli<input type="file" name="main_image"></label>

@@ -36,6 +36,7 @@ CREATE TABLE products (
     short_description VARCHAR(255),
     description TEXT,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
+    price_currency VARCHAR(10) NOT NULL DEFAULT 'TRY',
     stock INT NOT NULL DEFAULT 0,
     badge_text VARCHAR(255),
     free_shipping TINYINT(1) NOT NULL DEFAULT 0,

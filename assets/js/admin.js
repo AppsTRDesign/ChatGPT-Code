@@ -567,20 +567,49 @@ document.querySelectorAll('[data-crypto-approve], [data-crypto-reject], [data-cr
 });
 
 const currencySelect = document.querySelector('[data-product-currency-select]');
+const baseCurrencySelect = document.querySelector('[data-product-base-currency]');
 const currencyPriceInput = document.querySelector('[data-product-currency-price]');
 const currencyPricesInput = document.querySelector('input[name="currency_prices"]');
 if (currencySelect && currencyPriceInput && currencyPricesInput) {
   let prices = {};
   try { prices = JSON.parse(currencyPricesInput.value || '{}'); } catch (error) { prices = {}; }
+
+  const syncHidden = () => {
+    currencyPricesInput.value = JSON.stringify(prices);
+  };
+
   const normalize = () => {
     const code = currencySelect.value;
-    const current = prices[code] ?? '';
-    currencyPriceInput.value = current;
+    currencyPriceInput.value = prices[code] ?? '';
   };
-  currencySelect.addEventListener('change', normalize);
-  currencyPriceInput.addEventListener('input', () => {
-    prices[currencySelect.value] = currencyPriceInput.value;
-    currencyPricesInput.value = JSON.stringify(prices);
+
+  const setBaseCurrency = (code) => {
+    if (baseCurrencySelect) {
+      baseCurrencySelect.value = code;
+    }
+  };
+
+  currencySelect.addEventListener('change', () => {
+    normalize();
   });
+
+  if (baseCurrencySelect) {
+    baseCurrencySelect.addEventListener('change', () => {
+      currencySelect.value = baseCurrencySelect.value;
+      normalize();
+    });
+  }
+
+  currencyPriceInput.addEventListener('input', () => {
+    const code = currencySelect.value;
+    prices[code] = currencyPriceInput.value;
+    setBaseCurrency(code);
+    syncHidden();
+  });
+
+  if (baseCurrencySelect && baseCurrencySelect.value) {
+    currencySelect.value = baseCurrencySelect.value;
+  }
   normalize();
+  syncHidden();
 }

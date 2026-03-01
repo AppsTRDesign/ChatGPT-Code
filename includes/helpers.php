@@ -84,22 +84,18 @@ function selected_currency_code(): string
 
 function price_for_currency(array $product, ?string $currencyCode = null): float
 {
-    $code = strtoupper((string) ($currencyCode ?: selected_currency_code()));
-    $default = default_currency();
-    $defaultCode = strtoupper((string) ($default['code'] ?? 'TRY'));
+    $targetCode = strtoupper((string) ($currencyCode ?: selected_currency_code()));
     $basePrice = (float) ($product['price'] ?? 0);
-    if ($code === $defaultCode) {
-        return $basePrice;
-    }
+    $baseCode = strtoupper((string) ($product['price_currency'] ?? default_currency()['code'] ?? 'TRY'));
 
     static $priceCache = [];
     $productId = (int) ($product['id'] ?? 0);
     if ($productId > 0) {
-        $cacheKey = $productId . ':' . $code;
+        $cacheKey = $productId . ':' . $targetCode;
         if (!array_key_exists($cacheKey, $priceCache)) {
             try {
                 $stmt = db()->prepare('SELECT price FROM product_prices WHERE product_id = :product_id AND currency_code = :currency_code LIMIT 1');
-                $stmt->execute(['product_id' => $productId, 'currency_code' => $code]);
+                $stmt->execute(['product_id' => $productId, 'currency_code' => $targetCode]);
                 $value = $stmt->fetchColumn();
                 $priceCache[$cacheKey] = $value !== false ? (float) $value : null;
             } catch (Throwable $e) {
@@ -111,14 +107,20 @@ function price_for_currency(array $product, ?string $currencyCode = null): float
         }
     }
 
+    if ($baseCode === $targetCode) {
+        return $basePrice;
+    }
+
     $rates = [];
     foreach (currencies() as $currency) {
         $rates[strtoupper((string) $currency['code'])] = (float) ($currency['rate'] ?? 0);
     }
-    $defaultRate = $rates[$defaultCode] ?? 1;
-    $targetRate = $rates[$code] ?? 0;
-    if ($defaultRate > 0 && $targetRate > 0) {
-        return $basePrice * ($targetRate / $defaultRate);
+
+    $baseRate = $rates[$baseCode] ?? 0.0;
+    $targetRate = $rates[$targetCode] ?? 0.0;
+    if ($baseRate > 0 && $targetRate > 0) {
+        $baseInTry = $basePrice * $baseRate;
+        return $baseInTry / $targetRate;
     }
 
     return $basePrice;
@@ -245,7 +247,13 @@ function product_discounted_price(array $product, ?string $currencyCode = null):
         return max(0.0, $price - ($price * ($value / 100)));
     }
     if ($type === 'amount') {
-        return max(0.0, $price - $value);
+        $discountProduct = [
+            'id' => 0,
+            'price' => $value,
+            'price_currency' => $product['price_currency'] ?? default_currency()['code'] ?? 'TRY',
+        ];
+        $discountAmount = price_for_currency($discountProduct, $currencyCode);
+        return max(0.0, $price - $discountAmount);
     }
     return $price;
 }

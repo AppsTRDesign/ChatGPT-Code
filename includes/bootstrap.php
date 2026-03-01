@@ -22,6 +22,13 @@ function ensure_dynamic_schema(): void
     foreach ($queries as $query) {
         try { $pdo->exec($query); } catch (Throwable $e) { }
     }
+
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM products')->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('price_currency', $columns, true)) {
+            $pdo->exec("ALTER TABLE products ADD COLUMN price_currency VARCHAR(10) NOT NULL DEFAULT 'TRY' AFTER price");
+        }
+    } catch (Throwable $e) { }
     try {
         $count = (int) $pdo->query('SELECT COUNT(*) FROM currencies')->fetchColumn();
         if ($count === 0) {
