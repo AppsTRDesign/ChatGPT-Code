@@ -6,6 +6,7 @@ $market = $state['market'] ?? [];
 $countries = $state['countries'] ?? [];
 $topCity = $state['top_city'] ?? null;
 $nation = $state['nation'] ?? ['nation_tier' => 1, 'player_count' => 0, 'avg_city_score' => 0];
+$progress = $state['progress'] ?? ['next_level_xp' => 120];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -27,6 +28,7 @@ $nation = $state['nation'] ?? ['nation_tier' => 1, 'player_count' => 0, 'avg_cit
         <div class="col-6 col-lg-2"><div class="stat-card"><p>Eğitim</p><h2 id="education"><?= (int) $user['education'] ?></h2></div></div>
         <div class="col-6 col-lg-2"><div class="stat-card"><p>Dayanıklılık</p><h2 id="endurance"><?= (int) $user['endurance'] ?></h2></div></div>
         <div class="col-6 col-lg-2"><div class="stat-card"><p>Ulus Seviyesi</p><h2 id="nationTier"><?= (int) $nation['nation_tier'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Sonraki seviye XP</p><h2 id="nextLevelXp"><?= (int) $progress['next_level_xp'] ?></h2></div></div>
     </section>
 
     <section class="row g-3">

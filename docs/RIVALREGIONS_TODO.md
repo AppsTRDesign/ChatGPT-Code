@@ -84,13 +84,21 @@
 - Çalışma/savaş kazanımları ulus + statlara göre ölçekleniyor.
 - Stat geliştirme maliyeti stat değerine göre artan maliyet modeline geçirildi.
 
+
+## 6. Görev Çıktısı (Tamamlandı)
+- Balance değerleri `settings` üzerinden yönetilir hale getirildi (`BalanceConfigService`).
+- XP/enerji/level formülleri parametreli hale getirildi (`StatFormulaService`).
+- Auto-levelup çoklu seviye geçiş destekli oldu.
+- Dashboard'a ilerleme metriği (`next_level_xp`) eklendi.
+- Balance tuning migration'ı eklendi (`20260405_000005_balance_tuning.sql`).
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
 3.) Görev: ~~Auth sistemi hardening (rate-limit, reset, session güvenliği)~~ ✅
 4.) Görev: ~~IP ülke atama + fallback/caching stratejisi~~ ✅
 5.) Görev: ~~Ulus/şehir domain kuralları (stat formülleri)~~ ✅
-6.) Görev: Enerji/XP/Level/Stat formül motoru iyileştirme
+6.) Görev: ~~Enerji/XP/Level/Stat formül motoru iyileştirme~~ ✅
 7.) Görev: Kaynak sistemi tam sürüm + dağılım balansı
 8.) Görev: Fabrika sistemi (kurulum/seviye/işçi)
 9.) Görev: Market tam sürüm (vergi, komisyon, korumalar)
@@ -103,4 +111,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 6. göreve geçelim (Enerji/XP/Level/Stat formül motoru iyileştirme).
+**Sonraki adım önerisi:** 7. göreve geçelim (Kaynak sistemi tam sürüm + dağılım balansı).

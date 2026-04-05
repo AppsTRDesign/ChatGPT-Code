@@ -110,8 +110,9 @@ final class GameService
         $topCity = $this->topCity();
         $nation = $this->nationContext((int) $user['country_id']);
         $formula = new StatFormulaService();
-        $refillSeconds = $formula->energyTickSeconds(((int) $user['city_id'] === (int) ($topCity['id'] ?? -1)), (int) $nation['nation_tier']);
-        $gained = (int) floor($seconds / $refillSeconds) * 300;
+        $cfg = (new BalanceConfigService())->get();
+        $refillSeconds = $formula->energyTickSeconds(((int) $user['city_id'] === (int) ($topCity['id'] ?? -1)), (int) $nation['nation_tier'], $cfg);
+        $gained = (int) floor($seconds / $refillSeconds) * (int) $cfg['energy_per_tick'];
 
         if ($gained <= 0) {
             return $user;
@@ -149,6 +150,9 @@ final class GameService
         return [
             'user' => $user,
             'nation' => $nation,
+            'progress' => [
+                'next_level_xp' => (new StatFormulaService())->levelXpRequirement((int) $user['level'], (new BalanceConfigService())->get()),
+            ],
             'resources' => $this->userResources($userId),
             'market' => $this->marketOffers(),
             'countries' => $this->countryPopulation(),
@@ -192,7 +196,8 @@ final class GameService
 
         $this->db->beginTransaction();
         try {
-            $workXp = $formula->workXp((int) $nation['nation_tier']);
+            $cfg = (new BalanceConfigService())->get();
+            $workXp = $formula->workXp((int) $nation['nation_tier'], $cfg);
             $updateUser = $this->db->prepare('UPDATE users SET energy = energy - 300, labor_points = labor_points + 1, experience = experience + :work_xp, gold = gold + :gold WHERE id = :user_id');
             $goldGain = $resourceKey === 'gold' ? ($cityTop ? 1.5 : 1.0) : 0.5;
             $updateUser->execute(['work_xp' => $workXp, 'gold' => $goldGain, 'user_id' => $userId]);
@@ -224,7 +229,8 @@ final class GameService
         $successChance = $formula->battleWinChance((int) $user['strength'], (int) $user['endurance'], (int) $user['level'], (int) $nation['nation_tier']);
         $roll = random_int(1, 100);
         $won = $roll <= $successChance;
-        $xp = $formula->battleXp($won, (int) $nation['nation_tier']);
+        $cfg = (new BalanceConfigService())->get();
+        $xp = $formula->battleXp($won, (int) $nation['nation_tier'], $cfg);
         $gold = $won ? random_int(2, 6) : 0;
 
         $stmt = $this->db->prepare('UPDATE users SET energy = energy - 300, experience = experience + :xp, gold = gold + :gold, war_power = war_power + :wp WHERE id = :id');
@@ -396,17 +402,37 @@ final class GameService
 
     public function autoLevelUp(int $userId): void
     {
-        $stmt = $this->db->prepare('SELECT level, experience, energy_max FROM users WHERE id = :id LIMIT 1');
+        $stmt = $this->db->prepare('SELECT level, experience, energy_max, energy FROM users WHERE id = :id LIMIT 1');
         $stmt->execute(['id' => $userId]);
         $u = $stmt->fetch();
         if (!$u) {
             return;
         }
 
-        $nextNeed = ((int) $u['level']) * 120;
-        if ((int) $u['experience'] >= $nextNeed) {
-            $this->db->prepare('UPDATE users SET level = level + 1, energy_max = energy_max + 150, energy = LEAST(energy + 150, energy_max + 150), experience = experience - :need WHERE id = :id')->execute([
-                'need' => $nextNeed,
+        $cfg = (new BalanceConfigService())->get();
+        $formula = new StatFormulaService();
+
+        $level = (int) $u['level'];
+        $xp = (int) $u['experience'];
+        $energyMax = (int) $u['energy_max'];
+        $energy = (int) $u['energy'];
+        $leveledUp = false;
+
+        while ($xp >= $formula->levelXpRequirement($level, $cfg)) {
+            $need = $formula->levelXpRequirement($level, $cfg);
+            $xp -= $need;
+            $level++;
+            $energyMax += (int) $cfg['level_energy_gain'];
+            $energy = min($energy + (int) $cfg['level_energy_gain'], $energyMax);
+            $leveledUp = true;
+        }
+
+        if ($leveledUp) {
+            $this->db->prepare('UPDATE users SET level = :level, experience = :experience, energy_max = :energy_max, energy = :energy WHERE id = :id')->execute([
+                'level' => $level,
+                'experience' => $xp,
+                'energy_max' => $energyMax,
+                'energy' => $energy,
                 'id' => $userId,
             ]);
         }

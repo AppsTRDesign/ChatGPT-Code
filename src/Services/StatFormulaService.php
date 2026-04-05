@@ -37,10 +37,10 @@ final class StatFormulaService
         return 1;
     }
 
-    public function energyTickSeconds(bool $isTopCity, int $nationTier): int
+    public function energyTickSeconds(bool $isTopCity, int $nationTier, array $cfg): int
     {
-        $base = $isTopCity ? 360 : 600;
-        $nationBonus = max(0, $nationTier - 1) * 12;
+        $base = $isTopCity ? (int) $cfg['energy_top_city_tick_seconds'] : (int) $cfg['energy_base_tick_seconds'];
+        $nationBonus = max(0, $nationTier - 1) * (int) $cfg['energy_nation_tier_bonus_seconds'];
         return max(180, $base - $nationBonus);
     }
 
@@ -57,14 +57,18 @@ final class StatFormulaService
         return (int) max(20, min(90, round($chance)));
     }
 
-    public function battleXp(bool $won, int $nationTier): int
+    public function battleXp(bool $won, int $nationTier, array $cfg): int
     {
-        return $won ? random_int(20, 35) + ($nationTier * 2) : random_int(8, 16) + $nationTier;
+        if ($won) {
+            return random_int((int) $cfg['battle_xp_win_min'], (int) $cfg['battle_xp_win_max']) + ($nationTier * 2);
+        }
+
+        return random_int((int) $cfg['battle_xp_lose_min'], (int) $cfg['battle_xp_lose_max']) + $nationTier;
     }
 
-    public function workXp(int $nationTier): int
+    public function workXp(int $nationTier, array $cfg): int
     {
-        return 10 + $nationTier;
+        return (int) $cfg['work_base_xp'] + $nationTier;
     }
 
     public function statUpgradeCost(string $stat, int $currentValue): array
@@ -83,5 +87,12 @@ final class StatFormulaService
             'labor_points' => max(5, $labor),
             'gold' => max(5, $gold),
         ];
+    }
+
+    public function levelXpRequirement(int $level, array $cfg): int
+    {
+        $base = (int) $cfg['level_xp_base'];
+        $curve = (float) $cfg['level_xp_curve'];
+        return (int) ceil($base * (pow($curve, max(0, $level - 1))));
     }
 }
