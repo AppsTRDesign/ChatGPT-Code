@@ -53,3 +53,5 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Auth hardening notu: rate-limit + password reset + session security (Task-3 tamamlandı).
 
 - GeoIP fallback/caching notu: `docs/GEOIP_FALLBACK_TASK4.md`
+
+- Domain/stat formül notu: `docs/DOMAIN_RULES_TASK5.md`

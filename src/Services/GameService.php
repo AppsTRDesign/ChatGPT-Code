@@ -107,7 +107,10 @@ final class GameService
         $last = new \DateTimeImmutable($user['last_energy_at']);
         $seconds = max(0, $now->getTimestamp() - $last->getTimestamp());
 
-        $refillSeconds = ((int) $user['city_id'] === (int) ($this->topCity()['id'] ?? -1)) ? 360 : 600;
+        $topCity = $this->topCity();
+        $nation = $this->nationContext((int) $user['country_id']);
+        $formula = new StatFormulaService();
+        $refillSeconds = $formula->energyTickSeconds(((int) $user['city_id'] === (int) ($topCity['id'] ?? -1)), (int) $nation['nation_tier']);
         $gained = (int) floor($seconds / $refillSeconds) * 300;
 
         if ($gained <= 0) {
@@ -126,6 +129,7 @@ final class GameService
     public function dashboard(int $userId): array
     {
         $stmt = $this->db->prepare('SELECT u.*, c.name AS country_name, c.flag_emoji, c.code AS country_code, ci.name AS city_name,
+            ci.airport_level, ci.industry_level, ci.education_level, ci.army_level, ci.port_level, ci.space_level,
             (ci.airport_level + ci.industry_level + ci.education_level + ci.army_level + ci.port_level + ci.space_level) AS city_score
             FROM users u
             JOIN countries c ON c.id = u.country_id
@@ -140,8 +144,11 @@ final class GameService
 
         $user = $this->regenerateEnergy($user);
 
+        $nation = $this->nationContext((int) $user['country_id']);
+
         return [
             'user' => $user,
+            'nation' => $nation,
             'resources' => $this->userResources($userId),
             'market' => $this->marketOffers(),
             'countries' => $this->countryPopulation(),
@@ -177,15 +184,18 @@ final class GameService
             return ['ok' => false, 'message' => 'Kaynak bulunamadı.'];
         }
 
-        $cityTop = ((int) $user['city_id'] === (int) ($this->topCity()['id'] ?? -1));
-        $yieldMultiplier = $cityTop ? 1.25 : 1.0;
-        $gain = (int) max(1, floor((4 + ((int) $user['strength'] * 0.2)) * $yieldMultiplier));
+        $topCity = $this->topCity();
+        $nation = $this->nationContext((int) $user['country_id']);
+        $formula = new StatFormulaService();
+        $cityTop = ((int) $user['city_id'] === (int) ($topCity['id'] ?? -1));
+        $gain = $formula->workYield((int) $user['strength'], (int) $user['education'], $cityTop, (int) $nation['nation_tier']);
 
         $this->db->beginTransaction();
         try {
-            $updateUser = $this->db->prepare('UPDATE users SET energy = energy - 300, labor_points = labor_points + 1, experience = experience + 12, gold = gold + :gold WHERE id = :user_id');
+            $workXp = $formula->workXp((int) $nation['nation_tier']);
+            $updateUser = $this->db->prepare('UPDATE users SET energy = energy - 300, labor_points = labor_points + 1, experience = experience + :work_xp, gold = gold + :gold WHERE id = :user_id');
             $goldGain = $resourceKey === 'gold' ? ($cityTop ? 1.5 : 1.0) : 0.5;
-            $updateUser->execute(['gold' => $goldGain, 'user_id' => $userId]);
+            $updateUser->execute(['work_xp' => $workXp, 'gold' => $goldGain, 'user_id' => $userId]);
 
             $updateResource = $this->db->prepare('UPDATE user_resources SET quantity = quantity + :gain WHERE user_id = :user_id AND resource_id = :resource_id');
             $updateResource->execute(['gain' => $gain, 'user_id' => $userId, 'resource_id' => $resource['id']]);
@@ -209,10 +219,12 @@ final class GameService
             return ['ok' => false, 'message' => 'Savaş için enerji yetersiz.'];
         }
 
-        $successChance = min(85, 35 + (int) $user['strength'] + (int) $user['endurance']);
+        $nation = $this->nationContext((int) $user['country_id']);
+        $formula = new StatFormulaService();
+        $successChance = $formula->battleWinChance((int) $user['strength'], (int) $user['endurance'], (int) $user['level'], (int) $nation['nation_tier']);
         $roll = random_int(1, 100);
         $won = $roll <= $successChance;
-        $xp = $won ? random_int(25, 45) : random_int(8, 18);
+        $xp = $formula->battleXp($won, (int) $nation['nation_tier']);
         $gold = $won ? random_int(2, 6) : 0;
 
         $stmt = $this->db->prepare('UPDATE users SET energy = energy - 300, experience = experience + :xp, gold = gold + :gold, war_power = war_power + :wp WHERE id = :id');
@@ -243,8 +255,9 @@ final class GameService
             return ['ok' => false, 'message' => 'Kullanıcı yok.'];
         }
 
-        $costLabor = 5;
-        $costGold = 5;
+        $costs = (new StatFormulaService())->statUpgradeCost($stat, (int) $user[$stat]);
+        $costLabor = (int) $costs['labor_points'];
+        $costGold = (int) $costs['gold'];
         if ((int) $user['labor_points'] < $costLabor || (float) $user['gold'] < $costGold) {
             return ['ok' => false, 'message' => 'Stat geliştirmek için çalışma puanı ve altın gerekli.'];
         }
@@ -348,6 +361,28 @@ final class GameService
             ORDER BY c.code, r.id')->fetchAll() ?: [];
 
         return ['cities' => $cities, 'country_resources' => $countryResources];
+    }
+
+
+
+    public function nationContext(int $countryId): array
+    {
+        $stmt = $this->db->prepare('SELECT COUNT(*) AS player_count FROM users WHERE country_id = :country_id');
+        $stmt->execute(['country_id' => $countryId]);
+        $playerCount = (int) (($stmt->fetch()['player_count'] ?? 0));
+
+        $avgStmt = $this->db->prepare('SELECT AVG((airport_level * 2) + (industry_level * 3) + (education_level * 2) + (army_level * 2) + (port_level * 2) + (space_level * 4)) AS avg_city_score FROM cities WHERE country_id = :country_id AND is_active = 1');
+        $avgStmt->execute(['country_id' => $countryId]);
+        $avg = (float) (($avgStmt->fetch()['avg_city_score'] ?? 0));
+
+        $tier = (new StatFormulaService())->nationTier($playerCount, $avg);
+
+        return [
+            'country_id' => $countryId,
+            'player_count' => $playerCount,
+            'avg_city_score' => round($avg, 2),
+            'nation_tier' => $tier,
+        ];
     }
 
     public function topCity(): ?array

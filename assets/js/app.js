@@ -56,6 +56,7 @@
         setText('strength', user.strength);
         setText('education', user.education);
         setText('endurance', user.endurance);
+        setText('nationTier', payload?.data?.nation?.nation_tier || 1);
         renderResources(payload.data.resources || []);
         renderMarket(payload.data.market || []);
     };
@@ -114,27 +115,55 @@
         }
     });
 
-    const initMap = () => {
+    const loadScript = (src) => new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+            resolve();
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Script load failed: ${src}`));
+        document.head.appendChild(script);
+    });
+
+    const initMap = async () => {
         const mapElement = document.getElementById('worldMap');
-        if (!mapElement || typeof jsVectorMap === 'undefined') return;
+        if (!mapElement) return;
 
-        const markers = (bootstrapData.map?.cities || []).map((city) => ({
-            name: `${city.country_name} / ${city.name} (${city.player_count})`,
-            coords: [Number(city.lat), Number(city.lng)],
-        }));
+        try {
+            if (typeof window.jsVectorMap === 'undefined') {
+                await loadScript('https://cdn.jsdelivr.net/npm/jsvectormap@1.6.0/dist/js/jsvectormap.min.js');
+                await loadScript('https://cdn.jsdelivr.net/npm/jsvectormap@1.6.0/dist/maps/world.js');
+            }
 
-        new jsVectorMap({
-            selector: '#worldMap',
-            map: 'world',
-            markers,
-            markerStyle: {
-                initial: { r: 5, fill: '#0d6efd', stroke: '#fff', strokeWidth: 1 },
-            },
-        });
+            if (typeof window.jsVectorMap === 'undefined') {
+                return;
+            }
+
+            const markers = (bootstrapData.map?.cities || []).map((city) => ({
+                name: `${city.country_name} / ${city.name} (${city.player_count})`,
+                coords: [Number(city.lat), Number(city.lng)],
+            }));
+
+            new window.jsVectorMap({
+                selector: '#worldMap',
+                map: 'world',
+                markers,
+                markerStyle: {
+                    initial: { r: 5, fill: '#0d6efd', stroke: '#fff', strokeWidth: 1 },
+                },
+            });
+        } catch (error) {
+            console.warn('Map library yüklenemedi:', error);
+        }
     };
 
     if (cfg.toastMessage) showToast(cfg.toastMessage);
     refreshState().catch(() => null);
     setInterval(() => refreshState().catch(() => null), 15000);
-    initMap();
+    initMap().catch(() => null);
 })();

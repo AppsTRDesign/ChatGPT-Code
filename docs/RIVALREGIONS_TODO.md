@@ -76,12 +76,20 @@
 - Private/reserved IP'lerde doğrudan fallback devreye giriyor.
 - Ülkeye düşen kullanıcıların şehir yerleşimi yük dengeleme ile yapılıyor (az oyunculu şehre öncelik).
 
+
+## 5. Görev Çıktısı (Tamamlandı)
+- Stat formülleri ayrı servis katmanına taşındı (`StatFormulaService`).
+- Ulus seviyesi (nation tier) oyuncu sayısı + ortalama şehir skoruna göre hesaplanıyor.
+- Enerji yenilenmesi ulus seviyesi ve top şehir etkisine göre dinamik hale getirildi.
+- Çalışma/savaş kazanımları ulus + statlara göre ölçekleniyor.
+- Stat geliştirme maliyeti stat değerine göre artan maliyet modeline geçirildi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
 3.) Görev: ~~Auth sistemi hardening (rate-limit, reset, session güvenliği)~~ ✅
 4.) Görev: ~~IP ülke atama + fallback/caching stratejisi~~ ✅
-5.) Görev: Ulus/şehir domain kuralları (stat formülleri)
+5.) Görev: ~~Ulus/şehir domain kuralları (stat formülleri)~~ ✅
 6.) Görev: Enerji/XP/Level/Stat formül motoru iyileştirme
 7.) Görev: Kaynak sistemi tam sürüm + dağılım balansı
 8.) Görev: Fabrika sistemi (kurulum/seviye/işçi)
@@ -95,4 +103,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 5. göreve geçelim (Ulus/şehir domain kuralları + stat formülleri).
+**Sonraki adım önerisi:** 6. göreve geçelim (Enerji/XP/Level/Stat formül motoru iyileştirme).

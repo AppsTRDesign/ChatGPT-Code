@@ -5,6 +5,7 @@ $resources = $state['resources'] ?? [];
 $market = $state['market'] ?? [];
 $countries = $state['countries'] ?? [];
 $topCity = $state['top_city'] ?? null;
+$nation = $state['nation'] ?? ['nation_tier' => 1, 'player_count' => 0, 'avg_city_score' => 0];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -25,6 +26,7 @@ $topCity = $state['top_city'] ?? null;
         <div class="col-6 col-lg-2"><div class="stat-card"><p>Kuvvet</p><h2 id="strength"><?= (int) $user['strength'] ?></h2></div></div>
         <div class="col-6 col-lg-2"><div class="stat-card"><p>Eğitim</p><h2 id="education"><?= (int) $user['education'] ?></h2></div></div>
         <div class="col-6 col-lg-2"><div class="stat-card"><p>Dayanıklılık</p><h2 id="endurance"><?= (int) $user['endurance'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Ulus Seviyesi</p><h2 id="nationTier"><?= (int) $nation['nation_tier'] ?></h2></div></div>
     </section>
 
     <section class="row g-3">
@@ -52,6 +54,8 @@ $topCity = $state['top_city'] ?? null;
                 <?php if ($topCity): ?>
                     <p class="mb-0"><?= htmlspecialchars($topCity['country_name'] . ' / ' . $topCity['name'], ENT_QUOTES, 'UTF-8') ?> (Skor: <?= (int) $topCity['score'] ?>)</p>
                     <small class="text-secondary">Bu şehirde enerji %40 hızlı dolar, üretim %25 artar.</small>
+                    <small class="text-secondary d-block mt-1">Ulus Oyuncu: <?= (int) ($nation['player_count'] ?? 0) ?> | Ortalama Şehir Skoru: <?= htmlspecialchars((string) ($nation['avg_city_score'] ?? 0), ENT_QUOTES, 'UTF-8') ?></small>
+
                 <?php else: ?>
                     <p class="mb-0">Top şehir hesaplanamadı.</p>
                 <?php endif; ?>
@@ -104,7 +108,7 @@ $topCity = $state['top_city'] ?? null;
         <div class="card-body">
             <h2 class="h5">Dünya Haritası</h2>
             <div id="worldMap" style="height:380px"></div>
-            <small class="text-secondary">Şimdilik Türkiye, Almanya, Rusya ve ABD şehir dağılımı aktif.</small>
+            <small class="text-secondary">Ulus oyuncu sayısı: <?= (int) $nation['player_count'] ?> • Ortalama şehir skoru: <?= htmlspecialchars((string) $nation['avg_city_score'], ENT_QUOTES, 'UTF-8') ?></small>
         </div>
     </section>
 </div>
