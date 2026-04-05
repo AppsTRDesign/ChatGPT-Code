@@ -38,3 +38,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 ## Not
 Bu sürüm artık büyük oyun mekaniklerinin çekirdeğini taşır.
 Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabrika zinciri, şehir bina geliştirme queue, aylık seçim cron süreçleri ve gerçek zamanlı savaş odaları eklenebilir.
+
+
+## Plan
+- Yol haritası ve görev takibi: `docs/RIVALREGIONS_TODO.md`
