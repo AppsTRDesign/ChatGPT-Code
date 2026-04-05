@@ -29,7 +29,10 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 ## Kurulum
 1. Dosyaları `/var/www/vhosts/noasoft.org/game.noasoft.org` içine koy.
 2. `.env.example` -> `.env` yapıp DB bilgilerini gir.
-3. `database.sql` dosyasını MariaDB'de çalıştır.
+3. Migration sırasını çalıştır:
+   - `db/migrations/20260405_000001_core_schema.sql`
+   - `db/migrations/20260405_000002_seed_core_data.sql`
+   (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
    - kullanıcı: `admin`
@@ -42,3 +45,5 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 
 ## Plan
 - Yol haritası ve görev takibi: `docs/RIVALREGIONS_TODO.md`
+
+- DB mimarisi revizyon notu: `docs/DB_ARCHITECTURE_TASK2.md`

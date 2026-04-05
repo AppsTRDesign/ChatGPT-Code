@@ -62,7 +62,7 @@
 
 ---
 
-2.) Görev: Veritabanı mimarisini production seviyesinde revize et
+2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
 3.) Görev: Auth sistemi hardening (rate-limit, reset, session güvenliği)
 4.) Görev: IP ülke atama + fallback/caching stratejisi
 5.) Görev: Ulus/şehir domain kuralları (stat formülleri)
@@ -79,4 +79,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 2. göreve geçelim ve şemayı migration mantığına göre normalize edelim.
+**Sonraki adım önerisi:** 3. göreve geçelim (Auth hardening: rate-limit, reset, session güvenliği).
