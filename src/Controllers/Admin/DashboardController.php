@@ -27,28 +27,37 @@ final class DashboardController
         View::render('admin/dashboard', [
             'config' => $this->config,
             'csrf' => Csrf::token(),
-            'state' => $game->state(),
-            'settings' => $game->getSettings(),
+            'world' => $game->adminWorldData(),
         ]);
     }
 
-    public function settings(): void
+    public function addCountry(): void
     {
-        if (!Auth::adminCheck()) {
-            Response::redirect('/admin/login');
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
         }
 
-        if (!Csrf::validate($_POST['_csrf'] ?? null)) {
-            Response::redirect('/admin?toast=G%C3%BCvenlik+do%C4%9Frulamas%C4%B1+ba%C5%9Far%C4%B1s%C4%B1z');
+        $res = (new GameService())->createCountry((string) ($_POST['code'] ?? ''), (string) ($_POST['name'] ?? ''), (string) ($_POST['flag'] ?? '🏳️'));
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
+
+    public function addCity(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
         }
 
-        $payload = [
-            'game_name' => trim((string) ($_POST['game_name'] ?? 'Noa Political Wars')),
-            'tax_multiplier' => (string) max(0.1, min(5, (float) ($_POST['tax_multiplier'] ?? 1))),
-            'training_cost' => (string) max(1, min(1000, (int) ($_POST['training_cost'] ?? 20))),
-        ];
+        $res = (new GameService())->createCity((int) ($_POST['country_id'] ?? 0), (string) ($_POST['name'] ?? ''), (float) ($_POST['lat'] ?? 0), (float) ($_POST['lng'] ?? 0));
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
 
-        (new GameService())->updateSettings($payload);
-        Response::redirect('/admin?toast=' . urlencode('Ayarlar kaydedildi.'));
+    public function addResourceDistribution(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $res = (new GameService())->addCountryResource((int) ($_POST['country_id'] ?? 0), (int) ($_POST['resource_id'] ?? 0), (int) ($_POST['daily_yield'] ?? 0));
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
     }
 }

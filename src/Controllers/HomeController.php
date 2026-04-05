@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Auth;
 use App\Core\Csrf;
 use App\Core\Response;
 use App\Core\View;
@@ -17,8 +18,13 @@ final class HomeController
 
     public function index(): void
     {
+        $userId = Auth::userId();
+        if (!$userId) {
+            Response::redirect('/login');
+        }
+
         $game = new GameService();
-        $state = $game->state();
+        $state = $game->dashboard($userId);
 
         View::render('game/index', [
             'config' => $this->config,
@@ -27,25 +33,38 @@ final class HomeController
         ]);
     }
 
-    public function trainArmy(): void
+    public function work(): void
     {
-        if (!Csrf::validate($_POST['_csrf'] ?? null)) {
-            Response::redirect('/?toast=G%C3%BCvenlik+do%C4%9Frulamas%C4%B1+ba%C5%9Far%C4%B1s%C4%B1z');
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/?toast=Yetkisiz');
         }
 
-        $amount = (int) ($_POST['amount'] ?? 10);
-        $result = (new GameService())->trainArmy($amount);
-
+        $resource = (string) ($_POST['resource'] ?? 'gold');
+        $result = (new GameService())->work($userId, $resource);
         Response::redirect('/?toast=' . urlencode($result['message']));
     }
 
-    public function collectTaxes(): void
+    public function battle(): void
     {
-        if (!Csrf::validate($_POST['_csrf'] ?? null)) {
-            Response::redirect('/?toast=G%C3%BCvenlik+do%C4%9Frulamas%C4%B1+ba%C5%9Far%C4%B1s%C4%B1z');
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/?toast=Yetkisiz');
         }
 
-        $result = (new GameService())->collectTaxes();
+        $result = (new GameService())->battle($userId);
+        Response::redirect('/?toast=' . urlencode($result['message']));
+    }
+
+    public function upgrade(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/?toast=Yetkisiz');
+        }
+
+        $stat = (string) ($_POST['stat'] ?? 'strength');
+        $result = (new GameService())->upgradeStat($userId, $stat);
         Response::redirect('/?toast=' . urlencode($result['message']));
     }
 }

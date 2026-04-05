@@ -7,6 +7,7 @@ $config = require __DIR__ . '/bootstrap.php';
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\LoginController;
 use App\Controllers\Api\GameController;
+use App\Controllers\AuthController;
 use App\Controllers\HomeController;
 use App\Core\Router;
 
@@ -16,17 +17,30 @@ $homeController = new HomeController($config);
 $apiController = new GameController($config);
 $adminController = new DashboardController($config);
 $loginController = new LoginController($config);
+$authController = new AuthController($config);
 
 $router->get('/', [$homeController, 'index']);
-$router->post('/action/train', [$homeController, 'trainArmy']);
-$router->post('/action/collect', [$homeController, 'collectTaxes']);
+$router->post('/action/work', [$homeController, 'work']);
+$router->post('/action/battle', [$homeController, 'battle']);
+$router->post('/action/upgrade', [$homeController, 'upgrade']);
+
+$router->get('/login', [$authController, 'showLogin']);
+$router->post('/login', [$authController, 'login']);
+$router->get('/register', [$authController, 'showRegister']);
+$router->post('/register', [$authController, 'register']);
+$router->post('/logout', [$authController, 'logout']);
 
 $router->get('/api/state', [$apiController, 'state']);
-$router->post('/api/action/train', [$apiController, 'train']);
-$router->post('/api/action/collect', [$apiController, 'collect']);
+$router->post('/api/action/work', [$apiController, 'work']);
+$router->post('/api/action/battle', [$apiController, 'battle']);
+$router->post('/api/action/upgrade', [$apiController, 'upgrade']);
+$router->post('/api/market/create', [$apiController, 'marketCreate']);
+$router->post('/api/market/buy', [$apiController, 'marketBuy']);
 
 $router->get('/admin', [$adminController, 'index']);
-$router->post('/admin/settings', [$adminController, 'settings']);
+$router->post('/admin/world/country', [$adminController, 'addCountry']);
+$router->post('/admin/world/city', [$adminController, 'addCity']);
+$router->post('/admin/world/resource', [$adminController, 'addResourceDistribution']);
 $router->get('/admin/login', [$loginController, 'show']);
 $router->post('/admin/login', [$loginController, 'login']);
 $router->post('/admin/logout', [$loginController, 'logout']);

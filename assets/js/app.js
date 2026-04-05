@@ -2,74 +2,139 @@
     'use strict';
 
     const cfg = window.APP_CONFIG || {};
+    const bootstrapData = window.GAME_BOOTSTRAP || {};
     const csrf = cfg.csrf || '';
     const toastEl = document.getElementById('appToast');
     const toastBody = document.getElementById('toastBody');
     const bsToast = toastEl ? new bootstrap.Toast(toastEl) : null;
 
     const showToast = (message) => {
-        if (!toastBody || !bsToast || !message) return;
+        if (!message || !bsToast || !toastBody) return;
         toastBody.textContent = message;
         bsToast.show();
     };
 
     const setText = (id, value) => {
         const el = document.getElementById(id);
-        if (el) {
-            el.textContent = Number(value || 0).toLocaleString('tr-TR');
-        }
+        if (el) el.textContent = Number(value || 0).toLocaleString('tr-TR');
+    };
+
+    const renderResources = (rows) => {
+        const tbody = document.getElementById('resourceTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((r) => `
+            <tr>
+                <td>${r.name}</td>
+                <td>${Number(r.quantity).toLocaleString('tr-TR')}</td>
+                <td>${r.unit}</td>
+                <td>${Number(r.base_price).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            </tr>
+        `).join('');
+    };
+
+    const renderMarket = (rows) => {
+        const tbody = document.getElementById('marketTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((m) => `
+            <tr>
+                <td>${m.id}</td>
+                <td>${m.resource_name}</td>
+                <td>${m.seller_name}</td>
+                <td>${Number(m.quantity).toLocaleString('tr-TR')}</td>
+                <td>${Number(m.price_per_unit).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td><button class="btn btn-sm btn-success action-btn" data-action="market-buy" data-offer-id="${m.id}">Al</button></td>
+            </tr>
+        `).join('');
+    };
+
+    const syncStats = (payload) => {
+        const user = payload?.data?.user;
+        if (!user) return;
+        setText('energy', user.energy);
+        setText('level', user.level);
+        setText('experience', user.experience);
+        setText('strength', user.strength);
+        setText('education', user.education);
+        setText('endurance', user.endurance);
+        renderResources(payload.data.resources || []);
+        renderMarket(payload.data.market || []);
     };
 
     const refreshState = async () => {
-        const response = await fetch('/api/state', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-        if (!response.ok) return;
-        const payload = await response.json();
-        if (!payload.ok || !payload.data || !payload.data.player) return;
-
-        const player = payload.data.player;
-        setText('treasury', player.treasury);
-        setText('population', player.population);
-        setText('soldiers', player.soldiers);
-        setText('influence', player.influence);
+        const res = await fetch('/api/state', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!res.ok) return;
+        const payload = await res.json();
+        if (payload.ok) {
+            syncStats(payload);
+        }
     };
 
-    const doAction = async (action, amount = 10) => {
+    const post = async (url, data) => {
         const fd = new FormData();
         fd.append('_csrf', csrf);
-        if (action === 'train') {
-            fd.append('amount', String(amount));
-        }
-
-        const response = await fetch(`/api/action/${action}`, {
-            method: 'POST',
-            body: fd,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        });
-
-        const payload = await response.json();
-        showToast(payload.message || 'İşlem tamamlandı.');
-        await refreshState();
+        Object.entries(data || {}).forEach(([k, v]) => fd.append(k, String(v)));
+        const res = await fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        return res.json();
     };
 
-    document.querySelectorAll('.action-btn').forEach((button) => {
-        button.addEventListener('click', async () => {
-            try {
-                const action = button.dataset.action;
-                const amountInput = document.getElementById('trainAmount');
-                const amount = amountInput ? Number(amountInput.value || 10) : 10;
-                await doAction(action, amount);
-            } catch (error) {
-                showToast('İşlem sırasında bir hata oluştu.');
-            }
-        });
+    const onAction = async (action, button) => {
+        if (action === 'work') {
+            const resource = document.getElementById('resourceKey')?.value || 'gold';
+            return post('/api/action/work', { resource });
+        }
+        if (action === 'battle') {
+            return post('/api/action/battle', {});
+        }
+        if (action === 'upgrade') {
+            return post('/api/action/upgrade', { stat: button.dataset.stat || 'strength' });
+        }
+        if (action === 'market-create') {
+            return post('/api/market/create', {
+                resource_id: document.getElementById('offerResourceId')?.value || 0,
+                quantity: document.getElementById('offerQty')?.value || 0,
+                price_per_unit: document.getElementById('offerPrice')?.value || 0,
+            });
+        }
+        if (action === 'market-buy') {
+            return post('/api/market/buy', { offer_id: button.dataset.offerId || 0 });
+        }
+        return { ok: false, message: 'Bilinmeyen eylem.' };
+    };
+
+    document.addEventListener('click', async (event) => {
+        const button = event.target.closest('.action-btn');
+        if (!button) return;
+
+        try {
+            const result = await onAction(button.dataset.action, button);
+            showToast(result.message || 'İşlem tamamlandı');
+            await refreshState();
+        } catch (e) {
+            showToast('İşlem sırasında hata oluştu');
+        }
     });
 
-    if (cfg.toastMessage) {
-        showToast(cfg.toastMessage);
-    }
+    const initMap = () => {
+        const mapElement = document.getElementById('worldMap');
+        if (!mapElement || typeof jsVectorMap === 'undefined') return;
 
+        const markers = (bootstrapData.map?.cities || []).map((city) => ({
+            name: `${city.country_name} / ${city.name} (${city.player_count})`,
+            coords: [Number(city.lat), Number(city.lng)],
+        }));
+
+        new jsVectorMap({
+            selector: '#worldMap',
+            map: 'world',
+            markers,
+            markerStyle: {
+                initial: { r: 5, fill: '#0d6efd', stroke: '#fff', strokeWidth: 1 },
+            },
+        });
+    };
+
+    if (cfg.toastMessage) showToast(cfg.toastMessage);
     refreshState().catch(() => null);
-    setInterval(() => {
-        refreshState().catch(() => null);
-    }, 15000);
+    setInterval(() => refreshState().catch(() => null), 15000);
+    initMap();
 })();
