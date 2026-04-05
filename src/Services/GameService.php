@@ -18,7 +18,7 @@ final class GameService
 
     public function resolveCountryAndCityByIp(string $ip): array
     {
-        $countryCode = (new GeoService())->detectCountryCode($ip);
+        $countryCode = (new GeoService())->detectCountryCode($ip, $_SERVER);
 
         $stmt = $this->db->prepare('SELECT id, code, name, flag_emoji FROM countries WHERE code = :code LIMIT 1');
         $stmt->execute(['code' => $countryCode]);
@@ -29,9 +29,20 @@ final class GameService
             $country = $stmt->fetch();
         }
 
-        $cityStmt = $this->db->prepare('SELECT id, name FROM cities WHERE country_id = :country_id ORDER BY base_population DESC LIMIT 1');
+        $cityStmt = $this->db->prepare('SELECT ci.id, ci.name FROM cities ci
+            LEFT JOIN users u ON u.city_id = ci.id
+            WHERE ci.country_id = :country_id AND ci.is_active = 1
+            GROUP BY ci.id, ci.name, ci.base_population
+            ORDER BY COUNT(u.id) ASC, ci.base_population DESC
+            LIMIT 1');
         $cityStmt->execute(['country_id' => $country['id']]);
         $city = $cityStmt->fetch();
+
+        if (!$city) {
+            $fallbackCityStmt = $this->db->prepare('SELECT id, name FROM cities WHERE country_id = :country_id ORDER BY base_population DESC LIMIT 1');
+            $fallbackCityStmt->execute(['country_id' => $country['id']]);
+            $city = $fallbackCityStmt->fetch();
+        }
 
         return [
             'country' => $country,

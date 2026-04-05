@@ -68,11 +68,19 @@
 - Session strict-mode ve güvenlik başlıkları bootstrap'te aktif edildi.
 - Forgot/reset ekranları ve route'ları eklendi.
 
+
+## 4. Görev Çıktısı (Tamamlandı)
+- GeoIP için çok sağlayıcılı çözüm eklendi (`ip-api` + `ipwho.is`).
+- `geoip_cache` tablosu ile IP->ülke kodu cache katmanı eklendi.
+- Provider başarısız olursa `Accept-Language` bazlı fallback çalışıyor.
+- Private/reserved IP'lerde doğrudan fallback devreye giriyor.
+- Ülkeye düşen kullanıcıların şehir yerleşimi yük dengeleme ile yapılıyor (az oyunculu şehre öncelik).
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
 3.) Görev: ~~Auth sistemi hardening (rate-limit, reset, session güvenliği)~~ ✅
-4.) Görev: IP ülke atama + fallback/caching stratejisi
+4.) Görev: ~~IP ülke atama + fallback/caching stratejisi~~ ✅
 5.) Görev: Ulus/şehir domain kuralları (stat formülleri)
 6.) Görev: Enerji/XP/Level/Stat formül motoru iyileştirme
 7.) Görev: Kaynak sistemi tam sürüm + dağılım balansı
@@ -87,4 +95,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 4. göreve geçelim (IP ülke atama + fallback/caching stratejisi).
+**Sonraki adım önerisi:** 5. göreve geçelim (Ulus/şehir domain kuralları + stat formülleri).
