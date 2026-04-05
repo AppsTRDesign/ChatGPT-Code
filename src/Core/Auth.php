@@ -19,7 +19,9 @@ final class Auth
         $defaultPass = env('ADMIN_PASS', 'admin123');
 
         if ($username === $defaultUser && hash_equals($defaultPass, $password)) {
+            session_regenerate_id(true);
             $_SESSION['is_admin'] = true;
+            $_SESSION['admin_login_at'] = gmdate('Y-m-d H:i:s');
             return true;
         }
 
@@ -39,12 +41,15 @@ final class Auth
 
     public static function loginUser(int $userId): void
     {
+        session_regenerate_id(true);
         $_SESSION['user_id'] = $userId;
+        $_SESSION['user_login_at'] = gmdate('Y-m-d H:i:s');
     }
 
     public static function logoutUser(): void
     {
-        unset($_SESSION['user_id']);
+        unset($_SESSION['user_id'], $_SESSION['user_login_at']);
+        session_regenerate_id(true);
     }
 
     public static function user(): ?array

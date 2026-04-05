@@ -50,6 +50,11 @@ spl_autoload_register(static function (string $class): void {
 
 $config = require base_path('config/app.php');
 
+
+ini_set('session.use_strict_mode', '1');
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_samesite', 'Lax');
+
 session_name($config['session_name']);
 session_set_cookie_params([
     'lifetime' => 0,
@@ -63,6 +68,10 @@ session_set_cookie_params([
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
+
+header('X-Frame-Options: SAMEORIGIN');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 
 if ($config['app_env'] !== 'production') {
     ini_set('display_errors', '1');

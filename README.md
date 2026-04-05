@@ -17,7 +17,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
 
 ## Endpointler
-- Web: `/`, `/login`, `/register`, `/admin`
+- Web: `/`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/admin`
 - API:
   - `GET /api/state`
   - `POST /api/action/work`
@@ -32,6 +32,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 3. Migration sırasını çalıştır:
    - `db/migrations/20260405_000001_core_schema.sql`
    - `db/migrations/20260405_000002_seed_core_data.sql`
+   - `db/migrations/20260405_000003_auth_hardening.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -47,3 +48,5 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Yol haritası ve görev takibi: `docs/RIVALREGIONS_TODO.md`
 
 - DB mimarisi revizyon notu: `docs/DB_ARCHITECTURE_TASK2.md`
+
+- Auth hardening notu: rate-limit + password reset + session security (Task-3 tamamlandı).

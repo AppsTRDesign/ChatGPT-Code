@@ -16,7 +16,7 @@
         <input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
         <label class="form-label">Kullanıcı adı</label><input class="form-control mb-3" name="username" required>
         <label class="form-label">E-posta</label><input class="form-control mb-3" type="email" name="email" required>
-        <label class="form-label">Şifre</label><input class="form-control mb-3" type="password" name="password" minlength="6" required>
+        <label class="form-label">Şifre</label><input class="form-control mb-3" type="password" name="password" minlength="8" required>
         <button class="btn btn-success">Kayıt Ol</button>
         <a class="btn btn-link mt-2" href="/login">Zaten hesabım var</a>
     </form>

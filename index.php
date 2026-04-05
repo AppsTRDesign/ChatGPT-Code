@@ -28,6 +28,10 @@ $router->get('/login', [$authController, 'showLogin']);
 $router->post('/login', [$authController, 'login']);
 $router->get('/register', [$authController, 'showRegister']);
 $router->post('/register', [$authController, 'register']);
+$router->get('/forgot-password', [$authController, 'showForgot']);
+$router->post('/forgot-password', [$authController, 'forgot']);
+$router->get('/reset-password', [$authController, 'showReset']);
+$router->post('/reset-password', [$authController, 'reset']);
 $router->post('/logout', [$authController, 'logout']);
 
 $router->get('/api/state', [$apiController, 'state']);

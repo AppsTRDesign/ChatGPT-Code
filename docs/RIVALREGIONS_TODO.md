@@ -60,10 +60,18 @@
 - [x] Teknik kısıtlar ve uyumluluk koşulları donduruldu.
 - [x] Sonraki görevler için öncelik sırası sabitlendi.
 
+
+## 3. Görev Çıktısı (Tamamlandı)
+- Login/Register/Forgot için rate-limit katmanı eklendi (`auth_rate_limits`).
+- Şifre sıfırlama token akışı eklendi (`password_reset_tokens`).
+- Session hijack riskini azaltmak için login/logout anında `session_regenerate_id(true)` aktif edildi.
+- Session strict-mode ve güvenlik başlıkları bootstrap'te aktif edildi.
+- Forgot/reset ekranları ve route'ları eklendi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
-3.) Görev: Auth sistemi hardening (rate-limit, reset, session güvenliği)
+3.) Görev: ~~Auth sistemi hardening (rate-limit, reset, session güvenliği)~~ ✅
 4.) Görev: IP ülke atama + fallback/caching stratejisi
 5.) Görev: Ulus/şehir domain kuralları (stat formülleri)
 6.) Görev: Enerji/XP/Level/Stat formül motoru iyileştirme
@@ -79,4 +87,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 3. göreve geçelim (Auth hardening: rate-limit, reset, session güvenliği).
+**Sonraki adım önerisi:** 4. göreve geçelim (IP ülke atama + fallback/caching stratejisi).
