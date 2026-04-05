@@ -1,0 +1,44 @@
+:root {
+    --bg: #0f172a;
+    --card: #111827;
+    --text: #f8fafc;
+    --muted: #9ca3af;
+}
+
+body {
+    background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.panel,
+.stat-card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+    color: var(--text);
+    border-radius: 14px;
+}
+
+.stat-card {
+    padding: 1rem;
+}
+
+.stat-card i {
+    font-size: 1.3rem;
+    color: #60a5fa;
+}
+
+.stat-card p {
+    margin: .3rem 0;
+    color: var(--muted);
+    font-size: .9rem;
+}
+
+.stat-card h2 {
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+code {
+    color: #86efac;
+}
