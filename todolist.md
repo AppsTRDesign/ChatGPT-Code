@@ -47,10 +47,10 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~vize/work permit kontrolü~~
    - ~~seyahat progress akışı~~
 
-8. PHASE 8: GOVERNOR / CITY DEVELOPMENT
-   - governor rol yönetimi
-   - city project akışı
-   - şehir gelişim etkileri
+8. ~~PHASE 8: GOVERNOR / CITY DEVELOPMENT~~
+   - ~~governor rol yönetimi~~
+   - ~~city project akışı~~
+   - ~~şehir gelişim etkileri~~
 
 9. PHASE 9: POLITICS
    - seçimler
