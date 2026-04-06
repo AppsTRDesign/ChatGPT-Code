@@ -8,6 +8,8 @@ $topCity = $state['top_city'] ?? null;
 $nation = $state['nation'] ?? ['nation_tier' => 1, 'player_count' => 0, 'avg_city_score' => 0];
 $progress = $state['progress'] ?? ['next_level_xp' => 120];
 $resourceMarket = $state['resource_market'] ?? [];
+$factoryTypes = $state['factory_types'] ?? [];
+$factories = $state['factories'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">

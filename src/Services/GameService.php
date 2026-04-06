@@ -158,6 +158,8 @@ final class GameService
             'countries' => $this->countryPopulation(),
             'map' => $this->mapPayload(),
             'resource_market' => $this->resourceMarketSnapshot(),
+            'factory_types' => $this->factoryTypes(),
+            'factories' => $this->userFactories($userId),
             'top_city' => $this->topCity(),
         ];
     }
@@ -369,6 +371,112 @@ final class GameService
             GROUP BY c.id, c.name, c.code, c.flag_emoji
             ORDER BY player_count DESC, c.name ASC';
         return $this->db->query($sql)->fetchAll() ?: [];
+    }
+
+    public function factoryTypes(): array
+    {
+        $stmt = $this->db->query('SELECT ft.id, ft.type_key, ft.name, ft.input_resource_id, ft.output_resource_id, ft.base_cycle_minutes, ft.base_output, ft.base_workers, ft.base_energy_cost, r1.name AS input_resource_name, r2.name AS output_resource_name FROM factory_types ft LEFT JOIN resources r1 ON r1.id = ft.input_resource_id JOIN resources r2 ON r2.id = ft.output_resource_id ORDER BY ft.id');
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function userFactories(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT uf.*, ft.name AS factory_name, ft.base_cycle_minutes, ft.base_output, ft.base_workers, ft.base_energy_cost, r1.name AS input_resource_name, r2.name AS output_resource_name FROM user_factories uf JOIN factory_types ft ON ft.id = uf.factory_type_id LEFT JOIN resources r1 ON r1.id = ft.input_resource_id JOIN resources r2 ON r2.id = ft.output_resource_id WHERE uf.user_id = :user_id ORDER BY uf.id DESC');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function createFactory(int $userId, int $factoryTypeId): array
+    {
+        $userStmt = $this->db->prepare('SELECT id, country_id, city_id, gold FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+
+        $typeStmt = $this->db->prepare('SELECT id, name FROM factory_types WHERE id = :id LIMIT 1');
+        $typeStmt->execute(['id' => $factoryTypeId]);
+        $type = $typeStmt->fetch();
+        if (!$type) {
+            return ['ok' => false, 'message' => 'Fabrika tipi bulunamadı.'];
+        }
+
+        $buildCost = 50.0;
+        if ((float) $user['gold'] < $buildCost) {
+            return ['ok' => false, 'message' => 'Fabrika kurmak için 50 gold gerekli.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare('UPDATE users SET gold = gold - :cost WHERE id = :id')->execute(['cost' => $buildCost, 'id' => $userId]);
+            $this->db->prepare('INSERT INTO user_factories (user_id, country_id, city_id, factory_type_id, level, workers, status, created_at, updated_at, last_production_at) VALUES (:user_id, :country_id, :city_id, :factory_type_id, 1, 5, "active", NOW(), NOW(), NULL)')->execute([
+                'user_id' => $userId,
+                'country_id' => $user['country_id'],
+                'city_id' => $user['city_id'],
+                'factory_type_id' => $factoryTypeId,
+            ]);
+            $this->db->commit();
+            return ['ok' => true, 'message' => $type['name'] . ' kuruldu.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => 'Fabrika kurulamadı.'];
+        }
+    }
+
+    public function produceFactory(int $userId, int $factoryId): array
+    {
+        $stmt = $this->db->prepare('SELECT uf.*, ft.input_resource_id, ft.output_resource_id, ft.base_output, ft.base_workers, ft.base_energy_cost FROM user_factories uf JOIN factory_types ft ON ft.id = uf.factory_type_id WHERE uf.id = :id AND uf.user_id = :user_id LIMIT 1');
+        $stmt->execute(['id' => $factoryId, 'user_id' => $userId]);
+        $factory = $stmt->fetch();
+        if (!$factory) {
+            return ['ok' => false, 'message' => 'Fabrika bulunamadı.'];
+        }
+
+        $userStmt = $this->db->prepare('SELECT energy FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user || (int) $user['energy'] < (int) $factory['base_energy_cost']) {
+            return ['ok' => false, 'message' => 'Fabrika üretimi için enerji yetersiz.'];
+        }
+
+        $output = (int) floor(((int) $factory['base_output']) * (1 + ((int) $factory['level'] - 1) * 0.25));
+        $inputNeed = (int) floor($output * 0.5);
+
+        $this->db->beginTransaction();
+        try {
+            if (!empty($factory['input_resource_id'])) {
+                $inputStmt = $this->db->prepare('SELECT quantity FROM user_resources WHERE user_id = :u AND resource_id = :r LIMIT 1');
+                $inputStmt->execute(['u' => $userId, 'r' => $factory['input_resource_id']]);
+                $input = $inputStmt->fetch();
+                if (!$input || (int) $input['quantity'] < $inputNeed) {
+                    throw new \RuntimeException('Yeterli hammadde yok.');
+                }
+
+                $this->db->prepare('UPDATE user_resources SET quantity = quantity - :q WHERE user_id = :u AND resource_id = :r')->execute(['q' => $inputNeed, 'u' => $userId, 'r' => $factory['input_resource_id']]);
+            }
+
+            $this->db->prepare('UPDATE user_resources SET quantity = quantity + :q WHERE user_id = :u AND resource_id = :r')->execute(['q' => $output, 'u' => $userId, 'r' => $factory['output_resource_id']]);
+            $this->db->prepare('UPDATE users SET energy = energy - :e, experience = experience + 15 WHERE id = :id')->execute(['e' => $factory['base_energy_cost'], 'id' => $userId]);
+            $this->db->prepare('UPDATE user_factories SET last_production_at = NOW(), updated_at = NOW() WHERE id = :id')->execute(['id' => $factoryId]);
+            $this->db->prepare('INSERT INTO factory_production_logs (factory_id, user_id, input_resource_id, output_resource_id, input_amount, output_amount, energy_used, workers_used, produced_at) VALUES (:factory_id,:user_id,:input_r,:output_r,:input_amount,:output_amount,:energy_used,:workers_used,NOW())')->execute([
+                'factory_id' => $factoryId,
+                'user_id' => $userId,
+                'input_r' => $factory['input_resource_id'] ?: null,
+                'output_r' => $factory['output_resource_id'],
+                'input_amount' => max(0, $inputNeed),
+                'output_amount' => $output,
+                'energy_used' => $factory['base_energy_cost'],
+                'workers_used' => $factory['base_workers'],
+            ]);
+
+            $this->db->commit();
+            $this->autoLevelUp($userId);
+            return ['ok' => true, 'message' => 'Fabrika üretimi tamamlandı: +' . $output];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Fabrika üretimi başarısız.'];
+        }
     }
 
     public function resourceMarketSnapshot(): array

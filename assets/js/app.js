@@ -62,6 +62,22 @@
         `).join('');
     };
 
+
+    const renderFactories = (rows) => {
+        const tbody = document.getElementById('factoryTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((f) => `
+            <tr>
+                <td>${f.id}</td>
+                <td>${f.factory_name}</td>
+                <td>${f.level}</td>
+                <td>${f.workers}</td>
+                <td>${f.last_production_at || '-'}</td>
+                <td><button class="btn btn-sm btn-warning action-btn" data-action="factory-produce" data-factory-id="${f.id}">Üretim</button></td>
+            </tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -75,6 +91,7 @@
         renderResources(payload.data.resources || []);
         renderMarket(payload.data.market || []);
         renderResourceMarket(payload.data.resource_market || []);
+        renderFactories(payload.data.factories || []);
     };
 
     const refreshState = async () => {
@@ -114,6 +131,12 @@
         }
         if (action === 'market-buy') {
             return post('/api/market/buy', { offer_id: button.dataset.offerId || 0 });
+        }
+        if (action === 'factory-create') {
+            return post('/api/factory/create', { factory_type_id: document.getElementById('factoryTypeId')?.value || 0 });
+        }
+        if (action === 'factory-produce') {
+            return post('/api/factory/produce', { factory_id: button.dataset.factoryId || 0 });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

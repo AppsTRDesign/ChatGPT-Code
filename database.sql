@@ -7,6 +7,7 @@
 --  4) db/migrations/20260405_000004_geoip_fallback_cache.sql
 --  5) db/migrations/20260405_000005_balance_tuning.sql
 --  6) db/migrations/20260405_000006_resource_balance.sql
+--  7) db/migrations/20260405_000007_factory_system.sql
 
 SOURCE db/migrations/20260405_000001_core_schema.sql;
 SOURCE db/migrations/20260405_000002_seed_core_data.sql;
@@ -15,3 +16,4 @@ SOURCE db/migrations/20260405_000003_auth_hardening.sql;
 SOURCE db/migrations/20260405_000004_geoip_fallback_cache.sql;
 SOURCE db/migrations/20260405_000005_balance_tuning.sql;
 SOURCE db/migrations/20260405_000006_resource_balance.sql;
+SOURCE db/migrations/20260405_000007_factory_system.sql;

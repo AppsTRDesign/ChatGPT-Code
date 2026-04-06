@@ -40,6 +40,8 @@ $router->post('/api/action/battle', [$apiController, 'battle']);
 $router->post('/api/action/upgrade', [$apiController, 'upgrade']);
 $router->post('/api/market/create', [$apiController, 'marketCreate']);
 $router->post('/api/market/buy', [$apiController, 'marketBuy']);
+$router->post('/api/factory/create', [$apiController, 'factoryCreate']);
+$router->post('/api/factory/produce', [$apiController, 'factoryProduce']);
 
 $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);

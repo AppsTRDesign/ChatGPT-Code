@@ -100,6 +100,14 @@
 - Dashboard'a kaynak piyasa dengesi tablosu eklendi.
 - Resource market snapshot API state içine entegre edildi.
 
+
+## 8. Görev Çıktısı (Tamamlandı)
+- Fabrika veri modeli (tip/fabrika/log) eklendi.
+- Fabrika kurulum ve üretim akışları backend'e eklendi.
+- Fabrika üretimi enerji ve hammadde kontrolü ile çalışır hale geldi.
+- Dashboard'a fabrika yönetim paneli eklendi.
+- API'ye fabrika create/produce endpointleri eklendi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -108,7 +116,7 @@
 5.) Görev: ~~Ulus/şehir domain kuralları (stat formülleri)~~ ✅
 6.) Görev: ~~Enerji/XP/Level/Stat formül motoru iyileştirme~~ ✅
 7.) Görev: ~~Kaynak sistemi tam sürüm + dağılım balansı~~ ✅
-8.) Görev: Fabrika sistemi (kurulum/seviye/işçi)
+8.) Görev: ~~Fabrika sistemi (kurulum/seviye/işçi)~~ ✅
 9.) Görev: Market tam sürüm (vergi, komisyon, korumalar)
 10.) Görev: Savaş sistemi çekirdeği + raporlama
 11.) Görev: Parti/Seçim/Meclis sistemleri
@@ -119,4 +127,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 8. göreve geçelim (Fabrika sistemi: kurulum/seviye/işçi).
+**Sonraki adım önerisi:** 9. göreve geçelim (Market tam sürüm: vergi/komisyon/koruma).

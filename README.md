@@ -36,6 +36,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260405_000004_geoip_fallback_cache.sql`
    - `db/migrations/20260405_000005_balance_tuning.sql`
    - `db/migrations/20260405_000006_resource_balance.sql`
+   - `db/migrations/20260405_000007_factory_system.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -61,3 +62,5 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Balance tuning notu: `docs/BALANCE_TUNING_TASK6.md`
 
 - Kaynak balans notu: `docs/RESOURCE_BALANCE_TASK7.md`
+
+- Fabrika sistemi notu: `docs/FACTORY_SYSTEM_TASK8.md`

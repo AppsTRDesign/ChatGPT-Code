@@ -91,4 +91,30 @@ final class GameController
         $result = (new GameService())->buyMarketOffer($userId, $offerId);
         Response::json($result, $result['ok'] ? 200 : 422);
     }
+    public function factoryCreate(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $factoryTypeId = (int) ($_POST['factory_type_id'] ?? 0);
+        $result = (new GameService())->createFactory($userId, $factoryTypeId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function factoryProduce(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $factoryId = (int) ($_POST['factory_id'] ?? 0);
+        $result = (new GameService())->produceFactory($userId, $factoryId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }
