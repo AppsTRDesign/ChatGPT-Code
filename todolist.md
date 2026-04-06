@@ -83,5 +83,5 @@ Tamamlanan adımların üstü çizilmiştir.
     - ~~ekonomi/seyahat/savaş dengeleme~~
     - ~~otomasyon testleri~~
 
-15. PHASE 15: DEPLOYMENT GUIDE
-    - AlmaLinux + Plesk + Apache + Node 16.20.2 + MariaDB için detaylı prod kurulum ve güncelleme rehberi
+15. ~~PHASE 15: DEPLOYMENT GUIDE~~
+    - ~~AlmaLinux + Plesk + Apache + Node 16.20.2 + MariaDB için detaylı prod kurulum ve güncelleme rehberi~~

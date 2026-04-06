@@ -18,6 +18,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 - ✅ Phase 12 (Realtime + Notifications) tamamlandı.
 - ✅ Phase 13 (UI Polish) tamamlandı.
 - ✅ Phase 14 (Testing + Balancing) tamamlandı.
+- ✅ Phase 15 (Deployment Guide) tamamlandı.
 - Belgeler:
   - `docs/phase-01-architecture.md`
   - `docs/phase-02-database.md`
@@ -33,6 +34,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
   - `docs/phase-12-realtime-notifications.md`
   - `docs/phase-13-ui-polish.md`
   - `docs/phase-14-testing-balancing.md`
+  - `docs/phase-15-deployment-guide.md`
 
 ## Klasörler
 
@@ -44,4 +46,4 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 
 ## Sonraki Adım
 
-- Phase 15: Deployment Guide
+- Fazlar tamamlandı. Sonraki adım: production ortamına kurulum ve canlı dengeleme iterasyonları.
