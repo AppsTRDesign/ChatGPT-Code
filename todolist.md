@@ -24,11 +24,11 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~GeoJSON entegrasyonu~~
    - ~~map-ready veri formatı~~
 
-4. PHASE 4: AUTH + USER SYSTEM
-   - kayıt / giriş
-   - JWT access + refresh
-   - onboarding + GeoIP atama
-   - dil tercihi kalıcılığı
+4. ~~PHASE 4: AUTH + USER SYSTEM~~
+   - ~~kayıt / giriş~~
+   - ~~JWT access + refresh~~
+   - ~~onboarding + GeoIP atama~~
+   - ~~dil tercihi kalıcılığı~~
 
 5. PHASE 5: MAP SYSTEM
    - dünya haritası render
