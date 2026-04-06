@@ -16,6 +16,11 @@
 -- 13) db/migrations/20260406_000013_map_worldbuilder.sql
 -- 14) db/migrations/20260406_000014_observability_release.sql
 -- 15) db/migrations/20260406_000015_border_citizenship_queue.sql
+-- 16) db/migrations/20260406_000016_rankings_quests_notifications.sql
+-- 17) db/migrations/20260406_000017_anticheat_balance_testinfra.sql
+-- 18) db/migrations/20260406_000018_realtime_coup_statecraft.sql
+-- 19) db/migrations/20260406_000019_government_factory_jobs.sql
+-- 20) db/migrations/20260406_000020_settings_and_cooldown_fix.sql
 
 SOURCE db/migrations/20260405_000001_core_schema.sql;
 SOURCE db/migrations/20260405_000002_seed_core_data.sql;
@@ -36,3 +41,5 @@ SOURCE db/migrations/20260406_000015_border_citizenship_queue.sql;
 SOURCE db/migrations/20260406_000016_rankings_quests_notifications.sql;
 SOURCE db/migrations/20260406_000017_anticheat_balance_testinfra.sql;
 SOURCE db/migrations/20260406_000018_realtime_coup_statecraft.sql;
+SOURCE db/migrations/20260406_000019_government_factory_jobs.sql;
+SOURCE db/migrations/20260406_000020_settings_and_cooldown_fix.sql;

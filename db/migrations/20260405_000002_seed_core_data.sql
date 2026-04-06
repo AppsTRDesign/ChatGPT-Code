@@ -36,9 +36,10 @@ INSERT IGNORE INTO country_resources (country_id, resource_id, daily_yield, stoc
 (3, 1, 2200, 45000, 66.00), (3, 2, 240000, 900000, 27.00), (3, 3, 700, 12000, 135.00), (3, 4, 3200, 35000, 110.00), (3, 5, 800, 12000, 170.00), (3, 6, 41000, 280000, 10.50), (3, 7, 60000, 370000, 3.90), (3, 8, 30000, 210000, 5.80), (3, 9, 7800, 44000, 17.00), (3, 10, 4200, 27000, 21.00),
 (4, 1, 1000, 24000, 74.00), (4, 2, 250000, 950000, 29.00), (4, 3, 1300, 19000, 145.00), (4, 4, 2800, 29000, 118.00), (4, 5, 950, 15000, 165.00), (4, 6, 33000, 230000, 10.00), (4, 7, 47000, 300000, 4.20), (4, 8, 40000, 280000, 5.10), (4, 9, 11000, 65000, 16.00), (4, 10, 9000, 48000, 20.00);
 
-INSERT IGNORE INTO settings (`key`, `value`) VALUES
-('schema_version', '20260405_000002_seed_core_data.sql'),
-('energy_tick_seconds', '600'),
-('energy_per_tick', '300'),
-('top_city_energy_bonus_percent', '40'),
-('top_city_production_bonus_percent', '25');
+INSERT INTO settings (`key`, `value`, `description`) VALUES
+('schema_version', '20260405_000002_seed_core_data.sql', 'Şema sürüm etiketi'),
+('energy_tick_seconds', '600', 'Enerji dolum baz süresi (sn)'),
+('energy_per_tick', '300', 'Her enerji tickinde kazanılan enerji'),
+('top_city_energy_bonus_percent', '40', 'Top şehir enerji dolum hız bonusu (%)'),
+('top_city_production_bonus_percent', '25', 'Top şehir üretim bonusu (%)')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `description` = VALUES(`description`), updated_at = NOW();

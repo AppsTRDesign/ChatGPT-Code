@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS border_event_queue (
   CONSTRAINT fk_border_queue_country FOREIGN KEY (country_id) REFERENCES countries(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO settings (`key`, `value`) VALUES
-('citizenship_min_level', '8'),
-('citizenship_gold_cost', '120'),
-('border_queue_batch_size', '50');
+INSERT INTO settings (`key`, `value`, `description`) VALUES
+('citizenship_min_level', '8', 'Vatandaşlık başvurusu minimum seviye'),
+('citizenship_gold_cost', '120', 'Vatandaşlık başvurusu altın maliyeti'),
+('border_queue_batch_size', '50', 'Sınır event queue tek sefer işlem limiti')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `description` = VALUES(`description`), updated_at = NOW();

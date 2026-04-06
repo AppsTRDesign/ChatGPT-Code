@@ -80,11 +80,15 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260406_000011_government_roles.sql`
    - `db/migrations/20260406_000012_travel_permits.sql`
    - `db/migrations/20260406_000013_map_worldbuilder.sql`
+   - `db/migrations/20260406_000014_observability_release.sql`
    - `db/migrations/20260406_000015_border_citizenship_queue.sql`
    - `db/migrations/20260406_000016_rankings_quests_notifications.sql`
    - `db/migrations/20260406_000017_anticheat_balance_testinfra.sql`
    - `db/migrations/20260406_000018_realtime_coup_statecraft.sql`
+   - `db/migrations/20260406_000019_government_factory_jobs.sql`
+   - `db/migrations/20260406_000020_settings_and_cooldown_fix.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
+   - Alternatif: `php install_sql.php` komutu ile tüm migration dosyalarını sıralı çalıştır.
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
    - kullanıcı: `admin`

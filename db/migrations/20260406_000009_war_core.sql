@@ -42,9 +42,10 @@ CREATE TABLE IF NOT EXISTS war_battles (
   CONSTRAINT fk_war_battles_defender_country FOREIGN KEY (defender_country_id) REFERENCES countries(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO settings (`key`, `value`) VALUES
-('war_attack_energy_cost', '280'),
-('war_attack_cooldown_seconds', '45'),
-('war_damage_min', '40'),
-('war_damage_max', '160'),
-('war_score_to_win', '1000');
+INSERT INTO settings (`key`, `value`, `description`) VALUES
+('war_attack_energy_cost', '280', 'War saldırısında gereken enerji'),
+('war_attack_cooldown_seconds', '45', 'War saldırı cooldown süresi (sn)'),
+('war_damage_min', '40', 'War saldırı minimum hasar'),
+('war_damage_max', '160', 'War saldırı maksimum hasar'),
+('war_score_to_win', '1000', 'Savaşı bitiren skor hedefi')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `description` = VALUES(`description`), updated_at = NOW();

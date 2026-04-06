@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS app_error_events (
   KEY idx_error_context_time (context_key, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO settings (`key`, `value`) VALUES
-('app_release_channel', 'stable'),
-('app_release_version', '0.1.0'),
-('monitor_heartbeat_enabled', '1');
+INSERT INTO settings (`key`, `value`, `description`) VALUES
+('app_release_channel', 'stable', 'Release kanalı'),
+('app_release_version', '0.1.0', 'Uygulama sürüm etiketi'),
+('monitor_heartbeat_enabled', '1', 'Heartbeat monitor etkinliği')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `description` = VALUES(`description`), updated_at = NOW();

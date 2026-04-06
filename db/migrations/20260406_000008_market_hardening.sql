@@ -31,9 +31,10 @@ CREATE TABLE IF NOT EXISTS market_transactions (
   CONSTRAINT fk_market_tx_resource FOREIGN KEY (resource_id) REFERENCES resources(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO settings (`key`, `value`) VALUES
-('market_buyer_tax_percent', '4'),
-('market_seller_commission_percent', '3'),
-('market_price_floor_ratio', '0.50'),
-('market_price_ceiling_ratio', '2.50'),
-('market_max_open_offers_per_user', '15');
+INSERT INTO settings (`key`, `value`, `description`) VALUES
+('market_buyer_tax_percent', '4', 'Market alıcı vergi oranı (%)'),
+('market_seller_commission_percent', '3', 'Market satıcı komisyon oranı (%)'),
+('market_price_floor_ratio', '0.50', 'Market taban fiyat oranı'),
+('market_price_ceiling_ratio', '2.50', 'Market tavan fiyat oranı'),
+('market_max_open_offers_per_user', '15', 'Kullanıcı başına açık ilan limiti')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `description` = VALUES(`description`), updated_at = NOW();

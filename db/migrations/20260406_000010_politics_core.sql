@@ -30,9 +30,10 @@ CREATE TABLE IF NOT EXISTS parliament_law_votes (
   CONSTRAINT fk_law_votes_voter FOREIGN KEY (voter_user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO settings (`key`, `value`) VALUES
-('election_default_duration_hours', '24'),
-('election_vote_energy_cost', '120'),
-('party_create_gold_cost', '75'),
-('law_default_duration_hours', '24'),
-('law_vote_energy_cost', '60');
+INSERT INTO settings (`key`, `value`, `description`) VALUES
+('election_default_duration_hours', '24', 'Varsayılan seçim süresi (saat)'),
+('election_vote_energy_cost', '120', 'Seçim oyu başına enerji maliyeti'),
+('party_create_gold_cost', '75', 'Parti kurma altın maliyeti'),
+('law_default_duration_hours', '24', 'Varsayılan kanun oylama süresi (saat)'),
+('law_vote_energy_cost', '60', 'Kanun oylama enerji maliyeti')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `description` = VALUES(`description`), updated_at = NOW();

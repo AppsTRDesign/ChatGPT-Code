@@ -215,7 +215,7 @@ final class GameService
         if ((int) $user['energy'] < 300) {
             return ['ok' => false, 'message' => 'Çalışmak için en az 300 enerji gerekli.'];
         }
-        $guard = $this->enforceActionGuard($userId, 'work');
+        $guard = $this->enforceActionGuard($userId, 'work', (int) $user['city_id']);
         if (!$guard['ok']) {
             return $guard;
         }
@@ -252,7 +252,7 @@ final class GameService
         try {
             $cfg = (new BalanceConfigService())->get();
             $workXp = $formula->workXp((int) $nation['nation_tier'], $cfg);
-            $updateUser = $this->db->prepare('UPDATE users SET energy = energy - 300, labor_points = labor_points + 1, experience = experience + :work_xp, gold = gold + :gold WHERE id = :user_id');
+            $updateUser = $this->db->prepare('UPDATE users SET energy = 0, last_energy_at = NOW(), labor_points = labor_points + 1, experience = experience + :work_xp, gold = gold + :gold WHERE id = :user_id');
             $goldGain = $resourceKey === 'gold' ? ($cityTop ? 1.5 : 1.0) : 0.5;
             $updateUser->execute(['work_xp' => $workXp, 'gold' => $goldGain, 'user_id' => $userId]);
 
@@ -330,7 +330,7 @@ final class GameService
         if (!$user || (int) $user['energy'] < 300) {
             return ['ok' => false, 'message' => 'Savaş için enerji yetersiz.'];
         }
-        $guard = $this->enforceActionGuard($userId, 'battle');
+        $guard = $this->enforceActionGuard($userId, 'battle', (int) $user['city_id']);
         if (!$guard['ok']) {
             return $guard;
         }
@@ -344,7 +344,7 @@ final class GameService
         $xp = $formula->battleXp($won, (int) $nation['nation_tier'], $cfg);
         $gold = $won ? random_int(2, 6) : 0;
 
-        $stmt = $this->db->prepare('UPDATE users SET energy = energy - 300, experience = experience + :xp, gold = gold + :gold, war_power = war_power + :wp WHERE id = :id');
+        $stmt = $this->db->prepare('UPDATE users SET energy = 0, last_energy_at = NOW(), experience = experience + :xp, gold = gold + :gold, war_power = war_power + :wp WHERE id = :id');
         $stmt->execute([
             'xp' => $xp,
             'gold' => $gold,
@@ -418,8 +418,12 @@ final class GameService
             if (!$user) {
                 throw new \RuntimeException('Kullanıcı bulunamadı.');
             }
-            if ((int) $user['energy'] < $rules['attack_energy_cost']) {
+            if ((int) $user['energy'] < max(300, (int) $rules['attack_energy_cost'])) {
                 throw new \RuntimeException('Savaş saldırısı için enerji yetersiz.');
+            }
+            $guard = $this->enforceActionGuard($userId, 'battle', (int) $this->cityIdForUser($userId));
+            if (!$guard['ok']) {
+                throw new \RuntimeException((string) ($guard['message'] ?? 'Saldırı cooldown aktif.'));
             }
 
             $warStmt = $this->db->prepare('SELECT * FROM wars WHERE id = :id AND status = "active" LIMIT 1 FOR UPDATE');
@@ -485,8 +489,7 @@ final class GameService
             ]);
 
             $xpGain = max(10, (int) floor($damage / 3));
-            $this->db->prepare('UPDATE users SET energy = energy - :energy_cost, experience = experience + :xp_gain, war_power = war_power + 1 WHERE id = :id')->execute([
-                'energy_cost' => $rules['attack_energy_cost'],
+            $this->db->prepare('UPDATE users SET energy = 0, last_energy_at = NOW(), experience = experience + :xp_gain, war_power = war_power + 1 WHERE id = :id')->execute([
                 'xp_gain' => $xpGain,
                 'id' => $userId,
             ]);
@@ -2442,30 +2445,36 @@ final class GameService
     private function antiCheatConfig(): array
     {
         $defaults = [
-            'anticheat_work_cooldown_seconds' => '3',
-            'anticheat_battle_cooldown_seconds' => '5',
+            'anticheat_work_cooldown_seconds' => '600',
+            'anticheat_battle_cooldown_seconds' => '600',
             'anticheat_market_create_cooldown_seconds' => '2',
             'anticheat_market_buy_cooldown_seconds' => '2',
             'anticheat_factory_produce_cooldown_seconds' => '3',
             'anticheat_max_single_trade_gold' => '1000000',
+            'cooldown_top1_bonus_percent' => '40',
+            'cooldown_top2_5_bonus_percent' => '25',
+            'cooldown_top6_10_bonus_percent' => '15',
         ];
-        $stmt = $this->db->prepare('SELECT `key`, `value` FROM settings WHERE `key` LIKE "anticheat_%"');
+        $stmt = $this->db->prepare('SELECT `key`, `value` FROM settings WHERE `key` LIKE "anticheat_%" OR `key` LIKE "cooldown_top%"');
         $stmt->execute();
         foreach (($stmt->fetchAll() ?: []) as $row) {
             $defaults[(string) $row['key']] = (string) $row['value'];
         }
 
         return [
-            'work_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_work_cooldown_seconds'])),
-            'battle_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_battle_cooldown_seconds'])),
-            'market_create_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_market_create_cooldown_seconds'])),
-            'market_buy_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_market_buy_cooldown_seconds'])),
-            'factory_produce_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_factory_produce_cooldown_seconds'])),
+            'work_cooldown_seconds' => max(0, min(86400, (int) $defaults['anticheat_work_cooldown_seconds'])),
+            'battle_cooldown_seconds' => max(0, min(86400, (int) $defaults['anticheat_battle_cooldown_seconds'])),
+            'market_create_cooldown_seconds' => max(0, min(86400, (int) $defaults['anticheat_market_create_cooldown_seconds'])),
+            'market_buy_cooldown_seconds' => max(0, min(86400, (int) $defaults['anticheat_market_buy_cooldown_seconds'])),
+            'factory_produce_cooldown_seconds' => max(0, min(86400, (int) $defaults['anticheat_factory_produce_cooldown_seconds'])),
             'max_single_trade_gold' => max(1000.0, min(1000000000.0, (float) $defaults['anticheat_max_single_trade_gold'])),
+            'cooldown_top1_bonus_percent' => max(0, min(95, (int) $defaults['cooldown_top1_bonus_percent'])),
+            'cooldown_top2_5_bonus_percent' => max(0, min(95, (int) $defaults['cooldown_top2_5_bonus_percent'])),
+            'cooldown_top6_10_bonus_percent' => max(0, min(95, (int) $defaults['cooldown_top6_10_bonus_percent'])),
         ];
     }
 
-    private function enforceActionGuard(int $userId, string $actionKey): array
+    private function enforceActionGuard(int $userId, string $actionKey, ?int $cityId = null): array
     {
         $cfg = $this->antiCheatConfig();
         $cooldownByAction = [
@@ -2477,30 +2486,96 @@ final class GameService
         ];
 
         $cooldown = $cooldownByAction[$actionKey] ?? 0;
+        if (in_array($actionKey, ['work', 'battle'], true)) {
+            $cooldown = $this->applyCityCooldownBonus($cooldown, $cityId, $cfg);
+        }
         if ($cooldown <= 0) {
             return ['ok' => true, 'message' => 'ok'];
         }
 
-        $stmt = $this->db->prepare('SELECT last_at, strike_count FROM user_action_cooldowns WHERE user_id = :user_id AND action_key = :action_key LIMIT 1');
+        $stmt = $this->db->prepare('SELECT last_at, next_available_at, strike_count FROM user_action_cooldowns WHERE user_id = :user_id AND action_key = :action_key LIMIT 1');
         $stmt->execute(['user_id' => $userId, 'action_key' => $actionKey]);
         $row = $stmt->fetch();
         $now = new \DateTimeImmutable('now');
         if ($row) {
-            $lastAt = new \DateTimeImmutable((string) $row['last_at']);
-            $diff = $now->getTimestamp() - $lastAt->getTimestamp();
-            if ($diff < $cooldown) {
+            $nextAvailableAt = !empty($row['next_available_at'])
+                ? new \DateTimeImmutable((string) $row['next_available_at'])
+                : (new \DateTimeImmutable((string) $row['last_at']))->modify('+' . $cooldown . ' seconds');
+            if ($now < $nextAvailableAt) {
                 $strike = (int) $row['strike_count'] + 1;
                 $this->db->prepare('UPDATE user_action_cooldowns SET strike_count = :strike_count, updated_at = NOW() WHERE user_id = :user_id AND action_key = :action_key')
                     ->execute(['strike_count' => $strike, 'user_id' => $userId, 'action_key' => $actionKey]);
-                $this->logAntiCheatEvent($userId, 'rate_limit.' . $actionKey, $strike >= 3 ? 'medium' : 'low', ['cooldown' => $cooldown, 'diff' => $diff, 'strike' => $strike]);
-                return ['ok' => false, 'message' => 'Çok hızlı işlem yapıyorsun, lütfen birkaç saniye bekle.'];
+                $remaining = max(1, $nextAvailableAt->getTimestamp() - $now->getTimestamp());
+                $this->logAntiCheatEvent($userId, 'rate_limit.' . $actionKey, $strike >= 3 ? 'medium' : 'low', [
+                    'cooldown' => $cooldown,
+                    'remaining' => $remaining,
+                    'next_available_at' => $nextAvailableAt->format('Y-m-d H:i:s'),
+                    'strike' => $strike,
+                ]);
+                return [
+                    'ok' => false,
+                    'message' => 'Cooldown aktif. ' . $remaining . ' sn sonra tekrar deneyebilirsin.',
+                    'next_available_at' => $nextAvailableAt->format('Y-m-d H:i:s'),
+                    'remaining_seconds' => $remaining,
+                ];
             }
         }
 
-        $this->db->prepare('INSERT INTO user_action_cooldowns (user_id, action_key, last_at, strike_count, updated_at) VALUES (:user_id,:action_key,NOW(),0,NOW())
-            ON DUPLICATE KEY UPDATE last_at = VALUES(last_at), strike_count = 0, updated_at = NOW()')
-            ->execute(['user_id' => $userId, 'action_key' => $actionKey]);
-        return ['ok' => true, 'message' => 'ok'];
+        $nextAllowed = $now->modify('+' . $cooldown . ' seconds')->format('Y-m-d H:i:s');
+        $this->db->prepare('INSERT INTO user_action_cooldowns (user_id, action_key, last_at, next_available_at, strike_count, updated_at) VALUES (:user_id,:action_key,NOW(),:next_available_at,0,NOW())
+            ON DUPLICATE KEY UPDATE last_at = VALUES(last_at), next_available_at = VALUES(next_available_at), strike_count = 0, updated_at = NOW()')
+            ->execute(['user_id' => $userId, 'action_key' => $actionKey, 'next_available_at' => $nextAllowed]);
+        return ['ok' => true, 'message' => 'ok', 'next_available_at' => $nextAllowed, 'cooldown_seconds' => $cooldown];
+    }
+
+    private function applyCityCooldownBonus(int $baseCooldown, ?int $cityId, array $cfg): int
+    {
+        if ($baseCooldown <= 0 || !$cityId) {
+            return $baseCooldown;
+        }
+
+        $rank = $this->cityRankPosition($cityId);
+        if ($rank === 1) {
+            $bonus = (int) $cfg['cooldown_top1_bonus_percent'];
+        } elseif ($rank >= 2 && $rank <= 5) {
+            $bonus = (int) $cfg['cooldown_top2_5_bonus_percent'];
+        } elseif ($rank >= 6 && $rank <= 10) {
+            $bonus = (int) $cfg['cooldown_top6_10_bonus_percent'];
+        } else {
+            $bonus = 0;
+        }
+
+        if ($bonus <= 0) {
+            return $baseCooldown;
+        }
+
+        return max(1, (int) floor($baseCooldown / (1 + ($bonus / 100))));
+    }
+
+    private function cityRankPosition(int $cityId): ?int
+    {
+        $stmt = $this->db->query('SELECT ci.id,
+            (ci.airport_level + ci.industry_level + ci.education_level + ci.army_level + ci.port_level + ci.space_level) AS score
+            FROM cities ci
+            WHERE ci.is_active = 1
+            ORDER BY score DESC, ci.base_population DESC, ci.id ASC
+            LIMIT 10');
+        $rows = $stmt->fetchAll() ?: [];
+        foreach ($rows as $idx => $row) {
+            if ((int) $row['id'] === $cityId) {
+                return $idx + 1;
+            }
+        }
+
+        return null;
+    }
+
+    private function cityIdForUser(int $userId): ?int
+    {
+        $stmt = $this->db->prepare('SELECT city_id FROM users WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $userId]);
+        $row = $stmt->fetch();
+        return $row ? (int) $row['city_id'] : null;
     }
 
     private function logAntiCheatEvent(int $userId, string $eventKey, string $severity, array $detail = []): void
