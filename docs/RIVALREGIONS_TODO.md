@@ -132,6 +132,14 @@
 - Dashboard’a siyaset merkezi eklendi (partiler, seçim ekranı, meclis kanun listesi).
 - API’ye siyasi endpointler eklendi (`/api/party/*`, `/api/election/*`, `/api/law/*`).
 
+
+## 12. Görev Çıktısı (Tamamlandı)
+- Bakanlık yetki modeli eklendi (`government_role_permissions`).
+- Bakanlık aksiyon log sistemi eklendi (`ministry_action_logs`).
+- Başkan için rol atama akışı eklendi (`/api/gov/assign-role`).
+- Ekonomi/Savunma bakanlık aksiyonları eklendi (`/api/gov/action`).
+- Dashboard’a “Bakanlık Rolleri ve Yetki Akışları” paneli eklendi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -144,7 +152,7 @@
 9.) Görev: ~~Market tam sürüm (vergi, komisyon, korumalar)~~ ✅
 10.) Görev: ~~Savaş sistemi çekirdeği + raporlama~~ ✅
 11.) Görev: ~~Parti/Seçim/Meclis sistemleri~~ ✅
-12.) Görev: Bakanlık rolleri ve yetki akışları
+12.) Görev: ~~Bakanlık rolleri ve yetki akışları~~ ✅
 13.) Görev: Oturum/geçiş izin sistemi
 14.) Görev: Harita modülü genişletme + world builder
 15.) Görev: Test, izleme, canlıya çıkış planı
@@ -153,4 +161,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 12. göreve geçelim (Bakanlık rolleri ve yetki akışları). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
+**Sonraki adım önerisi:** 13. göreve geçelim (Oturum/geçiş izin sistemi). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.

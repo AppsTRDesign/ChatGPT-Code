@@ -229,4 +229,35 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function governmentAssignRole(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $targetUserId = (int) ($_POST['target_user_id'] ?? 0);
+        $roleKey = (string) ($_POST['role_key'] ?? '');
+        $result = (new GameService())->assignGovernmentRole($userId, $targetUserId, $roleKey);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function governmentAction(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $actionKey = (string) ($_POST['action_key'] ?? '');
+        $payload = [
+            'buyer_tax_percent' => (float) ($_POST['buyer_tax_percent'] ?? 0),
+            'seller_commission_percent' => (float) ($_POST['seller_commission_percent'] ?? 0),
+            'score_to_win' => (int) ($_POST['score_to_win'] ?? 0),
+        ];
+        $result = (new GameService())->ministryAction($userId, $actionKey, $payload);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }

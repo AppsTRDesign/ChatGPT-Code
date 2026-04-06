@@ -169,6 +169,8 @@ final class GameService
             'parties' => $this->partiesByCountry((int) $user['country_id']),
             'election' => $this->electionSnapshot((int) $user['country_id']),
             'parliament_laws' => $this->parliamentSnapshot((int) $user['country_id']),
+            'government' => $this->governmentSnapshot((int) $user['country_id']),
+            'my_permissions' => $this->userPermissions($userId, (int) $user['country_id']),
             'top_city' => $this->topCity(),
         ];
     }
@@ -1274,6 +1276,165 @@ final class GameService
             SET status = CASE WHEN yes_votes > no_votes THEN "accepted" ELSE "rejected" END, updated_at = NOW()
             WHERE country_id = :country_id AND status = "open" AND ends_at <= NOW()');
         $stmt->execute(['country_id' => $countryId]);
+    }
+
+    public function assignGovernmentRole(int $actorUserId, int $targetUserId, string $roleKey): array
+    {
+        $allowedRoles = ['minister_economy', 'minister_defense', 'minister_interior'];
+        if (!in_array($roleKey, $allowedRoles, true)) {
+            return ['ok' => false, 'message' => 'Geçersiz bakanlık rolü.'];
+        }
+
+        $actorStmt = $this->db->prepare('SELECT id, country_id FROM users WHERE id = :id LIMIT 1');
+        $actorStmt->execute(['id' => $actorUserId]);
+        $actor = $actorStmt->fetch();
+        if (!$actor) {
+            return ['ok' => false, 'message' => 'Yetkili kullanıcı bulunamadı.'];
+        }
+
+        if (!$this->hasPermission($actorUserId, (int) $actor['country_id'], 'gov.assign_roles')) {
+            return ['ok' => false, 'message' => 'Rol atama yetkin yok.'];
+        }
+
+        $targetStmt = $this->db->prepare('SELECT id, country_id FROM users WHERE id = :id LIMIT 1');
+        $targetStmt->execute(['id' => $targetUserId]);
+        $target = $targetStmt->fetch();
+        if (!$target || (int) $target['country_id'] !== (int) $actor['country_id']) {
+            return ['ok' => false, 'message' => 'Aynı ülkeden hedef oyuncu seçmelisin.'];
+        }
+
+        $stmt = $this->db->prepare('INSERT INTO country_government_roles (country_id, user_id, role_key, assigned_at) VALUES (:country_id,:user_id,:role_key,NOW()) ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), assigned_at = NOW()');
+        $stmt->execute([
+            'country_id' => $actor['country_id'],
+            'user_id' => $targetUserId,
+            'role_key' => $roleKey,
+        ]);
+
+        $this->logMinistryAction((int) $actor['country_id'], $actorUserId, 'president', 'gov.assign_role', [
+            'target_user_id' => $targetUserId,
+            'role_key' => $roleKey,
+        ]);
+
+        return ['ok' => true, 'message' => 'Bakanlık rolü atandı.'];
+    }
+
+    public function ministryAction(int $actorUserId, string $actionKey, array $payload): array
+    {
+        $actorStmt = $this->db->prepare('SELECT id, country_id FROM users WHERE id = :id LIMIT 1');
+        $actorStmt->execute(['id' => $actorUserId]);
+        $actor = $actorStmt->fetch();
+        if (!$actor) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+
+        $countryId = (int) $actor['country_id'];
+        if ($actionKey === 'market.adjust_tax') {
+            if (!$this->hasPermission($actorUserId, $countryId, 'gov.market.adjust_tax')) {
+                return ['ok' => false, 'message' => 'Pazar vergisi düzenleme yetkin yok.'];
+            }
+
+            $tax = max(0.0, min(30.0, (float) ($payload['buyer_tax_percent'] ?? 0)));
+            $commission = max(0.0, min(30.0, (float) ($payload['seller_commission_percent'] ?? 0)));
+
+            $this->upsertSetting('market_buyer_tax_percent', (string) $tax);
+            $this->upsertSetting('market_seller_commission_percent', (string) $commission);
+
+            $this->logMinistryAction($countryId, $actorUserId, $this->primaryGovernmentRole($actorUserId, $countryId), 'market.adjust_tax', [
+                'buyer_tax_percent' => $tax,
+                'seller_commission_percent' => $commission,
+            ]);
+
+            return ['ok' => true, 'message' => 'Pazar vergi/komisyon ayarı güncellendi.'];
+        }
+
+        if ($actionKey === 'war.adjust_score_to_win') {
+            if (!$this->hasPermission($actorUserId, $countryId, 'gov.war.adjust_score_to_win')) {
+                return ['ok' => false, 'message' => 'Savaş skor hedefi ayarlama yetkin yok.'];
+            }
+
+            $score = max(200, min(10000, (int) ($payload['score_to_win'] ?? 1000)));
+            $this->upsertSetting('war_score_to_win', (string) $score);
+
+            $this->logMinistryAction($countryId, $actorUserId, $this->primaryGovernmentRole($actorUserId, $countryId), 'war.adjust_score_to_win', [
+                'score_to_win' => $score,
+            ]);
+
+            return ['ok' => true, 'message' => 'Savaş skor hedefi güncellendi.'];
+        }
+
+        return ['ok' => false, 'message' => 'Bilinmeyen bakanlık aksiyonu.'];
+    }
+
+    public function governmentSnapshot(int $countryId): array
+    {
+        $rolesStmt = $this->db->prepare('SELECT cgr.role_key, cgr.user_id, u.username, cgr.assigned_at
+            FROM country_government_roles cgr
+            JOIN users u ON u.id = cgr.user_id
+            WHERE cgr.country_id = :country_id
+            ORDER BY cgr.role_key');
+        $rolesStmt->execute(['country_id' => $countryId]);
+        $roles = $rolesStmt->fetchAll() ?: [];
+
+        $actionsStmt = $this->db->prepare('SELECT mal.id, mal.role_key, mal.action_key, mal.payload_json, mal.created_at, u.username AS actor_name
+            FROM ministry_action_logs mal
+            JOIN users u ON u.id = mal.actor_user_id
+            WHERE mal.country_id = :country_id
+            ORDER BY mal.id DESC
+            LIMIT 20');
+        $actionsStmt->execute(['country_id' => $countryId]);
+        $actions = $actionsStmt->fetchAll() ?: [];
+
+        return [
+            'roles' => $roles,
+            'actions' => $actions,
+        ];
+    }
+
+    public function userPermissions(int $userId, int $countryId): array
+    {
+        $stmt = $this->db->prepare('SELECT grp.permission_key
+            FROM country_government_roles cgr
+            JOIN government_role_permissions grp ON grp.role_key = cgr.role_key
+            WHERE cgr.country_id = :country_id AND cgr.user_id = :user_id');
+        $stmt->execute([
+            'country_id' => $countryId,
+            'user_id' => $userId,
+        ]);
+        $rows = $stmt->fetchAll() ?: [];
+        return array_values(array_unique(array_map(static fn (array $row): string => (string) $row['permission_key'], $rows)));
+    }
+
+    private function hasPermission(int $userId, int $countryId, string $permissionKey): bool
+    {
+        $permissions = $this->userPermissions($userId, $countryId);
+        return in_array($permissionKey, $permissions, true);
+    }
+
+    private function primaryGovernmentRole(int $userId, int $countryId): string
+    {
+        $stmt = $this->db->prepare('SELECT role_key FROM country_government_roles WHERE country_id = :country_id AND user_id = :user_id ORDER BY role_key = "president" DESC LIMIT 1');
+        $stmt->execute(['country_id' => $countryId, 'user_id' => $userId]);
+        $row = $stmt->fetch();
+        return (string) ($row['role_key'] ?? 'minister');
+    }
+
+    private function logMinistryAction(int $countryId, int $actorUserId, string $roleKey, string $actionKey, array $payload): void
+    {
+        $stmt = $this->db->prepare('INSERT INTO ministry_action_logs (country_id, actor_user_id, role_key, action_key, payload_json, created_at)
+            VALUES (:country_id,:actor_user_id,:role_key,:action_key,:payload_json,NOW())');
+        $stmt->execute([
+            'country_id' => $countryId,
+            'actor_user_id' => $actorUserId,
+            'role_key' => $roleKey,
+            'action_key' => $actionKey,
+            'payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+
+    private function upsertSetting(string $key, string $value): void
+    {
+        $stmt = $this->db->prepare('INSERT INTO settings (`key`, `value`) VALUES (:key, :value) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), updated_at = NOW()');
+        $stmt->execute(['key' => $key, 'value' => $value]);
     }
 
 

@@ -124,6 +124,30 @@
         `).join('');
     };
 
+    const renderGovernmentRoles = (rows) => {
+        const tbody = document.getElementById('governmentRoleTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((r) => `
+            <tr>
+                <td>${r.role_key}</td>
+                <td>${r.username} (#${r.user_id})</td>
+                <td>${r.assigned_at}</td>
+            </tr>
+        `).join('');
+    };
+
+    const renderGovernmentActions = (rows) => {
+        const tbody = document.getElementById('governmentActionTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((a) => `
+            <tr>
+                <td>${a.created_at}</td>
+                <td>${a.actor_name} (${a.role_key})</td>
+                <td>${a.action_key}</td>
+            </tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -141,6 +165,8 @@
         renderWarReports(payload.data.war_reports || []);
         renderParties(payload.data.parties || []);
         renderLaws(payload.data.parliament_laws || []);
+        renderGovernmentRoles(payload?.data?.government?.roles || []);
+        renderGovernmentActions(payload?.data?.government?.actions || []);
     };
 
     const refreshState = async () => {
@@ -224,6 +250,25 @@
             return post('/api/law/vote', {
                 law_id: button.dataset.lawId || 0,
                 vote: button.dataset.vote || '',
+            });
+        }
+        if (action === 'gov-assign-role') {
+            return post('/api/gov/assign-role', {
+                target_user_id: document.getElementById('govTargetUserId')?.value || 0,
+                role_key: document.getElementById('govRoleKey')?.value || '',
+            });
+        }
+        if (action === 'gov-market-tax') {
+            return post('/api/gov/action', {
+                action_key: 'market.adjust_tax',
+                buyer_tax_percent: document.getElementById('govBuyerTax')?.value || 0,
+                seller_commission_percent: document.getElementById('govSellerCommission')?.value || 0,
+            });
+        }
+        if (action === 'gov-war-score') {
+            return post('/api/gov/action', {
+                action_key: 'war.adjust_score_to_win',
+                score_to_win: document.getElementById('govWarScoreToWin')?.value || 1000,
             });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };

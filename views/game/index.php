@@ -17,6 +17,8 @@ $myParty = $state['my_party'] ?? null;
 $parties = $state['parties'] ?? [];
 $election = $state['election'] ?? null;
 $parliamentLaws = $state['parliament_laws'] ?? [];
+$government = $state['government'] ?? ['roles' => [], 'actions' => []];
+$myPermissions = $state['my_permissions'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -270,6 +272,82 @@ $parliamentLaws = $state['parliament_laws'] ?? [];
                                             <button class="btn btn-sm btn-danger action-btn" data-action="law-vote" data-law-id="<?= (int) $law['id'] ?>" data-vote="no">Hayır</button>
                                         <?php endif; ?>
                                     </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Bakanlık Rolleri ve Yetki Akışları</h2>
+            <p class="small text-secondary mb-2">Yetkilerin: <?= htmlspecialchars(implode(', ', $myPermissions) ?: 'yok', ENT_QUOTES, 'UTF-8') ?></p>
+
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <h3 class="h6">Rol Atama (Başkan)</h3>
+                    <div class="d-grid gap-2">
+                        <input id="govTargetUserId" class="form-control" type="number" min="1" placeholder="Hedef Oyuncu ID">
+                        <select id="govRoleKey" class="form-select">
+                            <option value="minister_economy">Ekonomi Bakanı</option>
+                            <option value="minister_defense">Savunma Bakanı</option>
+                            <option value="minister_interior">İçişleri Bakanı</option>
+                        </select>
+                        <button class="btn btn-outline-light btn-sm action-btn" data-action="gov-assign-role">Rol Ata</button>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Ekonomi Aksiyonu</h3>
+                    <div class="d-grid gap-2">
+                        <input id="govBuyerTax" class="form-control" type="number" min="0" max="30" step="0.1" placeholder="Alıcı vergi %">
+                        <input id="govSellerCommission" class="form-control" type="number" min="0" max="30" step="0.1" placeholder="Satıcı komisyon %">
+                        <button class="btn btn-outline-warning btn-sm action-btn" data-action="gov-market-tax">Pazar Vergisini Güncelle</button>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Savunma Aksiyonu</h3>
+                    <div class="d-grid gap-2">
+                        <input id="govWarScoreToWin" class="form-control" type="number" min="200" max="10000" step="10" placeholder="Savaş Skor Hedefi">
+                        <button class="btn btn-outline-danger btn-sm action-btn" data-action="gov-war-score">Savaş Hedefini Güncelle</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                    <h3 class="h6">Aktif Roller</h3>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm">
+                            <thead><tr><th>Rol</th><th>Oyuncu</th><th>Atanma</th></tr></thead>
+                            <tbody id="governmentRoleTable">
+                            <?php foreach (($government['roles'] ?? []) as $gr): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($gr['role_key'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($gr['username'], ENT_QUOTES, 'UTF-8') ?> (#<?= (int) $gr['user_id'] ?>)</td>
+                                    <td><?= htmlspecialchars($gr['assigned_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Bakanlık Aksiyon Logu</h3>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm">
+                            <thead><tr><th>Zaman</th><th>Aktör</th><th>Aksiyon</th></tr></thead>
+                            <tbody id="governmentActionTable">
+                            <?php foreach (($government['actions'] ?? []) as $ga): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($ga['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($ga['actor_name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ga['role_key'], ENT_QUOTES, 'UTF-8') ?>)</td>
+                                    <td><?= htmlspecialchars($ga['action_key'], ENT_QUOTES, 'UTF-8') ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>
