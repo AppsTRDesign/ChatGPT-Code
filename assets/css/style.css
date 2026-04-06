@@ -61,3 +61,39 @@ body {
     background: rgba(13, 17, 31, .55);
     font-size: .9rem;
 }
+
+@media (max-width: 991.98px) {
+    .container {
+        padding-left: .75rem;
+        padding-right: .75rem;
+    }
+
+    .card .table {
+        font-size: .78rem;
+    }
+
+    .btn,
+    .form-control,
+    .form-select {
+        min-height: 40px;
+    }
+
+    #worldMap {
+        height: 300px !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .stat-card h2 {
+        font-size: 1.05rem;
+    }
+
+    .panel {
+        border-radius: 10px;
+    }
+
+    .table-responsive {
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 8px;
+    }
+}

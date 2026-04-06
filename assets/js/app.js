@@ -4,6 +4,7 @@
     const cfg = window.APP_CONFIG || {};
     const bootstrapData = window.GAME_BOOTSTRAP || {};
     const csrf = cfg.csrf || '';
+    const apiBase = cfg.apiBase || '/api/v1';
     const toastEl = document.getElementById('appToast');
     const toastBody = document.getElementById('toastBody');
     const bsToast = toastEl ? new bootstrap.Toast(toastEl) : null;
@@ -280,7 +281,7 @@
     };
 
     const refreshState = async () => {
-        const res = await fetch('/api/state', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const res = await fetch(`${apiBase}/state`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
         if (!res.ok) return;
         const payload = await res.json();
         if (payload.ok) {
@@ -299,114 +300,114 @@
     const onAction = async (action, button) => {
         if (action === 'work') {
             const resource = document.getElementById('resourceKey')?.value || 'gold';
-            return post('/api/action/work', { resource });
+            return post(`${apiBase}/action/work`, { resource });
         }
         if (action === 'battle') {
-            return post('/api/action/battle', {});
+            return post(`${apiBase}/action/battle`, {});
         }
         if (action === 'upgrade') {
-            return post('/api/action/upgrade', { stat: button.dataset.stat || 'strength' });
+            return post(`${apiBase}/action/upgrade`, { stat: button.dataset.stat || 'strength' });
         }
         if (action === 'market-create') {
-            return post('/api/market/create', {
+            return post(`${apiBase}/market/create`, {
                 resource_id: document.getElementById('offerResourceId')?.value || 0,
                 quantity: document.getElementById('offerQty')?.value || 0,
                 price_per_unit: document.getElementById('offerPrice')?.value || 0,
             });
         }
         if (action === 'market-buy') {
-            return post('/api/market/buy', { offer_id: button.dataset.offerId || 0 });
+            return post(`${apiBase}/market/buy`, { offer_id: button.dataset.offerId || 0 });
         }
         if (action === 'factory-create') {
-            return post('/api/factory/create', { factory_type_id: document.getElementById('factoryTypeId')?.value || 0 });
+            return post(`${apiBase}/factory/create`, { factory_type_id: document.getElementById('factoryTypeId')?.value || 0 });
         }
         if (action === 'factory-produce') {
-            return post('/api/factory/produce', { factory_id: button.dataset.factoryId || 0 });
+            return post(`${apiBase}/factory/produce`, { factory_id: button.dataset.factoryId || 0 });
         }
         if (action === 'war-start') {
-            return post('/api/war/start', { defender_country_id: document.getElementById('defenderCountryId')?.value || 0 });
+            return post(`${apiBase}/war/start`, { defender_country_id: document.getElementById('defenderCountryId')?.value || 0 });
         }
         if (action === 'war-attack') {
-            return post('/api/war/attack', { war_id: button.dataset.warId || 0 });
+            return post(`${apiBase}/war/attack`, { war_id: button.dataset.warId || 0 });
         }
         if (action === 'party-create') {
-            return post('/api/party/create', {
+            return post(`${apiBase}/party/create`, {
                 name: document.getElementById('partyName')?.value || '',
                 ideology: document.getElementById('partyIdeology')?.value || '',
             });
         }
         if (action === 'party-join') {
-            return post('/api/party/join', { party_id: button.dataset.partyId || 0 });
+            return post(`${apiBase}/party/join`, { party_id: button.dataset.partyId || 0 });
         }
         if (action === 'party-leave') {
-            return post('/api/party/leave', {});
+            return post(`${apiBase}/party/leave`, {});
         }
         if (action === 'election-open') {
-            return post('/api/election/open', {});
+            return post(`${apiBase}/election/open`, {});
         }
         if (action === 'election-vote') {
-            return post('/api/election/vote', {
+            return post(`${apiBase}/election/vote`, {
                 election_id: button.dataset.electionId || 0,
                 party_id: document.getElementById('electionPartyId')?.value || 0,
             });
         }
         if (action === 'law-propose') {
-            return post('/api/law/propose', {
+            return post(`${apiBase}/law/propose`, {
                 title: document.getElementById('lawTitle')?.value || '',
                 body: document.getElementById('lawBody')?.value || '',
             });
         }
         if (action === 'law-vote') {
-            return post('/api/law/vote', {
+            return post(`${apiBase}/law/vote`, {
                 law_id: button.dataset.lawId || 0,
                 vote: button.dataset.vote || '',
             });
         }
         if (action === 'gov-assign-role') {
-            return post('/api/gov/assign-role', {
+            return post(`${apiBase}/gov/assign-role`, {
                 target_user_id: document.getElementById('govTargetUserId')?.value || 0,
                 role_key: document.getElementById('govRoleKey')?.value || '',
             });
         }
         if (action === 'gov-market-tax') {
-            return post('/api/gov/action', {
+            return post(`${apiBase}/gov/action`, {
                 action_key: 'market.adjust_tax',
                 buyer_tax_percent: document.getElementById('govBuyerTax')?.value || 0,
                 seller_commission_percent: document.getElementById('govSellerCommission')?.value || 0,
             });
         }
         if (action === 'gov-war-score') {
-            return post('/api/gov/action', {
+            return post(`${apiBase}/gov/action`, {
                 action_key: 'war.adjust_score_to_win',
                 score_to_win: document.getElementById('govWarScoreToWin')?.value || 1000,
             });
         }
         if (action === 'travel-request') {
-            return post('/api/travel/request-permit', { to_country_id: document.getElementById('travelCountryId')?.value || 0 });
+            return post(`${apiBase}/travel/request-permit`, { to_country_id: document.getElementById('travelCountryId')?.value || 0 });
         }
         if (action === 'travel-permit-decision') {
-            return post('/api/travel/permit-decision', {
+            return post(`${apiBase}/travel/permit-decision`, {
                 permit_id: document.getElementById('travelPermitId')?.value || 0,
                 decision: button.dataset.decision || '',
             });
         }
         if (action === 'travel-move') {
-            return post('/api/travel/move', { city_id: document.getElementById('travelCityId')?.value || 0 });
+            return post(`${apiBase}/travel/move`, { city_id: document.getElementById('travelCityId')?.value || 0 });
         }
         if (action === 'citizenship-request') {
-            return post('/api/travel/request-citizenship', { to_country_id: document.getElementById('citizenshipCountryId')?.value || 0 });
+            return post(`${apiBase}/travel/request-citizenship`, { to_country_id: document.getElementById('citizenshipCountryId')?.value || 0 });
         }
         if (action === 'citizenship-decision') {
-            return post('/api/travel/citizenship-decision', {
+            return post(`${apiBase}/travel/citizenship-decision`, {
                 request_id: document.getElementById('citizenshipRequestId')?.value || 0,
                 decision: button.dataset.decision || '',
             });
         }
         if (action === 'quest-claim') {
-            return post('/api/quest/claim', { quest_id: button.dataset.questId || 0 });
+            return post(`${apiBase}/quest/claim`, { quest_id: button.dataset.questId || 0 });
         }
         if (action === 'notification-read') {
-            return post('/api/notification/read', { notification_id: button.dataset.notificationId || 0 });
+            return post(`${apiBase}/notification/read`, { notification_id: button.dataset.notificationId || 0 });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

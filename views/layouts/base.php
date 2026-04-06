@@ -19,6 +19,7 @@
 window.APP_CONFIG = {
     csrf: <?= json_encode($csrf ?? '', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
     toastMessage: <?= json_encode($_GET['toast'] ?? '', JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+    apiBase: '/api/v1',
 };
 </script>
 <script src="/assets/js/app.js" defer></script>

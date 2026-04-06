@@ -205,6 +205,10 @@ final class GameService
         if ((int) $user['energy'] < 300) {
             return ['ok' => false, 'message' => 'Çalışmak için en az 300 enerji gerekli.'];
         }
+        $guard = $this->enforceActionGuard($userId, 'work');
+        if (!$guard['ok']) {
+            return $guard;
+        }
 
         $resourceStmt = $this->db->prepare('SELECT id, name FROM resources WHERE resource_key = :k LIMIT 1');
         $resourceStmt->execute(['k' => $resourceKey]);
@@ -266,6 +270,10 @@ final class GameService
 
         if (!$user || (int) $user['energy'] < 300) {
             return ['ok' => false, 'message' => 'Savaş için enerji yetersiz.'];
+        }
+        $guard = $this->enforceActionGuard($userId, 'battle');
+        if (!$guard['ok']) {
+            return $guard;
         }
 
         $nation = $this->nationContext((int) $user['country_id']);
@@ -478,6 +486,10 @@ final class GameService
 
     public function createMarketOffer(int $userId, int $resourceId, int $quantity, float $pricePerUnit): array
     {
+        $guard = $this->enforceActionGuard($userId, 'market_create');
+        if (!$guard['ok']) {
+            return $guard;
+        }
         if ($quantity < 1 || $pricePerUnit <= 0) {
             return ['ok' => false, 'message' => 'Geçersiz market değeri.'];
         }
@@ -517,6 +529,10 @@ final class GameService
             $u->execute(['q' => $quantity, 'u' => $userId, 'r' => $resourceId]);
 
             $grossTotal = round($quantity * $pricePerUnit, 2);
+            $antiCheat = $this->antiCheatConfig();
+            if ($grossTotal > (float) $antiCheat['max_single_trade_gold']) {
+                throw new \RuntimeException('İşlem tutarı güvenlik limitini aşıyor.');
+            }
             $taxTotal = round($grossTotal * ($rules['buyer_tax_percent'] / 100), 2);
             $sellerCommissionTotal = round($grossTotal * ($rules['seller_commission_percent'] / 100), 2);
             $sellerNetTotal = round($grossTotal - $sellerCommissionTotal, 2);
@@ -544,6 +560,10 @@ final class GameService
 
     public function buyMarketOffer(int $userId, int $offerId): array
     {
+        $guard = $this->enforceActionGuard($userId, 'market_buy');
+        if (!$guard['ok']) {
+            return $guard;
+        }
         $this->db->beginTransaction();
         try {
             $offerStmt = $this->db->prepare('SELECT * FROM market_offers WHERE id = :id AND status = "open" LIMIT 1 FOR UPDATE');
@@ -570,6 +590,10 @@ final class GameService
             }
 
             $buyerTotalCost = round($grossTotal + $buyerTaxTotal, 2);
+            $antiCheat = $this->antiCheatConfig();
+            if ($buyerTotalCost > (float) $antiCheat['max_single_trade_gold']) {
+                throw new \RuntimeException('İşlem tutarı güvenlik limitini aşıyor.');
+            }
 
             $buyerStmt = $this->db->prepare('SELECT gold FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
             $buyerStmt->execute(['id' => $userId]);
@@ -717,6 +741,10 @@ final class GameService
 
     public function produceFactory(int $userId, int $factoryId): array
     {
+        $guard = $this->enforceActionGuard($userId, 'factory_produce');
+        if (!$guard['ok']) {
+            return $guard;
+        }
         $stmt = $this->db->prepare('SELECT uf.*, ft.input_resource_id, ft.output_resource_id, ft.base_output, ft.base_workers, ft.base_energy_cost FROM user_factories uf JOIN factory_types ft ON ft.id = uf.factory_type_id WHERE uf.id = :id AND uf.user_id = :user_id LIMIT 1');
         $stmt->execute(['id' => $factoryId, 'user_id' => $userId]);
         $factory = $stmt->fetch();
@@ -2152,6 +2180,81 @@ final class GameService
             'event_type' => mb_substr($eventType, 0, 80),
             'title' => mb_substr($title, 0, 160),
             'body' => mb_substr($body, 0, 500),
+        ]);
+    }
+
+    private function antiCheatConfig(): array
+    {
+        $defaults = [
+            'anticheat_work_cooldown_seconds' => '3',
+            'anticheat_battle_cooldown_seconds' => '5',
+            'anticheat_market_create_cooldown_seconds' => '2',
+            'anticheat_market_buy_cooldown_seconds' => '2',
+            'anticheat_factory_produce_cooldown_seconds' => '3',
+            'anticheat_max_single_trade_gold' => '1000000',
+        ];
+        $stmt = $this->db->prepare('SELECT `key`, `value` FROM settings WHERE `key` LIKE "anticheat_%"');
+        $stmt->execute();
+        foreach (($stmt->fetchAll() ?: []) as $row) {
+            $defaults[(string) $row['key']] = (string) $row['value'];
+        }
+
+        return [
+            'work_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_work_cooldown_seconds'])),
+            'battle_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_battle_cooldown_seconds'])),
+            'market_create_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_market_create_cooldown_seconds'])),
+            'market_buy_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_market_buy_cooldown_seconds'])),
+            'factory_produce_cooldown_seconds' => max(0, min(120, (int) $defaults['anticheat_factory_produce_cooldown_seconds'])),
+            'max_single_trade_gold' => max(1000.0, min(1000000000.0, (float) $defaults['anticheat_max_single_trade_gold'])),
+        ];
+    }
+
+    private function enforceActionGuard(int $userId, string $actionKey): array
+    {
+        $cfg = $this->antiCheatConfig();
+        $cooldownByAction = [
+            'work' => (int) $cfg['work_cooldown_seconds'],
+            'battle' => (int) $cfg['battle_cooldown_seconds'],
+            'market_create' => (int) $cfg['market_create_cooldown_seconds'],
+            'market_buy' => (int) $cfg['market_buy_cooldown_seconds'],
+            'factory_produce' => (int) $cfg['factory_produce_cooldown_seconds'],
+        ];
+
+        $cooldown = $cooldownByAction[$actionKey] ?? 0;
+        if ($cooldown <= 0) {
+            return ['ok' => true, 'message' => 'ok'];
+        }
+
+        $stmt = $this->db->prepare('SELECT last_at, strike_count FROM user_action_cooldowns WHERE user_id = :user_id AND action_key = :action_key LIMIT 1');
+        $stmt->execute(['user_id' => $userId, 'action_key' => $actionKey]);
+        $row = $stmt->fetch();
+        $now = new \DateTimeImmutable('now');
+        if ($row) {
+            $lastAt = new \DateTimeImmutable((string) $row['last_at']);
+            $diff = $now->getTimestamp() - $lastAt->getTimestamp();
+            if ($diff < $cooldown) {
+                $strike = (int) $row['strike_count'] + 1;
+                $this->db->prepare('UPDATE user_action_cooldowns SET strike_count = :strike_count, updated_at = NOW() WHERE user_id = :user_id AND action_key = :action_key')
+                    ->execute(['strike_count' => $strike, 'user_id' => $userId, 'action_key' => $actionKey]);
+                $this->logAntiCheatEvent($userId, 'rate_limit.' . $actionKey, $strike >= 3 ? 'medium' : 'low', ['cooldown' => $cooldown, 'diff' => $diff, 'strike' => $strike]);
+                return ['ok' => false, 'message' => 'Çok hızlı işlem yapıyorsun, lütfen birkaç saniye bekle.'];
+            }
+        }
+
+        $this->db->prepare('INSERT INTO user_action_cooldowns (user_id, action_key, last_at, strike_count, updated_at) VALUES (:user_id,:action_key,NOW(),0,NOW())
+            ON DUPLICATE KEY UPDATE last_at = VALUES(last_at), strike_count = 0, updated_at = NOW()')
+            ->execute(['user_id' => $userId, 'action_key' => $actionKey]);
+        return ['ok' => true, 'message' => 'ok'];
+    }
+
+    private function logAntiCheatEvent(int $userId, string $eventKey, string $severity, array $detail = []): void
+    {
+        $stmt = $this->db->prepare('INSERT INTO anti_cheat_events (user_id, event_key, severity, detail_json, created_at) VALUES (:user_id,:event_key,:severity,:detail_json,NOW())');
+        $stmt->execute([
+            'user_id' => $userId,
+            'event_key' => mb_substr($eventKey, 0, 80),
+            'severity' => in_array($severity, ['low', 'medium', 'high'], true) ? $severity : 'low',
+            'detail_json' => !empty($detail) ? json_encode($detail, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
         ]);
     }
 

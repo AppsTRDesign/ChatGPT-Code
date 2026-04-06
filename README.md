@@ -22,11 +22,17 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Global sıralamalar: oyuncu/şehir/ülke leaderboard ekranı.
 - Günlük görevler + başarımlar + ödül claim akışı.
 - Bildirim merkezi: toast + inbox + event feed.
+- API v1 route standardizasyonu (`/api/v1/...`) + legacy `/api/...` uyumluluğu.
+- Mobil odaklı responsive iyileştirmeler (küçük ekran tablo/form/harita optimizasyonu).
+- Ekonomi anti-cheat katmanı: aksiyon cooldown guard + şüpheli işlem logları.
+- Test altyapısı: unit/integration/load scriptleri ve tek komut test suite.
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
 
 ## Endpointler
 - Web: `/`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/admin`
 - API:
+  - `GET /api/v1/state` (önerilen sürüm)
+  - `POST /api/v1/...` (önerilen sürüm)
   - `GET /api/state`
   - `POST /api/action/work`
   - `POST /api/action/battle`
@@ -72,6 +78,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260406_000013_map_worldbuilder.sql`
    - `db/migrations/20260406_000015_border_citizenship_queue.sql`
    - `db/migrations/20260406_000016_rankings_quests_notifications.sql`
+   - `db/migrations/20260406_000017_anticheat_balance_testinfra.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -124,7 +131,18 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 
 - Bildirim sistemi notu: `docs/NOTIFICATIONS_TASK20.md`
 
+- API v1 standardizasyon notu: `docs/API_V1_TASK21.md`
+
+- Mobil UI/UX notu: `docs/MOBILE_UI_TASK22.md`
+
+- Ekonomi anti-cheat notu: `docs/ECONOMY_ANTICHEAT_TASK23.md`
+
+- Test altyapısı notu: `docs/TEST_INFRA_TASK24.md`
+
+- Kalite kapıları notu: `docs/QUALITY_GATES_TASK25.md`
+
 - Test/izleme/canlıya çıkış notu (ileri faz): `docs/RELEASE_MONITORING_TASK15.md`
 
 ## Operasyonel Kontroller
 - Hızlı release kontrol scripti: `scripts/release_checks.sh`
+- Test suite scripti: `scripts/test_suite.sh`

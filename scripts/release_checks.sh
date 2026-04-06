@@ -12,4 +12,7 @@ node --check assets/js/app.js
 echo "[3/3] Migration order sanity"
 rg -n "SOURCE db/migrations/" database.sql
 
+echo "[4/4] Test suite"
+./scripts/test_suite.sh
+
 echo "Release checks completed successfully."

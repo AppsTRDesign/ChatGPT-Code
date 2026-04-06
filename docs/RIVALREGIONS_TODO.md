@@ -199,6 +199,41 @@
 - Dashboard’a bildirim merkezi (Inbox + Event Feed) paneli eklendi.
 - Aksiyon sonrası sistem mesajları hem toast hem inbox/event feed üzerinden görünür hale getirildi.
 
+## 21. Görev Çıktısı (Tamamlandı)
+- API v1 route standardizasyonu tamamlandı (`/api/v1/...`).
+- Legacy `/api/...` endpointleri korunarak geriye uyumluluk sağlandı.
+- Frontend API tüketimi v1 tabanına geçirildi (`apiBase: /api/v1`).
+- Mobil istemci için versiyonlu endpoint stratejisi netleştirildi.
+- README ve endpoint listeleri v1 standardına göre güncellendi.
+
+## 22. Görev Çıktısı (Tamamlandı)
+- Dashboard için mobile-first iyileştirmeler eklendi (form/button hit-area artırımı).
+- Küçük ekranlarda tablo okunabilirliği arttırıldı.
+- Harita yüksekliği mobile breakpoints için optimize edildi.
+- Panel/tablolar için responsive görsel iyileştirmeler eklendi.
+- UI davranışı 576px ve 992px altı ekranlarda optimize edildi.
+
+## 23. Görev Çıktısı (Tamamlandı)
+- Anti-cheat event log tablosu eklendi (`anti_cheat_events`).
+- Aksiyon cooldown tablosu eklendi (`user_action_cooldowns`).
+- Work/battle/market/factory akışlarına hız limiti guard’ları eklendi.
+- Tek işlem trade limit güvenliği eklendi.
+- Anti-cheat ayarları `settings` üzerinden yönetilebilir hale getirildi.
+
+## 24. Görev Çıktısı (Tamamlandı)
+- Unit test altyapısı eklendi (`tests/unit`).
+- Integration test altyapısı eklendi (`tests/integration`).
+- Opsiyonel load check scripti eklendi (`tests/load`).
+- Tek komut test orchestration scripti eklendi (`scripts/test_suite.sh`).
+- Release check scriptine test suite adımı entegre edildi.
+
+## 25. Görev Çıktısı (Tamamlandı)
+- Kalite kapıları (quality gates) test/release akışına bağlandı.
+- Test suite + release checks ile CI uyumlu komut seti oluşturuldu.
+- Dokümantasyonda kalite süreci ve komutları netleştirildi.
+- Görev tablosuna 25. adım resmi olarak eklendi.
+- Sonraki faz için Node/socket görevlerine geçiş noktası sabitlendi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -220,14 +255,15 @@
 18.) Görev: ~~Top şehir sistemi ve global sıralamalar~~ ✅
 19.) Görev: ~~Görevler, başarımlar, günlük görev sistemi~~ ✅
 20.) Görev: ~~Bildirim sistemi (toast + inbox + event feed)~~ ✅
-21.) Görev: API v1 standardizasyonu (mobil hazır)
-22.) Görev: Frontend UI/UX full mobil optimizasyon
-23.) Görev: Ekonomi balans ve anti-cheat katmanı
-24.) Görev: Test altyapısı (unit + integration + load)
+21.) Görev: ~~API v1 standardizasyonu (mobil hazır)~~ ✅
+22.) Görev: ~~Frontend UI/UX full mobil optimizasyon~~ ✅
+23.) Görev: ~~Ekonomi balans ve anti-cheat katmanı~~ ✅
+24.) Görev: ~~Test altyapısı (unit + integration + load)~~ ✅
+25.) Görev: ~~Kalite kapıları / CI-ready test-release akışı~~ ✅
 26.) Görev: Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)
 27.) Görev: Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler
 28.) Görev: Canlıya çıkış ve operasyon planı
 
 ---
 
-**Sonraki adım önerisi:** 21. göreve geçelim (API v1 standardizasyonu ve endpoint versiyonlama).
+**Sonraki adım önerisi:** 26. göreve geçelim (Gezgin Tüccar Sistemi - Node.js anlık toast bildirim).
