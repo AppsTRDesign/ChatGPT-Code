@@ -128,8 +128,34 @@ $travelPolicies = $state['travel_policies'] ?? [];
     <section class="card panel mt-3">
         <div class="card-body">
             <h2 class="h5">Dünya Haritası</h2>
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label small text-secondary mb-1" for="mapLayerSelect">Katman</label>
+                    <select id="mapLayerSelect" class="form-select form-select-sm">
+                        <option value="none">Katman kapalı</option>
+                        <option value="influence">Nüfuz</option>
+                        <option value="population">Oyuncu yoğunluğu</option>
+                        <option value="resource_total_yield">Toplam günlük üretim</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-secondary mb-1" for="mapMarkerFilter">İşaret filtresi</label>
+                    <select id="mapMarkerFilter" class="form-select form-select-sm">
+                        <option value="all">Tümü</option>
+                        <option value="city">Şehirler</option>
+                        <option value="poi">POI noktaları</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-secondary mb-1">Lejant</label>
+                    <div id="mapLegend" class="map-legend">Katman verisi yükleniyor...</div>
+                </div>
+            </div>
             <div id="worldMap" style="height:380px"></div>
             <small class="text-secondary">Ulus oyuncu sayısı: <?= (int) $nation['player_count'] ?> • Ortalama şehir skoru: <?= htmlspecialchars((string) $nation['avg_city_score'], ENT_QUOTES, 'UTF-8') ?></small>
+            <div id="mapCountryDetail" class="map-country-detail mt-2">
+                Haritadan bir ülkeye tıklayarak detayları görüntüleyin.
+            </div>
         </div>
     </section>
     <section class="card panel mt-3">

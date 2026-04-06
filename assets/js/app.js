@@ -353,6 +353,23 @@
         document.head.appendChild(script);
     });
 
+    const colorByRatio = (ratio) => {
+        const clamped = Math.max(0, Math.min(1, ratio));
+        const red = Math.round(33 + (clamped * 185));
+        const green = Math.round(180 - (clamped * 100));
+        const blue = Math.round(255 - (clamped * 175));
+        return `rgb(${red}, ${green}, ${blue})`;
+    };
+
+    const aggregateResourceYield = (rows) => {
+        const sum = {};
+        rows.forEach((row) => {
+            const code = String(row.code || '').toUpperCase();
+            sum[code] = (sum[code] || 0) + Number(row.daily_yield || 0);
+        });
+        return sum;
+    };
+
     const initMap = async () => {
         const mapElement = document.getElementById('worldMap');
         if (!mapElement) return;
@@ -367,41 +384,179 @@
                 return;
             }
 
-            const cityMarkers = (bootstrapData.map?.cities || []).map((city) => ({
+            const mapCities = bootstrapData.map?.cities || [];
+            const mapPois = bootstrapData.map?.pois || [];
+            const countryRows = bootstrapData.countries || [];
+            const layerRows = bootstrapData.map?.layers || [];
+            const resourceRows = bootstrapData.map?.country_resources || [];
+
+            const cityMarkers = mapCities.map((city) => ({
                 name: `${city.country_name} / ${city.name} (${city.player_count})`,
                 coords: [Number(city.lat), Number(city.lng)],
+                type: 'city',
+                countryCode: String(city.country_code || '').toUpperCase(),
             }));
 
-            const poiMarkers = (bootstrapData.map?.pois || []).map((poi) => ({
+            const poiMarkers = mapPois.map((poi) => ({
                 name: `${poi.country_name} / ${poi.city_name} - ${poi.title}`,
                 coords: [Number(poi.lat), Number(poi.lng)],
+                type: 'poi',
+                countryCode: String(poi.country_code || '').toUpperCase(),
             }));
-            const markers = [...cityMarkers, ...poiMarkers];
+            const allMarkers = [...cityMarkers, ...poiMarkers];
+            const mapLayerSelect = document.getElementById('mapLayerSelect');
+            const markerFilterSelect = document.getElementById('mapMarkerFilter');
+            const mapLegend = document.getElementById('mapLegend');
+            const mapCountryDetail = document.getElementById('mapCountryDetail');
+            const userCountryCode = String(bootstrapData.user?.country_code || '').toUpperCase();
 
-            const layerRows = bootstrapData.map?.layers || [];
-            const layerKey = 'influence';
-            const values = {};
-            const scale = {};
-            layerRows.filter((row) => row.layer_key === layerKey).forEach((row) => {
-                values[row.country_code] = Number(row.intensity || 1);
-                scale[Number(row.intensity || 1)] = row.color_hex || '#0d6efd';
+            const populationValues = {};
+            countryRows.forEach((row) => {
+                const code = String(row.code || '').toUpperCase();
+                populationValues[code] = Number(row.player_count || 0);
             });
 
-            new window.jsVectorMap({
+            const resourceYieldValues = aggregateResourceYield(resourceRows);
+
+            const getLayerData = (layerKey) => {
+                if (layerKey === 'none') {
+                    return { values: {}, scale: {}, legend: 'Katman kapalı.' };
+                }
+
+                if (layerKey === 'population') {
+                    const values = { ...populationValues };
+                    const max = Math.max(1, ...Object.values(values));
+                    const scale = {};
+                    Object.values(values).forEach((v) => {
+                        scale[v] = colorByRatio(v / max);
+                    });
+                    return { values, scale, legend: 'Oyuncu yoğunluğu katmanı: açık ton daha fazla oyuncu.' };
+                }
+
+                if (layerKey === 'resource_total_yield') {
+                    const values = { ...resourceYieldValues };
+                    const max = Math.max(1, ...Object.values(values));
+                    const scale = {};
+                    Object.values(values).forEach((v) => {
+                        scale[v] = colorByRatio(v / max);
+                    });
+                    return { values, scale, legend: 'Toplam günlük üretim katmanı: açık ton daha yüksek üretim.' };
+                }
+
+                const values = {};
+                const scale = {};
+                layerRows
+                    .filter((row) => row.layer_key === layerKey)
+                    .forEach((row) => {
+                        const code = String(row.country_code || '').toUpperCase();
+                        const intensity = Number(row.intensity || 1);
+                        values[code] = intensity;
+                        scale[intensity] = row.color_hex || '#0d6efd';
+                    });
+                return { values, scale, legend: `${layerKey} katmanı aktif.` };
+            };
+
+            const renderCountryDetail = (code) => {
+                if (!mapCountryDetail) return;
+                const normalizedCode = String(code || '').toUpperCase();
+                if (!normalizedCode) {
+                    mapCountryDetail.textContent = 'Haritadan bir ülkeye tıklayarak detayları görüntüleyin.';
+                    return;
+                }
+
+                const country = countryRows.find((c) => String(c.code || '').toUpperCase() === normalizedCode);
+                const countryCities = mapCities.filter((c) => String(c.country_code || '').toUpperCase() === normalizedCode);
+                const countryPois = mapPois.filter((p) => String(p.country_code || '').toUpperCase() === normalizedCode);
+                const totalYield = Object.entries(resourceYieldValues)
+                    .filter(([countryCode]) => countryCode === normalizedCode)
+                    .reduce((sum, [, value]) => sum + Number(value || 0), 0);
+
+                if (!country) {
+                    mapCountryDetail.textContent = `${normalizedCode} kodlu ülke için kayıtlı veri bulunamadı.`;
+                    return;
+                }
+
+                const topCities = [...countryCities]
+                    .sort((a, b) => Number(b.player_count || 0) - Number(a.player_count || 0))
+                    .slice(0, 3)
+                    .map((c) => `${c.name} (${Number(c.player_count || 0)})`)
+                    .join(', ') || '-';
+
+                mapCountryDetail.innerHTML = `
+                    <strong>${country.flag_emoji || '🏳️'} ${country.name}</strong>
+                    <div class="small text-secondary">
+                        Oyuncu: ${Number(country.player_count || 0).toLocaleString('tr-TR')} •
+                        Şehir: ${countryCities.length} •
+                        POI: ${countryPois.length} •
+                        Günlük üretim: ${Number(totalYield).toLocaleString('tr-TR')}
+                    </div>
+                    <div class="small mt-1"><strong>Aktif şehirler:</strong> ${topCities}</div>
+                `;
+            };
+
+            const vectorMap = new window.jsVectorMap({
                 selector: '#worldMap',
                 map: 'world',
-                markers,
+                markers: allMarkers,
                 series: {
                     regions: [{
-                        values,
-                        scale,
+                        values: {},
+                        scale: {},
                         normalizeFunction: 'polynomial',
                     }],
                 },
                 markerStyle: {
                     initial: { r: 5, fill: '#0d6efd', stroke: '#fff', strokeWidth: 1 },
                 },
+                onRegionTipShow: (_, tooltip, code) => {
+                    const country = countryRows.find((c) => String(c.code || '').toUpperCase() === String(code).toUpperCase());
+                    if (!country) return;
+                    tooltip.html(`${country.flag_emoji || ''} ${country.name}<br>Oyuncu: ${Number(country.player_count || 0).toLocaleString('tr-TR')}`);
+                },
+                onRegionClick: (_, code) => {
+                    renderCountryDetail(code);
+                },
+                onMarkerTipShow: (_, tooltip, index) => {
+                    const marker = allMarkers[index];
+                    if (!marker) return;
+                    const typeText = marker.type === 'poi' ? 'POI' : 'Şehir';
+                    tooltip.html(`${typeText}: ${marker.name}`);
+                },
             });
+
+            const applyLayer = (layerKey) => {
+                const data = getLayerData(layerKey);
+                vectorMap.series.regions[0].setValues(data.values);
+                vectorMap.series.regions[0].setScale(data.scale);
+                if (mapLegend) mapLegend.textContent = data.legend;
+            };
+
+            const applyMarkerFilter = (filter) => {
+                if (filter === 'all') {
+                    vectorMap.removeMarkers();
+                    vectorMap.addMarkers(allMarkers);
+                    return;
+                }
+                const filtered = allMarkers.filter((m) => m.type === filter);
+                vectorMap.removeMarkers();
+                vectorMap.addMarkers(filtered);
+            };
+
+            if (mapLayerSelect) {
+                mapLayerSelect.addEventListener('change', (event) => {
+                    applyLayer(event.target.value || 'none');
+                });
+            }
+            if (markerFilterSelect) {
+                markerFilterSelect.addEventListener('change', (event) => {
+                    applyMarkerFilter(event.target.value || 'all');
+                });
+            }
+
+            const defaultLayer = mapLayerSelect?.value || 'none';
+            applyLayer(defaultLayer);
+            applyMarkerFilter(markerFilterSelect?.value || 'all');
+            renderCountryDetail(userCountryCode);
         } catch (error) {
             console.warn('Map library yüklenemedi:', error);
         }

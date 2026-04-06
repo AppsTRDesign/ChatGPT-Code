@@ -164,6 +164,13 @@
 - Süre dolunca otomatik ülkeye dönüş için border event queue altyapısı eklendi.
 - Dashboard’a vatandaşlık ve ihlal görünürlüğü eklendi.
 
+## 16. Görev Çıktısı (Tamamlandı)
+- Dünya haritası etkileşimli hale getirildi (ülke tıklama, tooltip, detay paneli).
+- Haritaya katman seçici eklendi (`influence`, `population`, `resource_total_yield`).
+- Şehir/POI marker filtreleme eklendi.
+- Seçilen ülke için oyuncu/şehir/POI/üretim özeti eklendi.
+- Harita lejantı aktif katmana göre dinamik güncellenir hale getirildi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -180,7 +187,7 @@
 13.) Görev: ~~Oturum/geçiş izin sistemi~~ ✅
 14.) Görev: ~~Harita modülü genişletme + world builder~~ ✅
 15.) Görev: ~~Oturum izni / vatandaşlık / sınır geçiş sistemi~~ ✅
-16.) Görev: Dünya haritası modülü (interaktif)
+16.) Görev: ~~Dünya haritası modülü (interaktif)~~ ✅
 17.) Görev: Admin World Builder (ülke/şehir/kaynak ekleme paneli)
 18.) Görev: Top şehir sistemi ve global sıralamalar
 19.) Görev: Görevler, başarımlar, günlük görev sistemi
@@ -195,4 +202,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 16. göreve geçelim (Dünya haritası modülü interaktif).
+**Sonraki adım önerisi:** 17. göreve geçelim (Admin World Builder kapsamını CRUD + doğrulama + import/export ile derinleştirelim).
