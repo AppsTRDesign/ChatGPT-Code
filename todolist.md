@@ -41,11 +41,11 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~city detail API~~
    - ~~istatistik/ranking endpointleri~~
 
-7. PHASE 7: TRAVEL ENGINE
-   - Haversine mesafe
-   - süre hesaplama
-   - vize/work permit kontrolü
-   - seyahat progress akışı
+7. ~~PHASE 7: TRAVEL ENGINE~~
+   - ~~Haversine mesafe~~
+   - ~~süre hesaplama~~
+   - ~~vize/work permit kontrolü~~
+   - ~~seyahat progress akışı~~
 
 8. PHASE 8: GOVERNOR / CITY DEVELOPMENT
    - governor rol yönetimi

@@ -60,7 +60,7 @@ export default function MapPage() {
             <li><Link to="/dashboard" className="text-cyan-400">Dashboard</Link></li>
             <li>Map</li>
             <li>Politics</li>
-            <li>Travel</li>
+            <li><Link to="/travel" className="text-cyan-400">Travel</Link></li>
             <li>War</li>
           </ul>
         </aside>

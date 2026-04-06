@@ -4,6 +4,7 @@ import DashboardPage from '../../pages/dashboard/DashboardPage';
 import MapPage from '../../pages/map/MapPage';
 import CountryPage from '../../pages/country/CountryPage';
 import CityPage from '../../pages/city/CityPage';
+import TravelPage from '../../pages/travel/TravelPage';
 
 export default function AppRoutes() {
   return (
@@ -12,6 +13,7 @@ export default function AppRoutes() {
       <Route path="/map" element={<MapPage />} />
       <Route path="/country/:countryCode" element={<CountryPage />} />
       <Route path="/city/:countryCode/:cityName" element={<CityPage />} />
+      <Route path="/travel" element={<TravelPage />} />
       <Route path="*" element={<Navigate to="/map" replace />} />
     </Routes>
   );
