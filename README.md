@@ -19,6 +19,9 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Harita modülü genişletme: katman (layer) ve şehir POI tabanlı world builder desteği.
 - Dünya haritası (jsVectorMap) interaktif: katman seçimi, ülke detay paneli, şehir/POI filtreleri.
 - Admin panelden world builder: ülke/şehir/kaynak/layer/POI CRUD + JSON import/export.
+- Global sıralamalar: oyuncu/şehir/ülke leaderboard ekranı.
+- Günlük görevler + başarımlar + ödül claim akışı.
+- Bildirim merkezi: toast + inbox + event feed.
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
 
 ## Endpointler
@@ -46,6 +49,8 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
   - `POST /api/travel/move`
   - `POST /api/travel/request-citizenship`
   - `POST /api/travel/citizenship-decision`
+  - `POST /api/quest/claim`
+  - `POST /api/notification/read`
   - `GET /health` (operasyonel sağlık endpointi)
 
 ## Kurulum
@@ -66,6 +71,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260406_000012_travel_permits.sql`
    - `db/migrations/20260406_000013_map_worldbuilder.sql`
    - `db/migrations/20260406_000015_border_citizenship_queue.sql`
+   - `db/migrations/20260406_000016_rankings_quests_notifications.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -111,6 +117,12 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - İnteraktif dünya haritası notu: `docs/WORLD_MAP_INTERACTIVE_TASK16.md`
 
 - Admin world builder genişletme notu: `docs/ADMIN_WORLDBUILDER_TASK17.md`
+
+- Sıralamalar notu: `docs/RANKINGS_TASK18.md`
+
+- Görev/başarım notu: `docs/QUESTS_ACHIEVEMENTS_TASK19.md`
+
+- Bildirim sistemi notu: `docs/NOTIFICATIONS_TASK20.md`
 
 - Test/izleme/canlıya çıkış notu (ileri faz): `docs/RELEASE_MONITORING_TASK15.md`
 

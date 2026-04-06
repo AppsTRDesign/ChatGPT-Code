@@ -22,6 +22,11 @@ $myPermissions = $state['my_permissions'] ?? [];
 $travelPermits = $state['travel_permits'] ?? [];
 $citizenshipRequests = $state['citizenship_requests'] ?? [];
 $travelPolicies = $state['travel_policies'] ?? [];
+$rankings = $state['rankings'] ?? ['players' => [], 'cities' => [], 'countries' => []];
+$dailyQuests = $state['daily_quests'] ?? [];
+$achievements = $state['achievements'] ?? [];
+$notifications = $state['notifications'] ?? [];
+$eventFeed = $state['event_feed'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -176,6 +181,92 @@ $travelPolicies = $state['travel_policies'] ?? [];
                     <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Global Sıralamalar</h2>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <h3 class="h6">Oyuncular</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>#</th><th>Oyuncu</th><th>Lv</th><th>XP</th><th>War</th></tr></thead><tbody id="rankingPlayerTable">
+                    <?php foreach (($rankings['players'] ?? []) as $i => $p): ?>
+                        <tr><td>#<?= (int) ($i + 1) ?></td><td><?= htmlspecialchars($p['username'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $p['level'] ?></td><td><?= (int) $p['experience'] ?></td><td><?= (int) $p['war_power'] ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-4">
+                    <h3 class="h6">Şehirler</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>#</th><th>Şehir</th><th>Skor</th><th>Oyuncu</th></tr></thead><tbody id="rankingCityTable">
+                    <?php foreach (($rankings['cities'] ?? []) as $i => $c): ?>
+                        <tr><td>#<?= (int) ($i + 1) ?></td><td><?= htmlspecialchars($c['country_name'] . ' / ' . $c['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $c['score'] ?></td><td><?= (int) $c['player_count'] ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-4">
+                    <h3 class="h6">Ülkeler</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>#</th><th>Ülke</th><th>Oyuncu</th><th>Ort. Skor</th></tr></thead><tbody id="rankingCountryTable">
+                    <?php foreach (($rankings['countries'] ?? []) as $i => $c): ?>
+                        <tr><td>#<?= (int) ($i + 1) ?></td><td><?= htmlspecialchars(($c['flag_emoji'] ?? '') . ' ' . $c['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $c['player_count'] ?></td><td><?= htmlspecialchars(number_format((float) $c['avg_city_score'], 2, ',', '.'), ENT_QUOTES, 'UTF-8') ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Görevler & Başarımlar</h2>
+            <div class="row g-3">
+                <div class="col-lg-7">
+                    <h3 class="h6">Günlük Görevler</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Görev</th><th>İlerleme</th><th>Ödül</th><th>Durum</th><th></th></tr></thead><tbody id="dailyQuestTable">
+                    <?php foreach ($dailyQuests as $q): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($q['title'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= (int) $q['progress_value'] ?> / <?= (int) $q['target_value'] ?></td>
+                            <td><?= number_format((float) $q['reward_gold'], 2, ',', '.') ?> + <?= (int) $q['reward_xp'] ?> XP</td>
+                            <td><?= htmlspecialchars($q['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?php if (($q['status'] ?? '') === 'completed'): ?><button class="btn btn-sm btn-success action-btn" data-action="quest-claim" data-quest-id="<?= (int) $q['id'] ?>">Ödülü Al</button><?php endif; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-5">
+                    <h3 class="h6">Başarımlar</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Başarım</th><th>Hedef</th><th>Ödül</th><th>Durum</th></tr></thead><tbody id="achievementTable">
+                    <?php foreach ($achievements as $a): ?>
+                        <tr><td><?= htmlspecialchars($a['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($a['description'], ENT_QUOTES, 'UTF-8') ?></td><td><?= number_format((float) $a['reward_gold'], 2, ',', '.') ?> + <?= (int) $a['reward_xp'] ?> XP</td><td><?= (int) ($a['unlocked'] ?? 0) === 1 ? 'Açıldı' : 'Kilitli' ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Bildirim Merkezi (Inbox + Event Feed)</h2>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <h3 class="h6">Inbox</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Zaman</th><th>Başlık</th><th>Mesaj</th><th></th></tr></thead><tbody id="notificationTable">
+                    <?php foreach ($notifications as $n): ?>
+                        <tr><td><?= htmlspecialchars($n['created_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($n['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($n['body'], ENT_QUOTES, 'UTF-8') ?></td><td><?php if ((int) ($n['is_read'] ?? 0) === 0): ?><button class="btn btn-sm btn-outline-info action-btn" data-action="notification-read" data-notification-id="<?= (int) $n['id'] ?>">Okundu</button><?php else: ?>Okundu<?php endif; ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Event Feed</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Zaman</th><th>Tip</th><th>Başlık</th><th>Detay</th></tr></thead><tbody id="eventFeedTable">
+                    <?php foreach ($eventFeed as $event): ?>
+                        <tr><td><?= htmlspecialchars($event['created_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($event['event_type'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($event['body'], ENT_QUOTES, 'UTF-8') ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
             </div>
         </div>
     </section>

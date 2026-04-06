@@ -61,6 +61,8 @@ $router->post('/api/travel/permit-decision', [$apiController, 'travelPermitDecis
 $router->post('/api/travel/move', [$apiController, 'travelMove']);
 $router->post('/api/travel/request-citizenship', [$apiController, 'travelRequestCitizenship']);
 $router->post('/api/travel/citizenship-decision', [$apiController, 'travelCitizenshipDecision']);
+$router->post('/api/quest/claim', [$apiController, 'claimDailyQuest']);
+$router->post('/api/notification/read', [$apiController, 'markNotificationRead']);
 
 $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);

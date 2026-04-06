@@ -149,6 +149,9 @@ final class GameService
         $this->closeExpiredElections((int) $user['country_id']);
         $this->closeExpiredLaws((int) $user['country_id']);
         $this->processBorderQueue();
+        $this->ensureDailyQuests($userId);
+        $this->refreshDailyQuestProgress($userId, $user);
+        $this->refreshAchievementUnlocks($userId, $user);
 
         return [
             'user' => $user,
@@ -176,6 +179,11 @@ final class GameService
             'citizenship_requests' => $this->userCitizenshipRequests($userId),
             'travel_policies' => $this->travelPolicies(),
             'top_city' => $this->topCity(),
+            'rankings' => $this->globalRankings(),
+            'daily_quests' => $this->dailyQuestSnapshot($userId),
+            'achievements' => $this->achievementSnapshot($userId),
+            'notifications' => $this->userNotifications($userId),
+            'event_feed' => $this->globalEventFeed((int) $user['country_id']),
         ];
     }
 
@@ -1930,6 +1938,221 @@ final class GameService
             FROM cities ci JOIN countries c ON c.id = ci.country_id
             ORDER BY score DESC, ci.base_population DESC LIMIT 1');
         return $stmt->fetch() ?: null;
+    }
+
+    public function globalRankings(): array
+    {
+        $players = $this->db->query('SELECT id, username, level, experience, war_power, gold FROM users ORDER BY level DESC, experience DESC, war_power DESC LIMIT 20')->fetchAll() ?: [];
+        $cities = $this->db->query('SELECT ci.id, ci.name, c.name AS country_name,
+            (ci.airport_level + ci.industry_level + ci.education_level + ci.army_level + ci.port_level + ci.space_level) AS score,
+            (SELECT COUNT(*) FROM users u WHERE u.city_id = ci.id) AS player_count
+            FROM cities ci
+            JOIN countries c ON c.id = ci.country_id
+            WHERE ci.is_active = 1
+            ORDER BY score DESC, player_count DESC, ci.base_population DESC
+            LIMIT 20')->fetchAll() ?: [];
+        $countries = $this->db->query('SELECT c.id, c.name, c.flag_emoji,
+            COUNT(u.id) AS player_count,
+            COALESCE(AVG(ci.airport_level + ci.industry_level + ci.education_level + ci.army_level + ci.port_level + ci.space_level), 0) AS avg_city_score
+            FROM countries c
+            LEFT JOIN users u ON u.country_id = c.id
+            LEFT JOIN cities ci ON ci.country_id = c.id AND ci.is_active = 1
+            WHERE c.is_active = 1
+            GROUP BY c.id, c.name, c.flag_emoji
+            ORDER BY player_count DESC, avg_city_score DESC
+            LIMIT 20')->fetchAll() ?: [];
+
+        return ['players' => $players, 'cities' => $cities, 'countries' => $countries];
+    }
+
+    public function dailyQuestSnapshot(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT udq.id, udq.status, udq.target_value, udq.progress_value, udq.reward_gold, udq.reward_xp, udq.quest_date,
+            dqt.quest_key, dqt.title, dqt.description, dqt.metric_key
+            FROM user_daily_quests udq
+            JOIN daily_quest_templates dqt ON dqt.id = udq.quest_template_id
+            WHERE udq.user_id = :user_id AND udq.quest_date = CURDATE()
+            ORDER BY udq.id');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function achievementSnapshot(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT a.id, a.title, a.description, a.metric_key, a.target_value, a.reward_gold, a.reward_xp,
+            ua.unlocked_at,
+            CASE WHEN ua.id IS NULL THEN 0 ELSE 1 END AS unlocked
+            FROM achievements a
+            LEFT JOIN user_achievements ua ON ua.achievement_id = a.id AND ua.user_id = :user_id
+            WHERE a.is_active = 1
+            ORDER BY a.id');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function userNotifications(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT id, type_key, title, body, is_read, created_at FROM user_notifications WHERE user_id = :user_id ORDER BY id DESC LIMIT 40');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function globalEventFeed(int $countryId): array
+    {
+        $stmt = $this->db->prepare('SELECT ef.id, ef.event_type, ef.title, ef.body, ef.created_at, c.name AS country_name
+            FROM event_feed ef
+            LEFT JOIN countries c ON c.id = ef.country_id
+            WHERE ef.country_id IS NULL OR ef.country_id = :country_id
+            ORDER BY ef.id DESC
+            LIMIT 50');
+        $stmt->execute(['country_id' => $countryId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function claimDailyQuest(int $userId, int $questId): array
+    {
+        if ($questId <= 0) {
+            return ['ok' => false, 'message' => 'Görev bulunamadı.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare('SELECT * FROM user_daily_quests WHERE id = :id AND user_id = :user_id AND quest_date = CURDATE() LIMIT 1 FOR UPDATE');
+            $stmt->execute(['id' => $questId, 'user_id' => $userId]);
+            $quest = $stmt->fetch();
+            if (!$quest) {
+                throw new \RuntimeException('Görev bulunamadı.');
+            }
+            if ($quest['status'] === 'claimed') {
+                throw new \RuntimeException('Görev ödülü zaten alındı.');
+            }
+            if ((int) $quest['progress_value'] < (int) $quest['target_value']) {
+                throw new \RuntimeException('Görev henüz tamamlanmadı.');
+            }
+
+            $rewardGold = (float) $quest['reward_gold'];
+            $rewardXp = (int) $quest['reward_xp'];
+            $this->db->prepare('UPDATE users SET gold = gold + :gold, experience = experience + :xp WHERE id = :id')->execute([
+                'gold' => $rewardGold,
+                'xp' => $rewardXp,
+                'id' => $userId,
+            ]);
+            $this->db->prepare('UPDATE user_daily_quests SET status = "claimed", claimed_at = NOW(), updated_at = NOW() WHERE id = :id')->execute(['id' => $questId]);
+            $this->createNotification($userId, 'daily_quest', 'Günlük görev ödülü', 'Görev ödülünü aldın: +' . number_format($rewardGold, 2, '.', '') . ' gold, +' . $rewardXp . ' XP');
+            $this->createEventFeed(null, $userId, 'daily_quest.claimed', 'Günlük görev tamamlandı', 'Oyuncu #' . $userId . ' günlük görev ödülünü aldı.');
+            $this->autoLevelUp($userId);
+            $this->db->commit();
+
+            return ['ok' => true, 'message' => 'Görev ödülü alındı.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Görev ödülü alınamadı.'];
+        }
+    }
+
+    public function markNotificationRead(int $userId, int $notificationId): array
+    {
+        if ($notificationId <= 0) {
+            return ['ok' => false, 'message' => 'Bildirim bulunamadı.'];
+        }
+
+        $stmt = $this->db->prepare('UPDATE user_notifications SET is_read = 1, read_at = NOW() WHERE id = :id AND user_id = :user_id');
+        $stmt->execute(['id' => $notificationId, 'user_id' => $userId]);
+        return ['ok' => true, 'message' => 'Bildirim okundu.'];
+    }
+
+    private function ensureDailyQuests(int $userId): void
+    {
+        $tplRows = $this->db->query('SELECT * FROM daily_quest_templates WHERE is_active = 1 ORDER BY id')->fetchAll() ?: [];
+        foreach ($tplRows as $tpl) {
+            $target = random_int((int) $tpl['target_min'], max((int) $tpl['target_min'], (int) $tpl['target_max']));
+            $rewardGold = random_int((int) ((float) $tpl['reward_gold_min'] * 100), max((int) ((float) $tpl['reward_gold_min'] * 100), (int) ((float) $tpl['reward_gold_max'] * 100))) / 100;
+            $rewardXp = random_int((int) $tpl['reward_xp_min'], max((int) $tpl['reward_xp_min'], (int) $tpl['reward_xp_max']));
+            $stmt = $this->db->prepare('INSERT INTO user_daily_quests (user_id, quest_template_id, quest_date, status, target_value, reward_gold, reward_xp, created_at, updated_at)
+                VALUES (:user_id,:quest_template_id,CURDATE(),"active",:target_value,:reward_gold,:reward_xp,NOW(),NOW())
+                ON DUPLICATE KEY UPDATE updated_at = updated_at');
+            $stmt->execute([
+                'user_id' => $userId,
+                'quest_template_id' => $tpl['id'],
+                'target_value' => $target,
+                'reward_gold' => $rewardGold,
+                'reward_xp' => $rewardXp,
+            ]);
+        }
+    }
+
+    private function refreshDailyQuestProgress(int $userId, array $user): void
+    {
+        $quests = $this->dailyQuestSnapshot($userId);
+        foreach ($quests as $quest) {
+            if (($quest['status'] ?? 'active') === 'claimed') {
+                continue;
+            }
+
+            $progress = $this->metricValue((string) ($quest['metric_key'] ?? ''), $user);
+            $status = $progress >= (int) $quest['target_value'] ? 'completed' : 'active';
+            $stmt = $this->db->prepare('UPDATE user_daily_quests SET progress_value = :progress, status = :status, updated_at = NOW() WHERE id = :id');
+            $stmt->execute(['progress' => $progress, 'status' => $status, 'id' => $quest['id']]);
+        }
+    }
+
+    private function refreshAchievementUnlocks(int $userId, array $user): void
+    {
+        $rows = $this->db->query('SELECT * FROM achievements WHERE is_active = 1 ORDER BY id')->fetchAll() ?: [];
+        foreach ($rows as $achievement) {
+            $metricValue = $this->metricValue((string) $achievement['metric_key'], $user);
+            if ($metricValue < (int) $achievement['target_value']) {
+                continue;
+            }
+
+            $stmt = $this->db->prepare('INSERT IGNORE INTO user_achievements (user_id, achievement_id, unlocked_at) VALUES (:user_id,:achievement_id,NOW())');
+            $stmt->execute(['user_id' => $userId, 'achievement_id' => $achievement['id']]);
+            if ($stmt->rowCount() < 1) {
+                continue;
+            }
+
+            $this->db->prepare('UPDATE users SET gold = gold + :gold, experience = experience + :xp WHERE id = :id')->execute([
+                'gold' => (float) $achievement['reward_gold'],
+                'xp' => (int) $achievement['reward_xp'],
+                'id' => $userId,
+            ]);
+            $this->createNotification($userId, 'achievement', 'Başarım açıldı: ' . $achievement['title'], $achievement['description']);
+            $this->createEventFeed((int) ($user['country_id'] ?? 0), $userId, 'achievement.unlocked', 'Yeni başarım', 'Oyuncu #' . $userId . ': ' . $achievement['title']);
+        }
+    }
+
+    private function metricValue(string $metricKey, array $user): int
+    {
+        return match ($metricKey) {
+            'level' => (int) ($user['level'] ?? 0),
+            'gold' => (int) floor((float) ($user['gold'] ?? 0)),
+            'war_power' => (int) ($user['war_power'] ?? 0),
+            'experience' => (int) ($user['experience'] ?? 0),
+            default => 0,
+        };
+    }
+
+    private function createNotification(int $userId, string $typeKey, string $title, string $body): void
+    {
+        $stmt = $this->db->prepare('INSERT INTO user_notifications (user_id, type_key, title, body, is_read, created_at) VALUES (:user_id,:type_key,:title,:body,0,NOW())');
+        $stmt->execute([
+            'user_id' => $userId,
+            'type_key' => $typeKey,
+            'title' => mb_substr($title, 0, 160),
+            'body' => mb_substr($body, 0, 500),
+        ]);
+    }
+
+    private function createEventFeed(?int $countryId, ?int $actorUserId, string $eventType, string $title, string $body): void
+    {
+        $stmt = $this->db->prepare('INSERT INTO event_feed (country_id, actor_user_id, event_type, title, body, created_at) VALUES (:country_id,:actor_user_id,:event_type,:title,:body,NOW())');
+        $stmt->execute([
+            'country_id' => $countryId > 0 ? $countryId : null,
+            'actor_user_id' => $actorUserId > 0 ? $actorUserId : null,
+            'event_type' => mb_substr($eventType, 0, 80),
+            'title' => mb_substr($title, 0, 160),
+            'body' => mb_substr($body, 0, 500),
+        ]);
     }
 
     public function autoLevelUp(int $userId): void

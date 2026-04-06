@@ -322,4 +322,28 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function claimDailyQuest(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $questId = (int) ($_POST['quest_id'] ?? 0);
+        $result = (new GameService())->claimDailyQuest($userId, $questId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function markNotificationRead(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $notificationId = (int) ($_POST['notification_id'] ?? 0);
+        $result = (new GameService())->markNotificationRead($userId, $notificationId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }

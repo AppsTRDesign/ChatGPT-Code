@@ -176,6 +176,81 @@
         `).join('');
     };
 
+    const renderRankings = (data) => {
+        const playerBody = document.getElementById('rankingPlayerTable');
+        const cityBody = document.getElementById('rankingCityTable');
+        const countryBody = document.getElementById('rankingCountryTable');
+        if (playerBody) {
+            playerBody.innerHTML = (data?.players || []).map((p, i) => `
+                <tr><td>#${i + 1}</td><td>${p.username}</td><td>${Number(p.level).toLocaleString('tr-TR')}</td><td>${Number(p.experience).toLocaleString('tr-TR')}</td><td>${Number(p.war_power).toLocaleString('tr-TR')}</td></tr>
+            `).join('');
+        }
+        if (cityBody) {
+            cityBody.innerHTML = (data?.cities || []).map((c, i) => `
+                <tr><td>#${i + 1}</td><td>${c.country_name} / ${c.name}</td><td>${Number(c.score).toLocaleString('tr-TR')}</td><td>${Number(c.player_count).toLocaleString('tr-TR')}</td></tr>
+            `).join('');
+        }
+        if (countryBody) {
+            countryBody.innerHTML = (data?.countries || []).map((c, i) => `
+                <tr><td>#${i + 1}</td><td>${c.flag_emoji || ''} ${c.name}</td><td>${Number(c.player_count).toLocaleString('tr-TR')}</td><td>${Number(c.avg_city_score || 0).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</td></tr>
+            `).join('');
+        }
+    };
+
+    const renderDailyQuests = (rows) => {
+        const tbody = document.getElementById('dailyQuestTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((q) => `
+            <tr>
+                <td>${q.title}</td>
+                <td>${Number(q.progress_value).toLocaleString('tr-TR')} / ${Number(q.target_value).toLocaleString('tr-TR')}</td>
+                <td>${Number(q.reward_gold).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + ${Number(q.reward_xp).toLocaleString('tr-TR')} XP</td>
+                <td>${q.status}</td>
+                <td>${q.status === 'completed' ? `<button class="btn btn-sm btn-success action-btn" data-action="quest-claim" data-quest-id="${q.id}">Ödülü Al</button>` : '-'}</td>
+            </tr>
+        `).join('');
+    };
+
+    const renderAchievements = (rows) => {
+        const tbody = document.getElementById('achievementTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((a) => `
+            <tr>
+                <td>${a.title}</td>
+                <td>${a.description}</td>
+                <td>${a.target_value}</td>
+                <td>${Number(a.reward_gold).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} + ${Number(a.reward_xp).toLocaleString('tr-TR')} XP</td>
+                <td>${Number(a.unlocked) === 1 ? 'Açıldı' : 'Kilitli'}</td>
+            </tr>
+        `).join('');
+    };
+
+    const renderNotifications = (rows) => {
+        const tbody = document.getElementById('notificationTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((n) => `
+            <tr>
+                <td>${n.created_at}</td>
+                <td>${n.title}</td>
+                <td>${n.body}</td>
+                <td>${Number(n.is_read) === 1 ? 'Okundu' : '<button class="btn btn-sm btn-outline-info action-btn" data-action="notification-read" data-notification-id="' + n.id + '">Okundu işaretle</button>'}</td>
+            </tr>
+        `).join('');
+    };
+
+    const renderEventFeed = (rows) => {
+        const tbody = document.getElementById('eventFeedTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((e) => `
+            <tr>
+                <td>${e.created_at}</td>
+                <td>${e.event_type}</td>
+                <td>${e.title}</td>
+                <td>${e.body}</td>
+            </tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -197,6 +272,11 @@
         renderGovernmentActions(payload?.data?.government?.actions || []);
         renderTravelPermits(payload.data.travel_permits || []);
         renderCitizenshipRequests(payload.data.citizenship_requests || []);
+        renderRankings(payload.data.rankings || {});
+        renderDailyQuests(payload.data.daily_quests || []);
+        renderAchievements(payload.data.achievements || []);
+        renderNotifications(payload.data.notifications || []);
+        renderEventFeed(payload.data.event_feed || []);
     };
 
     const refreshState = async () => {
@@ -321,6 +401,12 @@
                 request_id: document.getElementById('citizenshipRequestId')?.value || 0,
                 decision: button.dataset.decision || '',
             });
+        }
+        if (action === 'quest-claim') {
+            return post('/api/quest/claim', { quest_id: button.dataset.questId || 0 });
+        }
+        if (action === 'notification-read') {
+            return post('/api/notification/read', { notification_id: button.dataset.notificationId || 0 });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

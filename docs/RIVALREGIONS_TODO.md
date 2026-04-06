@@ -178,6 +178,27 @@
 - World Builder JSON export endpointi eklendi.
 - World Builder JSON import akışı eklendi (country/city/resource/layer/poi upsert).
 
+## 18. Görev Çıktısı (Tamamlandı)
+- Global sıralama tabloları eklendi: oyuncu/şehir/ülke top listeleri.
+- Top şehir sistemi dashboard’da sıralama ekranıyla genişletildi.
+- Ülke ortalama şehir skoru ve oyuncu yoğunluğu kıyaslaması eklendi.
+- Leaderboard snapshot altyapısı migration ile hazırlandı.
+- Sıralama verileri state payload’ına dahil edildi (`rankings`).
+
+## 19. Görev Çıktısı (Tamamlandı)
+- Günlük görev template sistemi eklendi (`daily_quest_templates`).
+- Kullanıcı bazlı günlük görev atama/ilerleme/ödül alma akışı eklendi (`user_daily_quests`).
+- Başarım sistemi eklendi (`achievements`, `user_achievements`).
+- Başarım kilit açma + ödül dağıtımı otomatik hale getirildi.
+- Dashboard’a “Görevler & Başarımlar” paneli eklendi.
+
+## 20. Görev Çıktısı (Tamamlandı)
+- Inbox bildirim tablosu eklendi (`user_notifications`).
+- Event feed tablosu eklendi (`event_feed`).
+- API’ye bildirim okundu ve görev ödülü claim endpointleri eklendi.
+- Dashboard’a bildirim merkezi (Inbox + Event Feed) paneli eklendi.
+- Aksiyon sonrası sistem mesajları hem toast hem inbox/event feed üzerinden görünür hale getirildi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -196,9 +217,9 @@
 15.) Görev: ~~Oturum izni / vatandaşlık / sınır geçiş sistemi~~ ✅
 16.) Görev: ~~Dünya haritası modülü (interaktif)~~ ✅
 17.) Görev: ~~Admin World Builder (ülke/şehir/kaynak ekleme paneli)~~ ✅
-18.) Görev: Top şehir sistemi ve global sıralamalar
-19.) Görev: Görevler, başarımlar, günlük görev sistemi
-20.) Görev: Bildirim sistemi (toast + inbox + event feed)
+18.) Görev: ~~Top şehir sistemi ve global sıralamalar~~ ✅
+19.) Görev: ~~Görevler, başarımlar, günlük görev sistemi~~ ✅
+20.) Görev: ~~Bildirim sistemi (toast + inbox + event feed)~~ ✅
 21.) Görev: API v1 standardizasyonu (mobil hazır)
 22.) Görev: Frontend UI/UX full mobil optimizasyon
 23.) Görev: Ekonomi balans ve anti-cheat katmanı
@@ -209,4 +230,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 18. göreve geçelim (Top şehir sistemi ve global sıralamalar).
+**Sonraki adım önerisi:** 21. göreve geçelim (API v1 standardizasyonu ve endpoint versiyonlama).
