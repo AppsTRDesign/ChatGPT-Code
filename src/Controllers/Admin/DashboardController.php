@@ -24,7 +24,7 @@ final class DashboardController
 
         $game = new GameService();
 
-        View::render('admin/dashboard', [
+        View::render('admin/index', [
             'config' => $this->config,
             'csrf' => Csrf::token(),
             'world' => $game->adminWorldData(),

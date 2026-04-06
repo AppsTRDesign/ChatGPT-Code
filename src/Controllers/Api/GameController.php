@@ -346,4 +346,46 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function startCoup(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $countryId = (int) ($_POST['country_id'] ?? 0);
+        $type = (string) ($_POST['type'] ?? 'coup');
+        $gold = (float) ($_POST['gold'] ?? 0);
+        $result = (new GameService())->startCoup($userId, $countryId, $type, $gold);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function donateProvince(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $provinceId = (int) ($_POST['province_id'] ?? 0);
+        $targetUserId = (int) ($_POST['target_user_id'] ?? 0);
+        $result = (new GameService())->donateProvince($userId, $provinceId, $targetUserId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function updateProvinceIdentity(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $provinceId = (int) ($_POST['province_id'] ?? 0);
+        $name = (string) ($_POST['name'] ?? '');
+        $colorHex = (string) ($_POST['color_hex'] ?? '#0D6EFD');
+        $flagPath = (string) ($_POST['flag_path'] ?? '');
+        $result = (new GameService())->updateProvinceIdentity($userId, $provinceId, $name, $colorHex, $flagPath);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }

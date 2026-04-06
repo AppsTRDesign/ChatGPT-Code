@@ -27,6 +27,9 @@ $dailyQuests = $state['daily_quests'] ?? [];
 $achievements = $state['achievements'] ?? [];
 $notifications = $state['notifications'] ?? [];
 $eventFeed = $state['event_feed'] ?? [];
+$upgradeQueue = $state['upgrade_queue'] ?? [];
+$travelerOffers = $state['traveler_offers'] ?? [];
+$myProvinces = $state['my_provinces'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -35,6 +38,10 @@ $eventFeed = $state['event_feed'] ?? [];
             <small class="text-secondary"><?= htmlspecialchars($user['country_name'], ENT_QUOTES, 'UTF-8') ?> / <?= htmlspecialchars($user['city_name'], ENT_QUOTES, 'UTF-8') ?></small>
         </div>
         <div class="d-flex gap-2">
+            <a href="/game/economy" class="btn btn-outline-info btn-sm">Ekonomi</a>
+            <a href="/game/war" class="btn btn-outline-danger btn-sm">Savaş</a>
+            <a href="/game/politics" class="btn btn-outline-warning btn-sm">Siyaset</a>
+            <a href="/game/world" class="btn btn-outline-success btn-sm">Dünya</a>
             <a href="/admin" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-shield-halved"></i> Admin</a>
             <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><button class="btn btn-outline-danger btn-sm">Çıkış</button></form>
         </div>
@@ -268,6 +275,58 @@ $eventFeed = $state['event_feed'] ?? [];
                     </tbody></table></div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Stat Geliştirme Kuyruğu (Geri Sayım)</h2>
+            <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Stat</th><th>Hedef</th><th>Hazır Olma</th><th>Durum</th></tr></thead><tbody id="upgradeQueueTable">
+            <?php foreach ($upgradeQueue as $q): ?>
+                <tr><td><?= htmlspecialchars($q['stat_key'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $q['target_value'] ?></td><td><?= htmlspecialchars($q['ready_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($q['status'], ENT_QUOTES, 'UTF-8') ?></td></tr>
+            <?php endforeach; ?>
+            </tbody></table></div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Gezgin Tüccar & Darbe / Eyalet Yönetimi</h2>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <h3 class="h6">Aktif Gezgin Tüccar Teklifleri</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Başlık</th><th>Başlangıç</th><th>Bitiş</th></tr></thead><tbody id="travelerOfferTable">
+                    <?php foreach ($travelerOffers as $offer): ?>
+                        <tr><td><?= htmlspecialchars($offer['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($offer['starts_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($offer['ends_at'], ENT_QUOTES, 'UTF-8') ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Darbe / Ayaklanma Başlat</h3>
+                    <div class="row g-2">
+                        <div class="col-4"><input id="coupCountryId" class="form-control" type="number" min="1" placeholder="Ülke ID"></div>
+                        <div class="col-4"><select id="coupType" class="form-select"><option value="coup">Darbe</option><option value="uprising">Ayaklanma</option></select></div>
+                        <div class="col-4"><input id="coupGold" class="form-control" type="number" min="1" placeholder="Gold"></div>
+                        <div class="col-12"><button class="btn btn-outline-danger w-100 action-btn" data-action="coup-start">Hareketi Başlat</button></div>
+                    </div>
+
+                    <h3 class="h6 mt-3">Eyalet Bağışı / Kimlik</h3>
+                    <div class="row g-2">
+                        <div class="col-4"><input id="provinceId" class="form-control" type="number" min="1" placeholder="Eyalet ID"></div>
+                        <div class="col-4"><input id="provinceTargetUserId" class="form-control" type="number" min="1" placeholder="Hedef User ID"></div>
+                        <div class="col-4"><button class="btn btn-outline-warning w-100 action-btn" data-action="province-donate">Bağışla</button></div>
+                        <div class="col-4"><input id="provinceName" class="form-control" type="text" placeholder="Yeni ad"></div>
+                        <div class="col-3"><input id="provinceColorHex" class="form-control" type="text" placeholder="#3366FF"></div>
+                        <div class="col-5"><input id="provinceFlagPath" class="form-control" type="text" placeholder="/uploads/flags/x.webp"></div>
+                        <div class="col-12"><button class="btn btn-outline-info w-100 action-btn" data-action="province-identity">Kimliği Güncelle</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive mt-3"><table class="table table-dark table-sm"><thead><tr><th>ID</th><th>Eyalet</th><th>Ülke</th><th>Renk</th><th>Koruma</th></tr></thead><tbody id="myProvinceTable">
+            <?php foreach ($myProvinces as $province): ?>
+                <tr><td><?= (int) $province['id'] ?></td><td><?= htmlspecialchars($province['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($province['country_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($province['color_hex'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($province['protection_until'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td></tr>
+            <?php endforeach; ?>
+            </tbody></table></div>
         </div>
     </section>
 

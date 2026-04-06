@@ -25,6 +25,10 @@ $router->get('/', [$homeController, 'index']);
 $router->post('/action/work', [$homeController, 'work']);
 $router->post('/action/battle', [$homeController, 'battle']);
 $router->post('/action/upgrade', [$homeController, 'upgrade']);
+$router->get('/game/economy', [$homeController, 'economy']);
+$router->get('/game/war', [$homeController, 'warRoom']);
+$router->get('/game/politics', [$homeController, 'politics']);
+$router->get('/game/world', [$homeController, 'world']);
 
 $router->get('/login', [$authController, 'showLogin']);
 $router->post('/login', [$authController, 'login']);
@@ -89,6 +93,12 @@ $router->post('/api/quest/claim', [$apiController, 'claimDailyQuest']);
 $router->post('/api/v1/quest/claim', [$apiController, 'claimDailyQuest']);
 $router->post('/api/notification/read', [$apiController, 'markNotificationRead']);
 $router->post('/api/v1/notification/read', [$apiController, 'markNotificationRead']);
+$router->post('/api/coup/start', [$apiController, 'startCoup']);
+$router->post('/api/v1/coup/start', [$apiController, 'startCoup']);
+$router->post('/api/province/donate', [$apiController, 'donateProvince']);
+$router->post('/api/v1/province/donate', [$apiController, 'donateProvince']);
+$router->post('/api/province/update-identity', [$apiController, 'updateProvinceIdentity']);
+$router->post('/api/v1/province/update-identity', [$apiController, 'updateProvinceIdentity']);
 
 $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);

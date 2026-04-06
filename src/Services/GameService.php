@@ -149,6 +149,7 @@ final class GameService
         $this->closeExpiredElections((int) $user['country_id']);
         $this->closeExpiredLaws((int) $user['country_id']);
         $this->processBorderQueue();
+        $this->processStatUpgradeQueue($userId);
         $this->ensureDailyQuests($userId);
         $this->refreshDailyQuestProgress($userId, $user);
         $this->refreshAchievementUnlocks($userId, $user);
@@ -184,6 +185,9 @@ final class GameService
             'achievements' => $this->achievementSnapshot($userId),
             'notifications' => $this->userNotifications($userId),
             'event_feed' => $this->globalEventFeed((int) $user['country_id']),
+            'upgrade_queue' => $this->userUpgradeQueue($userId),
+            'traveler_offers' => $this->travelerOffers(),
+            'my_provinces' => $this->userProvinces($userId),
         ];
     }
 
@@ -477,11 +481,34 @@ final class GameService
         if ((int) $user['labor_points'] < $costLabor || (float) $user['gold'] < $costGold) {
             return ['ok' => false, 'message' => 'Stat geliştirmek için çalışma puanı ve altın gerekli.'];
         }
+        $activeQueue = $this->db->prepare('SELECT id FROM stat_upgrade_queue WHERE user_id = :user_id AND status = "queued" LIMIT 1');
+        $activeQueue->execute(['user_id' => $userId]);
+        if ($activeQueue->fetch()) {
+            return ['ok' => false, 'message' => 'Zaten aktif bir stat geliştirme kuyruğun var.'];
+        }
 
-        $u = $this->db->prepare('UPDATE users SET labor_points = labor_points - :lp, gold = gold - :gold, ' . $stat . ' = ' . $stat . ' + 1 WHERE id = :id');
-        $u->execute(['lp' => $costLabor, 'gold' => $costGold, 'id' => $userId]);
+        $durationSeconds = $this->statUpgradeSeconds();
+        $readyAt = (new \DateTimeImmutable('now +' . $durationSeconds . ' seconds'))->format('Y-m-d H:i:s');
+        $targetValue = (int) $user[$stat] + 1;
 
-        return ['ok' => true, 'message' => 'Stat geliştirildi: ' . $stat];
+        $this->db->beginTransaction();
+        try {
+            $u = $this->db->prepare('UPDATE users SET labor_points = labor_points - :lp, gold = gold - :gold WHERE id = :id');
+            $u->execute(['lp' => $costLabor, 'gold' => $costGold, 'id' => $userId]);
+            $this->db->prepare('INSERT INTO stat_upgrade_queue (user_id, stat_key, target_value, ready_at, status, created_at, updated_at) VALUES (:user_id,:stat_key,:target_value,:ready_at,"queued",NOW(),NOW())')
+                ->execute([
+                    'user_id' => $userId,
+                    'stat_key' => $stat,
+                    'target_value' => $targetValue,
+                    'ready_at' => $readyAt,
+                ]);
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => 'Stat geliştirme kuyruğa alınamadı.'];
+        }
+
+        return ['ok' => true, 'message' => 'Stat geliştirme sıraya alındı: ' . $stat . ' (' . $durationSeconds . ' sn)'];
     }
 
     public function createMarketOffer(int $userId, int $resourceId, int $quantity, float $pricePerUnit): array
@@ -703,7 +730,7 @@ final class GameService
 
     public function createFactory(int $userId, int $factoryTypeId): array
     {
-        $userStmt = $this->db->prepare('SELECT id, country_id, city_id, gold FROM users WHERE id = :id LIMIT 1');
+        $userStmt = $this->db->prepare('SELECT id, country_id, city_id, gold, level FROM users WHERE id = :id LIMIT 1');
         $userStmt->execute(['id' => $userId]);
         $user = $userStmt->fetch();
         if (!$user) {
@@ -715,6 +742,9 @@ final class GameService
         $type = $typeStmt->fetch();
         if (!$type) {
             return ['ok' => false, 'message' => 'Fabrika tipi bulunamadı.'];
+        }
+        if ((int) $user['level'] < $this->factoryMinLevel()) {
+            return ['ok' => false, 'message' => 'Fabrika kurmak için minimum seviye ' . $this->factoryMinLevel() . ' gerekli.'];
         }
 
         $buildCost = 50.0;
@@ -2181,6 +2211,147 @@ final class GameService
             'title' => mb_substr($title, 0, 160),
             'body' => mb_substr($body, 0, 500),
         ]);
+    }
+
+    private function statUpgradeSeconds(): int
+    {
+        $stmt = $this->db->prepare('SELECT `value` FROM settings WHERE `key` = "stat_upgrade_seconds" LIMIT 1');
+        $stmt->execute();
+        $row = $stmt->fetch();
+        return max(10, min(7200, (int) ($row['value'] ?? 90)));
+    }
+
+    private function factoryMinLevel(): int
+    {
+        $stmt = $this->db->prepare('SELECT `value` FROM settings WHERE `key` = "factory_min_level" LIMIT 1');
+        $stmt->execute();
+        $row = $stmt->fetch();
+        return max(1, min(100, (int) ($row['value'] ?? 5)));
+    }
+
+    private function processStatUpgradeQueue(int $userId): void
+    {
+        $stmt = $this->db->prepare('SELECT * FROM stat_upgrade_queue WHERE user_id = :user_id AND status = "queued" AND ready_at <= NOW() ORDER BY id ASC');
+        $stmt->execute(['user_id' => $userId]);
+        $rows = $stmt->fetchAll() ?: [];
+        foreach ($rows as $row) {
+            $statKey = (string) ($row['stat_key'] ?? '');
+            if (!in_array($statKey, ['strength', 'education', 'endurance'], true)) {
+                continue;
+            }
+            $this->db->beginTransaction();
+            try {
+                $this->db->prepare('UPDATE users SET ' . $statKey . ' = :target WHERE id = :user_id')
+                    ->execute(['target' => (int) $row['target_value'], 'user_id' => $userId]);
+                $this->db->prepare('UPDATE stat_upgrade_queue SET status = "completed", updated_at = NOW() WHERE id = :id')
+                    ->execute(['id' => $row['id']]);
+                $this->createNotification($userId, 'stat_upgrade', 'Stat geliştirme tamamlandı', strtoupper($statKey) . ' geliştirmesi tamamlandı.');
+                $this->db->commit();
+            } catch (\Throwable $e) {
+                $this->db->rollBack();
+            }
+        }
+    }
+
+    public function userUpgradeQueue(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT id, stat_key, target_value, ready_at, status, created_at FROM stat_upgrade_queue WHERE user_id = :user_id ORDER BY id DESC LIMIT 10');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function travelerOffers(): array
+    {
+        $stmt = $this->db->query('SELECT id, merchant_key, title, offer_payload_json, starts_at, ends_at, status FROM traveler_merchants WHERE starts_at <= NOW() AND ends_at >= NOW() ORDER BY id DESC LIMIT 10');
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function userProvinces(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT p.*, c.name AS city_name, co.name AS country_name FROM provinces p JOIN cities c ON c.id = p.city_id JOIN countries co ON co.id = p.country_id WHERE p.owner_user_id = :user_id ORDER BY p.id DESC');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function startCoup(int $userId, int $countryId, string $type, float $gold): array
+    {
+        if (!in_array($type, ['coup', 'uprising'], true) || $countryId <= 0 || $gold <= 0) {
+            return ['ok' => false, 'message' => 'Darbe/ayaklanma parametreleri geçersiz.'];
+        }
+        $cfgKey = $type === 'coup' ? 'coup_min_gold' : 'uprising_min_gold';
+        $required = $this->settingInt($cfgKey, $type === 'coup' ? 5000 : 3500);
+        if ($gold < $required) {
+            return ['ok' => false, 'message' => 'Minimum fon: ' . $required . ' gold.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $userStmt = $this->db->prepare('SELECT id, gold FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
+            $userStmt->execute(['id' => $userId]);
+            $user = $userStmt->fetch();
+            if (!$user || (float) $user['gold'] < $gold) {
+                throw new \RuntimeException('Yetersiz altın.');
+            }
+
+            $this->db->prepare('UPDATE users SET gold = gold - :gold WHERE id = :id')->execute(['gold' => $gold, 'id' => $userId]);
+            $endsAt = (new \DateTimeImmutable('now + 24 hours'))->format('Y-m-d H:i:s');
+            $this->db->prepare('INSERT INTO coups (country_id, initiator_user_id, coup_type, fund_gold, required_gold, status, started_at, ends_at) VALUES (:country_id,:initiator_user_id,:coup_type,:fund_gold,:required_gold,"active",NOW(),:ends_at)')
+                ->execute([
+                    'country_id' => $countryId,
+                    'initiator_user_id' => $userId,
+                    'coup_type' => $type,
+                    'fund_gold' => $gold,
+                    'required_gold' => $required,
+                    'ends_at' => $endsAt,
+                ]);
+            $this->db->commit();
+            return ['ok' => true, 'message' => 'Hareket başlatıldı: ' . ($type === 'coup' ? 'Darbe' : 'Ayaklanma')];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Hareket başlatılamadı.'];
+        }
+    }
+
+    public function donateProvince(int $userId, int $provinceId, int $targetUserId): array
+    {
+        if ($provinceId <= 0 || $targetUserId <= 0) {
+            return ['ok' => false, 'message' => 'Eyalet bağışı parametreleri geçersiz.'];
+        }
+        $stmt = $this->db->prepare('UPDATE provinces SET owner_user_id = :target_user_id, updated_at = NOW() WHERE id = :province_id');
+        $stmt->execute(['target_user_id' => $targetUserId, 'province_id' => $provinceId]);
+        $this->createEventFeed(null, $userId, 'province.donation', 'Eyalet bağışı', 'Eyalet #' . $provinceId . ' kullanıcı #' . $targetUserId . ' hesabına bağışlandı.');
+        return ['ok' => true, 'message' => 'Eyalet bağışı tamamlandı.'];
+    }
+
+    public function updateProvinceIdentity(int $userId, int $provinceId, string $name, string $colorHex, string $flagPath): array
+    {
+        $colorHex = strtoupper(trim($colorHex));
+        if ($provinceId <= 0 || trim($name) === '' || !preg_match('/^#[0-9A-F]{6}$/', $colorHex)) {
+            return ['ok' => false, 'message' => 'Bölge kimliği güncelleme verisi geçersiz.'];
+        }
+        if ($flagPath !== '' && !preg_match('/\\.(jpg|jpeg|png|webp|gif)$/i', $flagPath)) {
+            return ['ok' => false, 'message' => 'Bayrak formatı jpg/png/webp/gif olmalı.'];
+        }
+
+        $protectionUntil = (new \DateTimeImmutable('now +' . $this->settingInt('province_protection_days', 3) . ' days'))->format('Y-m-d H:i:s');
+        $stmt = $this->db->prepare('UPDATE provinces SET name = :name, color_hex = :color_hex, flag_asset_path = :flag_asset_path, owner_user_id = :owner_user_id, protection_until = :protection_until, updated_at = NOW() WHERE id = :province_id');
+        $stmt->execute([
+            'name' => trim($name),
+            'color_hex' => $colorHex,
+            'flag_asset_path' => $flagPath !== '' ? $flagPath : null,
+            'owner_user_id' => $userId,
+            'protection_until' => $protectionUntil,
+            'province_id' => $provinceId,
+        ]);
+        return ['ok' => true, 'message' => 'Bölge kimliği güncellendi ve koruma süresi başlatıldı.'];
+    }
+
+    private function settingInt(string $key, int $fallback): int
+    {
+        $stmt = $this->db->prepare('SELECT `value` FROM settings WHERE `key` = :key LIMIT 1');
+        $stmt->execute(['key' => $key]);
+        $row = $stmt->fetch();
+        return (int) ($row['value'] ?? $fallback);
     }
 
     private function antiCheatConfig(): array

@@ -252,6 +252,30 @@
         `).join('');
     };
 
+    const renderUpgradeQueue = (rows) => {
+        const tbody = document.getElementById('upgradeQueueTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((q) => `
+            <tr><td>${q.stat_key}</td><td>${q.target_value}</td><td>${q.ready_at}</td><td>${q.status}</td></tr>
+        `).join('');
+    };
+
+    const renderTravelerOffers = (rows) => {
+        const tbody = document.getElementById('travelerOfferTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((o) => `
+            <tr><td>${o.title}</td><td>${o.starts_at}</td><td>${o.ends_at}</td></tr>
+        `).join('');
+    };
+
+    const renderProvinces = (rows) => {
+        const tbody = document.getElementById('myProvinceTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((p) => `
+            <tr><td>${p.id}</td><td>${p.name}</td><td>${p.country_name}</td><td>${p.color_hex}</td><td>${p.protection_until || '-'}</td></tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -278,6 +302,9 @@
         renderAchievements(payload.data.achievements || []);
         renderNotifications(payload.data.notifications || []);
         renderEventFeed(payload.data.event_feed || []);
+        renderUpgradeQueue(payload.data.upgrade_queue || []);
+        renderTravelerOffers(payload.data.traveler_offers || []);
+        renderProvinces(payload.data.my_provinces || []);
     };
 
     const refreshState = async () => {
@@ -408,6 +435,27 @@
         }
         if (action === 'notification-read') {
             return post(`${apiBase}/notification/read`, { notification_id: button.dataset.notificationId || 0 });
+        }
+        if (action === 'coup-start') {
+            return post(`${apiBase}/coup/start`, {
+                country_id: document.getElementById('coupCountryId')?.value || 0,
+                type: document.getElementById('coupType')?.value || 'coup',
+                gold: document.getElementById('coupGold')?.value || 0,
+            });
+        }
+        if (action === 'province-donate') {
+            return post(`${apiBase}/province/donate`, {
+                province_id: document.getElementById('provinceId')?.value || 0,
+                target_user_id: document.getElementById('provinceTargetUserId')?.value || 0,
+            });
+        }
+        if (action === 'province-identity') {
+            return post(`${apiBase}/province/update-identity`, {
+                province_id: document.getElementById('provinceId')?.value || 0,
+                name: document.getElementById('provinceName')?.value || '',
+                color_hex: document.getElementById('provinceColorHex')?.value || '#0D6EFD',
+                flag_path: document.getElementById('provinceFlagPath')?.value || '',
+            });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

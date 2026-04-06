@@ -26,6 +26,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Mobil odaklı responsive iyileştirmeler (küçük ekran tablo/form/harita optimizasyonu).
 - Ekonomi anti-cheat katmanı: aksiyon cooldown guard + şüpheli işlem logları.
 - Test altyapısı: unit/integration/load scriptleri ve tek komut test suite.
+- Gezgin tüccar + realtime savaş altyapısı için Node/socket hazır veri modeli.
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
 
 ## Endpointler
@@ -57,6 +58,9 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
   - `POST /api/travel/citizenship-decision`
   - `POST /api/quest/claim`
   - `POST /api/notification/read`
+  - `POST /api/coup/start`
+  - `POST /api/province/donate`
+  - `POST /api/province/update-identity`
   - `GET /health` (operasyonel sağlık endpointi)
 
 ## Kurulum
@@ -79,6 +83,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260406_000015_border_citizenship_queue.sql`
    - `db/migrations/20260406_000016_rankings_quests_notifications.sql`
    - `db/migrations/20260406_000017_anticheat_balance_testinfra.sql`
+   - `db/migrations/20260406_000018_realtime_coup_statecraft.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -140,6 +145,12 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Test altyapısı notu: `docs/TEST_INFRA_TASK24.md`
 
 - Kalite kapıları notu: `docs/QUALITY_GATES_TASK25.md`
+
+- Gezgin tüccar + socket realtime notu: `docs/TRAVELER_SOCKET_TASK26_27.md`
+
+- Canlıya çıkış planı notu: `docs/OPS_RELEASE_TASK28.md`
+
+- Tam sürüm kurulum adımları: `docs/FULL_INSTALL_GUIDE.md`
 
 - Test/izleme/canlıya çıkış notu (ileri faz): `docs/RELEASE_MONITORING_TASK15.md`
 

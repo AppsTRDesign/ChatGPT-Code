@@ -35,3 +35,4 @@ SOURCE db/migrations/20260406_000014_observability_release.sql;
 SOURCE db/migrations/20260406_000015_border_citizenship_queue.sql;
 SOURCE db/migrations/20260406_000016_rankings_quests_notifications.sql;
 SOURCE db/migrations/20260406_000017_anticheat_balance_testinfra.sql;
+SOURCE db/migrations/20260406_000018_realtime_coup_statecraft.sql;

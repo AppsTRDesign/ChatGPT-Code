@@ -234,6 +234,27 @@
 - Görev tablosuna 25. adım resmi olarak eklendi.
 - Sonraki faz için Node/socket görevlerine geçiş noktası sabitlendi.
 
+## 26. Görev Çıktısı (Tamamlandı)
+- Gezgin tüccar veri modeli eklendi (`traveler_merchants`).
+- Dashboard’a aktif tüccar teklifleri paneli eklendi.
+- Node/socket bildirimi için event-ready payload yapısı hazırlandı.
+- Gezgin tüccar akışı için migration ve dokümantasyon eklendi.
+- Oyun state payload’ına tüccar teklifleri eklendi (`traveler_offers`).
+
+## 27. Görev Çıktısı (Tamamlandı)
+- Node.js 16.20.2 uyumlu socket servis iskeleti eklendi (`realtime-socket/`).
+- Realtime savaş odası veri modeli eklendi (`realtime_war_rooms`, `realtime_war_events`).
+- Stat geliştirme geri sayım kuyruğu eklendi (`stat_upgrade_queue`).
+- API’ye darbe/eyalet yönetimi endpointleri eklendi.
+- Dashboard’da darbe/ayaklanma ve eyalet kimliği/bağış paneli eklendi.
+
+## 28. Görev Çıktısı (Tamamlandı)
+- Canlıya çıkış operasyon plan dokümantasyonu eklendi.
+- Tam sürüm kurulum rehberi adım adım yazıldı.
+- Test quality gates release pipeline’a entegre edildi.
+- Socket servis health check akışı eklendi.
+- Sonraki genişleme fazları için operasyonel temel tamamlandı.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -260,10 +281,10 @@
 23.) Görev: ~~Ekonomi balans ve anti-cheat katmanı~~ ✅
 24.) Görev: ~~Test altyapısı (unit + integration + load)~~ ✅
 25.) Görev: ~~Kalite kapıları / CI-ready test-release akışı~~ ✅
-26.) Görev: Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)
-27.) Görev: Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler
-28.) Görev: Canlıya çıkış ve operasyon planı
+26.) Görev: ~~Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)~~ ✅
+27.) Görev: ~~Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler~~ ✅
+28.) Görev: ~~Canlıya çıkış ve operasyon planı~~ ✅
 
 ---
 
-**Sonraki adım önerisi:** 26. göreve geçelim (Gezgin Tüccar Sistemi - Node.js anlık toast bildirim).
+**Sonraki adım önerisi:** V2 savaş yasası/meclis oylama, gelişmiş vize/oturum, fabrika zinciri, şehir bina queue ve aylık seçim cron görevlerini derinleştirelim.

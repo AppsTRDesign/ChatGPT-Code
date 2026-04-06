@@ -45,6 +45,26 @@ final class HomeController
         Response::redirect('/?toast=' . urlencode($result['message']));
     }
 
+    public function economy(): void
+    {
+        $this->renderGameModule('game/economy', 'Ekonomi Modülü');
+    }
+
+    public function warRoom(): void
+    {
+        $this->renderGameModule('game/war', 'Savaş Modülü');
+    }
+
+    public function politics(): void
+    {
+        $this->renderGameModule('game/politics', 'Siyaset Modülü');
+    }
+
+    public function world(): void
+    {
+        $this->renderGameModule('game/world', 'Dünya Modülü');
+    }
+
     public function battle(): void
     {
         $userId = Auth::userId();
@@ -66,5 +86,22 @@ final class HomeController
         $stat = (string) ($_POST['stat'] ?? 'strength');
         $result = (new GameService())->upgradeStat($userId, $stat);
         Response::redirect('/?toast=' . urlencode($result['message']));
+    }
+
+    private function renderGameModule(string $view, string $title): void
+    {
+        $userId = Auth::userId();
+        if (!$userId) {
+            Response::redirect('/login');
+        }
+
+        $game = new GameService();
+        $state = $game->dashboard($userId);
+        View::render($view, [
+            'config' => $this->config,
+            'csrf' => Csrf::token(),
+            'state' => $state,
+            'moduleTitle' => $title,
+        ]);
     }
 }
