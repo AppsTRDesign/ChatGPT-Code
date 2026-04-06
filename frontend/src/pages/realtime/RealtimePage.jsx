@@ -110,7 +110,7 @@ export default function RealtimePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
+    <div className="page-wrap">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">Realtime + Notifications Center</h1>
         <Link to="/map" className="text-cyan-400">Map</Link>
@@ -120,7 +120,7 @@ export default function RealtimePage() {
       {error ? <p className="text-red-400 text-sm mt-3">{error}</p> : null}
 
       <div className="grid md:grid-cols-2 gap-4 mt-5">
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 space-y-3">
+        <div className="glass-panel p-4 space-y-3">
           <h2 className="font-medium">Live Snapshot</h2>
           <pre className="text-xs text-slate-300 overflow-auto max-h-48">{JSON.stringify(snapshot || {}, null, 2)}</pre>
           <div className="flex gap-2">
@@ -129,7 +129,7 @@ export default function RealtimePage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <div className="glass-panel p-4">
           <h2 className="font-medium mb-2">Realtime Event Feed</h2>
           <div className="space-y-2 text-xs">
             {recentEvents.map((evt) => (
@@ -144,7 +144,7 @@ export default function RealtimePage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 mt-5">
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <div className="glass-panel p-4">
           <h2 className="font-medium mb-3">Chat</h2>
           <div className="grid grid-cols-3 gap-2 mb-2">
             <select value={chatScopeType} onChange={(e) => setChatScopeType(e.target.value)} className="p-2 bg-slate-950 border border-slate-700 rounded">
@@ -169,7 +169,7 @@ export default function RealtimePage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+        <div className="glass-panel p-4">
           <h2 className="font-medium mb-3">Notifications</h2>
           <div className="space-y-2 max-h-64 overflow-auto text-xs">
             {(notifications || []).map((item) => (

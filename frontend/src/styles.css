@@ -10,8 +10,35 @@ body,
   width: 100%;
   min-height: 100%;
   font-family: Inter, system-ui, Arial, sans-serif;
+  background: radial-gradient(circle at top, #1e293b 0%, #020617 42%, #020617 100%);
 }
 
 .leaflet-container {
   background: #020617;
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-2xl border border-slate-700/70 bg-slate-900/65 shadow-2xl backdrop-blur-md;
+  }
+
+  .nav-link {
+    @apply rounded-lg px-2 py-1 text-cyan-300 transition hover:bg-slate-800 hover:text-cyan-200;
+  }
+
+  .btn-primary {
+    @apply rounded-xl bg-cyan-600 px-3 py-2 text-white transition hover:bg-cyan-500;
+  }
+
+  .btn-secondary {
+    @apply rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 transition hover:bg-slate-700;
+  }
+
+  .page-wrap {
+    @apply min-h-screen text-slate-100 p-4 md:p-6;
+  }
+
+  .section-title {
+    @apply text-lg md:text-xl font-semibold text-white;
+  }
 }

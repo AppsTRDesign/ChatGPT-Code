@@ -16,6 +16,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 - ✅ Phase 10 (Economy) tamamlandı.
 - ✅ Phase 11 (War) tamamlandı.
 - ✅ Phase 12 (Realtime + Notifications) tamamlandı.
+- ✅ Phase 13 (UI Polish) tamamlandı.
 - Belgeler:
   - `docs/phase-01-architecture.md`
   - `docs/phase-02-database.md`
@@ -29,6 +30,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
   - `docs/phase-10-economy.md`
   - `docs/phase-11-war.md`
   - `docs/phase-12-realtime-notifications.md`
+  - `docs/phase-13-ui-polish.md`
 
 ## Klasörler
 
@@ -40,4 +42,4 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 
 ## Sonraki Adım
 
-- Phase 13: UI Polish
+- Phase 14: Testing + Balancing

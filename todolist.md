@@ -72,11 +72,11 @@ Tamamlanan adımların üstü çizilmiştir.
     - ~~canlı seyahat/savaş/seçim güncellemeleri~~
     - ~~bildirim akışı~~
 
-13. PHASE 13: UI POLISH
-    - animasyon ve kart iyileştirmeleri
-    - dashboard rafinesi
-    - responsive iyileştirmeler
-    - dil değiştirici polish
+13. ~~PHASE 13: UI POLISH~~
+    - ~~animasyon ve kart iyileştirmeleri~~
+    - ~~dashboard rafinesi~~
+    - ~~responsive iyileştirmeler~~
+    - ~~dil değiştirici polish~~
 
 14. PHASE 14: TESTING + BALANCING
     - anti-abuse placeholder
