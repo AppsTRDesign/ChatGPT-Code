@@ -6,6 +6,9 @@ const env = require('../config/env');
 const authRoutes = require('../modules/auth/auth.routes');
 const usersRoutes = require('../modules/users/users.routes');
 const mapRoutes = require('../modules/map/map.routes');
+const countriesRoutes = require('../modules/countries/countries.routes');
+const citiesRoutes = require('../modules/cities/cities.routes');
+const statsRoutes = require('../modules/stats/stats.routes');
 const { getEnabledLanguageCodes, detectLanguageFromHeaders, resolveLanguagePreference } = require('../modules/i18n/i18n.service');
 
 const app = express();
@@ -39,6 +42,9 @@ app.get('/api/v1/health', function (req, res) {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/map', mapRoutes);
+app.use('/api/v1/countries', countriesRoutes);
+app.use('/api/v1/cities', citiesRoutes);
+app.use('/api/v1/stats', statsRoutes);
 
 app.use(function (req, res) {
   res.status(404).json({ ok: false, error: 'Not Found' });

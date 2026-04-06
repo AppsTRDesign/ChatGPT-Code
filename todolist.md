@@ -36,10 +36,10 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~etkileşimli kartlar~~
    - ~~zoom/focus geçişleri~~
 
-6. PHASE 6: COUNTRY + CITY MODULES
-   - country detail API
-   - city detail API
-   - istatistik/ranking endpointleri
+6. ~~PHASE 6: COUNTRY + CITY MODULES~~
+   - ~~country detail API~~
+   - ~~city detail API~~
+   - ~~istatistik/ranking endpointleri~~
 
 7. PHASE 7: TRAVEL ENGINE
    - Haversine mesafe

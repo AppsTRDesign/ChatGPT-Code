@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import WorldMapCanvas from '../../components/map/WorldMapCanvas';
 import CountryInfoCard from '../../components/cards/CountryInfoCard';
 import CityInfoCard from '../../components/cards/CityInfoCard';
@@ -7,6 +8,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 
 export default function MapPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [countryCard, setCountryCard] = useState(null);
   const [cityCard, setCityCard] = useState(null);
   const [travelLine, setTravelLine] = useState(null);
@@ -30,11 +32,11 @@ export default function MapPage() {
 
   const rightPanel = useMemo(() => {
     if (cityCard) {
-      return <CityInfoCard city={cityCard} onFlyHere={handleFlyToCity} />;
+      return <CityInfoCard city={cityCard} onFlyHere={handleFlyToCity} onViewDetails={() => navigate(`/city/${cityCard.countryCode}/${encodeURIComponent(cityCard.name)}`)} />;
     }
 
     if (countryCard) {
-      return <CountryInfoCard country={countryCard} onFlyToCapital={handleFlyToCapital} />;
+      return <CountryInfoCard country={countryCard} onFlyToCapital={handleFlyToCapital} onViewDetails={() => navigate(`/country/${countryCard.code}`)} />;
     }
 
     return (
@@ -55,7 +57,7 @@ export default function MapPage() {
         <aside className="col-span-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
           <p className="text-sm text-slate-400">Navigation</p>
           <ul className="mt-3 space-y-2 text-sm text-slate-200">
-            <li>Dashboard</li>
+            <li><Link to="/dashboard" className="text-cyan-400">Dashboard</Link></li>
             <li>Map</li>
             <li>Politics</li>
             <li>Travel</li>

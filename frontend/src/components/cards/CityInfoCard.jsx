@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-export default function CityInfoCard({ city, onFlyHere }) {
+export default function CityInfoCard({ city, onFlyHere, onViewDetails }) {
   if (!city) return null;
 
   return (
@@ -22,6 +22,7 @@ export default function CityInfoCard({ city, onFlyHere }) {
         <div>İş: {city.jobs.toLocaleString()}</div>
       </div>
       <div className="mt-4 flex gap-2">
+        <button onClick={onViewDetails} className="px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm">View Details</button>
         <button onClick={onFlyHere} className="px-3 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-sm">
           Fly Here
         </button>

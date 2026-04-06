@@ -9,12 +9,14 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 - ✅ Phase 3 (World Data) tamamlandı.
 - ✅ Phase 4 (Auth + User System) tamamlandı.
 - ✅ Phase 5 (Map System) tamamlandı.
+- ✅ Phase 6 (Country + City Modules) tamamlandı.
 - Belgeler:
   - `docs/phase-01-architecture.md`
   - `docs/phase-02-database.md`
   - `docs/phase-03-world-data.md`
   - `docs/phase-04-auth-user-system.md`
   - `docs/phase-05-map-system.md`
+  - `docs/phase-06-country-city-modules.md`
 
 ## Klasörler
 
@@ -26,4 +28,4 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 
 ## Sonraki Adım
 
-- Phase 6: Country + City Modules (detay endpointleri, ranking ve istatistik ekranları)
+- Phase 7: Travel Engine (mesafe/süre hesaplama, vize/work permit kontrolü, travel progress)
