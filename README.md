@@ -14,6 +14,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 - ✅ Phase 8 (Governor / City Development) tamamlandı.
 - ✅ Phase 9 (Politics) tamamlandı.
 - ✅ Phase 10 (Economy) tamamlandı.
+- ✅ Phase 11 (War) tamamlandı.
 - Belgeler:
   - `docs/phase-01-architecture.md`
   - `docs/phase-02-database.md`
@@ -25,6 +26,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
   - `docs/phase-08-governor-city-development.md`
   - `docs/phase-09-politics.md`
   - `docs/phase-10-economy.md`
+  - `docs/phase-11-war.md`
 
 ## Klasörler
 
@@ -36,4 +38,4 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 
 ## Sonraki Adım
 
-- Phase 11: War (declaration, fronts, battles, region transfer)
+- Phase 12: Realtime + Notifications

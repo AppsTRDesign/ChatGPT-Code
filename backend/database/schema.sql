@@ -5,6 +5,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS battle_logs;
+DROP TABLE IF EXISTS battle_participations;
 DROP TABLE IF EXISTS battles;
 DROP TABLE IF EXISTS wars;
 DROP TABLE IF EXISTS work_permits;
@@ -533,6 +534,25 @@ CREATE TABLE battles (
   CONSTRAINT fk_battles_war FOREIGN KEY (war_id) REFERENCES wars(id),
   CONSTRAINT fk_battles_region FOREIGN KEY (target_region_id) REFERENCES regions(id),
   CONSTRAINT fk_battles_winner FOREIGN KEY (winner_country_id) REFERENCES countries(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE battle_participations (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  battle_id BIGINT UNSIGNED NOT NULL,
+  war_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  side VARCHAR(16) NOT NULL,
+  contribution_power INT NOT NULL,
+  contribution_energy INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_battle_participations_battle (battle_id),
+  KEY idx_battle_participations_war (war_id),
+  KEY idx_battle_participations_user (user_id),
+  KEY idx_battle_participations_side (side),
+  CONSTRAINT fk_battle_participations_battle FOREIGN KEY (battle_id) REFERENCES battles(id),
+  CONSTRAINT fk_battle_participations_war FOREIGN KEY (war_id) REFERENCES wars(id),
+  CONSTRAINT fk_battle_participations_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE battle_logs (

@@ -62,10 +62,10 @@ Tamamlanan adımların üstü çizilmiştir.
     - ~~şehir/ülke bütçeleri~~
     - ~~vergi ve harcama döngüsü~~
 
-11. PHASE 11: WAR
-    - savaş ilanı
-    - front/battle mekanikleri
-    - region kontrol transferi
+11. ~~PHASE 11: WAR~~
+    - ~~savaş ilanı~~
+    - ~~front/battle mekanikleri~~
+    - ~~region kontrol transferi~~
 
 12. PHASE 12: REALTIME + NOTIFICATIONS
     - chat
