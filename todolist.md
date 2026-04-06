@@ -52,10 +52,10 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~city project akışı~~
    - ~~şehir gelişim etkileri~~
 
-9. PHASE 9: POLITICS
-   - seçimler
-   - adaylık/oylama
-   - proposal/law/policy akışı
+9. ~~PHASE 9: POLITICS~~
+   - ~~seçimler~~
+   - ~~adaylık/oylama~~
+   - ~~proposal/law/policy akışı~~
 
 10. PHASE 10: ECONOMY
     - iş/salary sistemi

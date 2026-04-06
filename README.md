@@ -12,6 +12,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 - ✅ Phase 6 (Country + City Modules) tamamlandı.
 - ✅ Phase 7 (Travel Engine) tamamlandı.
 - ✅ Phase 8 (Governor / City Development) tamamlandı.
+- ✅ Phase 9 (Politics) tamamlandı.
 - Belgeler:
   - `docs/phase-01-architecture.md`
   - `docs/phase-02-database.md`
@@ -21,6 +22,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
   - `docs/phase-06-country-city-modules.md`
   - `docs/phase-07-travel-engine.md`
   - `docs/phase-08-governor-city-development.md`
+  - `docs/phase-09-politics.md`
 
 ## Klasörler
 
@@ -32,4 +34,4 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 
 ## Sonraki Adım
 
-- Phase 9: Politics (elections, voting, proposals, policy governance)
+- Phase 10: Economy (work/salary, treasury loops, taxation flows)

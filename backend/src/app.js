@@ -11,6 +11,7 @@ const citiesRoutes = require('../modules/cities/cities.routes');
 const statsRoutes = require('../modules/stats/stats.routes');
 const travelRoutes = require('../modules/travel/travel.routes');
 const governorsRoutes = require('../modules/governors/governors.routes');
+const politicsRoutes = require('../modules/politics/politics.routes');
 const { getEnabledLanguageCodes, detectLanguageFromHeaders, resolveLanguagePreference } = require('../modules/i18n/i18n.service');
 
 const app = express();
@@ -49,6 +50,7 @@ app.use('/api/v1/cities', citiesRoutes);
 app.use('/api/v1/stats', statsRoutes);
 app.use('/api/v1/travel', travelRoutes);
 app.use('/api/v1/governors', governorsRoutes);
+app.use('/api/v1/politics', politicsRoutes);
 
 app.use(function (req, res) {
   res.status(404).json({ ok: false, error: 'Not Found' });
