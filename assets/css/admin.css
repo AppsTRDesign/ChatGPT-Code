@@ -1,0 +1,13 @@
+body {
+    background: #f4f6fb;
+}
+
+.admin-login-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+}
+
+.admin-login-card {
+    max-width: 420px;
+}

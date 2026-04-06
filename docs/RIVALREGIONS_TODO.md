@@ -1,0 +1,290 @@
+# RivalRegions Benzeri Oyun - Görev Tablosu
+
+> Durum notasyonu:
+> - [ ] Bekliyor
+> - [x] Tamamlandı (üzeri çizili)
+
+1.) Görev: ~~Temel ürün planı ve kapsam dondurma (MVP + V2 + V3)~~ ✅
+
+## 1. Görev Çıktısı (Tamamlandı)
+
+### 1.1 Ürün vizyonu
+- Tek oyunculu scaffold'dan çok oyunculu, ülke bazlı siyaset/savaş/ekonomi simülasyonuna geçiş.
+- Web-first + API-first yaklaşımı: mobil istemci gelecekte aynı backend'i kullanacak.
+- Oyun döngüsü: **Kayıt → Ulus/şehir yerleşimi → Çalışma/üretim → Market → Parti/siyaset → Savaş/kanun**.
+
+### 1.2 Kapsam dondurma
+
+#### MVP (Sürüm 0.1 - Oynanabilir Çekirdek)
+- Üye kayıt/giriş, ülke-şehir atama.
+- Temel statlar: enerji, XP, level, kuvvet/eğitim/dayanıklılık.
+- Çalışma/savaş aksiyonları ve enerji rejenerasyonu.
+- Kaynak envanteri + markette ilan açma/satın alma.
+- Dünya haritasında şehir bazlı oyuncu yoğunluğu.
+- Admin: ülke/şehir/kaynak dağılımı yönetimi.
+- Operasyonel gereklilik: güvenlik kontrolleri (CSRF, auth guard, doğrulama).
+
+#### V2 (Sürüm 0.2 - Siyasi Çekirdek)
+- Parti kurma, üyelik sistemi.
+- Rejim türleri: monarşi/diktatörlük/cumhuriyet.
+- Aylık seçim takvimi (cron).
+- Meclis kanun sistemi (oylama, savaş kanunu, ekonomik düzenlemeler).
+- Bakanlık rollerinin işlevsel hale getirilmesi.
+
+#### V3 (Sürüm 0.3 - Endüstri + Derin Savaş)
+- Fabrika sistemi (kurulum, seviye, işçi, kapasite).
+- Gelişmiş savaş: cephe/silah/lojistik.
+- Şehir bina upgrade queue (havaalanı, liman, sanayi, uzay vb.).
+- Ülke arası oturum/geçiş izin süreçleri.
+- Anti-cheat, denge araçları, sezon/sıralama.
+
+### 1.3 Modül bazlı sınırlar (Domain Boundaries)
+- **Auth & Identity**: kullanıcı, oturum, güvenlik.
+- **World**: ülke, şehir, nüfus ve harita.
+- **Economy**: kaynaklar, üretim, stok, fiyat.
+- **Market**: C2C ticaret, komisyon, transfer.
+- **Politics**: parti, seçim, meclis, roller.
+- **War**: savaş başlatma, hesaplama, sonuç raporu.
+- **Admin**: world builder ve canlı denetim paneli.
+
+### 1.4 Teknik prensipler (bu projede sabitlendi)
+- PHP 8.3 + MariaDB (PDO) + Plesk/Apache uyumu korunacak.
+- API sözleşmeleri JSON standardı ile versiyonlanacak (`/api/v1/...` geçiş planı).
+- Büyük işlemler transaction ile korunacak.
+- Zaman bazlı işlemler cron/event tabanlı çalışacak.
+- Her kritik oyun aksiyonu audit log bırakacak.
+
+### 1.5 Kabul kriterleri (Task-1 Definition of Done)
+- [x] MVP, V2, V3 kapsamı yazılı hale getirildi.
+- [x] Her sürüm için net modül sınırları belirlendi.
+- [x] Teknik kısıtlar ve uyumluluk koşulları donduruldu.
+- [x] Sonraki görevler için öncelik sırası sabitlendi.
+
+
+## 3. Görev Çıktısı (Tamamlandı)
+- Login/Register/Forgot için rate-limit katmanı eklendi (`auth_rate_limits`).
+- Şifre sıfırlama token akışı eklendi (`password_reset_tokens`).
+- Session hijack riskini azaltmak için login/logout anında `session_regenerate_id(true)` aktif edildi.
+- Session strict-mode ve güvenlik başlıkları bootstrap'te aktif edildi.
+- Forgot/reset ekranları ve route'ları eklendi.
+
+
+## 4. Görev Çıktısı (Tamamlandı)
+- GeoIP için çok sağlayıcılı çözüm eklendi (`ip-api` + `ipwho.is`).
+- `geoip_cache` tablosu ile IP->ülke kodu cache katmanı eklendi.
+- Provider başarısız olursa `Accept-Language` bazlı fallback çalışıyor.
+- Private/reserved IP'lerde doğrudan fallback devreye giriyor.
+- Ülkeye düşen kullanıcıların şehir yerleşimi yük dengeleme ile yapılıyor (az oyunculu şehre öncelik).
+
+
+## 5. Görev Çıktısı (Tamamlandı)
+- Stat formülleri ayrı servis katmanına taşındı (`StatFormulaService`).
+- Ulus seviyesi (nation tier) oyuncu sayısı + ortalama şehir skoruna göre hesaplanıyor.
+- Enerji yenilenmesi ulus seviyesi ve top şehir etkisine göre dinamik hale getirildi.
+- Çalışma/savaş kazanımları ulus + statlara göre ölçekleniyor.
+- Stat geliştirme maliyeti stat değerine göre artan maliyet modeline geçirildi.
+
+
+## 6. Görev Çıktısı (Tamamlandı)
+- Balance değerleri `settings` üzerinden yönetilir hale getirildi (`BalanceConfigService`).
+- XP/enerji/level formülleri parametreli hale getirildi (`StatFormulaService`).
+- Auto-levelup çoklu seviye geçiş destekli oldu.
+- Dashboard'a ilerleme metriği (`next_level_xp`) eklendi.
+- Balance tuning migration'ı eklendi (`20260405_000005_balance_tuning.sql`).
+
+
+## 7. Görev Çıktısı (Tamamlandı)
+- Ülke kaynakları için stok/yenilenme/kalite modeli eklendi.
+- Kaynak fiyatları kıtlık ve kaliteye göre dinamik hesaplanır hale getirildi.
+- Work aksiyonu ülke global stoklarını tüketiyor.
+- Dashboard'a kaynak piyasa dengesi tablosu eklendi.
+- Resource market snapshot API state içine entegre edildi.
+
+
+## 8. Görev Çıktısı (Tamamlandı)
+- Fabrika veri modeli (tip/fabrika/log) eklendi.
+- Fabrika kurulum ve üretim akışları backend'e eklendi.
+- Fabrika üretimi enerji ve hammadde kontrolü ile çalışır hale geldi.
+- Dashboard'a fabrika yönetim paneli eklendi.
+- API'ye fabrika create/produce endpointleri eklendi.
+
+
+## 9. Görev Çıktısı (Tamamlandı)
+- Market ilanlarına alıcı vergi + satıcı komisyon modeli eklendi.
+- İlan açarken dinamik referans fiyata göre taban/tavan fiyat koruması eklendi.
+- Oyuncu başına açık ilan limiti ve kendi ilanını satın alma engeli eklendi.
+- Satın alma işlemleri transaction + `FOR UPDATE` ile yarış durumlarına karşı korundu.
+- `market_transactions` işlem geçmişi tablosu eklendi ve dashboard market tablosu genişletildi.
+
+
+## 10. Görev Çıktısı (Tamamlandı)
+- `wars` ve `war_battles` tabloları ile savaş çekirdeği veri modeli eklendi.
+- Savaş başlatma akışı eklendi (aktif savaş çakışma kontrolü + seviye/savaş gücü eşiği).
+- Cephe saldırısı akışı eklendi (enerji maliyeti, cooldown, skor hasarı, savaş bitiş koşulu).
+- Savaş saldırıları raporlanır hale geldi (`war_battles`) ve dashboard’da canlı listeye bağlandı.
+- API’ye `POST /api/war/start` ve `POST /api/war/attack` endpointleri eklendi.
+
+
+## 11. Görev Çıktısı (Tamamlandı)
+- Parti sistemi aktif edildi (parti kurma/katılma/ayrılma).
+- Seçim çekirdeği genişletildi (seçim açma, oy verme, seçim kapanışında lider rol atama).
+- Meclis kanun teklif/oylama modeli eklendi (`parliament_laws`, `parliament_law_votes`).
+- Dashboard’a siyaset merkezi eklendi (partiler, seçim ekranı, meclis kanun listesi).
+- API’ye siyasi endpointler eklendi (`/api/party/*`, `/api/election/*`, `/api/law/*`).
+
+
+## 12. Görev Çıktısı (Tamamlandı)
+- Bakanlık yetki modeli eklendi (`government_role_permissions`).
+- Bakanlık aksiyon log sistemi eklendi (`ministry_action_logs`).
+- Başkan için rol atama akışı eklendi (`/api/gov/assign-role`).
+- Ekonomi/Savunma bakanlık aksiyonları eklendi (`/api/gov/action`).
+- Dashboard’a “Bakanlık Rolleri ve Yetki Akışları” paneli eklendi.
+
+
+## 13. Görev Çıktısı (Tamamlandı)
+- Oturum/geçiş izin veri modeli eklendi (`residence_permits`, `country_travel_policies`, `travel_logs`).
+- Oyuncu geçiş izni talebi akışı eklendi (`/api/travel/request-permit`).
+- İçişleri/Başkan izin karar akışı eklendi (`/api/travel/permit-decision`).
+- Şehir/ülke değişimi ve vize kontrolü eklendi (`/api/travel/move`).
+- Dashboard’a “Oturum / Geçiş İzin Sistemi” paneli eklendi.
+
+
+## 14. Görev Çıktısı (Tamamlandı)
+- Harita katman veri modeli eklendi (`world_map_layers`).
+- Şehir POI veri modeli eklendi (`city_points_of_interest`).
+- Map payload, katman ve POI destekleyecek şekilde genişletildi.
+- Admin world builder’a harita katmanı ve POI yönetim formları eklendi.
+- Admin panelde harita katmanları/POI listeleri görüntülenebilir hale geldi.
+
+
+## 15. Görev Çıktısı (Tamamlandı)
+- Oturum izni başvuru/onay/red/ihlal akışı genişletildi.
+- Vatandaşlık başvuru ve karar akışı eklendi.
+- İzin süresi (`valid_until`) ve ihlal alanları eklendi.
+- Süre dolunca otomatik ülkeye dönüş için border event queue altyapısı eklendi.
+- Dashboard’a vatandaşlık ve ihlal görünürlüğü eklendi.
+
+## 16. Görev Çıktısı (Tamamlandı)
+- Dünya haritası etkileşimli hale getirildi (ülke tıklama, tooltip, detay paneli).
+- Haritaya katman seçici eklendi (`influence`, `population`, `resource_total_yield`).
+- Şehir/POI marker filtreleme eklendi.
+- Seçilen ülke için oyuncu/şehir/POI/üretim özeti eklendi.
+- Harita lejantı aktif katmana göre dinamik güncellenir hale getirildi.
+
+## 17. Görev Çıktısı (Tamamlandı)
+- Admin World Builder artık yalnızca ekleme değil güncelleme/silme süreçlerini de kapsar hale getirildi.
+- Ülke ve şehir güncelleme formları eklendi (aktif/pasif kontrolü dahil).
+- Kaynak dağılımı, harita katmanı ve şehir POI kayıtlarına silme aksiyonları eklendi.
+- World Builder JSON export endpointi eklendi.
+- World Builder JSON import akışı eklendi (country/city/resource/layer/poi upsert).
+
+## 18. Görev Çıktısı (Tamamlandı)
+- Global sıralama tabloları eklendi: oyuncu/şehir/ülke top listeleri.
+- Top şehir sistemi dashboard’da sıralama ekranıyla genişletildi.
+- Ülke ortalama şehir skoru ve oyuncu yoğunluğu kıyaslaması eklendi.
+- Leaderboard snapshot altyapısı migration ile hazırlandı.
+- Sıralama verileri state payload’ına dahil edildi (`rankings`).
+
+## 19. Görev Çıktısı (Tamamlandı)
+- Günlük görev template sistemi eklendi (`daily_quest_templates`).
+- Kullanıcı bazlı günlük görev atama/ilerleme/ödül alma akışı eklendi (`user_daily_quests`).
+- Başarım sistemi eklendi (`achievements`, `user_achievements`).
+- Başarım kilit açma + ödül dağıtımı otomatik hale getirildi.
+- Dashboard’a “Görevler & Başarımlar” paneli eklendi.
+
+## 20. Görev Çıktısı (Tamamlandı)
+- Inbox bildirim tablosu eklendi (`user_notifications`).
+- Event feed tablosu eklendi (`event_feed`).
+- API’ye bildirim okundu ve görev ödülü claim endpointleri eklendi.
+- Dashboard’a bildirim merkezi (Inbox + Event Feed) paneli eklendi.
+- Aksiyon sonrası sistem mesajları hem toast hem inbox/event feed üzerinden görünür hale getirildi.
+
+## 21. Görev Çıktısı (Tamamlandı)
+- API v1 route standardizasyonu tamamlandı (`/api/v1/...`).
+- Legacy `/api/...` endpointleri korunarak geriye uyumluluk sağlandı.
+- Frontend API tüketimi v1 tabanına geçirildi (`apiBase: /api/v1`).
+- Mobil istemci için versiyonlu endpoint stratejisi netleştirildi.
+- README ve endpoint listeleri v1 standardına göre güncellendi.
+
+## 22. Görev Çıktısı (Tamamlandı)
+- Dashboard için mobile-first iyileştirmeler eklendi (form/button hit-area artırımı).
+- Küçük ekranlarda tablo okunabilirliği arttırıldı.
+- Harita yüksekliği mobile breakpoints için optimize edildi.
+- Panel/tablolar için responsive görsel iyileştirmeler eklendi.
+- UI davranışı 576px ve 992px altı ekranlarda optimize edildi.
+
+## 23. Görev Çıktısı (Tamamlandı)
+- Anti-cheat event log tablosu eklendi (`anti_cheat_events`).
+- Aksiyon cooldown tablosu eklendi (`user_action_cooldowns`).
+- Work/battle/market/factory akışlarına hız limiti guard’ları eklendi.
+- Tek işlem trade limit güvenliği eklendi.
+- Anti-cheat ayarları `settings` üzerinden yönetilebilir hale getirildi.
+
+## 24. Görev Çıktısı (Tamamlandı)
+- Unit test altyapısı eklendi (`tests/unit`).
+- Integration test altyapısı eklendi (`tests/integration`).
+- Opsiyonel load check scripti eklendi (`tests/load`).
+- Tek komut test orchestration scripti eklendi (`scripts/test_suite.sh`).
+- Release check scriptine test suite adımı entegre edildi.
+
+## 25. Görev Çıktısı (Tamamlandı)
+- Kalite kapıları (quality gates) test/release akışına bağlandı.
+- Test suite + release checks ile CI uyumlu komut seti oluşturuldu.
+- Dokümantasyonda kalite süreci ve komutları netleştirildi.
+- Görev tablosuna 25. adım resmi olarak eklendi.
+- Sonraki faz için Node/socket görevlerine geçiş noktası sabitlendi.
+
+## 26. Görev Çıktısı (Tamamlandı)
+- Gezgin tüccar veri modeli eklendi (`traveler_merchants`).
+- Dashboard’a aktif tüccar teklifleri paneli eklendi.
+- Node/socket bildirimi için event-ready payload yapısı hazırlandı.
+- Gezgin tüccar akışı için migration ve dokümantasyon eklendi.
+- Oyun state payload’ına tüccar teklifleri eklendi (`traveler_offers`).
+
+## 27. Görev Çıktısı (Tamamlandı)
+- Node.js 16.20.2 uyumlu socket servis iskeleti eklendi (`realtime-socket/`).
+- Realtime savaş odası veri modeli eklendi (`realtime_war_rooms`, `realtime_war_events`).
+- Stat geliştirme geri sayım kuyruğu eklendi (`stat_upgrade_queue`).
+- API’ye darbe/eyalet yönetimi endpointleri eklendi.
+- Dashboard’da darbe/ayaklanma ve eyalet kimliği/bağış paneli eklendi.
+
+## 28. Görev Çıktısı (Tamamlandı)
+- Canlıya çıkış operasyon plan dokümantasyonu eklendi.
+- Tam sürüm kurulum rehberi adım adım yazıldı.
+- Test quality gates release pipeline’a entegre edildi.
+- Socket servis health check akışı eklendi.
+- Sonraki genişleme fazları için operasyonel temel tamamlandı.
+
+---
+
+2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
+3.) Görev: ~~Auth sistemi hardening (rate-limit, reset, session güvenliği)~~ ✅
+4.) Görev: ~~IP ülke atama + fallback/caching stratejisi~~ ✅
+5.) Görev: ~~Ulus/şehir domain kuralları (stat formülleri)~~ ✅
+6.) Görev: ~~Enerji/XP/Level/Stat formül motoru iyileştirme~~ ✅
+7.) Görev: ~~Kaynak sistemi tam sürüm + dağılım balansı~~ ✅
+8.) Görev: ~~Fabrika sistemi (kurulum/seviye/işçi)~~ ✅
+9.) Görev: ~~Market tam sürüm (vergi, komisyon, korumalar)~~ ✅
+10.) Görev: ~~Savaş sistemi çekirdeği + raporlama~~ ✅
+11.) Görev: ~~Parti/Seçim/Meclis sistemleri~~ ✅
+12.) Görev: ~~Bakanlık rolleri ve yetki akışları~~ ✅
+13.) Görev: ~~Oturum/geçiş izin sistemi~~ ✅
+14.) Görev: ~~Harita modülü genişletme + world builder~~ ✅
+15.) Görev: ~~Oturum izni / vatandaşlık / sınır geçiş sistemi~~ ✅
+16.) Görev: ~~Dünya haritası modülü (interaktif)~~ ✅
+17.) Görev: ~~Admin World Builder (ülke/şehir/kaynak ekleme paneli)~~ ✅
+18.) Görev: ~~Top şehir sistemi ve global sıralamalar~~ ✅
+19.) Görev: ~~Görevler, başarımlar, günlük görev sistemi~~ ✅
+20.) Görev: ~~Bildirim sistemi (toast + inbox + event feed)~~ ✅
+21.) Görev: ~~API v1 standardizasyonu (mobil hazır)~~ ✅
+22.) Görev: ~~Frontend UI/UX full mobil optimizasyon~~ ✅
+23.) Görev: ~~Ekonomi balans ve anti-cheat katmanı~~ ✅
+24.) Görev: ~~Test altyapısı (unit + integration + load)~~ ✅
+25.) Görev: ~~Kalite kapıları / CI-ready test-release akışı~~ ✅
+26.) Görev: ~~Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)~~ ✅
+27.) Görev: ~~Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler~~ ✅
+28.) Görev: ~~Canlıya çıkış ve operasyon planı~~ ✅
+
+---
+
+**Sonraki adım önerisi:** V2 savaş yasası/meclis oylama, gelişmiş vize/oturum, fabrika zinciri, şehir bina queue ve aylık seçim cron görevlerini derinleştirelim.

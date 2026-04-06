@@ -1,0 +1,680 @@
+<?php declare(strict_types=1);
+ob_start();
+$user = $state['user'] ?? [
+    'username' => 'Guest',
+    'flag_emoji' => '🏳️',
+    'country_name' => '-',
+    'city_name' => '-',
+    'energy' => 0,
+    'level' => 1,
+    'experience' => 0,
+    'strength' => 0,
+    'education' => 0,
+    'endurance' => 0,
+    'country_id' => 0,
+    'country_code' => '',
+];
+$resources = $state['resources'] ?? [];
+$market = $state['market'] ?? [];
+$countries = $state['countries'] ?? [];
+$topCity = $state['top_city'] ?? null;
+$nation = $state['nation'] ?? ['nation_tier' => 1, 'player_count' => 0, 'avg_city_score' => 0];
+$progress = $state['progress'] ?? ['next_level_xp' => 120];
+$resourceMarket = $state['resource_market'] ?? [];
+$marketRules = $state['market_rules'] ?? [];
+$factoryTypes = $state['factory_types'] ?? [];
+$factories = $state['factories'] ?? [];
+$activeWar = $state['active_war'] ?? null;
+$warReports = $state['war_reports'] ?? [];
+$myParty = $state['my_party'] ?? null;
+$parties = $state['parties'] ?? [];
+$election = $state['election'] ?? null;
+$parliamentLaws = $state['parliament_laws'] ?? [];
+$government = $state['government'] ?? ['roles' => [], 'actions' => []];
+$myPermissions = $state['my_permissions'] ?? [];
+$travelPermits = $state['travel_permits'] ?? [];
+$citizenshipRequests = $state['citizenship_requests'] ?? [];
+$travelPolicies = $state['travel_policies'] ?? [];
+$rankings = $state['rankings'] ?? ['players' => [], 'cities' => [], 'countries' => []];
+$dailyQuests = $state['daily_quests'] ?? [];
+$achievements = $state['achievements'] ?? [];
+$notifications = $state['notifications'] ?? [];
+$eventFeed = $state['event_feed'] ?? [];
+$upgradeQueue = $state['upgrade_queue'] ?? [];
+$travelerOffers = $state['traveler_offers'] ?? [];
+$myProvinces = $state['my_provinces'] ?? [];
+$governmentFactoryCity = $state['government_factory_city'] ?? null;
+$governmentFactoryJob = $state['government_factory_job'] ?? null;
+?>
+<div class="container py-3 py-md-4">
+    <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-0"><span class="me-1"><?= htmlspecialchars($user['flag_emoji'], ENT_QUOTES, 'UTF-8') ?></span><?= htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8') ?></h1>
+            <small class="text-secondary"><?= htmlspecialchars($user['country_name'], ENT_QUOTES, 'UTF-8') ?> / <?= htmlspecialchars($user['city_name'], ENT_QUOTES, 'UTF-8') ?></small>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/game/economy" class="btn btn-outline-info btn-sm">Ekonomi</a>
+            <a href="/game/war" class="btn btn-outline-danger btn-sm">Savaş</a>
+            <a href="/game/politics" class="btn btn-outline-warning btn-sm">Siyaset</a>
+            <a href="/game/world" class="btn btn-outline-success btn-sm">Dünya</a>
+            <a href="/admin" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-shield-halved"></i> Admin</a>
+            <form method="post" action="/logout"><input type="hidden" name="_csrf" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><button class="btn btn-outline-danger btn-sm">Çıkış</button></form>
+        </div>
+    </header>
+
+    <section class="row g-2 mb-2">
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Enerji</p><h2 id="energy"><?= (int) $user['energy'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Seviye</p><h2 id="level"><?= (int) $user['level'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Tecrübe</p><h2 id="experience"><?= (int) $user['experience'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Kuvvet</p><h2 id="strength"><?= (int) $user['strength'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Eğitim</p><h2 id="education"><?= (int) $user['education'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Dayanıklılık</p><h2 id="endurance"><?= (int) $user['endurance'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Ulus Seviyesi</p><h2 id="nationTier"><?= (int) $nation['nation_tier'] ?></h2></div></div>
+        <div class="col-6 col-lg-2"><div class="stat-card"><p>Sonraki seviye XP</p><h2 id="nextLevelXp"><?= (int) $progress['next_level_xp'] ?></h2></div></div>
+    </section>
+
+    <section class="row g-3">
+        <div class="col-12 col-xl-5">
+            <div class="card panel"><div class="card-body">
+                <h2 class="h5">Çalışma / Savaş</h2>
+                <div class="alert alert-secondary py-2 small mb-2" id="jobStatus">
+                    <?php if ($governmentFactoryJob): ?>
+                        Aktif işin: <strong><?= htmlspecialchars((string) ($governmentFactoryJob['factory_name'] ?? 'Yönetim Fabrikası'), ENT_QUOTES, 'UTF-8') ?></strong>
+                    <?php elseif ($governmentFactoryCity): ?>
+                        Bu şehirde çalışabilmek için önce <strong><?= htmlspecialchars((string) ($governmentFactoryCity['name'] ?? 'Yönetim Fabrikası'), ENT_QUOTES, 'UTF-8') ?></strong> için işe başlamalısın.
+                    <?php else: ?>
+                        Bu şehirde aktif yönetim fabrikası yok. Yönetici panelinden fabrika açılması gerekiyor.
+                    <?php endif; ?>
+                </div>
+                <div class="d-grid gap-2">
+                    <select id="resourceKey" class="form-select">
+                        <?php foreach ($resources as $r): ?>
+                            <option value="<?= htmlspecialchars($r['resource_key'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($r['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button class="btn btn-primary action-btn" data-action="work">300 Enerji ile Çalış</button>
+                    <button class="btn btn-danger action-btn" data-action="battle">300 Enerji ile Savaş</button>
+                </div>
+                <div class="d-grid gap-2 mt-2">
+                    <button class="btn btn-outline-success action-btn" data-action="gov-job-start">İşe Başla (Yönetim Fabrikası)</button>
+                    <button class="btn btn-outline-secondary action-btn" data-action="gov-job-leave">İşi Bırak</button>
+                </div>
+                <div class="d-grid gap-2 mt-2">
+                    <button class="btn btn-outline-info action-btn" data-action="upgrade" data-stat="strength">Kuvvet +1 (5 LP + 5 Gold)</button>
+                    <button class="btn btn-outline-info action-btn" data-action="upgrade" data-stat="education">Eğitim +1 (5 LP + 5 Gold)</button>
+                    <button class="btn btn-outline-info action-btn" data-action="upgrade" data-stat="endurance">Dayanıklılık +1 (5 LP + 5 Gold)</button>
+                </div>
+            </div></div>
+
+            <div class="card panel mt-3"><div class="card-body">
+                <h2 class="h6">Top Şehir Bonusu</h2>
+                <?php if ($topCity): ?>
+                    <p class="mb-0"><?= htmlspecialchars($topCity['country_name'] . ' / ' . $topCity['name'], ENT_QUOTES, 'UTF-8') ?> (Skor: <?= (int) $topCity['score'] ?>)</p>
+                    <small class="text-secondary">Bu şehirde enerji %40 hızlı dolar, üretim %25 artar.</small>
+                    <small class="text-secondary d-block mt-1">Ulus Oyuncu: <?= (int) ($nation['player_count'] ?? 0) ?> | Ortalama Şehir Skoru: <?= htmlspecialchars((string) ($nation['avg_city_score'] ?? 0), ENT_QUOTES, 'UTF-8') ?></small>
+
+                <?php else: ?>
+                    <p class="mb-0">Top şehir hesaplanamadı.</p>
+                <?php endif; ?>
+            </div></div>
+        </div>
+
+        <div class="col-12 col-xl-7">
+            <div class="card panel"><div class="card-body">
+                <h2 class="h5">Kaynak Envanteri</h2>
+                <div class="table-responsive"><table class="table table-dark table-sm align-middle mb-0"><thead><tr><th>Kaynak</th><th>Miktar</th><th>Birim</th><th>Taban Fiyat</th></tr></thead><tbody id="resourceTable">
+                <?php foreach ($resources as $r): ?>
+                    <tr><td><?= htmlspecialchars($r['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $r['quantity'] ?></td><td><?= htmlspecialchars($r['unit'], ENT_QUOTES, 'UTF-8') ?></td><td><?= number_format((float) $r['base_price'], 2, ',', '.') ?></td></tr>
+                <?php endforeach; ?>
+                </tbody></table></div>
+            </div></div>
+        </div>
+    </section>
+
+    <section class="row g-3 mt-1">
+        <div class="col-12 col-xl-6">
+            <div class="card panel"><div class="card-body">
+                <h2 class="h5">Global Market</h2>
+                <p class="small text-secondary mb-2">
+                    Alıcı vergi: %<?= htmlspecialchars((string) ($marketRules['buyer_tax_percent'] ?? 0), ENT_QUOTES, 'UTF-8') ?> •
+                    Satıcı komisyon: %<?= htmlspecialchars((string) ($marketRules['seller_commission_percent'] ?? 0), ENT_QUOTES, 'UTF-8') ?>
+                </p>
+                <div class="row g-2 mb-2">
+                    <div class="col-4"><input class="form-control" id="offerResourceId" type="number" min="1" placeholder="Kaynak ID"></div>
+                    <div class="col-4"><input class="form-control" id="offerQty" type="number" min="1" placeholder="Miktar"></div>
+                    <div class="col-4"><input class="form-control" id="offerPrice" type="number" min="0.01" step="0.01" placeholder="Fiyat"></div>
+                    <div class="col-12"><button class="btn btn-warning w-100 action-btn" data-action="market-create">İlan Aç</button></div>
+                </div>
+                <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>ID</th><th>Kaynak</th><th>Satıcı</th><th>Miktar</th><th>Birim</th><th>Toplam</th><th>Vergi</th><th></th></tr></thead><tbody id="marketTable">
+                <?php foreach ($market as $m): ?>
+                    <tr><td><?= (int) $m['id'] ?></td><td><?= htmlspecialchars($m['resource_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($m['seller_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $m['quantity'] ?></td><td><?= number_format((float) $m['price_per_unit'], 2, ',', '.') ?></td><td><?= number_format((float) ($m['gross_total'] ?? ((float) $m['price_per_unit'] * (int) $m['quantity'])), 2, ',', '.') ?></td><td><?= number_format((float) ($m['tax_total'] ?? 0), 2, ',', '.') ?></td><td><button class="btn btn-sm btn-success action-btn" data-action="market-buy" data-offer-id="<?= (int) $m['id'] ?>">Al</button></td></tr>
+                <?php endforeach; ?>
+                </tbody></table></div>
+            </div></div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card panel"><div class="card-body">
+                <h2 class="h5">Ulus Nüfusları</h2>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($countries as $c): ?>
+                        <li class="list-group-item d-flex justify-content-between bg-transparent text-light"><span><?= htmlspecialchars($c['flag_emoji'] . ' ' . $c['name'], ENT_QUOTES, 'UTF-8') ?></span><strong><?= (int) $c['player_count'] ?> oyuncu</strong></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div></div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Dünya Haritası</h2>
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label small text-secondary mb-1" for="mapLayerSelect">Katman</label>
+                    <select id="mapLayerSelect" class="form-select form-select-sm">
+                        <option value="none">Katman kapalı</option>
+                        <option value="influence">Nüfuz</option>
+                        <option value="population">Oyuncu yoğunluğu</option>
+                        <option value="resource_total_yield">Toplam günlük üretim</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-secondary mb-1" for="mapMarkerFilter">İşaret filtresi</label>
+                    <select id="mapMarkerFilter" class="form-select form-select-sm">
+                        <option value="all">Tümü</option>
+                        <option value="city">Şehirler</option>
+                        <option value="poi">POI noktaları</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-secondary mb-1">Lejant</label>
+                    <div id="mapLegend" class="map-legend">Katman verisi yükleniyor...</div>
+                </div>
+            </div>
+            <div id="worldMap" style="height:380px"></div>
+            <small class="text-secondary">Ulus oyuncu sayısı: <?= (int) $nation['player_count'] ?> • Ortalama şehir skoru: <?= htmlspecialchars((string) $nation['avg_city_score'], ENT_QUOTES, 'UTF-8') ?></small>
+            <div id="mapCountryDetail" class="map-country-detail mt-2">
+                Haritadan bir ülkeye tıklayarak detayları görüntüleyin.
+            </div>
+        </div>
+    </section>
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Kaynak Piyasa Dengesi</h2>
+            <div class="table-responsive">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>Kaynak</th><th>Fiyat</th><th>Kıtlık</th><th>Toplam Stok</th><th>Günlük Üretim</th></tr></thead>
+                    <tbody id="resourceMarketTable">
+                    <?php foreach ($resourceMarket as $rm): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($rm['name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= number_format((float) $rm['price'], 2, ',', '.') ?></td>
+                            <td><?= htmlspecialchars((string) $rm['scarcity_factor'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= (int) $rm['total_stock'] ?></td>
+                            <td><?= (int) $rm['total_yield'] ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Global Sıralamalar</h2>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <h3 class="h6">Oyuncular</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>#</th><th>Oyuncu</th><th>Lv</th><th>XP</th><th>War</th></tr></thead><tbody id="rankingPlayerTable">
+                    <?php foreach (($rankings['players'] ?? []) as $i => $p): ?>
+                        <tr><td>#<?= (int) ($i + 1) ?></td><td><?= htmlspecialchars($p['username'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $p['level'] ?></td><td><?= (int) $p['experience'] ?></td><td><?= (int) $p['war_power'] ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-4">
+                    <h3 class="h6">Şehirler</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>#</th><th>Şehir</th><th>Skor</th><th>Oyuncu</th></tr></thead><tbody id="rankingCityTable">
+                    <?php foreach (($rankings['cities'] ?? []) as $i => $c): ?>
+                        <tr><td>#<?= (int) ($i + 1) ?></td><td><?= htmlspecialchars($c['country_name'] . ' / ' . $c['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $c['score'] ?></td><td><?= (int) $c['player_count'] ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-4">
+                    <h3 class="h6">Ülkeler</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>#</th><th>Ülke</th><th>Oyuncu</th><th>Ort. Skor</th></tr></thead><tbody id="rankingCountryTable">
+                    <?php foreach (($rankings['countries'] ?? []) as $i => $c): ?>
+                        <tr><td>#<?= (int) ($i + 1) ?></td><td><?= htmlspecialchars(($c['flag_emoji'] ?? '') . ' ' . $c['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $c['player_count'] ?></td><td><?= htmlspecialchars(number_format((float) $c['avg_city_score'], 2, ',', '.'), ENT_QUOTES, 'UTF-8') ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Görevler & Başarımlar</h2>
+            <div class="row g-3">
+                <div class="col-lg-7">
+                    <h3 class="h6">Günlük Görevler</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Görev</th><th>İlerleme</th><th>Ödül</th><th>Durum</th><th></th></tr></thead><tbody id="dailyQuestTable">
+                    <?php foreach ($dailyQuests as $q): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($q['title'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= (int) $q['progress_value'] ?> / <?= (int) $q['target_value'] ?></td>
+                            <td><?= number_format((float) $q['reward_gold'], 2, ',', '.') ?> + <?= (int) $q['reward_xp'] ?> XP</td>
+                            <td><?= htmlspecialchars($q['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?php if (($q['status'] ?? '') === 'completed'): ?><button class="btn btn-sm btn-success action-btn" data-action="quest-claim" data-quest-id="<?= (int) $q['id'] ?>">Ödülü Al</button><?php endif; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-5">
+                    <h3 class="h6">Başarımlar</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Başarım</th><th>Hedef</th><th>Ödül</th><th>Durum</th></tr></thead><tbody id="achievementTable">
+                    <?php foreach ($achievements as $a): ?>
+                        <tr><td><?= htmlspecialchars($a['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($a['description'], ENT_QUOTES, 'UTF-8') ?></td><td><?= number_format((float) $a['reward_gold'], 2, ',', '.') ?> + <?= (int) $a['reward_xp'] ?> XP</td><td><?= (int) ($a['unlocked'] ?? 0) === 1 ? 'Açıldı' : 'Kilitli' ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Bildirim Merkezi (Inbox + Event Feed)</h2>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <h3 class="h6">Inbox</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Zaman</th><th>Başlık</th><th>Mesaj</th><th></th></tr></thead><tbody id="notificationTable">
+                    <?php foreach ($notifications as $n): ?>
+                        <tr><td><?= htmlspecialchars($n['created_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($n['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($n['body'], ENT_QUOTES, 'UTF-8') ?></td><td><?php if ((int) ($n['is_read'] ?? 0) === 0): ?><button class="btn btn-sm btn-outline-info action-btn" data-action="notification-read" data-notification-id="<?= (int) $n['id'] ?>">Okundu</button><?php else: ?>Okundu<?php endif; ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Event Feed</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Zaman</th><th>Tip</th><th>Başlık</th><th>Detay</th></tr></thead><tbody id="eventFeedTable">
+                    <?php foreach ($eventFeed as $event): ?>
+                        <tr><td><?= htmlspecialchars($event['created_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($event['event_type'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($event['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($event['body'], ENT_QUOTES, 'UTF-8') ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Stat Geliştirme Kuyruğu (Geri Sayım)</h2>
+            <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Stat</th><th>Hedef</th><th>Hazır Olma</th><th>Durum</th></tr></thead><tbody id="upgradeQueueTable">
+            <?php foreach ($upgradeQueue as $q): ?>
+                <tr><td><?= htmlspecialchars($q['stat_key'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $q['target_value'] ?></td><td><?= htmlspecialchars($q['ready_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($q['status'], ENT_QUOTES, 'UTF-8') ?></td></tr>
+            <?php endforeach; ?>
+            </tbody></table></div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Gezgin Tüccar & Darbe / Eyalet Yönetimi</h2>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <h3 class="h6">Aktif Gezgin Tüccar Teklifleri</h3>
+                    <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Başlık</th><th>Başlangıç</th><th>Bitiş</th></tr></thead><tbody id="travelerOfferTable">
+                    <?php foreach ($travelerOffers as $offer): ?>
+                        <tr><td><?= htmlspecialchars($offer['title'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($offer['starts_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($offer['ends_at'], ENT_QUOTES, 'UTF-8') ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Darbe / Ayaklanma Başlat</h3>
+                    <div class="row g-2">
+                        <div class="col-4"><input id="coupCountryId" class="form-control" type="number" min="1" placeholder="Ülke ID"></div>
+                        <div class="col-4"><select id="coupType" class="form-select"><option value="coup">Darbe</option><option value="uprising">Ayaklanma</option></select></div>
+                        <div class="col-4"><input id="coupGold" class="form-control" type="number" min="1" placeholder="Gold"></div>
+                        <div class="col-12"><button class="btn btn-outline-danger w-100 action-btn" data-action="coup-start">Hareketi Başlat</button></div>
+                    </div>
+
+                    <h3 class="h6 mt-3">Eyalet Bağışı / Kimlik</h3>
+                    <div class="row g-2">
+                        <div class="col-4"><input id="provinceId" class="form-control" type="number" min="1" placeholder="Eyalet ID"></div>
+                        <div class="col-4"><input id="provinceTargetUserId" class="form-control" type="number" min="1" placeholder="Hedef User ID"></div>
+                        <div class="col-4"><button class="btn btn-outline-warning w-100 action-btn" data-action="province-donate">Bağışla</button></div>
+                        <div class="col-4"><input id="provinceName" class="form-control" type="text" placeholder="Yeni ad"></div>
+                        <div class="col-3"><input id="provinceColorHex" class="form-control" type="text" placeholder="#3366FF"></div>
+                        <div class="col-5"><input id="provinceFlagPath" class="form-control" type="text" placeholder="/uploads/flags/x.webp"></div>
+                        <div class="col-12"><button class="btn btn-outline-info w-100 action-btn" data-action="province-identity">Kimliği Güncelle</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive mt-3"><table class="table table-dark table-sm"><thead><tr><th>ID</th><th>Eyalet</th><th>Ülke</th><th>Renk</th><th>Koruma</th></tr></thead><tbody id="myProvinceTable">
+            <?php foreach ($myProvinces as $province): ?>
+                <tr><td><?= (int) $province['id'] ?></td><td><?= htmlspecialchars($province['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($province['country_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($province['color_hex'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($province['protection_until'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td></tr>
+            <?php endforeach; ?>
+            </tbody></table></div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Savaş Merkezi</h2>
+            <?php if ($activeWar): ?>
+                <div class="alert alert-warning py-2">
+                    Aktif savaş: <strong><?= htmlspecialchars($activeWar['attacker_country_name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                    vs
+                    <strong><?= htmlspecialchars($activeWar['defender_country_name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                    • Skor <?= (int) $activeWar['attacker_score'] ?> - <?= (int) $activeWar['defender_score'] ?>
+                </div>
+                <button class="btn btn-danger action-btn" data-action="war-attack" data-war-id="<?= (int) $activeWar['id'] ?>">Cepheye Saldır (Enerji)</button>
+            <?php else: ?>
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-8">
+                        <select id="defenderCountryId" class="form-select">
+                            <?php foreach ($countries as $c): ?>
+                                <?php if ((int) $c['id'] === (int) $user['country_id']) { continue; } ?>
+                                <option value="<?= (int) $c['id'] ?>"><?= htmlspecialchars($c['flag_emoji'] . ' ' . $c['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-danger w-100 action-btn" data-action="war-start">Savaş Başlat</button>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>Zaman</th><th>Oyuncu</th><th>Cephe</th><th>Zarar</th><th>Skor</th></tr></thead>
+                    <tbody id="warReportTable">
+                    <?php foreach ($warReports as $report): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($report['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($report['attacker_user_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($report['attacker_country_name'] . ' → ' . $report['defender_country_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= (int) $report['damage'] ?></td>
+                            <td><?= (int) $report['attacker_score_after'] ?> / <?= (int) $report['defender_score_after'] ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Siyaset Merkezi (Parti / Seçim / Meclis)</h2>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <h3 class="h6">Parti Yönetimi</h3>
+                    <?php if ($myParty): ?>
+                        <p class="mb-2">Partin: <strong><?= htmlspecialchars($myParty['name'], ENT_QUOTES, 'UTF-8') ?></strong> (<?= htmlspecialchars($myParty['my_role'], ENT_QUOTES, 'UTF-8') ?>)</p>
+                        <?php if (($myParty['my_role'] ?? 'member') !== 'founder'): ?>
+                            <button class="btn btn-outline-secondary btn-sm action-btn" data-action="party-leave">Partiden Ayrıl</button>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <div class="d-grid gap-2">
+                            <input id="partyName" class="form-control" type="text" placeholder="Parti adı">
+                            <input id="partyIdeology" class="form-control" type="text" placeholder="İdeoloji">
+                            <button class="btn btn-outline-info btn-sm action-btn" data-action="party-create">Parti Kur</button>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="table-responsive mt-2">
+                        <table class="table table-dark table-sm">
+                            <thead><tr><th>Parti</th><th>Üye</th><th></th></tr></thead>
+                            <tbody id="partyTable">
+                            <?php foreach ($parties as $party): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($party['name'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= (int) $party['member_count'] ?></td>
+                                    <td><button class="btn btn-sm btn-success action-btn" data-action="party-join" data-party-id="<?= (int) $party['id'] ?>">Katıl</button></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Seçim</h3>
+                    <?php if ($election): ?>
+                        <p class="mb-2">Açık seçim #<?= (int) $election['id'] ?> • Bitiş: <?= htmlspecialchars($election['ends_at'], ENT_QUOTES, 'UTF-8') ?></p>
+                        <div class="d-grid gap-2">
+                            <select id="electionPartyId" class="form-select">
+                                <?php foreach (($election['parties'] ?? []) as $ep): ?>
+                                    <option value="<?= (int) $ep['id'] ?>"><?= htmlspecialchars($ep['name'] . ' (' . (int) $ep['vote_count'] . ')', ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button class="btn btn-outline-warning btn-sm action-btn" data-action="election-vote" data-election-id="<?= (int) $election['id'] ?>">Seçimde Oy Ver</button>
+                        </div>
+                    <?php else: ?>
+                        <p class="mb-2">Açık seçim yok.</p>
+                        <button class="btn btn-outline-warning btn-sm action-btn" data-action="election-open">Seçim Aç</button>
+                    <?php endif; ?>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Meclis Kanunları</h3>
+                    <div class="d-grid gap-2 mb-2">
+                        <input id="lawTitle" class="form-control" type="text" placeholder="Kanun başlığı">
+                        <textarea id="lawBody" class="form-control" rows="2" placeholder="Kanun içeriği"></textarea>
+                        <button class="btn btn-outline-primary btn-sm action-btn" data-action="law-propose">Kanun Öner</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm">
+                            <thead><tr><th>Kanun</th><th>Durum</th><th>Oy</th><th></th></tr></thead>
+                            <tbody id="lawTable">
+                            <?php foreach ($parliamentLaws as $law): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($law['title'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($law['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= (int) $law['yes_votes'] ?> / <?= (int) $law['no_votes'] ?></td>
+                                    <td>
+                                        <?php if (($law['status'] ?? 'open') === 'open'): ?>
+                                            <button class="btn btn-sm btn-success action-btn" data-action="law-vote" data-law-id="<?= (int) $law['id'] ?>" data-vote="yes">Evet</button>
+                                            <button class="btn btn-sm btn-danger action-btn" data-action="law-vote" data-law-id="<?= (int) $law['id'] ?>" data-vote="no">Hayır</button>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Bakanlık Rolleri ve Yetki Akışları</h2>
+            <p class="small text-secondary mb-2">Yetkilerin: <?= htmlspecialchars(implode(', ', $myPermissions) ?: 'yok', ENT_QUOTES, 'UTF-8') ?></p>
+
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <h3 class="h6">Rol Atama (Başkan)</h3>
+                    <div class="d-grid gap-2">
+                        <input id="govTargetUserId" class="form-control" type="number" min="1" placeholder="Hedef Oyuncu ID">
+                        <select id="govRoleKey" class="form-select">
+                            <option value="minister_economy">Ekonomi Bakanı</option>
+                            <option value="minister_defense">Savunma Bakanı</option>
+                            <option value="minister_interior">İçişleri Bakanı</option>
+                        </select>
+                        <button class="btn btn-outline-light btn-sm action-btn" data-action="gov-assign-role">Rol Ata</button>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Ekonomi Aksiyonu</h3>
+                    <div class="d-grid gap-2">
+                        <input id="govBuyerTax" class="form-control" type="number" min="0" max="30" step="0.1" placeholder="Alıcı vergi %">
+                        <input id="govSellerCommission" class="form-control" type="number" min="0" max="30" step="0.1" placeholder="Satıcı komisyon %">
+                        <button class="btn btn-outline-warning btn-sm action-btn" data-action="gov-market-tax">Pazar Vergisini Güncelle</button>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Savunma Aksiyonu</h3>
+                    <div class="d-grid gap-2">
+                        <input id="govWarScoreToWin" class="form-control" type="number" min="200" max="10000" step="10" placeholder="Savaş Skor Hedefi">
+                        <button class="btn btn-outline-danger btn-sm action-btn" data-action="gov-war-score">Savaş Hedefini Güncelle</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                    <h3 class="h6">Aktif Roller</h3>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm">
+                            <thead><tr><th>Rol</th><th>Oyuncu</th><th>Atanma</th></tr></thead>
+                            <tbody id="governmentRoleTable">
+                            <?php foreach (($government['roles'] ?? []) as $gr): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($gr['role_key'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($gr['username'], ENT_QUOTES, 'UTF-8') ?> (#<?= (int) $gr['user_id'] ?>)</td>
+                                    <td><?= htmlspecialchars($gr['assigned_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Bakanlık Aksiyon Logu</h3>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm">
+                            <thead><tr><th>Zaman</th><th>Aktör</th><th>Aksiyon</th></tr></thead>
+                            <tbody id="governmentActionTable">
+                            <?php foreach (($government['actions'] ?? []) as $ga): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($ga['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars($ga['actor_name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($ga['role_key'], ENT_QUOTES, 'UTF-8') ?>)</td>
+                                    <td><?= htmlspecialchars($ga['action_key'], ENT_QUOTES, 'UTF-8') ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Oturum / Geçiş İzin Sistemi</h2>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <h3 class="h6">İzin Talebi</h3>
+                    <div class="d-grid gap-2">
+                        <select id="travelCountryId" class="form-select">
+                            <?php foreach ($travelPolicies as $tp): ?>
+                                <?php if ((int) $tp['country_id'] === (int) $user['country_id']) { continue; } ?>
+                                <option value="<?= (int) $tp['country_id'] ?>">
+                                    <?= htmlspecialchars($tp['country_name'], ENT_QUOTES, 'UTF-8') ?> • Min Lv <?= (int) $tp['min_level'] ?> • Vize <?= (float) $tp['visa_fee'] ?> • Süre <?= (int) $tp['permit_duration_hours'] ?>s
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="btn btn-outline-info btn-sm action-btn" data-action="travel-request">Geçiş İzni Talep Et</button>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">İzin Kararı (İçişleri/Başkan)</h3>
+                    <div class="d-grid gap-2">
+                        <input id="travelPermitId" class="form-control" type="number" min="1" placeholder="Permit ID">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm w-50 action-btn" data-action="travel-permit-decision" data-decision="approved">Onayla</button>
+                            <button class="btn btn-danger btn-sm w-50 action-btn" data-action="travel-permit-decision" data-decision="rejected">Reddet</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Şehre Taşın</h3>
+                    <div class="d-grid gap-2">
+                        <input id="travelCityId" class="form-control" type="number" min="1" placeholder="Hedef Şehir ID">
+                        <button class="btn btn-outline-light btn-sm action-btn" data-action="travel-move">Taşın</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>ID</th><th>Rota</th><th>Durum</th><th>Vize</th><th>Geçerlilik</th><th>İhlal</th></tr></thead>
+                    <tbody id="travelPermitTable">
+                    <?php foreach ($travelPermits as $tp): ?>
+                        <tr>
+                            <td><?= (int) $tp['id'] ?></td>
+                            <td><?= htmlspecialchars($tp['from_country_name'] . ' → ' . $tp['to_country_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($tp['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= number_format((float) $tp['visa_fee'], 2, ',', '.') ?></td>
+                            <td><?= htmlspecialchars((string) ($tp['valid_until'] ?? $tp['requested_at']), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars((string) ($tp['violation_reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                    <h3 class="h6">Vatandaşlık Başvurusu</h3>
+                    <div class="d-grid gap-2">
+                        <select id="citizenshipCountryId" class="form-select">
+                            <?php foreach ($travelPolicies as $tp): ?>
+                                <?php if ((int) $tp['country_id'] === (int) $user['country_id']) { continue; } ?>
+                                <option value="<?= (int) $tp['country_id'] ?>"><?= htmlspecialchars($tp['country_name'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="btn btn-outline-primary btn-sm action-btn" data-action="citizenship-request">Vatandaşlık Başvurusu Yap</button>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Vatandaşlık Kararı (İçişleri/Başkan)</h3>
+                    <div class="d-grid gap-2">
+                        <input id="citizenshipRequestId" class="form-control" type="number" min="1" placeholder="Request ID">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm w-50 action-btn" data-action="citizenship-decision" data-decision="approved">Onayla</button>
+                            <button class="btn btn-danger btn-sm w-50 action-btn" data-action="citizenship-decision" data-decision="rejected">Reddet</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>ID</th><th>Rota</th><th>Durum</th><th>Tarih</th></tr></thead>
+                    <tbody id="citizenshipTable">
+                    <?php foreach ($citizenshipRequests as $cr): ?>
+                        <tr>
+                            <td><?= (int) $cr['id'] ?></td>
+                            <td><?= htmlspecialchars($cr['from_country_name'] . ' → ' . $cr['to_country_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($cr['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars((string) ($cr['decided_at'] ?? $cr['requested_at']), ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="appToast" class="toast text-bg-dark border-0"><div class="d-flex"><div class="toast-body" id="toastBody">Hazır.</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>
+</div>
+
+<script>
+window.GAME_BOOTSTRAP = <?= json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+</script>
+<?php
+$content = ob_get_clean();
+$title = ($config['app_name'] ?? 'Noa Political Wars') . ' - Dashboard';
+require base_path('views/layouts/base.php');

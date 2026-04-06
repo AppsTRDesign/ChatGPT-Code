@@ -1,0 +1,115 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Core\Auth;
+use App\Core\Csrf;
+use App\Core\Response;
+use App\Core\View;
+use App\Services\GameService;
+
+final class HomeController
+{
+    public function __construct(private readonly array $config)
+    {
+    }
+
+    public function index(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId) {
+            Response::redirect('/login');
+        }
+
+        $game = new GameService();
+        $state = $game->dashboard($userId);
+        if (empty($state['user'])) {
+            Auth::logoutUser();
+            Response::redirect('/login?toast=' . urlencode('Oturum verisi yenilendi, lütfen tekrar giriş yap.'));
+        }
+
+        View::render('game/index', [
+            'config' => $this->config,
+            'csrf' => Csrf::token(),
+            'state' => $state,
+        ]);
+    }
+
+    public function work(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/?toast=Yetkisiz');
+        }
+
+        $resource = (string) ($_POST['resource'] ?? 'gold');
+        $result = (new GameService())->work($userId, $resource);
+        Response::redirect('/?toast=' . urlencode($result['message']));
+    }
+
+    public function economy(): void
+    {
+        $this->renderGameModule('game/economy', 'Ekonomi Modülü');
+    }
+
+    public function warRoom(): void
+    {
+        $this->renderGameModule('game/war', 'Savaş Modülü');
+    }
+
+    public function politics(): void
+    {
+        $this->renderGameModule('game/politics', 'Siyaset Modülü');
+    }
+
+    public function world(): void
+    {
+        $this->renderGameModule('game/world', 'Dünya Modülü');
+    }
+
+    public function battle(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/?toast=Yetkisiz');
+        }
+
+        $result = (new GameService())->battle($userId);
+        Response::redirect('/?toast=' . urlencode($result['message']));
+    }
+
+    public function upgrade(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/?toast=Yetkisiz');
+        }
+
+        $stat = (string) ($_POST['stat'] ?? 'strength');
+        $result = (new GameService())->upgradeStat($userId, $stat);
+        Response::redirect('/?toast=' . urlencode($result['message']));
+    }
+
+    private function renderGameModule(string $view, string $title): void
+    {
+        $userId = Auth::userId();
+        if (!$userId) {
+            Response::redirect('/login');
+        }
+
+        $game = new GameService();
+        $state = $game->dashboard($userId);
+        if (empty($state['user'])) {
+            Auth::logoutUser();
+            Response::redirect('/login?toast=' . urlencode('Oturum verisi yenilendi, lütfen tekrar giriş yap.'));
+        }
+        View::render($view, [
+            'config' => $this->config,
+            'csrf' => Csrf::token(),
+            'state' => $state,
+            'moduleTitle' => $title,
+        ]);
+    }
+}

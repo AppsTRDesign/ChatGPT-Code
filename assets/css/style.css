@@ -1,0 +1,99 @@
+:root {
+    --bg: #0f172a;
+    --card: #111827;
+    --text: #f8fafc;
+    --muted: #9ca3af;
+}
+
+body {
+    background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 60%);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+.panel,
+.stat-card {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+    color: var(--text);
+    border-radius: 14px;
+}
+
+.stat-card {
+    padding: .8rem;
+}
+
+.stat-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: .8rem;
+}
+
+.stat-card h2 {
+    margin: .25rem 0 0;
+    font-size: 1.25rem;
+}
+
+.table-dark {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(255,255,255,.04);
+}
+
+#worldMap {
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 10px;
+    background: #050a15;
+}
+
+.map-legend {
+    border: 1px dashed rgba(255,255,255,.25);
+    border-radius: 8px;
+    padding: .35rem .5rem;
+    min-height: 31px;
+    font-size: .8rem;
+    color: var(--muted);
+}
+
+.map-country-detail {
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 10px;
+    padding: .65rem .75rem;
+    background: rgba(13, 17, 31, .55);
+    font-size: .9rem;
+}
+
+@media (max-width: 991.98px) {
+    .container {
+        padding-left: .75rem;
+        padding-right: .75rem;
+    }
+
+    .card .table {
+        font-size: .78rem;
+    }
+
+    .btn,
+    .form-control,
+    .form-select {
+        min-height: 40px;
+    }
+
+    #worldMap {
+        height: 300px !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .stat-card h2 {
+        font-size: 1.05rem;
+    }
+
+    .panel {
+        border-radius: 10px;
+    }
+
+    .table-responsive {
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 8px;
+    }
+}
