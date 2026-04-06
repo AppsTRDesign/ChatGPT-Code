@@ -53,6 +53,9 @@ $router->post('/api/law/propose', [$apiController, 'lawPropose']);
 $router->post('/api/law/vote', [$apiController, 'lawVote']);
 $router->post('/api/gov/assign-role', [$apiController, 'governmentAssignRole']);
 $router->post('/api/gov/action', [$apiController, 'governmentAction']);
+$router->post('/api/travel/request-permit', [$apiController, 'travelRequestPermit']);
+$router->post('/api/travel/permit-decision', [$apiController, 'travelPermitDecision']);
+$router->post('/api/travel/move', [$apiController, 'travelMove']);
 
 $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);

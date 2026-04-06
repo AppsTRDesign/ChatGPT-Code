@@ -171,6 +171,8 @@ final class GameService
             'parliament_laws' => $this->parliamentSnapshot((int) $user['country_id']),
             'government' => $this->governmentSnapshot((int) $user['country_id']),
             'my_permissions' => $this->userPermissions($userId, (int) $user['country_id']),
+            'travel_permits' => $this->userTravelPermits($userId),
+            'travel_policies' => $this->travelPolicies(),
             'top_city' => $this->topCity(),
         ];
     }
@@ -1435,6 +1437,203 @@ final class GameService
     {
         $stmt = $this->db->prepare('INSERT INTO settings (`key`, `value`) VALUES (:key, :value) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), updated_at = NOW()');
         $stmt->execute(['key' => $key, 'value' => $value]);
+    }
+
+    public function requestTravelPermit(int $userId, int $toCountryId): array
+    {
+        if ($toCountryId <= 0) {
+            return ['ok' => false, 'message' => 'Geçersiz hedef ülke.'];
+        }
+
+        $userStmt = $this->db->prepare('SELECT id, country_id, level FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+        if ((int) $user['country_id'] === $toCountryId) {
+            return ['ok' => false, 'message' => 'Zaten bu ülkedesin.'];
+        }
+
+        $policyStmt = $this->db->prepare('SELECT visa_required, visa_fee, min_level FROM country_travel_policies WHERE country_id = :country_id LIMIT 1');
+        $policyStmt->execute(['country_id' => $toCountryId]);
+        $policy = $policyStmt->fetch();
+        if (!$policy) {
+            return ['ok' => false, 'message' => 'Hedef ülke seyahat politikası bulunamadı.'];
+        }
+        if ((int) $user['level'] < (int) $policy['min_level']) {
+            return ['ok' => false, 'message' => 'Bu ülke için minimum seviye şartı sağlanmıyor.'];
+        }
+
+        if ((int) $policy['visa_required'] === 0) {
+            return ['ok' => true, 'message' => 'Bu ülke vizesiz geçiş veriyor. Doğrudan şehir seçip taşınabilirsin.'];
+        }
+
+        $existingStmt = $this->db->prepare('SELECT id FROM residence_permits WHERE user_id = :user_id AND to_country_id = :to_country_id AND status = "pending" LIMIT 1');
+        $existingStmt->execute(['user_id' => $userId, 'to_country_id' => $toCountryId]);
+        if ($existingStmt->fetch()) {
+            return ['ok' => false, 'message' => 'Bu ülke için zaten bekleyen iznin var.'];
+        }
+
+        $stmt = $this->db->prepare('INSERT INTO residence_permits (user_id, from_country_id, to_country_id, status, visa_fee, requested_at) VALUES (:user_id,:from_country_id,:to_country_id,"pending",:visa_fee,NOW())');
+        $stmt->execute([
+            'user_id' => $userId,
+            'from_country_id' => $user['country_id'],
+            'to_country_id' => $toCountryId,
+            'visa_fee' => $policy['visa_fee'],
+        ]);
+
+        return ['ok' => true, 'message' => 'Oturum/geçiş izni talebi gönderildi.'];
+    }
+
+    public function decideTravelPermit(int $actorUserId, int $permitId, string $decision): array
+    {
+        if ($permitId <= 0 || !in_array($decision, ['approved', 'rejected'], true)) {
+            return ['ok' => false, 'message' => 'Geçersiz izin kararı.'];
+        }
+
+        $actorStmt = $this->db->prepare('SELECT id, country_id FROM users WHERE id = :id LIMIT 1');
+        $actorStmt->execute(['id' => $actorUserId]);
+        $actor = $actorStmt->fetch();
+        if (!$actor) {
+            return ['ok' => false, 'message' => 'Yetkili kullanıcı bulunamadı.'];
+        }
+
+        if (!$this->hasPermission($actorUserId, (int) $actor['country_id'], 'gov.permit.decide')) {
+            return ['ok' => false, 'message' => 'İzin kararı verme yetkin yok.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $permitStmt = $this->db->prepare('SELECT * FROM residence_permits WHERE id = :id AND status = "pending" LIMIT 1 FOR UPDATE');
+            $permitStmt->execute(['id' => $permitId]);
+            $permit = $permitStmt->fetch();
+            if (!$permit) {
+                throw new \RuntimeException('Bekleyen izin bulunamadı.');
+            }
+            if ((int) $permit['to_country_id'] !== (int) $actor['country_id']) {
+                throw new \RuntimeException('Sadece kendi ülkenin izin taleplerini kararlandırabilirsin.');
+            }
+
+            $this->db->prepare('UPDATE residence_permits SET status = :status, decided_by_user_id = :decided_by_user_id, decided_at = NOW() WHERE id = :id')->execute([
+                'status' => $decision,
+                'decided_by_user_id' => $actorUserId,
+                'id' => $permitId,
+            ]);
+
+            $this->logMinistryAction((int) $actor['country_id'], $actorUserId, $this->primaryGovernmentRole($actorUserId, (int) $actor['country_id']), 'permit.' . $decision, [
+                'permit_id' => $permitId,
+                'user_id' => $permit['user_id'],
+            ]);
+
+            $this->db->commit();
+            return ['ok' => true, 'message' => $decision === 'approved' ? 'İzin onaylandı.' : 'İzin reddedildi.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'İzin kararı başarısız.'];
+        }
+    }
+
+    public function travelToCity(int $userId, int $cityId): array
+    {
+        if ($cityId <= 0) {
+            return ['ok' => false, 'message' => 'Geçersiz şehir.'];
+        }
+
+        $userStmt = $this->db->prepare('SELECT id, country_id, city_id, gold FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
+        $cityStmt = $this->db->prepare('SELECT id, country_id, name, is_active FROM cities WHERE id = :id LIMIT 1');
+
+        $this->db->beginTransaction();
+        try {
+            $userStmt->execute(['id' => $userId]);
+            $user = $userStmt->fetch();
+            if (!$user) {
+                throw new \RuntimeException('Kullanıcı bulunamadı.');
+            }
+
+            $cityStmt->execute(['id' => $cityId]);
+            $city = $cityStmt->fetch();
+            if (!$city || (int) $city['is_active'] !== 1) {
+                throw new \RuntimeException('Hedef şehir aktif değil.');
+            }
+
+            $toCountryId = (int) $city['country_id'];
+            $fromCountryId = (int) $user['country_id'];
+            $permitId = null;
+
+            if ($toCountryId !== $fromCountryId) {
+                $policyStmt = $this->db->prepare('SELECT visa_required, visa_fee FROM country_travel_policies WHERE country_id = :country_id LIMIT 1');
+                $policyStmt->execute(['country_id' => $toCountryId]);
+                $policy = $policyStmt->fetch();
+                if (!$policy) {
+                    throw new \RuntimeException('Hedef ülke politikası bulunamadı.');
+                }
+
+                if ((int) $policy['visa_required'] === 1) {
+                    $permitStmt = $this->db->prepare('SELECT id, visa_fee FROM residence_permits WHERE user_id = :user_id AND to_country_id = :to_country_id AND status = "approved" ORDER BY id ASC LIMIT 1 FOR UPDATE');
+                    $permitStmt->execute(['user_id' => $userId, 'to_country_id' => $toCountryId]);
+                    $permit = $permitStmt->fetch();
+                    if (!$permit) {
+                        throw new \RuntimeException('Bu ülkeye geçiş için onaylı izin gerekli.');
+                    }
+
+                    $visaFee = (float) $permit['visa_fee'];
+                    if ((float) $user['gold'] < $visaFee) {
+                        throw new \RuntimeException('Vize ücreti için yeterli gold yok.');
+                    }
+
+                    $this->db->prepare('UPDATE users SET gold = gold - :visa_fee WHERE id = :id')->execute([
+                        'visa_fee' => $visaFee,
+                        'id' => $userId,
+                    ]);
+                    $this->db->prepare('UPDATE residence_permits SET status = "used" WHERE id = :id')->execute(['id' => $permit['id']]);
+                    $permitId = (int) $permit['id'];
+                }
+            }
+
+            $this->db->prepare('UPDATE users SET country_id = :country_id, city_id = :city_id WHERE id = :id')->execute([
+                'country_id' => $toCountryId,
+                'city_id' => $cityId,
+                'id' => $userId,
+            ]);
+
+            $this->db->prepare('INSERT INTO travel_logs (user_id, from_city_id, to_city_id, from_country_id, to_country_id, permit_id, traveled_at) VALUES (:user_id,:from_city_id,:to_city_id,:from_country_id,:to_country_id,:permit_id,NOW())')->execute([
+                'user_id' => $userId,
+                'from_city_id' => $user['city_id'],
+                'to_city_id' => $cityId,
+                'from_country_id' => $fromCountryId,
+                'to_country_id' => $toCountryId,
+                'permit_id' => $permitId,
+            ]);
+
+            $this->db->commit();
+            return ['ok' => true, 'message' => 'Yeni şehir: ' . $city['name']];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Seyahat başarısız.'];
+        }
+    }
+
+    public function userTravelPermits(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT rp.id, rp.status, rp.visa_fee, rp.requested_at, rp.decided_at, c1.name AS from_country_name, c2.name AS to_country_name
+            FROM residence_permits rp
+            JOIN countries c1 ON c1.id = rp.from_country_id
+            JOIN countries c2 ON c2.id = rp.to_country_id
+            WHERE rp.user_id = :user_id
+            ORDER BY rp.id DESC
+            LIMIT 20');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function travelPolicies(): array
+    {
+        $stmt = $this->db->query('SELECT ctp.country_id, c.name AS country_name, ctp.visa_required, ctp.visa_fee, ctp.min_level
+            FROM country_travel_policies ctp
+            JOIN countries c ON c.id = ctp.country_id
+            ORDER BY c.name');
+        return $stmt->fetchAll() ?: [];
     }
 
 

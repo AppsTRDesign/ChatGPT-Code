@@ -19,6 +19,8 @@ $election = $state['election'] ?? null;
 $parliamentLaws = $state['parliament_laws'] ?? [];
 $government = $state['government'] ?? ['roles' => [], 'actions' => []];
 $myPermissions = $state['my_permissions'] ?? [];
+$travelPermits = $state['travel_permits'] ?? [];
+$travelPolicies = $state['travel_policies'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -354,6 +356,64 @@ $myPermissions = $state['my_permissions'] ?? [];
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Oturum / Geçiş İzin Sistemi</h2>
+            <div class="row g-3">
+                <div class="col-lg-4">
+                    <h3 class="h6">İzin Talebi</h3>
+                    <div class="d-grid gap-2">
+                        <select id="travelCountryId" class="form-select">
+                            <?php foreach ($travelPolicies as $tp): ?>
+                                <?php if ((int) $tp['country_id'] === (int) $user['country_id']) { continue; } ?>
+                                <option value="<?= (int) $tp['country_id'] ?>">
+                                    <?= htmlspecialchars($tp['country_name'], ENT_QUOTES, 'UTF-8') ?> • Min Lv <?= (int) $tp['min_level'] ?> • Vize <?= (float) $tp['visa_fee'] ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="btn btn-outline-info btn-sm action-btn" data-action="travel-request">Geçiş İzni Talep Et</button>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">İzin Kararı (İçişleri/Başkan)</h3>
+                    <div class="d-grid gap-2">
+                        <input id="travelPermitId" class="form-control" type="number" min="1" placeholder="Permit ID">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm w-50 action-btn" data-action="travel-permit-decision" data-decision="approved">Onayla</button>
+                            <button class="btn btn-danger btn-sm w-50 action-btn" data-action="travel-permit-decision" data-decision="rejected">Reddet</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <h3 class="h6">Şehre Taşın</h3>
+                    <div class="d-grid gap-2">
+                        <input id="travelCityId" class="form-control" type="number" min="1" placeholder="Hedef Şehir ID">
+                        <button class="btn btn-outline-light btn-sm action-btn" data-action="travel-move">Taşın</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>ID</th><th>Rota</th><th>Durum</th><th>Vize</th><th>Tarih</th></tr></thead>
+                    <tbody id="travelPermitTable">
+                    <?php foreach ($travelPermits as $tp): ?>
+                        <tr>
+                            <td><?= (int) $tp['id'] ?></td>
+                            <td><?= htmlspecialchars($tp['from_country_name'] . ' → ' . $tp['to_country_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($tp['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= number_format((float) $tp['visa_fee'], 2, ',', '.') ?></td>
+                            <td><?= htmlspecialchars($tp['requested_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </section>

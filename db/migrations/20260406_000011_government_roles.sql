@@ -25,5 +25,7 @@ INSERT IGNORE INTO government_role_permissions (role_key, permission_key) VALUES
 ('president', 'gov.assign_roles'),
 ('president', 'gov.market.adjust_tax'),
 ('president', 'gov.war.adjust_score_to_win'),
+('president', 'gov.permit.decide'),
 ('minister_economy', 'gov.market.adjust_tax'),
-('minister_defense', 'gov.war.adjust_score_to_win');
+('minister_defense', 'gov.war.adjust_score_to_win'),
+('minister_interior', 'gov.permit.decide');

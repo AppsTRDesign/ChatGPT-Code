@@ -148,6 +148,20 @@
         `).join('');
     };
 
+    const renderTravelPermits = (rows) => {
+        const tbody = document.getElementById('travelPermitTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((p) => `
+            <tr>
+                <td>${p.id}</td>
+                <td>${p.from_country_name} → ${p.to_country_name}</td>
+                <td>${p.status}</td>
+                <td>${Number(p.visa_fee).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>${p.requested_at}</td>
+            </tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -167,6 +181,7 @@
         renderLaws(payload.data.parliament_laws || []);
         renderGovernmentRoles(payload?.data?.government?.roles || []);
         renderGovernmentActions(payload?.data?.government?.actions || []);
+        renderTravelPermits(payload.data.travel_permits || []);
     };
 
     const refreshState = async () => {
@@ -270,6 +285,18 @@
                 action_key: 'war.adjust_score_to_win',
                 score_to_win: document.getElementById('govWarScoreToWin')?.value || 1000,
             });
+        }
+        if (action === 'travel-request') {
+            return post('/api/travel/request-permit', { to_country_id: document.getElementById('travelCountryId')?.value || 0 });
+        }
+        if (action === 'travel-permit-decision') {
+            return post('/api/travel/permit-decision', {
+                permit_id: document.getElementById('travelPermitId')?.value || 0,
+                decision: button.dataset.decision || '',
+            });
+        }
+        if (action === 'travel-move') {
+            return post('/api/travel/move', { city_id: document.getElementById('travelCityId')?.value || 0 });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

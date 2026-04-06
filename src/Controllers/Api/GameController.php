@@ -260,4 +260,41 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function travelRequestPermit(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $toCountryId = (int) ($_POST['to_country_id'] ?? 0);
+        $result = (new GameService())->requestTravelPermit($userId, $toCountryId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function travelPermitDecision(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $permitId = (int) ($_POST['permit_id'] ?? 0);
+        $decision = (string) ($_POST['decision'] ?? '');
+        $result = (new GameService())->decideTravelPermit($userId, $permitId, $decision);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function travelMove(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $cityId = (int) ($_POST['city_id'] ?? 0);
+        $result = (new GameService())->travelToCity($userId, $cityId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }

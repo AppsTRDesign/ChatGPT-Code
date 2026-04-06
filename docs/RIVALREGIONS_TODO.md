@@ -140,6 +140,14 @@
 - Ekonomi/Savunma bakanlık aksiyonları eklendi (`/api/gov/action`).
 - Dashboard’a “Bakanlık Rolleri ve Yetki Akışları” paneli eklendi.
 
+
+## 13. Görev Çıktısı (Tamamlandı)
+- Oturum/geçiş izin veri modeli eklendi (`residence_permits`, `country_travel_policies`, `travel_logs`).
+- Oyuncu geçiş izni talebi akışı eklendi (`/api/travel/request-permit`).
+- İçişleri/Başkan izin karar akışı eklendi (`/api/travel/permit-decision`).
+- Şehir/ülke değişimi ve vize kontrolü eklendi (`/api/travel/move`).
+- Dashboard’a “Oturum / Geçiş İzin Sistemi” paneli eklendi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -153,7 +161,7 @@
 10.) Görev: ~~Savaş sistemi çekirdeği + raporlama~~ ✅
 11.) Görev: ~~Parti/Seçim/Meclis sistemleri~~ ✅
 12.) Görev: ~~Bakanlık rolleri ve yetki akışları~~ ✅
-13.) Görev: Oturum/geçiş izin sistemi
+13.) Görev: ~~Oturum/geçiş izin sistemi~~ ✅
 14.) Görev: Harita modülü genişletme + world builder
 15.) Görev: Test, izleme, canlıya çıkış planı
 26.) Görev: Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)
@@ -161,4 +169,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 13. göreve geçelim (Oturum/geçiş izin sistemi). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
+**Sonraki adım önerisi:** 14. göreve geçelim (Harita modülü genişletme + world builder). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
