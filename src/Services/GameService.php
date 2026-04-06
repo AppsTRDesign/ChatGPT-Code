@@ -157,6 +157,7 @@ final class GameService
             'market' => $this->marketOffers(),
             'countries' => $this->countryPopulation(),
             'map' => $this->mapPayload(),
+            'resource_market' => $this->resourceMarketSnapshot(),
             'top_city' => $this->topCity(),
         ];
     }
@@ -188,11 +189,25 @@ final class GameService
             return ['ok' => false, 'message' => 'Kaynak bulunamadı.'];
         }
 
+        $countryResourceStmt = $this->db->prepare('SELECT id, stock, daily_yield, quality_index, regeneration_rate FROM country_resources WHERE country_id = :country_id AND resource_id = :resource_id LIMIT 1');
+        $countryResourceStmt->execute([
+            'country_id' => $user['country_id'],
+            'resource_id' => $resource['id'],
+        ]);
+        $countryResource = $countryResourceStmt->fetch();
+
+        if (!$countryResource || (int) $countryResource['stock'] <= 0) {
+            return ['ok' => false, 'message' => 'Bu kaynak ülkende şu an tükenmiş durumda.'];
+        }
+
         $topCity = $this->topCity();
         $nation = $this->nationContext((int) $user['country_id']);
         $formula = new StatFormulaService();
         $cityTop = ((int) $user['city_id'] === (int) ($topCity['id'] ?? -1));
-        $gain = $formula->workYield((int) $user['strength'], (int) $user['education'], $cityTop, (int) $nation['nation_tier']);
+        $baseGain = $formula->workYield((int) $user['strength'], (int) $user['education'], $cityTop, (int) $nation['nation_tier']);
+        $scarcityFactor = max(0.35, min(1.40, ((float) $countryResource['stock'] / max(1, (float) $countryResource['daily_yield'] * 30))));
+        $qualityFactor = max(0.70, min(1.60, (float) $countryResource['quality_index']));
+        $gain = (int) max(1, floor($baseGain * $scarcityFactor * $qualityFactor));
 
         $this->db->beginTransaction();
         try {
@@ -204,6 +219,10 @@ final class GameService
 
             $updateResource = $this->db->prepare('UPDATE user_resources SET quantity = quantity + :gain WHERE user_id = :user_id AND resource_id = :resource_id');
             $updateResource->execute(['gain' => $gain, 'user_id' => $userId, 'resource_id' => $resource['id']]);
+
+            $countryStockUpdate = $this->db->prepare('UPDATE country_resources SET stock = GREATEST(0, stock - :used + FLOOR(daily_yield * regeneration_rate)) WHERE id = :id');
+            $countryStockUpdate->execute(['used' => $gain, 'id' => $countryResource['id']]);
+
             $this->db->commit();
         } catch (\Throwable $e) {
             $this->db->rollBack();
@@ -350,6 +369,42 @@ final class GameService
             GROUP BY c.id, c.name, c.code, c.flag_emoji
             ORDER BY player_count DESC, c.name ASC';
         return $this->db->query($sql)->fetchAll() ?: [];
+    }
+
+    public function resourceMarketSnapshot(): array
+    {
+        $rows = $this->db->query('SELECT r.id, r.name, r.base_price, COALESCE(SUM(cr.stock),0) AS total_stock, COALESCE(SUM(cr.daily_yield),0) AS total_yield, COALESCE(AVG(cr.quality_index),1) AS avg_quality
+            FROM resources r
+            LEFT JOIN country_resources cr ON cr.resource_id = r.id
+            GROUP BY r.id, r.name, r.base_price
+            ORDER BY r.id')->fetchAll() ?: [];
+
+        $out = [];
+        foreach ($rows as $row) {
+            $stock = (float) $row['total_stock'];
+            $yield = max(1.0, (float) $row['total_yield']);
+            $quality = max(0.7, min(1.6, (float) $row['avg_quality']));
+            $scarcity = max(0.5, min(2.2, ($yield * 30) / max(1.0, $stock + 1)));
+            $price = round((float) $row['base_price'] * $scarcity * $quality, 2);
+
+            $upsert = $this->db->prepare('INSERT INTO resource_market_prices (resource_id, current_price, scarcity_factor) VALUES (:id, :price, :scarcity) ON DUPLICATE KEY UPDATE current_price = VALUES(current_price), scarcity_factor = VALUES(scarcity_factor), updated_at = NOW()');
+            $upsert->execute([
+                'id' => $row['id'],
+                'price' => $price,
+                'scarcity' => round($scarcity, 3),
+            ]);
+
+            $out[] = [
+                'resource_id' => (int) $row['id'],
+                'name' => $row['name'],
+                'price' => $price,
+                'scarcity_factor' => round($scarcity, 3),
+                'total_stock' => (int) $stock,
+                'total_yield' => (int) $yield,
+            ];
+        }
+
+        return $out;
     }
 
     public function mapPayload(): array

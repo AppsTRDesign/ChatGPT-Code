@@ -7,6 +7,7 @@ $countries = $state['countries'] ?? [];
 $topCity = $state['top_city'] ?? null;
 $nation = $state['nation'] ?? ['nation_tier' => 1, 'player_count' => 0, 'avg_city_score' => 0];
 $progress = $state['progress'] ?? ['next_level_xp' => 120];
+$resourceMarket = $state['resource_market'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -113,6 +114,28 @@ $progress = $state['progress'] ?? ['next_level_xp' => 120];
             <small class="text-secondary">Ulus oyuncu sayısı: <?= (int) $nation['player_count'] ?> • Ortalama şehir skoru: <?= htmlspecialchars((string) $nation['avg_city_score'], ENT_QUOTES, 'UTF-8') ?></small>
         </div>
     </section>
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Kaynak Piyasa Dengesi</h2>
+            <div class="table-responsive">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>Kaynak</th><th>Fiyat</th><th>Kıtlık</th><th>Toplam Stok</th><th>Günlük Üretim</th></tr></thead>
+                    <tbody id="resourceMarketTable">
+                    <?php foreach ($resourceMarket as $rm): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($rm['name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= number_format((float) $rm['price'], 2, ',', '.') ?></td>
+                            <td><?= htmlspecialchars((string) $rm['scarcity_factor'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= (int) $rm['total_stock'] ?></td>
+                            <td><?= (int) $rm['total_yield'] ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
 </div>
 
 <div class="toast-container position-fixed bottom-0 end-0 p-3">

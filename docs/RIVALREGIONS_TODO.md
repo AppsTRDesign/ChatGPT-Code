@@ -92,6 +92,14 @@
 - Dashboard'a ilerleme metriği (`next_level_xp`) eklendi.
 - Balance tuning migration'ı eklendi (`20260405_000005_balance_tuning.sql`).
 
+
+## 7. Görev Çıktısı (Tamamlandı)
+- Ülke kaynakları için stok/yenilenme/kalite modeli eklendi.
+- Kaynak fiyatları kıtlık ve kaliteye göre dinamik hesaplanır hale getirildi.
+- Work aksiyonu ülke global stoklarını tüketiyor.
+- Dashboard'a kaynak piyasa dengesi tablosu eklendi.
+- Resource market snapshot API state içine entegre edildi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -99,7 +107,7 @@
 4.) Görev: ~~IP ülke atama + fallback/caching stratejisi~~ ✅
 5.) Görev: ~~Ulus/şehir domain kuralları (stat formülleri)~~ ✅
 6.) Görev: ~~Enerji/XP/Level/Stat formül motoru iyileştirme~~ ✅
-7.) Görev: Kaynak sistemi tam sürüm + dağılım balansı
+7.) Görev: ~~Kaynak sistemi tam sürüm + dağılım balansı~~ ✅
 8.) Görev: Fabrika sistemi (kurulum/seviye/işçi)
 9.) Görev: Market tam sürüm (vergi, komisyon, korumalar)
 10.) Görev: Savaş sistemi çekirdeği + raporlama
@@ -111,4 +119,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 7. göreve geçelim (Kaynak sistemi tam sürüm + dağılım balansı).
+**Sonraki adım önerisi:** 8. göreve geçelim (Fabrika sistemi: kurulum/seviye/işçi).

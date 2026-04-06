@@ -47,6 +47,21 @@
         `).join('');
     };
 
+
+    const renderResourceMarket = (rows) => {
+        const tbody = document.getElementById('resourceMarketTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((rm) => `
+            <tr>
+                <td>${rm.name}</td>
+                <td>${Number(rm.price).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>${rm.scarcity_factor}</td>
+                <td>${Number(rm.total_stock).toLocaleString('tr-TR')}</td>
+                <td>${Number(rm.total_yield).toLocaleString('tr-TR')}</td>
+            </tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -59,6 +74,7 @@
         setText('nationTier', payload?.data?.nation?.nation_tier || 1);
         renderResources(payload.data.resources || []);
         renderMarket(payload.data.market || []);
+        renderResourceMarket(payload.data.resource_market || []);
     };
 
     const refreshState = async () => {
