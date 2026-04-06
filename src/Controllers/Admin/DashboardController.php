@@ -41,6 +41,22 @@ final class DashboardController
         Response::redirect('/admin?toast=' . urlencode($res['message']));
     }
 
+    public function updateCountry(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $res = (new GameService())->updateCountry(
+            (int) ($_POST['country_id'] ?? 0),
+            (string) ($_POST['code'] ?? ''),
+            (string) ($_POST['name'] ?? ''),
+            (string) ($_POST['flag'] ?? '🏳️'),
+            (int) ($_POST['is_active'] ?? 1) === 1
+        );
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
+
     public function addCity(): void
     {
         if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
@@ -51,6 +67,23 @@ final class DashboardController
         Response::redirect('/admin?toast=' . urlencode($res['message']));
     }
 
+    public function updateCity(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $res = (new GameService())->updateCity(
+            (int) ($_POST['city_id'] ?? 0),
+            (int) ($_POST['country_id'] ?? 0),
+            (string) ($_POST['name'] ?? ''),
+            (float) ($_POST['lat'] ?? 0),
+            (float) ($_POST['lng'] ?? 0),
+            (int) ($_POST['is_active'] ?? 1) === 1
+        );
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
+
     public function addResourceDistribution(): void
     {
         if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
@@ -58,6 +91,16 @@ final class DashboardController
         }
 
         $res = (new GameService())->addCountryResource((int) ($_POST['country_id'] ?? 0), (int) ($_POST['resource_id'] ?? 0), (int) ($_POST['daily_yield'] ?? 0));
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
+
+    public function deleteResourceDistribution(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $res = (new GameService())->deleteCountryResource((int) ($_POST['country_resource_id'] ?? 0));
         Response::redirect('/admin?toast=' . urlencode($res['message']));
     }
 
@@ -77,6 +120,16 @@ final class DashboardController
         Response::redirect('/admin?toast=' . urlencode($res['message']));
     }
 
+    public function deleteMapLayer(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $res = (new GameService())->deleteMapLayer((int) ($_POST['map_layer_id'] ?? 0));
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
+
     public function addCityPoi(): void
     {
         if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
@@ -89,6 +142,39 @@ final class DashboardController
             (string) ($_POST['title'] ?? ''),
             (string) ($_POST['description'] ?? '')
         );
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
+
+    public function deleteCityPoi(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $res = (new GameService())->deleteCityPoi((int) ($_POST['city_poi_id'] ?? 0));
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
+
+    public function exportWorldBuilder(): void
+    {
+        if (!Auth::adminCheck()) {
+            Response::redirect('/admin/login');
+        }
+
+        $payload = (new GameService())->exportWorldBuilder();
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="worldbuilder-export.json"');
+        echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    public function importWorldBuilder(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $json = (string) ($_POST['import_payload'] ?? '');
+        $res = (new GameService())->importWorldBuilder($json);
         Response::redirect('/admin?toast=' . urlencode($res['message']));
     }
 }

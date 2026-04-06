@@ -1994,6 +1994,28 @@ final class GameService
         return ['ok' => true, 'message' => 'Ülke eklendi.'];
     }
 
+    public function updateCountry(int $countryId, string $code, string $name, string $flag, bool $isActive): array
+    {
+        $code = strtoupper(trim($code));
+        $name = trim($name);
+        $flag = trim($flag);
+        if ($countryId <= 0 || strlen($code) !== 2 || $name === '') {
+            return ['ok' => false, 'message' => 'Ülke güncelleme verisi geçersiz.'];
+        }
+
+        $stmt = $this->db->prepare('UPDATE countries SET code = :code, map_code = :map_code, name = :name, flag_emoji = :flag_emoji, is_active = :is_active, updated_at = NOW() WHERE id = :id');
+        $stmt->execute([
+            'id' => $countryId,
+            'code' => $code,
+            'map_code' => $code,
+            'name' => $name,
+            'flag_emoji' => $flag !== '' ? $flag : '🏳️',
+            'is_active' => $isActive ? 1 : 0,
+        ]);
+
+        return ['ok' => true, 'message' => 'Ülke güncellendi.'];
+    }
+
     public function createCity(int $countryId, string $name, float $lat, float $lng): array
     {
         if ($countryId < 1 || $name === '') {
@@ -2005,11 +2027,49 @@ final class GameService
         return ['ok' => true, 'message' => 'Şehir eklendi.'];
     }
 
+    public function updateCity(int $cityId, int $countryId, string $name, float $lat, float $lng, bool $isActive): array
+    {
+        $name = trim($name);
+        if ($cityId <= 0 || $countryId <= 0 || $name === '') {
+            return ['ok' => false, 'message' => 'Şehir güncelleme verisi geçersiz.'];
+        }
+        if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+            return ['ok' => false, 'message' => 'Koordinatlar geçersiz.'];
+        }
+
+        $stmt = $this->db->prepare('UPDATE cities SET country_id = :country_id, name = :name, lat = :lat, lng = :lng, is_active = :is_active, updated_at = NOW() WHERE id = :id');
+        $stmt->execute([
+            'id' => $cityId,
+            'country_id' => $countryId,
+            'name' => $name,
+            'lat' => $lat,
+            'lng' => $lng,
+            'is_active' => $isActive ? 1 : 0,
+        ]);
+
+        return ['ok' => true, 'message' => 'Şehir güncellendi.'];
+    }
+
     public function addCountryResource(int $countryId, int $resourceId, int $dailyYield): array
     {
+        if ($countryId <= 0 || $resourceId <= 0 || $dailyYield < 0) {
+            return ['ok' => false, 'message' => 'Kaynak dağılımı bilgisi geçersiz.'];
+        }
+
         $stmt = $this->db->prepare('INSERT INTO country_resources (country_id, resource_id, daily_yield, stock) VALUES (:c, :r, :y, :s) ON DUPLICATE KEY UPDATE daily_yield = VALUES(daily_yield)');
         $stmt->execute(['c' => $countryId, 'r' => $resourceId, 'y' => $dailyYield, 's' => $dailyYield * 20]);
         return ['ok' => true, 'message' => 'Kaynak dağılımı güncellendi.'];
+    }
+
+    public function deleteCountryResource(int $countryResourceId): array
+    {
+        if ($countryResourceId <= 0) {
+            return ['ok' => false, 'message' => 'Silinecek dağılım bulunamadı.'];
+        }
+
+        $stmt = $this->db->prepare('DELETE FROM country_resources WHERE id = :id');
+        $stmt->execute(['id' => $countryResourceId]);
+        return ['ok' => true, 'message' => 'Kaynak dağılımı silindi.'];
     }
 
     public function addMapLayer(int $countryId, string $layerKey, string $colorHex, float $intensity, ?string $note = null): array
@@ -2033,6 +2093,17 @@ final class GameService
         return ['ok' => true, 'message' => 'Harita katmanı kaydedildi.'];
     }
 
+    public function deleteMapLayer(int $mapLayerId): array
+    {
+        if ($mapLayerId <= 0) {
+            return ['ok' => false, 'message' => 'Silinecek katman seçilmedi.'];
+        }
+
+        $stmt = $this->db->prepare('DELETE FROM world_map_layers WHERE id = :id');
+        $stmt->execute(['id' => $mapLayerId]);
+        return ['ok' => true, 'message' => 'Harita katmanı silindi.'];
+    }
+
     public function addCityPoi(int $cityId, string $poiType, string $title, ?string $description = null): array
     {
         $poiType = trim($poiType);
@@ -2050,6 +2121,162 @@ final class GameService
         ]);
 
         return ['ok' => true, 'message' => 'Şehir POI kaydedildi.'];
+    }
+
+    public function deleteCityPoi(int $cityPoiId): array
+    {
+        if ($cityPoiId <= 0) {
+            return ['ok' => false, 'message' => 'Silinecek POI seçilmedi.'];
+        }
+
+        $stmt = $this->db->prepare('DELETE FROM city_points_of_interest WHERE id = :id');
+        $stmt->execute(['id' => $cityPoiId]);
+        return ['ok' => true, 'message' => 'Şehir POI silindi.'];
+    }
+
+    public function exportWorldBuilder(): array
+    {
+        return [
+            'exported_at' => (new \DateTimeImmutable('now'))->format(DATE_ATOM),
+            'countries' => $this->db->query('SELECT code, name, flag_emoji, is_active FROM countries ORDER BY id')->fetchAll() ?: [],
+            'cities' => $this->db->query('SELECT c.code AS country_code, ci.name, ci.lat, ci.lng, ci.base_population, ci.is_active FROM cities ci JOIN countries c ON c.id = ci.country_id ORDER BY c.code, ci.name')->fetchAll() ?: [],
+            'country_resources' => $this->db->query('SELECT c.code AS country_code, r.resource_key, cr.daily_yield, cr.stock FROM country_resources cr JOIN countries c ON c.id = cr.country_id JOIN resources r ON r.id = cr.resource_id ORDER BY c.code, r.resource_key')->fetchAll() ?: [],
+            'map_layers' => $this->db->query('SELECT c.code AS country_code, wml.layer_key, wml.color_hex, wml.intensity, wml.note FROM world_map_layers wml JOIN countries c ON c.id = wml.country_id ORDER BY wml.layer_key, c.code')->fetchAll() ?: [],
+            'city_pois' => $this->db->query('SELECT c.code AS country_code, ci.name AS city_name, cp.poi_type, cp.title, cp.description FROM city_points_of_interest cp JOIN cities ci ON ci.id = cp.city_id JOIN countries c ON c.id = ci.country_id ORDER BY cp.id')->fetchAll() ?: [],
+        ];
+    }
+
+    public function importWorldBuilder(string $jsonPayload): array
+    {
+        $decoded = json_decode($jsonPayload, true);
+        if (!is_array($decoded)) {
+            return ['ok' => false, 'message' => 'Import JSON formatı geçersiz.'];
+        }
+
+        $countries = is_array($decoded['countries'] ?? null) ? $decoded['countries'] : [];
+        $cities = is_array($decoded['cities'] ?? null) ? $decoded['cities'] : [];
+        $countryResources = is_array($decoded['country_resources'] ?? null) ? $decoded['country_resources'] : [];
+        $mapLayers = is_array($decoded['map_layers'] ?? null) ? $decoded['map_layers'] : [];
+        $cityPois = is_array($decoded['city_pois'] ?? null) ? $decoded['city_pois'] : [];
+
+        $this->db->beginTransaction();
+        try {
+            foreach ($countries as $country) {
+                $code = strtoupper(trim((string) ($country['code'] ?? '')));
+                $name = trim((string) ($country['name'] ?? ''));
+                if (strlen($code) !== 2 || $name === '') {
+                    continue;
+                }
+                $this->db->prepare('INSERT INTO countries (code, name, flag_emoji, map_code, is_active, created_at, updated_at) VALUES (:code,:name,:flag,:map_code,:is_active,NOW(),NOW()) ON DUPLICATE KEY UPDATE name = VALUES(name), flag_emoji = VALUES(flag_emoji), map_code = VALUES(map_code), is_active = VALUES(is_active), updated_at = NOW()')
+                    ->execute([
+                        'code' => $code,
+                        'name' => $name,
+                        'flag' => trim((string) ($country['flag_emoji'] ?? '🏳️')) ?: '🏳️',
+                        'map_code' => $code,
+                        'is_active' => (int) ($country['is_active'] ?? 1) === 1 ? 1 : 0,
+                    ]);
+            }
+
+            foreach ($cities as $city) {
+                $countryCode = strtoupper(trim((string) ($city['country_code'] ?? '')));
+                $name = trim((string) ($city['name'] ?? ''));
+                $lat = (float) ($city['lat'] ?? 0);
+                $lng = (float) ($city['lng'] ?? 0);
+                if (strlen($countryCode) !== 2 || $name === '' || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+                    continue;
+                }
+
+                $countryIdStmt = $this->db->prepare('SELECT id FROM countries WHERE code = :code LIMIT 1');
+                $countryIdStmt->execute(['code' => $countryCode]);
+                $countryId = (int) (($countryIdStmt->fetch()['id'] ?? 0));
+                if ($countryId <= 0) {
+                    continue;
+                }
+
+                $this->db->prepare('INSERT INTO cities (country_id, name, lat, lng, base_population, is_active, created_at, updated_at) VALUES (:country_id,:name,:lat,:lng,:base_population,:is_active,NOW(),NOW()) ON DUPLICATE KEY UPDATE lat = VALUES(lat), lng = VALUES(lng), base_population = VALUES(base_population), is_active = VALUES(is_active), updated_at = NOW()')
+                    ->execute([
+                        'country_id' => $countryId,
+                        'name' => $name,
+                        'lat' => $lat,
+                        'lng' => $lng,
+                        'base_population' => max(0, (int) ($city['base_population'] ?? 0)),
+                        'is_active' => (int) ($city['is_active'] ?? 1) === 1 ? 1 : 0,
+                    ]);
+            }
+
+            foreach ($countryResources as $row) {
+                $countryCode = strtoupper(trim((string) ($row['country_code'] ?? '')));
+                $resourceKey = trim((string) ($row['resource_key'] ?? ''));
+                if (strlen($countryCode) !== 2 || $resourceKey === '') {
+                    continue;
+                }
+
+                $stmt = $this->db->prepare('INSERT INTO country_resources (country_id, resource_id, daily_yield, stock, created_at, updated_at)
+                    SELECT c.id, r.id, :daily_yield, :stock, NOW(), NOW()
+                    FROM countries c
+                    JOIN resources r ON r.resource_key = :resource_key
+                    WHERE c.code = :country_code
+                    ON DUPLICATE KEY UPDATE daily_yield = VALUES(daily_yield), stock = VALUES(stock), updated_at = NOW()');
+                $stmt->execute([
+                    'daily_yield' => max(0, (int) ($row['daily_yield'] ?? 0)),
+                    'stock' => max(0, (int) ($row['stock'] ?? 0)),
+                    'resource_key' => $resourceKey,
+                    'country_code' => $countryCode,
+                ]);
+            }
+
+            foreach ($mapLayers as $row) {
+                $countryCode = strtoupper(trim((string) ($row['country_code'] ?? '')));
+                $layerKey = trim((string) ($row['layer_key'] ?? ''));
+                $colorHex = strtoupper(trim((string) ($row['color_hex'] ?? '#0D6EFD')));
+                if (strlen($countryCode) !== 2 || $layerKey === '' || !preg_match('/^#[0-9A-F]{6}$/', $colorHex)) {
+                    continue;
+                }
+
+                $stmt = $this->db->prepare('INSERT INTO world_map_layers (country_id, layer_key, color_hex, intensity, note, created_at, updated_at)
+                    SELECT c.id, :layer_key, :color_hex, :intensity, :note, NOW(), NOW()
+                    FROM countries c
+                    WHERE c.code = :country_code
+                    ON DUPLICATE KEY UPDATE color_hex = VALUES(color_hex), intensity = VALUES(intensity), note = VALUES(note), updated_at = NOW()');
+                $stmt->execute([
+                    'layer_key' => $layerKey,
+                    'color_hex' => $colorHex,
+                    'intensity' => max(0.1, min(5.0, (float) ($row['intensity'] ?? 1))),
+                    'note' => trim((string) ($row['note'] ?? '')),
+                    'country_code' => $countryCode,
+                ]);
+            }
+
+            foreach ($cityPois as $poi) {
+                $countryCode = strtoupper(trim((string) ($poi['country_code'] ?? '')));
+                $cityName = trim((string) ($poi['city_name'] ?? ''));
+                $poiType = trim((string) ($poi['poi_type'] ?? ''));
+                $title = trim((string) ($poi['title'] ?? ''));
+                if (strlen($countryCode) !== 2 || $cityName === '' || $poiType === '' || mb_strlen($title) < 2) {
+                    continue;
+                }
+
+                $stmt = $this->db->prepare('INSERT INTO city_points_of_interest (city_id, poi_type, title, description, created_at)
+                    SELECT ci.id, :poi_type, :title, :description, NOW()
+                    FROM cities ci
+                    JOIN countries c ON c.id = ci.country_id
+                    WHERE c.code = :country_code AND ci.name = :city_name
+                    LIMIT 1');
+                $stmt->execute([
+                    'poi_type' => $poiType,
+                    'title' => $title,
+                    'description' => trim((string) ($poi['description'] ?? '')),
+                    'country_code' => $countryCode,
+                    'city_name' => $cityName,
+                ]);
+            }
+
+            $this->db->commit();
+            return ['ok' => true, 'message' => 'World builder import tamamlandı.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'World builder import başarısız.'];
+        }
     }
 
     public function healthSnapshot(): array

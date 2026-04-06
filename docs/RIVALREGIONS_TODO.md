@@ -171,6 +171,13 @@
 - Seçilen ülke için oyuncu/şehir/POI/üretim özeti eklendi.
 - Harita lejantı aktif katmana göre dinamik güncellenir hale getirildi.
 
+## 17. Görev Çıktısı (Tamamlandı)
+- Admin World Builder artık yalnızca ekleme değil güncelleme/silme süreçlerini de kapsar hale getirildi.
+- Ülke ve şehir güncelleme formları eklendi (aktif/pasif kontrolü dahil).
+- Kaynak dağılımı, harita katmanı ve şehir POI kayıtlarına silme aksiyonları eklendi.
+- World Builder JSON export endpointi eklendi.
+- World Builder JSON import akışı eklendi (country/city/resource/layer/poi upsert).
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -188,7 +195,7 @@
 14.) Görev: ~~Harita modülü genişletme + world builder~~ ✅
 15.) Görev: ~~Oturum izni / vatandaşlık / sınır geçiş sistemi~~ ✅
 16.) Görev: ~~Dünya haritası modülü (interaktif)~~ ✅
-17.) Görev: Admin World Builder (ülke/şehir/kaynak ekleme paneli)
+17.) Görev: ~~Admin World Builder (ülke/şehir/kaynak ekleme paneli)~~ ✅
 18.) Görev: Top şehir sistemi ve global sıralamalar
 19.) Görev: Görevler, başarımlar, günlük görev sistemi
 20.) Görev: Bildirim sistemi (toast + inbox + event feed)
@@ -202,4 +209,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 17. göreve geçelim (Admin World Builder kapsamını CRUD + doğrulama + import/export ile derinleştirelim).
+**Sonraki adım önerisi:** 18. göreve geçelim (Top şehir sistemi ve global sıralamalar).

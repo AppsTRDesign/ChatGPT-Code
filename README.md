@@ -18,7 +18,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Oturum/geçiş + vatandaşlık sistemi: izin talebi, onay/reddetme, ihlal takibi, vatandaşlık başvurusu ve şehir/ülke taşınma akışı.
 - Harita modülü genişletme: katman (layer) ve şehir POI tabanlı world builder desteği.
 - Dünya haritası (jsVectorMap) interaktif: katman seçimi, ülke detay paneli, şehir/POI filtreleri.
-- Admin panelden ülke/şehir/kaynak dağılımı ekleme.
+- Admin panelden world builder: ülke/şehir/kaynak/layer/POI CRUD + JSON import/export.
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
 
 ## Endpointler
@@ -109,6 +109,8 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Harita/world builder notu: `docs/MAP_WORLDBUILDER_TASK14.md`
 
 - İnteraktif dünya haritası notu: `docs/WORLD_MAP_INTERACTIVE_TASK16.md`
+
+- Admin world builder genişletme notu: `docs/ADMIN_WORLDBUILDER_TASK17.md`
 
 - Test/izleme/canlıya çıkış notu (ileri faz): `docs/RELEASE_MONITORING_TASK15.md`
 

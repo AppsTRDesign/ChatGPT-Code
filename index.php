@@ -64,10 +64,17 @@ $router->post('/api/travel/citizenship-decision', [$apiController, 'travelCitize
 
 $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);
+$router->post('/admin/world/country/update', [$adminController, 'updateCountry']);
 $router->post('/admin/world/city', [$adminController, 'addCity']);
+$router->post('/admin/world/city/update', [$adminController, 'updateCity']);
 $router->post('/admin/world/resource', [$adminController, 'addResourceDistribution']);
+$router->post('/admin/world/resource/delete', [$adminController, 'deleteResourceDistribution']);
 $router->post('/admin/world/map-layer', [$adminController, 'addMapLayer']);
+$router->post('/admin/world/map-layer/delete', [$adminController, 'deleteMapLayer']);
 $router->post('/admin/world/city-poi', [$adminController, 'addCityPoi']);
+$router->post('/admin/world/city-poi/delete', [$adminController, 'deleteCityPoi']);
+$router->get('/admin/world/export', [$adminController, 'exportWorldBuilder']);
+$router->post('/admin/world/import', [$adminController, 'importWorldBuilder']);
 $router->get('/admin/login', [$loginController, 'show']);
 $router->post('/admin/login', [$loginController, 'login']);
 $router->post('/admin/logout', [$loginController, 'logout']);
