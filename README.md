@@ -15,7 +15,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Ülke savaş çekirdeği: savaş başlatma, cephe saldırısı, skor ve savaş raporları.
 - Parti/Seçim/Meclis: parti yönetimi, seçim oylaması ve kanun teklif/oylama çekirdeği.
 - Bakanlık rolleri: rol atama, yetki matrisi ve bakanlık aksiyon logları.
-- Oturum/geçiş izin sistemi: izin talebi, onay/reddetme ve şehir/ülke taşınma akışı.
+- Oturum/geçiş + vatandaşlık sistemi: izin talebi, onay/reddetme, ihlal takibi, vatandaşlık başvurusu ve şehir/ülke taşınma akışı.
 - Harita modülü genişletme: katman (layer) ve şehir POI tabanlı world builder desteği.
 - Dünya haritası (jsVectorMap) ve şehir bazlı oyuncu yoğunluğu işaretleme.
 - Admin panelden ülke/şehir/kaynak dağılımı ekleme.
@@ -44,6 +44,8 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
   - `POST /api/travel/request-permit`
   - `POST /api/travel/permit-decision`
   - `POST /api/travel/move`
+  - `POST /api/travel/request-citizenship`
+  - `POST /api/travel/citizenship-decision`
   - `GET /health` (operasyonel sağlık endpointi)
 
 ## Kurulum
@@ -63,6 +65,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260406_000011_government_roles.sql`
    - `db/migrations/20260406_000012_travel_permits.sql`
    - `db/migrations/20260406_000013_map_worldbuilder.sql`
+   - `db/migrations/20260406_000015_border_citizenship_queue.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -101,9 +104,11 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 
 - Oturum/geçiş izin sistemi notu: `docs/TRAVEL_PERMIT_TASK13.md`
 
+- Task-15 (oturum+vatandaşlık+sınır geçiş) notu: `docs/BORDER_CITIZENSHIP_TASK15.md`
+
 - Harita/world builder notu: `docs/MAP_WORLDBUILDER_TASK14.md`
 
-- Test/izleme/canlıya çıkış notu: `docs/RELEASE_MONITORING_TASK15.md`
+- Test/izleme/canlıya çıkış notu (ileri faz): `docs/RELEASE_MONITORING_TASK15.md`
 
 ## Operasyonel Kontroller
 - Hızlı release kontrol scripti: `scripts/release_checks.sh`

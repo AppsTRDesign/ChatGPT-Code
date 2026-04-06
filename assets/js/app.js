@@ -157,7 +157,21 @@
                 <td>${p.from_country_name} → ${p.to_country_name}</td>
                 <td>${p.status}</td>
                 <td>${Number(p.visa_fee).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td>${p.requested_at}</td>
+                <td>${p.valid_until || p.requested_at}</td>
+                <td>${p.violation_reason || '-'}</td>
+            </tr>
+        `).join('');
+    };
+
+    const renderCitizenshipRequests = (rows) => {
+        const tbody = document.getElementById('citizenshipTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((r) => `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.from_country_name} → ${r.to_country_name}</td>
+                <td>${r.status}</td>
+                <td>${r.decided_at || r.requested_at}</td>
             </tr>
         `).join('');
     };
@@ -182,6 +196,7 @@
         renderGovernmentRoles(payload?.data?.government?.roles || []);
         renderGovernmentActions(payload?.data?.government?.actions || []);
         renderTravelPermits(payload.data.travel_permits || []);
+        renderCitizenshipRequests(payload.data.citizenship_requests || []);
     };
 
     const refreshState = async () => {
@@ -297,6 +312,15 @@
         }
         if (action === 'travel-move') {
             return post('/api/travel/move', { city_id: document.getElementById('travelCityId')?.value || 0 });
+        }
+        if (action === 'citizenship-request') {
+            return post('/api/travel/request-citizenship', { to_country_id: document.getElementById('citizenshipCountryId')?.value || 0 });
+        }
+        if (action === 'citizenship-decision') {
+            return post('/api/travel/citizenship-decision', {
+                request_id: document.getElementById('citizenshipRequestId')?.value || 0,
+                decision: button.dataset.decision || '',
+            });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

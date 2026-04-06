@@ -148,6 +148,7 @@ final class GameService
         $nation = $this->nationContext((int) $user['country_id']);
         $this->closeExpiredElections((int) $user['country_id']);
         $this->closeExpiredLaws((int) $user['country_id']);
+        $this->processBorderQueue();
 
         return [
             'user' => $user,
@@ -172,6 +173,7 @@ final class GameService
             'government' => $this->governmentSnapshot((int) $user['country_id']),
             'my_permissions' => $this->userPermissions($userId, (int) $user['country_id']),
             'travel_permits' => $this->userTravelPermits($userId),
+            'citizenship_requests' => $this->userCitizenshipRequests($userId),
             'travel_policies' => $this->travelPolicies(),
             'top_city' => $this->topCity(),
         ];
@@ -1466,7 +1468,7 @@ final class GameService
             return ['ok' => false, 'message' => 'Zaten bu ülkedesin.'];
         }
 
-        $policyStmt = $this->db->prepare('SELECT visa_required, visa_fee, min_level FROM country_travel_policies WHERE country_id = :country_id LIMIT 1');
+        $policyStmt = $this->db->prepare('SELECT visa_required, visa_fee, min_level, permit_duration_hours FROM country_travel_policies WHERE country_id = :country_id LIMIT 1');
         $policyStmt->execute(['country_id' => $toCountryId]);
         $policy = $policyStmt->fetch();
         if (!$policy) {
@@ -1486,12 +1488,13 @@ final class GameService
             return ['ok' => false, 'message' => 'Bu ülke için zaten bekleyen iznin var.'];
         }
 
-        $stmt = $this->db->prepare('INSERT INTO residence_permits (user_id, from_country_id, to_country_id, status, visa_fee, requested_at) VALUES (:user_id,:from_country_id,:to_country_id,"pending",:visa_fee,NOW())');
+        $stmt = $this->db->prepare('INSERT INTO residence_permits (user_id, from_country_id, to_country_id, status, visa_fee, requested_at, note) VALUES (:user_id,:from_country_id,:to_country_id,"pending",:visa_fee,NOW(),:note)');
         $stmt->execute([
             'user_id' => $userId,
             'from_country_id' => $user['country_id'],
             'to_country_id' => $toCountryId,
             'visa_fee' => $policy['visa_fee'],
+            'note' => 'Süre: ' . (int) $policy['permit_duration_hours'] . ' saat',
         ]);
 
         return ['ok' => true, 'message' => 'Oturum/geçiş izni talebi gönderildi.'];
@@ -1526,11 +1529,28 @@ final class GameService
                 throw new \RuntimeException('Sadece kendi ülkenin izin taleplerini kararlandırabilirsin.');
             }
 
-            $this->db->prepare('UPDATE residence_permits SET status = :status, decided_by_user_id = :decided_by_user_id, decided_at = NOW() WHERE id = :id')->execute([
+            $validUntil = null;
+            if ($decision === 'approved') {
+                $policyStmt = $this->db->prepare('SELECT permit_duration_hours FROM country_travel_policies WHERE country_id = :country_id LIMIT 1');
+                $policyStmt->execute(['country_id' => $permit['to_country_id']]);
+                $policy = $policyStmt->fetch();
+                $durationHours = max(1, (int) ($policy['permit_duration_hours'] ?? 72));
+                $validUntil = (new \DateTimeImmutable('now'))->modify('+' . $durationHours . ' hours')->format('Y-m-d H:i:s');
+            }
+
+            $this->db->prepare('UPDATE residence_permits SET status = :status, decided_by_user_id = :decided_by_user_id, decided_at = NOW(), approved_at = CASE WHEN :status = "approved" THEN NOW() ELSE approved_at END, valid_until = :valid_until WHERE id = :id')->execute([
                 'status' => $decision,
                 'decided_by_user_id' => $actorUserId,
+                'valid_until' => $validUntil,
                 'id' => $permitId,
             ]);
+
+            if ($decision === 'approved' && $validUntil !== null) {
+                $this->enqueueBorderEvent('permit.expire_return', (int) $permit['user_id'], (int) $permit['to_country_id'], $validUntil, [
+                    'permit_id' => (int) $permit['id'],
+                    'home_country_id' => (int) $permit['from_country_id'],
+                ]);
+            }
 
             $this->logMinistryAction((int) $actor['country_id'], $actorUserId, $this->primaryGovernmentRole($actorUserId, (int) $actor['country_id']), 'permit.' . $decision, [
                 'permit_id' => $permitId,
@@ -1581,11 +1601,19 @@ final class GameService
                 }
 
                 if ((int) $policy['visa_required'] === 1) {
-                    $permitStmt = $this->db->prepare('SELECT id, visa_fee FROM residence_permits WHERE user_id = :user_id AND to_country_id = :to_country_id AND status = "approved" ORDER BY id ASC LIMIT 1 FOR UPDATE');
+                    $permitStmt = $this->db->prepare('SELECT id, visa_fee, valid_until FROM residence_permits WHERE user_id = :user_id AND to_country_id = :to_country_id AND status = "approved" ORDER BY id ASC LIMIT 1 FOR UPDATE');
                     $permitStmt->execute(['user_id' => $userId, 'to_country_id' => $toCountryId]);
                     $permit = $permitStmt->fetch();
                     if (!$permit) {
                         throw new \RuntimeException('Bu ülkeye geçiş için onaylı izin gerekli.');
+                    }
+
+                    if (!empty($permit['valid_until']) && new \DateTimeImmutable((string) $permit['valid_until']) < new \DateTimeImmutable('now')) {
+                        $this->db->prepare('UPDATE residence_permits SET status = "violated", violated_at = NOW(), violation_reason = :reason WHERE id = :id')->execute([
+                            'reason' => 'Süresi dolmuş izinle sınır geçiş denemesi.',
+                            'id' => $permit['id'],
+                        ]);
+                        throw new \RuntimeException('İzin süresi dolmuş. Yeni başvuru gerekli.');
                     }
 
                     $visaFee = (float) $permit['visa_fee'];
@@ -1627,7 +1655,7 @@ final class GameService
 
     public function userTravelPermits(int $userId): array
     {
-        $stmt = $this->db->prepare('SELECT rp.id, rp.status, rp.visa_fee, rp.requested_at, rp.decided_at, c1.name AS from_country_name, c2.name AS to_country_name
+        $stmt = $this->db->prepare('SELECT rp.id, rp.status, rp.visa_fee, rp.requested_at, rp.decided_at, rp.valid_until, rp.violated_at, rp.violation_reason, c1.name AS from_country_name, c2.name AS to_country_name
             FROM residence_permits rp
             JOIN countries c1 ON c1.id = rp.from_country_id
             JOIN countries c2 ON c2.id = rp.to_country_id
@@ -1640,11 +1668,237 @@ final class GameService
 
     public function travelPolicies(): array
     {
-        $stmt = $this->db->query('SELECT ctp.country_id, c.name AS country_name, ctp.visa_required, ctp.visa_fee, ctp.min_level
+        $stmt = $this->db->query('SELECT ctp.country_id, c.name AS country_name, ctp.visa_required, ctp.visa_fee, ctp.min_level, ctp.permit_duration_hours
             FROM country_travel_policies ctp
             JOIN countries c ON c.id = ctp.country_id
             ORDER BY c.name');
         return $stmt->fetchAll() ?: [];
+    }
+
+    public function requestCitizenship(int $userId, int $toCountryId): array
+    {
+        if ($toCountryId <= 0) {
+            return ['ok' => false, 'message' => 'Geçersiz hedef ülke.'];
+        }
+
+        $rules = $this->citizenshipRules();
+        $userStmt = $this->db->prepare('SELECT id, country_id, level, gold FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+        if ((int) $user['country_id'] === $toCountryId) {
+            return ['ok' => false, 'message' => 'Zaten bu ülkenin vatandaşısın.'];
+        }
+        if ((int) $user['level'] < $rules['min_level']) {
+            return ['ok' => false, 'message' => 'Vatandaşlık başvurusu için minimum seviye ' . $rules['min_level']];
+        }
+        if ((float) $user['gold'] < $rules['gold_cost']) {
+            return ['ok' => false, 'message' => 'Vatandaşlık başvuru maliyeti için gold yetersiz.'];
+        }
+
+        $existingStmt = $this->db->prepare('SELECT id FROM citizenship_requests WHERE user_id = :user_id AND to_country_id = :to_country_id AND status = "pending" LIMIT 1');
+        $existingStmt->execute(['user_id' => $userId, 'to_country_id' => $toCountryId]);
+        if ($existingStmt->fetch()) {
+            return ['ok' => false, 'message' => 'Bu ülke için bekleyen vatandaşlık başvurun var.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare('UPDATE users SET gold = gold - :gold_cost WHERE id = :id')->execute([
+                'gold_cost' => $rules['gold_cost'],
+                'id' => $userId,
+            ]);
+            $this->db->prepare('INSERT INTO citizenship_requests (user_id, from_country_id, to_country_id, status, requested_at) VALUES (:user_id,:from_country_id,:to_country_id,"pending",NOW())')->execute([
+                'user_id' => $userId,
+                'from_country_id' => $user['country_id'],
+                'to_country_id' => $toCountryId,
+            ]);
+            $this->db->commit();
+            return ['ok' => true, 'message' => 'Vatandaşlık başvurusu gönderildi.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => 'Vatandaşlık başvurusu başarısız.'];
+        }
+    }
+
+    public function decideCitizenship(int $actorUserId, int $requestId, string $decision): array
+    {
+        if ($requestId <= 0 || !in_array($decision, ['approved', 'rejected'], true)) {
+            return ['ok' => false, 'message' => 'Geçersiz vatandaşlık kararı.'];
+        }
+        $actorStmt = $this->db->prepare('SELECT id, country_id FROM users WHERE id = :id LIMIT 1');
+        $actorStmt->execute(['id' => $actorUserId]);
+        $actor = $actorStmt->fetch();
+        if (!$actor) {
+            return ['ok' => false, 'message' => 'Yetkili kullanıcı bulunamadı.'];
+        }
+        if (!$this->hasPermission($actorUserId, (int) $actor['country_id'], 'gov.permit.decide')) {
+            return ['ok' => false, 'message' => 'Vatandaşlık kararı için yetkin yok.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $reqStmt = $this->db->prepare('SELECT * FROM citizenship_requests WHERE id = :id AND status = "pending" LIMIT 1 FOR UPDATE');
+            $reqStmt->execute(['id' => $requestId]);
+            $request = $reqStmt->fetch();
+            if (!$request) {
+                throw new \RuntimeException('Bekleyen vatandaşlık başvurusu yok.');
+            }
+            if ((int) $request['to_country_id'] !== (int) $actor['country_id']) {
+                throw new \RuntimeException('Sadece kendi ülkenin vatandaşlık başvurusunu kararlandırabilirsin.');
+            }
+
+            $this->db->prepare('UPDATE citizenship_requests SET status = :status, decided_at = NOW(), decided_by_user_id = :actor_user_id WHERE id = :id')->execute([
+                'status' => $decision,
+                'actor_user_id' => $actorUserId,
+                'id' => $requestId,
+            ]);
+
+            if ($decision === 'approved') {
+                $cityStmt = $this->db->prepare('SELECT id FROM cities WHERE country_id = :country_id AND is_active = 1 ORDER BY base_population DESC LIMIT 1');
+                $cityStmt->execute(['country_id' => $request['to_country_id']]);
+                $city = $cityStmt->fetch();
+                if (!$city) {
+                    throw new \RuntimeException('Hedef ülkede aktif şehir bulunamadı.');
+                }
+                $this->db->prepare('UPDATE users SET country_id = :country_id, city_id = :city_id WHERE id = :id')->execute([
+                    'country_id' => $request['to_country_id'],
+                    'city_id' => $city['id'],
+                    'id' => $request['user_id'],
+                ]);
+            }
+
+            $this->logMinistryAction((int) $actor['country_id'], $actorUserId, $this->primaryGovernmentRole($actorUserId, (int) $actor['country_id']), 'citizenship.' . $decision, [
+                'request_id' => $requestId,
+                'user_id' => $request['user_id'],
+            ]);
+
+            $this->db->commit();
+            return ['ok' => true, 'message' => $decision === 'approved' ? 'Vatandaşlık onaylandı.' : 'Vatandaşlık reddedildi.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Vatandaşlık kararı başarısız.'];
+        }
+    }
+
+    public function userCitizenshipRequests(int $userId): array
+    {
+        $stmt = $this->db->prepare('SELECT cr.id, cr.status, cr.requested_at, cr.decided_at, c1.name AS from_country_name, c2.name AS to_country_name
+            FROM citizenship_requests cr
+            JOIN countries c1 ON c1.id = cr.from_country_id
+            JOIN countries c2 ON c2.id = cr.to_country_id
+            WHERE cr.user_id = :user_id
+            ORDER BY cr.id DESC
+            LIMIT 20');
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function processBorderQueue(): void
+    {
+        $batchSize = $this->queueBatchSize();
+        $eventsStmt = $this->db->prepare('SELECT * FROM border_event_queue WHERE status = "pending" AND execute_at <= NOW() ORDER BY id ASC LIMIT ' . $batchSize);
+        $eventsStmt->execute();
+        $events = $eventsStmt->fetchAll() ?: [];
+
+        foreach ($events as $event) {
+            $eventId = (int) $event['id'];
+            $this->db->beginTransaction();
+            try {
+                $this->db->prepare('UPDATE border_event_queue SET status = "processing", attempts = attempts + 1 WHERE id = :id')->execute(['id' => $eventId]);
+                $payload = json_decode((string) ($event['payload_json'] ?? '{}'), true);
+
+                if (($event['event_type'] ?? '') === 'permit.expire_return') {
+                    $this->handlePermitExpireReturn((int) $event['user_id'], (int) ($payload['permit_id'] ?? 0), (int) ($payload['home_country_id'] ?? 0));
+                }
+
+                $this->db->prepare('UPDATE border_event_queue SET status = "done", processed_at = NOW() WHERE id = :id')->execute(['id' => $eventId]);
+                $this->db->commit();
+            } catch (\Throwable $e) {
+                $this->db->rollBack();
+                $this->db->prepare('UPDATE border_event_queue SET status = "failed", last_error = :last_error, processed_at = NOW() WHERE id = :id')->execute([
+                    'last_error' => mb_substr($e->getMessage(), 0, 250),
+                    'id' => $eventId,
+                ]);
+                $this->logAppError('error', 'border.queue', $e->getMessage(), ['event_id' => $eventId]);
+            }
+        }
+    }
+
+    private function enqueueBorderEvent(string $eventType, int $userId, int $countryId, string $executeAt, array $payload): void
+    {
+        $stmt = $this->db->prepare('INSERT INTO border_event_queue (event_type, user_id, country_id, execute_at, payload_json, status, created_at) VALUES (:event_type,:user_id,:country_id,:execute_at,:payload_json,"pending",NOW())');
+        $stmt->execute([
+            'event_type' => $eventType,
+            'user_id' => $userId,
+            'country_id' => $countryId,
+            'execute_at' => $executeAt,
+            'payload_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+
+    private function handlePermitExpireReturn(int $userId, int $permitId, int $homeCountryId): void
+    {
+        $permitStmt = $this->db->prepare('SELECT * FROM residence_permits WHERE id = :id LIMIT 1 FOR UPDATE');
+        $permitStmt->execute(['id' => $permitId]);
+        $permit = $permitStmt->fetch();
+        if (!$permit) {
+            return;
+        }
+        if (!in_array((string) $permit['status'], ['used', 'approved'], true)) {
+            return;
+        }
+
+        $userStmt = $this->db->prepare('SELECT city_id, country_id FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return;
+        }
+
+        if ((int) $user['country_id'] !== (int) $permit['to_country_id']) {
+            return;
+        }
+
+        $homeCityStmt = $this->db->prepare('SELECT id FROM cities WHERE country_id = :country_id AND is_active = 1 ORDER BY base_population DESC LIMIT 1');
+        $homeCityStmt->execute(['country_id' => $homeCountryId]);
+        $homeCity = $homeCityStmt->fetch();
+        if (!$homeCity) {
+            throw new \RuntimeException('Otomatik dönüş için aktif şehir bulunamadı.');
+        }
+
+        $this->db->prepare('UPDATE users SET country_id = :country_id, city_id = :city_id WHERE id = :id')->execute([
+            'country_id' => $homeCountryId,
+            'city_id' => $homeCity['id'],
+            'id' => $userId,
+        ]);
+        $this->db->prepare('UPDATE residence_permits SET status = "expired" WHERE id = :id')->execute(['id' => $permitId]);
+    }
+
+    private function citizenshipRules(): array
+    {
+        $stmt = $this->db->prepare('SELECT `key`, `value` FROM settings WHERE `key` IN ("citizenship_min_level","citizenship_gold_cost")');
+        $stmt->execute();
+        $rows = $stmt->fetchAll() ?: [];
+        $map = ['citizenship_min_level' => '8', 'citizenship_gold_cost' => '120'];
+        foreach ($rows as $row) {
+            $map[(string) $row['key']] = (string) $row['value'];
+        }
+
+        return [
+            'min_level' => max(1, min(100, (int) $map['citizenship_min_level'])),
+            'gold_cost' => max(0.0, min(50000.0, (float) $map['citizenship_gold_cost'])),
+        ];
+    }
+
+    private function queueBatchSize(): int
+    {
+        $stmt = $this->db->prepare('SELECT `value` FROM settings WHERE `key` = "border_queue_batch_size" LIMIT 1');
+        $stmt->execute();
+        $row = $stmt->fetch();
+        return max(1, min(200, (int) ($row['value'] ?? 50)));
     }
 
 

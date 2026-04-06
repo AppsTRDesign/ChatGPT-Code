@@ -20,6 +20,7 @@ $parliamentLaws = $state['parliament_laws'] ?? [];
 $government = $state['government'] ?? ['roles' => [], 'actions' => []];
 $myPermissions = $state['my_permissions'] ?? [];
 $travelPermits = $state['travel_permits'] ?? [];
+$citizenshipRequests = $state['citizenship_requests'] ?? [];
 $travelPolicies = $state['travel_policies'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
@@ -371,7 +372,7 @@ $travelPolicies = $state['travel_policies'] ?? [];
                             <?php foreach ($travelPolicies as $tp): ?>
                                 <?php if ((int) $tp['country_id'] === (int) $user['country_id']) { continue; } ?>
                                 <option value="<?= (int) $tp['country_id'] ?>">
-                                    <?= htmlspecialchars($tp['country_name'], ENT_QUOTES, 'UTF-8') ?> • Min Lv <?= (int) $tp['min_level'] ?> • Vize <?= (float) $tp['visa_fee'] ?>
+                                    <?= htmlspecialchars($tp['country_name'], ENT_QUOTES, 'UTF-8') ?> • Min Lv <?= (int) $tp['min_level'] ?> • Vize <?= (float) $tp['visa_fee'] ?> • Süre <?= (int) $tp['permit_duration_hours'] ?>s
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -401,7 +402,7 @@ $travelPolicies = $state['travel_policies'] ?? [];
 
             <div class="table-responsive mt-3">
                 <table class="table table-dark table-sm">
-                    <thead><tr><th>ID</th><th>Rota</th><th>Durum</th><th>Vize</th><th>Tarih</th></tr></thead>
+                    <thead><tr><th>ID</th><th>Rota</th><th>Durum</th><th>Vize</th><th>Geçerlilik</th><th>İhlal</th></tr></thead>
                     <tbody id="travelPermitTable">
                     <?php foreach ($travelPermits as $tp): ?>
                         <tr>
@@ -409,7 +410,49 @@ $travelPolicies = $state['travel_policies'] ?? [];
                             <td><?= htmlspecialchars($tp['from_country_name'] . ' → ' . $tp['to_country_name'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= htmlspecialchars($tp['status'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= number_format((float) $tp['visa_fee'], 2, ',', '.') ?></td>
-                            <td><?= htmlspecialchars($tp['requested_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars((string) ($tp['valid_until'] ?? $tp['requested_at']), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars((string) ($tp['violation_reason'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-lg-6">
+                    <h3 class="h6">Vatandaşlık Başvurusu</h3>
+                    <div class="d-grid gap-2">
+                        <select id="citizenshipCountryId" class="form-select">
+                            <?php foreach ($travelPolicies as $tp): ?>
+                                <?php if ((int) $tp['country_id'] === (int) $user['country_id']) { continue; } ?>
+                                <option value="<?= (int) $tp['country_id'] ?>"><?= htmlspecialchars($tp['country_name'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button class="btn btn-outline-primary btn-sm action-btn" data-action="citizenship-request">Vatandaşlık Başvurusu Yap</button>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6">Vatandaşlık Kararı (İçişleri/Başkan)</h3>
+                    <div class="d-grid gap-2">
+                        <input id="citizenshipRequestId" class="form-control" type="number" min="1" placeholder="Request ID">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success btn-sm w-50 action-btn" data-action="citizenship-decision" data-decision="approved">Onayla</button>
+                            <button class="btn btn-danger btn-sm w-50 action-btn" data-action="citizenship-decision" data-decision="rejected">Reddet</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>ID</th><th>Rota</th><th>Durum</th><th>Tarih</th></tr></thead>
+                    <tbody id="citizenshipTable">
+                    <?php foreach ($citizenshipRequests as $cr): ?>
+                        <tr>
+                            <td><?= (int) $cr['id'] ?></td>
+                            <td><?= htmlspecialchars($cr['from_country_name'] . ' → ' . $cr['to_country_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($cr['status'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars((string) ($cr['decided_at'] ?? $cr['requested_at']), ENT_QUOTES, 'UTF-8') ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

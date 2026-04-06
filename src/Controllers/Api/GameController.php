@@ -297,4 +297,29 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function travelRequestCitizenship(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $toCountryId = (int) ($_POST['to_country_id'] ?? 0);
+        $result = (new GameService())->requestCitizenship($userId, $toCountryId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function travelCitizenshipDecision(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $requestId = (int) ($_POST['request_id'] ?? 0);
+        $decision = (string) ($_POST['decision'] ?? '');
+        $result = (new GameService())->decideCitizenship($userId, $requestId, $decision);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }

@@ -158,10 +158,11 @@
 
 
 ## 15. Görev Çıktısı (Tamamlandı)
-- Sağlık endpointi eklendi (`GET /health`) ve heartbeat/error event izleme altyapısı eklendi.
-- Observability migration’ı eklendi (`app_heartbeat_logs`, `app_error_events`).
-- Release kontrol scripti eklendi (`scripts/release_checks.sh`).
-- README’ye operasyonel kontrol ve canlıya çıkış notları eklendi.
+- Oturum izni başvuru/onay/red/ihlal akışı genişletildi.
+- Vatandaşlık başvuru ve karar akışı eklendi.
+- İzin süresi (`valid_until`) ve ihlal alanları eklendi.
+- Süre dolunca otomatik ülkeye dönüş için border event queue altyapısı eklendi.
+- Dashboard’a vatandaşlık ve ihlal görünürlüğü eklendi.
 
 ---
 
@@ -178,10 +179,20 @@
 12.) Görev: ~~Bakanlık rolleri ve yetki akışları~~ ✅
 13.) Görev: ~~Oturum/geçiş izin sistemi~~ ✅
 14.) Görev: ~~Harita modülü genişletme + world builder~~ ✅
-15.) Görev: ~~Test, izleme, canlıya çıkış planı~~ ✅
+15.) Görev: ~~Oturum izni / vatandaşlık / sınır geçiş sistemi~~ ✅
+16.) Görev: Dünya haritası modülü (interaktif)
+17.) Görev: Admin World Builder (ülke/şehir/kaynak ekleme paneli)
+18.) Görev: Top şehir sistemi ve global sıralamalar
+19.) Görev: Görevler, başarımlar, günlük görev sistemi
+20.) Görev: Bildirim sistemi (toast + inbox + event feed)
+21.) Görev: API v1 standardizasyonu (mobil hazır)
+22.) Görev: Frontend UI/UX full mobil optimizasyon
+23.) Görev: Ekonomi balans ve anti-cheat katmanı
+24.) Görev: Test altyapısı (unit + integration + load)
 26.) Görev: Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)
 27.) Görev: Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler
+28.) Görev: Canlıya çıkış ve operasyon planı
 
 ---
 
-**Sonraki adım önerisi:** 26. göreve geçelim (Gezgin Tüccar Sistemi). 27. görev gerçek zamanlı savaş/socket katmanına geçiş olarak devam edecek.
+**Sonraki adım önerisi:** 16. göreve geçelim (Dünya haritası modülü interaktif).
