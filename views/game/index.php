@@ -1,6 +1,19 @@
 <?php declare(strict_types=1);
 ob_start();
-$user = $state['user'];
+$user = $state['user'] ?? [
+    'username' => 'Guest',
+    'flag_emoji' => '🏳️',
+    'country_name' => '-',
+    'city_name' => '-',
+    'energy' => 0,
+    'level' => 1,
+    'experience' => 0,
+    'strength' => 0,
+    'education' => 0,
+    'endurance' => 0,
+    'country_id' => 0,
+    'country_code' => '',
+];
 $resources = $state['resources'] ?? [];
 $market = $state['market'] ?? [];
 $countries = $state['countries'] ?? [];

@@ -25,6 +25,10 @@ final class HomeController
 
         $game = new GameService();
         $state = $game->dashboard($userId);
+        if (empty($state['user'])) {
+            Auth::logoutUser();
+            Response::redirect('/login?toast=' . urlencode('Oturum verisi yenilendi, lütfen tekrar giriş yap.'));
+        }
 
         View::render('game/index', [
             'config' => $this->config,
@@ -97,6 +101,10 @@ final class HomeController
 
         $game = new GameService();
         $state = $game->dashboard($userId);
+        if (empty($state['user'])) {
+            Auth::logoutUser();
+            Response::redirect('/login?toast=' . urlencode('Oturum verisi yenilendi, lütfen tekrar giriş yap.'));
+        }
         View::render($view, [
             'config' => $this->config,
             'csrf' => Csrf::token(),
