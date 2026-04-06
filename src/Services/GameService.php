@@ -158,6 +158,7 @@ final class GameService
             'countries' => $this->countryPopulation(),
             'map' => $this->mapPayload(),
             'resource_market' => $this->resourceMarketSnapshot(),
+            'market_rules' => $this->marketRules(),
             'factory_types' => $this->factoryTypes(),
             'factories' => $this->userFactories($userId),
             'top_city' => $this->topCity(),
@@ -301,6 +302,27 @@ final class GameService
             return ['ok' => false, 'message' => 'Geçersiz market değeri.'];
         }
 
+        $rules = $this->marketRules();
+        $pricePerUnit = round($pricePerUnit, 2);
+
+        $openOfferStmt = $this->db->prepare('SELECT COUNT(*) AS open_count FROM market_offers WHERE seller_id = :seller_id AND status = "open"');
+        $openOfferStmt->execute(['seller_id' => $userId]);
+        $openOfferCount = (int) (($openOfferStmt->fetch()['open_count'] ?? 0));
+        if ($openOfferCount >= $rules['max_open_offers']) {
+            return ['ok' => false, 'message' => 'Açık ilan limitine ulaştın.'];
+        }
+
+        $marketPrice = $this->resourceReferencePrice($resourceId);
+        if ($marketPrice <= 0) {
+            return ['ok' => false, 'message' => 'Kaynak için referans fiyat hesaplanamadı.'];
+        }
+
+        $minPrice = round($marketPrice * $rules['price_floor_ratio'], 2);
+        $maxPrice = round($marketPrice * $rules['price_ceiling_ratio'], 2);
+        if ($pricePerUnit < $minPrice || $pricePerUnit > $maxPrice) {
+            return ['ok' => false, 'message' => 'Fiyat bandı dışında. Kabul aralığı: ' . number_format($minPrice, 2, ',', '.') . ' - ' . number_format($maxPrice, 2, ',', '.')];
+        }
+
         $check = $this->db->prepare('SELECT quantity FROM user_resources WHERE user_id = :u AND resource_id = :r LIMIT 1');
         $check->execute(['u' => $userId, 'r' => $resourceId]);
         $row = $check->fetch();
@@ -314,8 +336,24 @@ final class GameService
             $u = $this->db->prepare('UPDATE user_resources SET quantity = quantity - :q WHERE user_id = :u AND resource_id = :r');
             $u->execute(['q' => $quantity, 'u' => $userId, 'r' => $resourceId]);
 
-            $i = $this->db->prepare('INSERT INTO market_offers (seller_id, resource_id, quantity, price_per_unit, status, created_at) VALUES (:s,:r,:q,:p,\'open\',NOW())');
-            $i->execute(['s' => $userId, 'r' => $resourceId, 'q' => $quantity, 'p' => $pricePerUnit]);
+            $grossTotal = round($quantity * $pricePerUnit, 2);
+            $taxTotal = round($grossTotal * ($rules['buyer_tax_percent'] / 100), 2);
+            $sellerCommissionTotal = round($grossTotal * ($rules['seller_commission_percent'] / 100), 2);
+            $sellerNetTotal = round($grossTotal - $sellerCommissionTotal, 2);
+
+            $i = $this->db->prepare('INSERT INTO market_offers (seller_id, resource_id, quantity, price_per_unit, tax_rate_percent, seller_commission_percent, gross_total, tax_total, seller_commission_total, seller_net_total, status, created_at) VALUES (:s,:r,:q,:p,:tax_rate,:seller_commission_rate,:gross_total,:tax_total,:seller_commission_total,:seller_net_total,\'open\',NOW())');
+            $i->execute([
+                's' => $userId,
+                'r' => $resourceId,
+                'q' => $quantity,
+                'p' => $pricePerUnit,
+                'tax_rate' => $rules['buyer_tax_percent'],
+                'seller_commission_rate' => $rules['seller_commission_percent'],
+                'gross_total' => $grossTotal,
+                'tax_total' => $taxTotal,
+                'seller_commission_total' => $sellerCommissionTotal,
+                'seller_net_total' => $sellerNetTotal,
+            ]);
             $this->db->commit();
             return ['ok' => true, 'message' => 'Market ilanı açıldı.'];
         } catch (\Throwable $e) {
@@ -326,41 +364,114 @@ final class GameService
 
     public function buyMarketOffer(int $userId, int $offerId): array
     {
-        $offerStmt = $this->db->prepare('SELECT * FROM market_offers WHERE id = :id AND status = \"open\" LIMIT 1');
-        $offerStmt->execute(['id' => $offerId]);
-        $offer = $offerStmt->fetch();
-        if (!$offer) {
-            return ['ok' => false, 'message' => 'İlan bulunamadı.'];
-        }
-
-        $total = (float) $offer['price_per_unit'] * (int) $offer['quantity'];
-
-        $buyerStmt = $this->db->prepare('SELECT gold FROM users WHERE id = :id LIMIT 1');
-        $buyerStmt->execute(['id' => $userId]);
-        $buyer = $buyerStmt->fetch();
-
-        if (!$buyer || (float) $buyer['gold'] < $total) {
-            return ['ok' => false, 'message' => 'Yetersiz altın.'];
-        }
-
         $this->db->beginTransaction();
         try {
-            $this->db->prepare('UPDATE users SET gold = gold - :g WHERE id = :id')->execute(['g' => $total, 'id' => $userId]);
-            $this->db->prepare('UPDATE users SET gold = gold + :g WHERE id = :id')->execute(['g' => $total, 'id' => $offer['seller_id']]);
+            $offerStmt = $this->db->prepare('SELECT * FROM market_offers WHERE id = :id AND status = "open" LIMIT 1 FOR UPDATE');
+            $offerStmt->execute(['id' => $offerId]);
+            $offer = $offerStmt->fetch();
+
+            if (!$offer) {
+                throw new \RuntimeException('İlan bulunamadı.');
+            }
+            if ((int) $offer['seller_id'] === $userId) {
+                throw new \RuntimeException('Kendi ilanını satın alamazsın.');
+            }
+
+            $grossTotal = round((float) $offer['gross_total'], 2);
+            if ($grossTotal <= 0) {
+                $grossTotal = round((float) $offer['price_per_unit'] * (int) $offer['quantity'], 2);
+            }
+
+            $buyerTaxTotal = round((float) $offer['tax_total'], 2);
+            $sellerCommissionTotal = round((float) $offer['seller_commission_total'], 2);
+            $sellerNetTotal = round((float) $offer['seller_net_total'], 2);
+            if ($sellerNetTotal <= 0) {
+                $sellerNetTotal = round($grossTotal - $sellerCommissionTotal, 2);
+            }
+
+            $buyerTotalCost = round($grossTotal + $buyerTaxTotal, 2);
+
+            $buyerStmt = $this->db->prepare('SELECT gold FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
+            $buyerStmt->execute(['id' => $userId]);
+            $buyer = $buyerStmt->fetch();
+
+            if (!$buyer || (float) $buyer['gold'] < $buyerTotalCost) {
+                throw new \RuntimeException('Yetersiz altın.');
+            }
+
+            $this->db->prepare('UPDATE users SET gold = gold - :g WHERE id = :id')->execute(['g' => $buyerTotalCost, 'id' => $userId]);
+            $this->db->prepare('UPDATE users SET gold = gold + :g WHERE id = :id')->execute(['g' => $sellerNetTotal, 'id' => $offer['seller_id']]);
             $this->db->prepare('UPDATE user_resources SET quantity = quantity + :q WHERE user_id = :u AND resource_id = :r')->execute(['q' => $offer['quantity'], 'u' => $userId, 'r' => $offer['resource_id']]);
-            $this->db->prepare('UPDATE market_offers SET status = \"sold\", buyer_id = :b WHERE id = :id')->execute(['b' => $userId, 'id' => $offerId]);
+            $this->db->prepare('UPDATE market_offers SET status = "sold", buyer_id = :b, sold_at = NOW() WHERE id = :id')->execute(['b' => $userId, 'id' => $offerId]);
+            $this->db->prepare('INSERT INTO market_transactions (offer_id, buyer_id, seller_id, resource_id, quantity, price_per_unit, gross_total, buyer_tax_total, seller_commission_total, seller_net_total, created_at) VALUES (:offer_id,:buyer_id,:seller_id,:resource_id,:quantity,:price_per_unit,:gross_total,:buyer_tax_total,:seller_commission_total,:seller_net_total,NOW())')->execute([
+                'offer_id' => $offer['id'],
+                'buyer_id' => $userId,
+                'seller_id' => $offer['seller_id'],
+                'resource_id' => $offer['resource_id'],
+                'quantity' => $offer['quantity'],
+                'price_per_unit' => $offer['price_per_unit'],
+                'gross_total' => $grossTotal,
+                'buyer_tax_total' => $buyerTaxTotal,
+                'seller_commission_total' => $sellerCommissionTotal,
+                'seller_net_total' => $sellerNetTotal,
+            ]);
             $this->db->commit();
-            return ['ok' => true, 'message' => 'Satın alma başarılı.'];
+            return ['ok' => true, 'message' => 'Satın alma başarılı. Toplam maliyet: ' . number_format($buyerTotalCost, 2, ',', '.') . ' gold'];
         } catch (\Throwable $e) {
             $this->db->rollBack();
-            return ['ok' => false, 'message' => 'Satın alma başarısız.'];
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Satın alma başarısız.'];
         }
     }
 
     public function marketOffers(): array
     {
-        $stmt = $this->db->query('SELECT mo.id, mo.quantity, mo.price_per_unit, r.name AS resource_name, u.username AS seller_name FROM market_offers mo JOIN resources r ON r.id = mo.resource_id JOIN users u ON u.id = mo.seller_id WHERE mo.status = "open" ORDER BY mo.id DESC LIMIT 30');
+        $stmt = $this->db->query('SELECT mo.id, mo.quantity, mo.price_per_unit, mo.tax_rate_percent, mo.seller_commission_percent, mo.gross_total, mo.tax_total, mo.seller_net_total, r.name AS resource_name, u.username AS seller_name FROM market_offers mo JOIN resources r ON r.id = mo.resource_id JOIN users u ON u.id = mo.seller_id WHERE mo.status = "open" ORDER BY mo.id DESC LIMIT 30');
         return $stmt->fetchAll() ?: [];
+    }
+
+    public function marketRules(): array
+    {
+        $defaults = [
+            'market_buyer_tax_percent' => '4',
+            'market_seller_commission_percent' => '3',
+            'market_price_floor_ratio' => '0.50',
+            'market_price_ceiling_ratio' => '2.50',
+            'market_max_open_offers_per_user' => '15',
+        ];
+
+        $keys = array_keys($defaults);
+        $inClause = implode(',', array_fill(0, count($keys), '?'));
+        $stmt = $this->db->prepare("SELECT `key`, `value` FROM settings WHERE `key` IN ($inClause)");
+        $stmt->execute($keys);
+        $rows = $stmt->fetchAll() ?: [];
+
+        $map = $defaults;
+        foreach ($rows as $row) {
+            $map[(string) $row['key']] = (string) $row['value'];
+        }
+
+        return [
+            'buyer_tax_percent' => max(0.0, min(30.0, (float) $map['market_buyer_tax_percent'])),
+            'seller_commission_percent' => max(0.0, min(30.0, (float) $map['market_seller_commission_percent'])),
+            'price_floor_ratio' => max(0.10, min(1.0, (float) $map['market_price_floor_ratio'])),
+            'price_ceiling_ratio' => max(1.0, min(10.0, (float) $map['market_price_ceiling_ratio'])),
+            'max_open_offers' => max(1, min(100, (int) $map['market_max_open_offers_per_user'])),
+        ];
+    }
+
+    private function resourceReferencePrice(int $resourceId): float
+    {
+        $stmt = $this->db->prepare('SELECT current_price FROM resource_market_prices WHERE resource_id = :resource_id LIMIT 1');
+        $stmt->execute(['resource_id' => $resourceId]);
+        $marketRow = $stmt->fetch();
+        if ($marketRow && (float) $marketRow['current_price'] > 0) {
+            return (float) $marketRow['current_price'];
+        }
+
+        $baseStmt = $this->db->prepare('SELECT base_price FROM resources WHERE id = :resource_id LIMIT 1');
+        $baseStmt->execute(['resource_id' => $resourceId]);
+        $baseRow = $baseStmt->fetch();
+        return $baseRow ? (float) $baseRow['base_price'] : 0.0;
     }
 
     public function countryPopulation(): array

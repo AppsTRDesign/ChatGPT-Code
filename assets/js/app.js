@@ -42,6 +42,8 @@
                 <td>${m.seller_name}</td>
                 <td>${Number(m.quantity).toLocaleString('tr-TR')}</td>
                 <td>${Number(m.price_per_unit).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>${Number(m.gross_total || (Number(m.quantity) * Number(m.price_per_unit))).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>${Number(m.tax_total || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td><button class="btn btn-sm btn-success action-btn" data-action="market-buy" data-offer-id="${m.id}">Al</button></td>
             </tr>
         `).join('');

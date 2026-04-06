@@ -11,7 +11,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Stat geliştirme (çalışma puanı + altın gerektirir).
 - Kaynak ekonomisi: altın, petrol, elmas, nadir toprak elementleri, uranyum, demir, taş, tahta, bakır, silikon.
 - Ülke bazlı farklı günlük kaynak üretim dağılımı.
-- Global market: oyuncu ilan açma / satın alma.
+- Global market: oyuncu ilan açma / satın alma, vergi+komisyon ve fiyat koruma kuralları.
 - Dünya haritası (jsVectorMap) ve şehir bazlı oyuncu yoğunluğu işaretleme.
 - Admin panelden ülke/şehir/kaynak dağılımı ekleme.
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
@@ -37,6 +37,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260405_000005_balance_tuning.sql`
    - `db/migrations/20260405_000006_resource_balance.sql`
    - `db/migrations/20260405_000007_factory_system.sql`
+   - `db/migrations/20260406_000008_market_hardening.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -64,3 +65,5 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Kaynak balans notu: `docs/RESOURCE_BALANCE_TASK7.md`
 
 - Fabrika sistemi notu: `docs/FACTORY_SYSTEM_TASK8.md`
+
+- Market tam sürüm notu: `docs/MARKET_FULL_TASK9.md`

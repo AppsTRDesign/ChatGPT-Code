@@ -108,6 +108,14 @@
 - Dashboard'a fabrika yönetim paneli eklendi.
 - API'ye fabrika create/produce endpointleri eklendi.
 
+
+## 9. Görev Çıktısı (Tamamlandı)
+- Market ilanlarına alıcı vergi + satıcı komisyon modeli eklendi.
+- İlan açarken dinamik referans fiyata göre taban/tavan fiyat koruması eklendi.
+- Oyuncu başına açık ilan limiti ve kendi ilanını satın alma engeli eklendi.
+- Satın alma işlemleri transaction + `FOR UPDATE` ile yarış durumlarına karşı korundu.
+- `market_transactions` işlem geçmişi tablosu eklendi ve dashboard market tablosu genişletildi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -117,14 +125,16 @@
 6.) Görev: ~~Enerji/XP/Level/Stat formül motoru iyileştirme~~ ✅
 7.) Görev: ~~Kaynak sistemi tam sürüm + dağılım balansı~~ ✅
 8.) Görev: ~~Fabrika sistemi (kurulum/seviye/işçi)~~ ✅
-9.) Görev: Market tam sürüm (vergi, komisyon, korumalar)
+9.) Görev: ~~Market tam sürüm (vergi, komisyon, korumalar)~~ ✅
 10.) Görev: Savaş sistemi çekirdeği + raporlama
 11.) Görev: Parti/Seçim/Meclis sistemleri
 12.) Görev: Bakanlık rolleri ve yetki akışları
 13.) Görev: Oturum/geçiş izin sistemi
 14.) Görev: Harita modülü genişletme + world builder
 15.) Görev: Test, izleme, canlıya çıkış planı
+26.) Görev: Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)
+27.) Görev: Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler
 
 ---
 
-**Sonraki adım önerisi:** 9. göreve geçelim (Market tam sürüm: vergi/komisyon/koruma).
+**Sonraki adım önerisi:** 10. göreve geçelim (Savaş sistemi çekirdeği + raporlama). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.

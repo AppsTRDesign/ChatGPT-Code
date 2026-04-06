@@ -8,6 +8,7 @@ $topCity = $state['top_city'] ?? null;
 $nation = $state['nation'] ?? ['nation_tier' => 1, 'player_count' => 0, 'avg_city_score' => 0];
 $progress = $state['progress'] ?? ['next_level_xp' => 120];
 $resourceMarket = $state['resource_market'] ?? [];
+$marketRules = $state['market_rules'] ?? [];
 $factoryTypes = $state['factory_types'] ?? [];
 $factories = $state['factories'] ?? [];
 ?>
@@ -83,15 +84,19 @@ $factories = $state['factories'] ?? [];
         <div class="col-12 col-xl-6">
             <div class="card panel"><div class="card-body">
                 <h2 class="h5">Global Market</h2>
+                <p class="small text-secondary mb-2">
+                    Alıcı vergi: %<?= htmlspecialchars((string) ($marketRules['buyer_tax_percent'] ?? 0), ENT_QUOTES, 'UTF-8') ?> •
+                    Satıcı komisyon: %<?= htmlspecialchars((string) ($marketRules['seller_commission_percent'] ?? 0), ENT_QUOTES, 'UTF-8') ?>
+                </p>
                 <div class="row g-2 mb-2">
                     <div class="col-4"><input class="form-control" id="offerResourceId" type="number" min="1" placeholder="Kaynak ID"></div>
                     <div class="col-4"><input class="form-control" id="offerQty" type="number" min="1" placeholder="Miktar"></div>
                     <div class="col-4"><input class="form-control" id="offerPrice" type="number" min="0.01" step="0.01" placeholder="Fiyat"></div>
                     <div class="col-12"><button class="btn btn-warning w-100 action-btn" data-action="market-create">İlan Aç</button></div>
                 </div>
-                <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>ID</th><th>Kaynak</th><th>Satıcı</th><th>Miktar</th><th>Fiyat</th><th></th></tr></thead><tbody id="marketTable">
+                <div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>ID</th><th>Kaynak</th><th>Satıcı</th><th>Miktar</th><th>Birim</th><th>Toplam</th><th>Vergi</th><th></th></tr></thead><tbody id="marketTable">
                 <?php foreach ($market as $m): ?>
-                    <tr><td><?= (int) $m['id'] ?></td><td><?= htmlspecialchars($m['resource_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($m['seller_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $m['quantity'] ?></td><td><?= number_format((float) $m['price_per_unit'], 2, ',', '.') ?></td><td><button class="btn btn-sm btn-success action-btn" data-action="market-buy" data-offer-id="<?= (int) $m['id'] ?>">Al</button></td></tr>
+                    <tr><td><?= (int) $m['id'] ?></td><td><?= htmlspecialchars($m['resource_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($m['seller_name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $m['quantity'] ?></td><td><?= number_format((float) $m['price_per_unit'], 2, ',', '.') ?></td><td><?= number_format((float) ($m['gross_total'] ?? ((float) $m['price_per_unit'] * (int) $m['quantity'])), 2, ',', '.') ?></td><td><?= number_format((float) ($m['tax_total'] ?? 0), 2, ',', '.') ?></td><td><button class="btn btn-sm btn-success action-btn" data-action="market-buy" data-offer-id="<?= (int) $m['id'] ?>">Al</button></td></tr>
                 <?php endforeach; ?>
                 </tbody></table></div>
             </div></div>
