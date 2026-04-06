@@ -116,6 +116,14 @@
 - Satın alma işlemleri transaction + `FOR UPDATE` ile yarış durumlarına karşı korundu.
 - `market_transactions` işlem geçmişi tablosu eklendi ve dashboard market tablosu genişletildi.
 
+
+## 10. Görev Çıktısı (Tamamlandı)
+- `wars` ve `war_battles` tabloları ile savaş çekirdeği veri modeli eklendi.
+- Savaş başlatma akışı eklendi (aktif savaş çakışma kontrolü + seviye/savaş gücü eşiği).
+- Cephe saldırısı akışı eklendi (enerji maliyeti, cooldown, skor hasarı, savaş bitiş koşulu).
+- Savaş saldırıları raporlanır hale geldi (`war_battles`) ve dashboard’da canlı listeye bağlandı.
+- API’ye `POST /api/war/start` ve `POST /api/war/attack` endpointleri eklendi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -126,7 +134,7 @@
 7.) Görev: ~~Kaynak sistemi tam sürüm + dağılım balansı~~ ✅
 8.) Görev: ~~Fabrika sistemi (kurulum/seviye/işçi)~~ ✅
 9.) Görev: ~~Market tam sürüm (vergi, komisyon, korumalar)~~ ✅
-10.) Görev: Savaş sistemi çekirdeği + raporlama
+10.) Görev: ~~Savaş sistemi çekirdeği + raporlama~~ ✅
 11.) Görev: Parti/Seçim/Meclis sistemleri
 12.) Görev: Bakanlık rolleri ve yetki akışları
 13.) Görev: Oturum/geçiş izin sistemi
@@ -137,4 +145,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 10. göreve geçelim (Savaş sistemi çekirdeği + raporlama). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
+**Sonraki adım önerisi:** 11. göreve geçelim (Parti/Seçim/Meclis sistemleri). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.

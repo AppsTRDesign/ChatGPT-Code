@@ -117,4 +117,30 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function warStart(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $defenderCountryId = (int) ($_POST['defender_country_id'] ?? 0);
+        $result = (new GameService())->startWar($userId, $defenderCountryId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function warAttack(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $warId = (int) ($_POST['war_id'] ?? 0);
+        $result = (new GameService())->warAttack($userId, $warId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }

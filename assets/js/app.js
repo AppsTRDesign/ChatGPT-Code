@@ -80,6 +80,20 @@
         `).join('');
     };
 
+    const renderWarReports = (rows) => {
+        const tbody = document.getElementById('warReportTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((r) => `
+            <tr>
+                <td>${r.created_at}</td>
+                <td>${r.attacker_user_name}</td>
+                <td>${r.attacker_country_name} → ${r.defender_country_name}</td>
+                <td>${Number(r.damage).toLocaleString('tr-TR')}</td>
+                <td>${Number(r.attacker_score_after).toLocaleString('tr-TR')} / ${Number(r.defender_score_after).toLocaleString('tr-TR')}</td>
+            </tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -94,6 +108,7 @@
         renderMarket(payload.data.market || []);
         renderResourceMarket(payload.data.resource_market || []);
         renderFactories(payload.data.factories || []);
+        renderWarReports(payload.data.war_reports || []);
     };
 
     const refreshState = async () => {
@@ -139,6 +154,12 @@
         }
         if (action === 'factory-produce') {
             return post('/api/factory/produce', { factory_id: button.dataset.factoryId || 0 });
+        }
+        if (action === 'war-start') {
+            return post('/api/war/start', { defender_country_id: document.getElementById('defenderCountryId')?.value || 0 });
+        }
+        if (action === 'war-attack') {
+            return post('/api/war/attack', { war_id: button.dataset.warId || 0 });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

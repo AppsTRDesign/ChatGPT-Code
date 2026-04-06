@@ -161,6 +161,8 @@ final class GameService
             'market_rules' => $this->marketRules(),
             'factory_types' => $this->factoryTypes(),
             'factories' => $this->userFactories($userId),
+            'active_war' => $this->activeWarForCountry((int) $user['country_id']),
+            'war_reports' => $this->recentWarReports((int) $user['country_id']),
             'top_city' => $this->topCity(),
         ];
     }
@@ -266,6 +268,164 @@ final class GameService
         $this->autoLevelUp($userId);
 
         return ['ok' => true, 'message' => $won ? 'Savaşı kazandın! +' . $xp . ' XP' : 'Savaşı kaybettin ama +' . $xp . ' XP'];
+    }
+
+    public function startWar(int $userId, int $defenderCountryId): array
+    {
+        $userStmt = $this->db->prepare('SELECT id, country_id, level, war_power FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+
+        $attackerCountryId = (int) $user['country_id'];
+        if ($defenderCountryId <= 0 || $defenderCountryId === $attackerCountryId) {
+            return ['ok' => false, 'message' => 'Geçerli bir düşman ülke seçmelisin.'];
+        }
+        if ((int) $user['level'] < 3 || (int) $user['war_power'] < 20) {
+            return ['ok' => false, 'message' => 'Savaş başlatmak için seviye 3 ve en az 20 savaş gücü gerekli.'];
+        }
+
+        $countryStmt = $this->db->prepare('SELECT id FROM countries WHERE id = :id LIMIT 1');
+        $countryStmt->execute(['id' => $defenderCountryId]);
+        if (!$countryStmt->fetch()) {
+            return ['ok' => false, 'message' => 'Hedef ülke bulunamadı.'];
+        }
+
+        $activeStmt = $this->db->prepare('SELECT id FROM wars WHERE status = "active" AND (
+                attacker_country_id = :attacker_country_id OR
+                defender_country_id = :attacker_country_id OR
+                attacker_country_id = :defender_country_id OR
+                defender_country_id = :defender_country_id
+            ) LIMIT 1');
+        $activeStmt->execute([
+            'attacker_country_id' => $attackerCountryId,
+            'defender_country_id' => $defenderCountryId,
+        ]);
+        if ($activeStmt->fetch()) {
+            return ['ok' => false, 'message' => 'Ülkelerden biri zaten aktif savaşta.'];
+        }
+
+        $scoreToWin = $this->warRules()['score_to_win'];
+        $ins = $this->db->prepare('INSERT INTO wars (attacker_country_id, defender_country_id, started_by_user_id, status, score_to_win, started_at, created_at, updated_at) VALUES (:attacker_country_id, :defender_country_id, :started_by_user_id, "active", :score_to_win, NOW(), NOW(), NOW())');
+        $ins->execute([
+            'attacker_country_id' => $attackerCountryId,
+            'defender_country_id' => $defenderCountryId,
+            'started_by_user_id' => $userId,
+            'score_to_win' => $scoreToWin,
+        ]);
+
+        return ['ok' => true, 'message' => 'Savaş ilan edildi. Cephe açıldı!'];
+    }
+
+    public function warAttack(int $userId, int $warId): array
+    {
+        $rules = $this->warRules();
+
+        $this->db->beginTransaction();
+        try {
+            $userStmt = $this->db->prepare('SELECT id, country_id, energy, strength, education, endurance, level FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
+            $userStmt->execute(['id' => $userId]);
+            $user = $userStmt->fetch();
+            if (!$user) {
+                throw new \RuntimeException('Kullanıcı bulunamadı.');
+            }
+            if ((int) $user['energy'] < $rules['attack_energy_cost']) {
+                throw new \RuntimeException('Savaş saldırısı için enerji yetersiz.');
+            }
+
+            $warStmt = $this->db->prepare('SELECT * FROM wars WHERE id = :id AND status = "active" LIMIT 1 FOR UPDATE');
+            $warStmt->execute(['id' => $warId]);
+            $war = $warStmt->fetch();
+            if (!$war) {
+                throw new \RuntimeException('Aktif savaş bulunamadı.');
+            }
+
+            $attackerCountryId = (int) $war['attacker_country_id'];
+            $defenderCountryId = (int) $war['defender_country_id'];
+            $userCountryId = (int) $user['country_id'];
+            if ($userCountryId !== $attackerCountryId && $userCountryId !== $defenderCountryId) {
+                throw new \RuntimeException('Bu savaşa katılım yetkin yok.');
+            }
+
+            $cooldownStmt = $this->db->prepare('SELECT created_at FROM war_battles WHERE war_id = :war_id AND attacker_user_id = :user_id ORDER BY id DESC LIMIT 1');
+            $cooldownStmt->execute(['war_id' => $warId, 'user_id' => $userId]);
+            $lastAttack = $cooldownStmt->fetch();
+            if ($lastAttack) {
+                $lastAt = new \DateTimeImmutable((string) $lastAttack['created_at']);
+                $nextAllowed = $lastAt->modify('+' . $rules['attack_cooldown_seconds'] . ' seconds');
+                if ($nextAllowed > new \DateTimeImmutable('now')) {
+                    throw new \RuntimeException('Saldırı cooldown aktif. Biraz bekle.');
+                }
+            }
+
+            $nation = $this->nationContext($userCountryId);
+            $statPower = ((int) $user['strength'] * 1.9) + ((int) $user['education'] * 1.1) + ((int) $user['endurance'] * 1.6) + ((int) $user['level'] * 2);
+            $tierBoost = 1 + (((int) $nation['nation_tier'] - 1) * 0.08);
+            $roll = random_int($rules['damage_min'], $rules['damage_max']);
+            $damage = (int) max(1, floor(($statPower + $roll) * $tierBoost / 8));
+
+            $newAttackerScore = (int) $war['attacker_score'];
+            $newDefenderScore = (int) $war['defender_score'];
+            if ($userCountryId === $attackerCountryId) {
+                $newAttackerScore += $damage;
+            } else {
+                $newDefenderScore += $damage;
+            }
+
+            $winnerCountryId = null;
+            $status = 'active';
+            $endedAt = null;
+            if ($newAttackerScore >= (int) $war['score_to_win']) {
+                $winnerCountryId = $attackerCountryId;
+                $status = 'ended';
+                $endedAt = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+            } elseif ($newDefenderScore >= (int) $war['score_to_win']) {
+                $winnerCountryId = $defenderCountryId;
+                $status = 'ended';
+                $endedAt = (new \DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+            }
+
+            $updateWar = $this->db->prepare('UPDATE wars SET attacker_score = :attacker_score, defender_score = :defender_score, status = :status, winner_country_id = :winner_country_id, ended_at = :ended_at, updated_at = NOW() WHERE id = :id');
+            $updateWar->execute([
+                'attacker_score' => $newAttackerScore,
+                'defender_score' => $newDefenderScore,
+                'status' => $status,
+                'winner_country_id' => $winnerCountryId,
+                'ended_at' => $endedAt,
+                'id' => $warId,
+            ]);
+
+            $xpGain = max(10, (int) floor($damage / 3));
+            $this->db->prepare('UPDATE users SET energy = energy - :energy_cost, experience = experience + :xp_gain, war_power = war_power + 1 WHERE id = :id')->execute([
+                'energy_cost' => $rules['attack_energy_cost'],
+                'xp_gain' => $xpGain,
+                'id' => $userId,
+            ]);
+
+            $this->db->prepare('INSERT INTO war_battles (war_id, attacker_user_id, attacker_country_id, defender_country_id, roll_value, damage, attacker_score_after, defender_score_after, created_at) VALUES (:war_id,:attacker_user_id,:attacker_country_id,:defender_country_id,:roll_value,:damage,:attacker_score_after,:defender_score_after,NOW())')->execute([
+                'war_id' => $warId,
+                'attacker_user_id' => $userId,
+                'attacker_country_id' => $userCountryId,
+                'defender_country_id' => $userCountryId === $attackerCountryId ? $defenderCountryId : $attackerCountryId,
+                'roll_value' => $roll,
+                'damage' => $damage,
+                'attacker_score_after' => $newAttackerScore,
+                'defender_score_after' => $newDefenderScore,
+            ]);
+
+            $this->db->commit();
+            $this->autoLevelUp($userId);
+            $msg = 'Saldırı başarılı. +' . $damage . ' savaş skoru, +' . $xpGain . ' XP';
+            if ($status === 'ended') {
+                $msg .= ' | Savaş bitti.';
+            }
+            return ['ok' => true, 'message' => $msg];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Savaş saldırısı başarısız.'];
+        }
     }
 
     public function upgradeStat(int $userId, string $stat): array
@@ -641,6 +801,71 @@ final class GameService
             ORDER BY c.code, r.id')->fetchAll() ?: [];
 
         return ['cities' => $cities, 'country_resources' => $countryResources];
+    }
+
+    public function activeWarForCountry(int $countryId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT w.*, ca.name AS attacker_country_name, cd.name AS defender_country_name, cw.name AS winner_country_name
+            FROM wars w
+            JOIN countries ca ON ca.id = w.attacker_country_id
+            JOIN countries cd ON cd.id = w.defender_country_id
+            LEFT JOIN countries cw ON cw.id = w.winner_country_id
+            WHERE w.status = "active" AND (w.attacker_country_id = :country_id OR w.defender_country_id = :country_id)
+            ORDER BY w.id DESC LIMIT 1');
+        $stmt->execute(['country_id' => $countryId]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function recentWarReports(int $countryId, int $limit = 20): array
+    {
+        $limit = max(1, min(50, $limit));
+        $stmt = $this->db->prepare('SELECT wb.id, wb.war_id, wb.attacker_user_id, wb.attacker_country_id, wb.defender_country_id, wb.roll_value, wb.damage, wb.attacker_score_after, wb.defender_score_after, wb.created_at,
+                u.username AS attacker_user_name,
+                ca.name AS attacker_country_name,
+                cd.name AS defender_country_name
+            FROM war_battles wb
+            JOIN wars w ON w.id = wb.war_id
+            JOIN users u ON u.id = wb.attacker_user_id
+            JOIN countries ca ON ca.id = wb.attacker_country_id
+            JOIN countries cd ON cd.id = wb.defender_country_id
+            WHERE w.attacker_country_id = :country_id OR w.defender_country_id = :country_id
+            ORDER BY wb.id DESC LIMIT ' . $limit);
+        $stmt->execute(['country_id' => $countryId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function warRules(): array
+    {
+        $defaults = [
+            'war_attack_energy_cost' => '280',
+            'war_attack_cooldown_seconds' => '45',
+            'war_damage_min' => '40',
+            'war_damage_max' => '160',
+            'war_score_to_win' => '1000',
+        ];
+
+        $keys = array_keys($defaults);
+        $inClause = implode(',', array_fill(0, count($keys), '?'));
+        $stmt = $this->db->prepare("SELECT `key`, `value` FROM settings WHERE `key` IN ($inClause)");
+        $stmt->execute($keys);
+        $rows = $stmt->fetchAll() ?: [];
+
+        $map = $defaults;
+        foreach ($rows as $row) {
+            $map[(string) $row['key']] = (string) $row['value'];
+        }
+
+        $minDamage = max(1, min(500, (int) $map['war_damage_min']));
+        $maxDamage = max($minDamage, min(1200, (int) $map['war_damage_max']));
+
+        return [
+            'attack_energy_cost' => max(100, min(1000, (int) $map['war_attack_energy_cost'])),
+            'attack_cooldown_seconds' => max(0, min(600, (int) $map['war_attack_cooldown_seconds'])),
+            'damage_min' => $minDamage,
+            'damage_max' => $maxDamage,
+            'score_to_win' => max(200, min(10000, (int) $map['war_score_to_win'])),
+        ];
     }
 
 

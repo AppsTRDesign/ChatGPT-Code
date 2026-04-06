@@ -11,6 +11,8 @@ $resourceMarket = $state['resource_market'] ?? [];
 $marketRules = $state['market_rules'] ?? [];
 $factoryTypes = $state['factory_types'] ?? [];
 $factories = $state['factories'] ?? [];
+$activeWar = $state['active_war'] ?? null;
+$warReports = $state['war_reports'] ?? [];
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -135,6 +137,52 @@ $factories = $state['factories'] ?? [];
                             <td><?= htmlspecialchars((string) $rm['scarcity_factor'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= (int) $rm['total_stock'] ?></td>
                             <td><?= (int) $rm['total_yield'] ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="card panel mt-3">
+        <div class="card-body">
+            <h2 class="h5">Savaş Merkezi</h2>
+            <?php if ($activeWar): ?>
+                <div class="alert alert-warning py-2">
+                    Aktif savaş: <strong><?= htmlspecialchars($activeWar['attacker_country_name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                    vs
+                    <strong><?= htmlspecialchars($activeWar['defender_country_name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                    • Skor <?= (int) $activeWar['attacker_score'] ?> - <?= (int) $activeWar['defender_score'] ?>
+                </div>
+                <button class="btn btn-danger action-btn" data-action="war-attack" data-war-id="<?= (int) $activeWar['id'] ?>">Cepheye Saldır (Enerji)</button>
+            <?php else: ?>
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-8">
+                        <select id="defenderCountryId" class="form-select">
+                            <?php foreach ($countries as $c): ?>
+                                <?php if ((int) $c['id'] === (int) $user['country_id']) { continue; } ?>
+                                <option value="<?= (int) $c['id'] ?>"><?= htmlspecialchars($c['flag_emoji'] . ' ' . $c['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-danger w-100 action-btn" data-action="war-start">Savaş Başlat</button>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-dark table-sm">
+                    <thead><tr><th>Zaman</th><th>Oyuncu</th><th>Cephe</th><th>Zarar</th><th>Skor</th></tr></thead>
+                    <tbody id="warReportTable">
+                    <?php foreach ($warReports as $report): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($report['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($report['attacker_user_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars($report['attacker_country_name'] . ' → ' . $report['defender_country_name'], ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= (int) $report['damage'] ?></td>
+                            <td><?= (int) $report['attacker_score_after'] ?> / <?= (int) $report['defender_score_after'] ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

@@ -42,6 +42,8 @@ $router->post('/api/market/create', [$apiController, 'marketCreate']);
 $router->post('/api/market/buy', [$apiController, 'marketBuy']);
 $router->post('/api/factory/create', [$apiController, 'factoryCreate']);
 $router->post('/api/factory/produce', [$apiController, 'factoryProduce']);
+$router->post('/api/war/start', [$apiController, 'warStart']);
+$router->post('/api/war/attack', [$apiController, 'warAttack']);
 
 $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);
