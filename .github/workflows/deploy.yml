@@ -1,0 +1,53 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: production
+
+jobs:
+  deploy-production:
+    if: github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.2'
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build backend dependencies
+        working-directory: backend
+        run: npm ci --omit=dev
+
+      - name: Package release
+        run: |
+          mkdir -p release/app
+          rsync -a backend frontend shared lang scripts docs file-schema.md README.md todolist.md release/app/
+          mkdir -p release/public/dist
+          rsync -a frontend/dist/ release/public/dist/
+
+      - name: Copy release to server
+        uses: burnett01/rsync-deployments@7.0.2
+        with:
+          switches: -avzr --delete
+          path: release/
+          remote_path: /var/www/vhosts/noasoft.org/game.noasoft.org/
+          remote_host: ${{ secrets.DEPLOY_HOST }}
+          remote_user: ${{ secrets.DEPLOY_USER }}
+          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Post-deploy health check
+        env:
+          BASE_URL: https://game.noasoft.org
+        run: bash scripts/deploy/health-check.sh "$BASE_URL"
