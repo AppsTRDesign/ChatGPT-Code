@@ -1,0 +1,9 @@
+{
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.language": "Language",
+  "map.fly_here": "Fly Here",
+  "city.population": "Population",
+  "travel.in_progress": "Travel in progress",
+  "auth.welcome": "Welcome commander"
+}
