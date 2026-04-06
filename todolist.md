@@ -57,10 +57,10 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~adaylık/oylama~~
    - ~~proposal/law/policy akışı~~
 
-10. PHASE 10: ECONOMY
-    - iş/salary sistemi
-    - şehir/ülke bütçeleri
-    - vergi ve harcama döngüsü
+10. ~~PHASE 10: ECONOMY~~
+    - ~~iş/salary sistemi~~
+    - ~~şehir/ülke bütçeleri~~
+    - ~~vergi ve harcama döngüsü~~
 
 11. PHASE 11: WAR
     - savaş ilanı
