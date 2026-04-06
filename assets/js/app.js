@@ -343,15 +343,37 @@
                 return;
             }
 
-            const markers = (bootstrapData.map?.cities || []).map((city) => ({
+            const cityMarkers = (bootstrapData.map?.cities || []).map((city) => ({
                 name: `${city.country_name} / ${city.name} (${city.player_count})`,
                 coords: [Number(city.lat), Number(city.lng)],
             }));
+
+            const poiMarkers = (bootstrapData.map?.pois || []).map((poi) => ({
+                name: `${poi.country_name} / ${poi.city_name} - ${poi.title}`,
+                coords: [Number(poi.lat), Number(poi.lng)],
+            }));
+            const markers = [...cityMarkers, ...poiMarkers];
+
+            const layerRows = bootstrapData.map?.layers || [];
+            const layerKey = 'influence';
+            const values = {};
+            const scale = {};
+            layerRows.filter((row) => row.layer_key === layerKey).forEach((row) => {
+                values[row.country_code] = Number(row.intensity || 1);
+                scale[Number(row.intensity || 1)] = row.color_hex || '#0d6efd';
+            });
 
             new window.jsVectorMap({
                 selector: '#worldMap',
                 map: 'world',
                 markers,
+                series: {
+                    regions: [{
+                        values,
+                        scale,
+                        normalizeFunction: 'polynomial',
+                    }],
+                },
                 markerStyle: {
                     initial: { r: 5, fill: '#0d6efd', stroke: '#fff', strokeWidth: 1 },
                 },

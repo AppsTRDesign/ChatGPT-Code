@@ -804,13 +804,24 @@ final class GameService
             JOIN countries c ON c.id = ci.country_id
             ORDER BY c.name, ci.name')->fetchAll() ?: [];
 
+        $layers = $this->db->query('SELECT c.code AS country_code, wml.layer_key, wml.color_hex, wml.intensity, wml.note
+            FROM world_map_layers wml
+            JOIN countries c ON c.id = wml.country_id
+            ORDER BY wml.layer_key, c.code')->fetchAll() ?: [];
+
+        $pois = $this->db->query('SELECT cp.id, cp.poi_type, cp.title, cp.description, ci.lat, ci.lng, ci.name AS city_name, c.code AS country_code, c.name AS country_name
+            FROM city_points_of_interest cp
+            JOIN cities ci ON ci.id = cp.city_id
+            JOIN countries c ON c.id = ci.country_id
+            ORDER BY cp.id DESC')->fetchAll() ?: [];
+
         $countryResources = $this->db->query('SELECT c.code, c.name AS country_name, r.resource_key, r.name AS resource_name, cr.daily_yield
             FROM country_resources cr
             JOIN countries c ON c.id = cr.country_id
             JOIN resources r ON r.id = cr.resource_id
             ORDER BY c.code, r.id')->fetchAll() ?: [];
 
-        return ['cities' => $cities, 'country_resources' => $countryResources];
+        return ['cities' => $cities, 'country_resources' => $countryResources, 'layers' => $layers, 'pois' => $pois];
     }
 
     public function activeWarForCountry(int $countryId): ?array
@@ -1712,6 +1723,8 @@ final class GameService
             'cities' => $this->db->query('SELECT ci.*, c.name AS country_name FROM cities ci JOIN countries c ON c.id = ci.country_id ORDER BY c.name, ci.name')->fetchAll() ?: [],
             'resources' => $this->db->query('SELECT * FROM resources ORDER BY id')->fetchAll() ?: [],
             'country_resources' => $this->db->query('SELECT cr.*, c.name AS country_name, r.name AS resource_name FROM country_resources cr JOIN countries c ON c.id = cr.country_id JOIN resources r ON r.id = cr.resource_id ORDER BY c.name, r.name')->fetchAll() ?: [],
+            'map_layers' => $this->db->query('SELECT wml.*, c.name AS country_name, c.code AS country_code FROM world_map_layers wml JOIN countries c ON c.id = wml.country_id ORDER BY wml.layer_key, c.name')->fetchAll() ?: [],
+            'city_pois' => $this->db->query('SELECT cp.*, ci.name AS city_name, c.name AS country_name FROM city_points_of_interest cp JOIN cities ci ON ci.id = cp.city_id JOIN countries c ON c.id = ci.country_id ORDER BY cp.id DESC')->fetchAll() ?: [],
         ];
     }
 
@@ -1743,5 +1756,45 @@ final class GameService
         $stmt = $this->db->prepare('INSERT INTO country_resources (country_id, resource_id, daily_yield, stock) VALUES (:c, :r, :y, :s) ON DUPLICATE KEY UPDATE daily_yield = VALUES(daily_yield)');
         $stmt->execute(['c' => $countryId, 'r' => $resourceId, 'y' => $dailyYield, 's' => $dailyYield * 20]);
         return ['ok' => true, 'message' => 'Kaynak dağılımı güncellendi.'];
+    }
+
+    public function addMapLayer(int $countryId, string $layerKey, string $colorHex, float $intensity, ?string $note = null): array
+    {
+        $layerKey = trim($layerKey);
+        $colorHex = strtoupper(trim($colorHex));
+        if ($countryId <= 0 || $layerKey === '' || !preg_match('/^#[0-9A-F]{6}$/', $colorHex)) {
+            return ['ok' => false, 'message' => 'Harita katman bilgileri geçersiz.'];
+        }
+
+        $intensity = max(0.1, min(5.0, $intensity));
+        $stmt = $this->db->prepare('INSERT INTO world_map_layers (country_id, layer_key, color_hex, intensity, note, created_at, updated_at) VALUES (:country_id,:layer_key,:color_hex,:intensity,:note,NOW(),NOW()) ON DUPLICATE KEY UPDATE color_hex = VALUES(color_hex), intensity = VALUES(intensity), note = VALUES(note), updated_at = NOW()');
+        $stmt->execute([
+            'country_id' => $countryId,
+            'layer_key' => $layerKey,
+            'color_hex' => $colorHex,
+            'intensity' => $intensity,
+            'note' => $note !== null ? trim($note) : null,
+        ]);
+
+        return ['ok' => true, 'message' => 'Harita katmanı kaydedildi.'];
+    }
+
+    public function addCityPoi(int $cityId, string $poiType, string $title, ?string $description = null): array
+    {
+        $poiType = trim($poiType);
+        $title = trim($title);
+        if ($cityId <= 0 || $poiType === '' || mb_strlen($title) < 2) {
+            return ['ok' => false, 'message' => 'POI bilgileri geçersiz.'];
+        }
+
+        $stmt = $this->db->prepare('INSERT INTO city_points_of_interest (city_id, poi_type, title, description, created_at) VALUES (:city_id,:poi_type,:title,:description,NOW())');
+        $stmt->execute([
+            'city_id' => $cityId,
+            'poi_type' => $poiType,
+            'title' => $title,
+            'description' => $description !== null ? trim($description) : null,
+        ]);
+
+        return ['ok' => true, 'message' => 'Şehir POI kaydedildi.'];
     }
 }

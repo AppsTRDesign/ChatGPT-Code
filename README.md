@@ -16,6 +16,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Parti/Seçim/Meclis: parti yönetimi, seçim oylaması ve kanun teklif/oylama çekirdeği.
 - Bakanlık rolleri: rol atama, yetki matrisi ve bakanlık aksiyon logları.
 - Oturum/geçiş izin sistemi: izin talebi, onay/reddetme ve şehir/ülke taşınma akışı.
+- Harita modülü genişletme: katman (layer) ve şehir POI tabanlı world builder desteği.
 - Dünya haritası (jsVectorMap) ve şehir bazlı oyuncu yoğunluğu işaretleme.
 - Admin panelden ülke/şehir/kaynak dağılımı ekleme.
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
@@ -60,6 +61,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260406_000010_politics_core.sql`
    - `db/migrations/20260406_000011_government_roles.sql`
    - `db/migrations/20260406_000012_travel_permits.sql`
+   - `db/migrations/20260406_000013_map_worldbuilder.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -97,3 +99,5 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Bakanlık rol sistemi notu: `docs/GOVERNMENT_ROLES_TASK12.md`
 
 - Oturum/geçiş izin sistemi notu: `docs/TRAVEL_PERMIT_TASK13.md`
+
+- Harita/world builder notu: `docs/MAP_WORLDBUILDER_TASK14.md`

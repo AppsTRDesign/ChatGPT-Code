@@ -61,6 +61,8 @@ $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);
 $router->post('/admin/world/city', [$adminController, 'addCity']);
 $router->post('/admin/world/resource', [$adminController, 'addResourceDistribution']);
+$router->post('/admin/world/map-layer', [$adminController, 'addMapLayer']);
+$router->post('/admin/world/city-poi', [$adminController, 'addCityPoi']);
 $router->get('/admin/login', [$loginController, 'show']);
 $router->post('/admin/login', [$loginController, 'login']);
 $router->post('/admin/logout', [$loginController, 'logout']);

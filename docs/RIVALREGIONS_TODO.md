@@ -148,6 +148,14 @@
 - Şehir/ülke değişimi ve vize kontrolü eklendi (`/api/travel/move`).
 - Dashboard’a “Oturum / Geçiş İzin Sistemi” paneli eklendi.
 
+
+## 14. Görev Çıktısı (Tamamlandı)
+- Harita katman veri modeli eklendi (`world_map_layers`).
+- Şehir POI veri modeli eklendi (`city_points_of_interest`).
+- Map payload, katman ve POI destekleyecek şekilde genişletildi.
+- Admin world builder’a harita katmanı ve POI yönetim formları eklendi.
+- Admin panelde harita katmanları/POI listeleri görüntülenebilir hale geldi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -162,11 +170,11 @@
 11.) Görev: ~~Parti/Seçim/Meclis sistemleri~~ ✅
 12.) Görev: ~~Bakanlık rolleri ve yetki akışları~~ ✅
 13.) Görev: ~~Oturum/geçiş izin sistemi~~ ✅
-14.) Görev: Harita modülü genişletme + world builder
+14.) Görev: ~~Harita modülü genişletme + world builder~~ ✅
 15.) Görev: Test, izleme, canlıya çıkış planı
 26.) Görev: Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)
 27.) Görev: Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler
 
 ---
 
-**Sonraki adım önerisi:** 14. göreve geçelim (Harita modülü genişletme + world builder). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
+**Sonraki adım önerisi:** 15. göreve geçelim (Test, izleme, canlıya çıkış planı). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
