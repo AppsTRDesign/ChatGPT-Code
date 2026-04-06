@@ -1,5 +1,7 @@
 const pool = require('../../core/db');
 const HttpError = require('../../core/http-error');
+const { assertActionAllowed } = require('../../core/anti-abuse');
+const { computeWarContributionPower, computeWarScoreDelta } = require('../../utils/simulation-calculators');
 
 function isActiveStatus(status) {
   return status === 'declared' || status === 'active';
@@ -200,6 +202,7 @@ async function reinforceBattle(userId, battleId, side, energySpend) {
 
   if (!Number.isFinite(spend) || spend <= 0) throw new HttpError(400, 'energySpend must be positive');
   if (Number(user.energy) < spend) throw new HttpError(400, 'Insufficient energy');
+  assertActionAllowed(userId, 'battle_reinforce');
 
   const [battleRows] = await pool.query(
     `SELECT b.id, b.status, b.war_id,
@@ -220,7 +223,7 @@ async function reinforceBattle(userId, battleId, side, energySpend) {
     throw new HttpError(403, 'User is not eligible for selected battle side');
   }
 
-  const contributionPower = Math.max(1, Math.round(spend * (1 + Number(user.level || 1) * 0.05) * (1 + Number(user.reputation || 0) / 1000)));
+  const contributionPower = computeWarContributionPower(spend, user.level, user.reputation);
 
   const connection = await pool.getConnection();
   try {
@@ -299,7 +302,7 @@ async function resolveBattle(userId, battleId) {
   const winnerSide = attackerPower > defenderPower ? 'attacker' : 'defender';
   const winnerCountryId = winnerSide === 'attacker' ? Number(battle.attacker_country_id) : Number(battle.defender_country_id);
   const loserCountryId = winnerSide === 'attacker' ? Number(battle.defender_country_id) : Number(battle.attacker_country_id);
-  const scoreDelta = Math.max(5, Math.round(Math.abs(attackerPower - defenderPower) / 10));
+  const scoreDelta = computeWarScoreDelta(attackerPower, defenderPower);
 
   const connection = await pool.getConnection();
   try {

@@ -1,5 +1,8 @@
 const pool = require('../../core/db');
 const HttpError = require('../../core/http-error');
+const balancing = require('../../config/balancing');
+const { assertActionAllowed } = require('../../core/anti-abuse');
+const { clampTaxRate, computeIndustryMultiplier, computeEmploymentMultiplier } = require('../../utils/simulation-calculators');
 
 const DEFAULT_JOBS = [
   { code: 'factory_worker', title: 'Factory Worker', baseSalary: 120, energyCost: 6 },
@@ -66,6 +69,7 @@ async function getTaxRate(countryId) {
 
 async function performWork(userId, jobId) {
   const user = await getUserEconomyContext(userId);
+  assertActionAllowed(userId, 'work');
 
   const [jobRows] = await pool.query(
     `SELECT id, city_id, country_id, code, title, base_salary, energy_cost, required_level
@@ -90,15 +94,16 @@ async function performWork(userId, jobId) {
   const [cityRows] = await pool.query('SELECT industry_level, employment_rate FROM cities WHERE id = ? LIMIT 1', [Number(user.current_city_id)]);
   const city = cityRows[0] || { industry_level: 1, employment_rate: 50 };
 
-  const industryMultiplier = 1 + (Number(city.industry_level || 1) - 1) * 0.04;
-  const employmentMultiplier = 0.7 + Number(city.employment_rate || 50) / 100;
+  const industryMultiplier = computeIndustryMultiplier(city.industry_level);
+  const employmentMultiplier = computeEmploymentMultiplier(city.employment_rate);
 
   const grossSalary = Number((Number(job.base_salary) * industryMultiplier * employmentMultiplier).toFixed(2));
-  const taxRate = await getTaxRate(user.current_country_id);
+  const rawTaxRate = await getTaxRate(user.current_country_id);
+  const taxRate = clampTaxRate(rawTaxRate);
   const taxAmount = Number((grossSalary * (taxRate / 100)).toFixed(2));
   const netSalary = Number((grossSalary - taxAmount).toFixed(2));
 
-  const countryShare = Number((taxAmount * 0.6).toFixed(2));
+  const countryShare = Number((taxAmount * balancing.economy.treasuryCountryShare).toFixed(2));
   const cityShare = Number((taxAmount - countryShare).toFixed(2));
 
   const connection = await pool.getConnection();
@@ -107,9 +112,9 @@ async function performWork(userId, jobId) {
 
     await connection.query(
       `UPDATE users
-       SET energy = GREATEST(energy - ?, 0), experience = experience + 15
+       SET energy = GREATEST(energy - ?, 0), experience = experience + ?
        WHERE id = ?`,
-      [Number(job.energy_cost), Number(userId)]
+      [Number(job.energy_cost), balancing.economy.experiencePerWork, Number(userId)]
     );
 
     await connection.query(

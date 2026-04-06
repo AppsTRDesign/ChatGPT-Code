@@ -1,39 +1,7 @@
 const pool = require('../../core/db');
 const HttpError = require('../../core/http-error');
 const { haversineKm } = require('../../utils/geo');
-
-function computeTravelType(fromCity, toCity, distanceKm) {
-  if (fromCity.id === toCity.id) return 'same_city';
-  if (fromCity.country_id === toCity.country_id) {
-    if (distanceKm < 80) return 'local_travel';
-    return 'domestic_flight';
-  }
-  return 'international_flight';
-}
-
-function computeDurationSeconds(distanceKm, travelType, airportLevel) {
-  if (travelType === 'same_city') return 0;
-
-  const baseSpeed = travelType === 'local_travel' ? 60 : 780;
-  const airportBoost = 1 + Math.min(Math.max((airportLevel - 1) * 0.03, 0), 0.24);
-  const effectiveSpeed = baseSpeed * airportBoost;
-
-  const hours = distanceKm / Math.max(effectiveSpeed, 10);
-  const baseSeconds = Math.ceil(hours * 3600);
-
-  if (travelType === 'local_travel') return Math.max(baseSeconds, 300);
-  if (travelType === 'domestic_flight') return Math.max(baseSeconds + 1800, 1200);
-  return Math.max(baseSeconds + 3600, 2400);
-}
-
-function computeTicketCost(distanceKm, travelType, airportLevel) {
-  if (travelType === 'same_city') return 0;
-
-  const base = travelType === 'local_travel' ? 0.15 : travelType === 'domestic_flight' ? 0.23 : 0.36;
-  const airportDiscount = Math.min((airportLevel - 1) * 0.01, 0.08);
-  const price = distanceKm * base * (1 - airportDiscount);
-  return Number(price.toFixed(2));
-}
+const { computeTravelType, computeDurationSeconds, computeTicketCost } = require('../../utils/simulation-calculators');
 
 async function getCityById(cityId) {
   const [rows] = await pool.query(
@@ -271,5 +239,8 @@ async function getActiveTravel(userId) {
 module.exports = {
   buildQuote,
   startTravel,
-  getActiveTravel
+  getActiveTravel,
+  computeTravelType,
+  computeDurationSeconds,
+  computeTicketCost
 };

@@ -78,10 +78,10 @@ Tamamlanan adımların üstü çizilmiştir.
     - ~~responsive iyileştirmeler~~
     - ~~dil değiştirici polish~~
 
-14. PHASE 14: TESTING + BALANCING
-    - anti-abuse placeholder
-    - ekonomi/seyahat/savaş dengeleme
-    - otomasyon testleri
+14. ~~PHASE 14: TESTING + BALANCING~~
+    - ~~anti-abuse placeholder~~
+    - ~~ekonomi/seyahat/savaş dengeleme~~
+    - ~~otomasyon testleri~~
 
 15. PHASE 15: DEPLOYMENT GUIDE
     - AlmaLinux + Plesk + Apache + Node 16.20.2 + MariaDB için detaylı prod kurulum ve güncelleme rehberi

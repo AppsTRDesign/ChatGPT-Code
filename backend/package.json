@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node src/server.js",
     "start": "NODE_ENV=production node src/server.js",
-    "check": "node --check src/server.js && node --check src/app.js"
+    "check": "node --check src/server.js && node --check src/app.js",
+    "test": "node tests/run-tests.js"
   },
   "engines": {
     "node": ">=16.20.2 <17"

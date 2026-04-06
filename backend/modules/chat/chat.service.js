@@ -1,6 +1,7 @@
 const pool = require('../../core/db');
 const HttpError = require('../../core/http-error');
 const { getIo } = require('../../sockets/socket-state');
+const { assertActionAllowed } = require('../../core/anti-abuse');
 
 function normalizeScopeType(scopeType) {
   const normalized = String(scopeType || '').toLowerCase();
@@ -49,6 +50,7 @@ async function listMessages(scopeType, scopeId, limit) {
 
 async function sendMessage(userId, scopeType, scopeId, message) {
   const user = await ensureUser(userId);
+  assertActionAllowed(userId, 'chat_message');
   const normalizedScope = normalizeScopeType(scopeType);
   const targetScopeId = Number(scopeId) || 0;
 
