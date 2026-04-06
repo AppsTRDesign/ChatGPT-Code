@@ -30,11 +30,11 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~onboarding + GeoIP atama~~
    - ~~dil tercihi kalıcılığı~~
 
-5. PHASE 5: MAP SYSTEM
-   - dünya haritası render
-   - country/city görünümü
-   - etkileşimli kartlar
-   - zoom/focus geçişleri
+5. ~~PHASE 5: MAP SYSTEM~~
+   - ~~dünya haritası render~~
+   - ~~country/city görünümü~~
+   - ~~etkileşimli kartlar~~
+   - ~~zoom/focus geçişleri~~
 
 6. PHASE 6: COUNTRY + CITY MODULES
    - country detail API
