@@ -19,6 +19,27 @@ function authRequired(req, res, next) {
   }
 }
 
+function roleRequired(roles) {
+  const allowedRoles = Array.isArray(roles) ? roles : [roles];
+
+  return function (req, res, next) {
+    authRequired(req, res, function (error) {
+      if (error) {
+        next(error);
+        return;
+      }
+
+      if (!req.auth || !allowedRoles.includes(req.auth.role)) {
+        next(new HttpError(403, 'Forbidden'));
+        return;
+      }
+
+      next();
+    });
+  };
+}
+
 module.exports = {
-  authRequired
+  authRequired,
+  roleRequired
 };

@@ -91,7 +91,7 @@ async function login(payload) {
   }
 
   const [rows] = await pool.query(
-    `SELECT id, email, username, password_hash, preferred_language_code, current_country_id, current_city_id
+    `SELECT id, email, username, role, password_hash, preferred_language_code, current_country_id, current_city_id
      FROM users WHERE email = ? OR username = ? LIMIT 1`,
     [identity.toLowerCase(), identity]
   );
@@ -109,7 +109,8 @@ async function login(payload) {
   const tokenPayload = {
     sub: user.id,
     username: user.username,
-    language: user.preferred_language_code
+    language: user.preferred_language_code,
+    role: user.role
   };
 
   const accessToken = signAccessToken(tokenPayload);
@@ -124,6 +125,7 @@ async function login(payload) {
       id: user.id,
       email: user.email,
       username: user.username,
+      role: user.role,
       preferredLanguageCode: user.preferred_language_code,
       currentCountryId: user.current_country_id,
       currentCityId: user.current_city_id
@@ -147,7 +149,7 @@ async function refreshTokens(payload) {
     throw new HttpError(401, 'Refresh token revoked or expired');
   }
 
-  const [rows] = await pool.query('SELECT id, username, preferred_language_code FROM users WHERE id = ? LIMIT 1', [decoded.sub]);
+  const [rows] = await pool.query('SELECT id, username, role, preferred_language_code FROM users WHERE id = ? LIMIT 1', [decoded.sub]);
   const user = rows[0];
   if (!user) {
     throw new HttpError(401, 'User not found');
@@ -155,7 +157,7 @@ async function refreshTokens(payload) {
 
   await revokeRefreshToken(refreshToken);
 
-  const accessToken = signAccessToken({ sub: user.id, username: user.username, language: user.preferred_language_code });
+  const accessToken = signAccessToken({ sub: user.id, username: user.username, language: user.preferred_language_code, role: user.role });
   const newRefreshToken = signRefreshToken({ sub: user.id });
   await saveRefreshToken(user.id, newRefreshToken);
 
@@ -172,9 +174,27 @@ async function logout(payload) {
   await revokeRefreshToken(refreshToken);
 }
 
+async function me(userId) {
+  const [rows] = await pool.query(
+    `SELECT id, email, username, role, level, experience, energy, preferred_language_code,
+            current_country_id, current_city_id, home_country_id, home_city_id
+     FROM users
+     WHERE id = ?
+     LIMIT 1`,
+    [Number(userId)]
+  );
+
+  if (!rows.length) {
+    throw new HttpError(404, 'User not found');
+  }
+
+  return rows[0];
+}
+
 module.exports = {
   createUserWithOnboarding,
   login,
   refreshTokens,
-  logout
+  logout,
+  me
 };

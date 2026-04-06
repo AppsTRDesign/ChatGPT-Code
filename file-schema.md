@@ -51,7 +51,7 @@ backend/
 │   ├── users/                          ✅
 │   ├── countries/                      ✅
 │   ├── cities/                         ✅
-│   ├── regions/                        🟡 (iskelet)
+│   ├── regions/                        ✅
 │   ├── map/                            ✅
 │   ├── travel/                         ✅
 │   ├── economy/                        ✅
@@ -63,8 +63,8 @@ backend/
 │   ├── realtime/                       ✅
 │   ├── stats/                          ✅
 │   ├── i18n/                           ✅
-│   ├── admin/                          🟡 (iskelet)
-│   └── inventory/                      🟡 (iskelet)
+│   ├── admin/                          ✅
+│   └── inventory/                      ✅
 ├── sockets/
 │   ├── index.js                        ✅
 │   └── socket-state.js                 ✅
@@ -144,7 +144,6 @@ docs/
 - ✅ Backend + Frontend + DB + World seed + Realtime + Deployment guide.
 
 ### Geriye kalan teknik boşluklar (opsiyonel genişletme)
-- 🟡 `modules/regions`, `modules/admin`, `modules/inventory` için kapsamlı business logic genişletmesi.
 - 🟡 E2E test katmanı (API integration + UI browser tests) henüz yok.
 - 🟡 CI/CD pipeline (GitHub Actions vb.) henüz tanımlı değil.
 

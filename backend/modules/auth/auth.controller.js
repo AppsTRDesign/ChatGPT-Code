@@ -36,9 +36,19 @@ async function logout(req, res, next) {
   }
 }
 
+async function me(req, res, next) {
+  try {
+    const data = await authService.me(req.auth.sub);
+    res.status(200).json({ ok: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   register,
   login,
   refresh,
-  logout
+  logout,
+  me
 };

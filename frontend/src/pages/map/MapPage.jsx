@@ -49,11 +49,15 @@ export default function MapPage() {
 
   const navItems = [
     { label: 'Dashboard', to: '/dashboard' },
+    { label: 'Profile', to: '/profile' },
+    { label: 'Inventory', to: '/inventory' },
     { label: 'Politics', to: '/elections' },
     { label: 'Travel', to: '/travel' },
     { label: 'Economy', to: '/economy' },
     { label: 'War', to: '/war' },
-    { label: 'Realtime', to: '/realtime' }
+    { label: 'Realtime', to: '/realtime' },
+    { label: 'Admin', to: '/admin' },
+    { label: 'Login', to: '/login' }
   ];
 
   return (
