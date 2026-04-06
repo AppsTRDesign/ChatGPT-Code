@@ -18,11 +18,11 @@ Tamamlanan adımların üstü çizilmiştir.
    - ~~indeksler~~
    - ~~seed yapısı (dil başlangıcı)~~
 
-3. PHASE 3: WORLD DATA
-   - ücretsiz dünya dataset import pipeline
-   - country/region/city seed üretimi
-   - GeoJSON entegrasyonu
-   - map-ready veri formatı
+3. ~~PHASE 3: WORLD DATA~~
+   - ~~ücretsiz dünya dataset import pipeline~~
+   - ~~country/region/city seed üretimi~~
+   - ~~GeoJSON entegrasyonu~~
+   - ~~map-ready veri formatı~~
 
 4. PHASE 4: AUTH + USER SYSTEM
    - kayıt / giriş

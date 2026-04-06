@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://game.noasoft.org/schemas/world-data.schema.json",
+  "title": "World Data Bootstrap Contract",
+  "type": "object",
+  "required": ["generatedAt", "schemaVersion", "provider", "countries"],
+  "properties": {
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "schemaVersion": { "type": "string" },
+    "provider": { "type": "string" },
+    "countries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "name", "regions"],
+        "properties": {
+          "code": { "type": "string" },
+          "iso3": { "type": "string" },
+          "name": { "type": "string" },
+          "flagEmoji": { "type": "string" },
+          "source": {
+            "type": "object",
+            "properties": {
+              "provider": { "type": "string" },
+              "countryExternalId": { "type": "string" }
+            }
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "name", "cities"],
+              "properties": {
+                "code": { "type": "string" },
+                "name": { "type": "string" },
+                "strategicValue": { "type": "number" },
+                "sourceExternalId": { "type": "string" },
+                "cities": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "latitude", "longitude", "population", "isCapital"],
+                    "properties": {
+                      "name": { "type": "string" },
+                      "latitude": { "type": "number" },
+                      "longitude": { "type": "number" },
+                      "population": { "type": "number" },
+                      "isCapital": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+[
+  {"countryCode":"US","regionCode":"US-NE","name":"Washington","latitude":38.9072,"longitude":-77.0369,"population":705749,"isCapital":1},
+  {"countryCode":"US","regionCode":"US-W","name":"Los Angeles","latitude":34.0522,"longitude":-118.2437,"population":3898747,"isCapital":0},
+
+  {"countryCode":"TR","regionCode":"TR-ICA","name":"Ankara","latitude":39.9334,"longitude":32.8597,"population":5747325,"isCapital":1},
+  {"countryCode":"TR","regionCode":"TR-MRM","name":"İstanbul","latitude":41.0082,"longitude":28.9784,"population":15636243,"isCapital":0},
+
+  {"countryCode":"DE","regionCode":"DE-BY","name":"Munich","latitude":48.1351,"longitude":11.582,"population":1488202,"isCapital":0},
+  {"countryCode":"DE","regionCode":"DE-BY","name":"Berlin","latitude":52.52,"longitude":13.405,"population":3677472,"isCapital":1},
+
+  {"countryCode":"FR","regionCode":"FR-IDF","name":"Paris","latitude":48.8566,"longitude":2.3522,"population":2161000,"isCapital":1},
+  {"countryCode":"FR","regionCode":"FR-IDF","name":"Nanterre","latitude":48.8924,"longitude":2.2066,"population":96996,"isCapital":0},
+
+  {"countryCode":"GB","regionCode":"GB-ENG","name":"London","latitude":51.5072,"longitude":-0.1276,"population":8982000,"isCapital":1},
+  {"countryCode":"GB","regionCode":"GB-ENG","name":"Manchester","latitude":53.4808,"longitude":-2.2426,"population":568996,"isCapital":0},
+
+  {"countryCode":"JP","regionCode":"JP-KAN","name":"Tokyo","latitude":35.6762,"longitude":139.6503,"population":13960000,"isCapital":1},
+  {"countryCode":"JP","regionCode":"JP-KAN","name":"Yokohama","latitude":35.4437,"longitude":139.638,"population":3777491,"isCapital":0},
+
+  {"countryCode":"BR","regionCode":"BR-SE","name":"Brasília","latitude":-15.7939,"longitude":-47.8828,"population":3055149,"isCapital":1},
+  {"countryCode":"BR","regionCode":"BR-SE","name":"São Paulo","latitude":-23.5558,"longitude":-46.6396,"population":12330000,"isCapital":0},
+
+  {"countryCode":"CA","regionCode":"CA-ON","name":"Ottawa","latitude":45.4215,"longitude":-75.6972,"population":1017449,"isCapital":1},
+  {"countryCode":"CA","regionCode":"CA-ON","name":"Toronto","latitude":43.6532,"longitude":-79.3832,"population":2794356,"isCapital":0},
+
+  {"countryCode":"IN","regionCode":"IN-NCR","name":"New Delhi","latitude":28.6139,"longitude":77.209,"population":16787941,"isCapital":1},
+  {"countryCode":"IN","regionCode":"IN-NCR","name":"Gurugram","latitude":28.4595,"longitude":77.0266,"population":1535149,"isCapital":0},
+
+  {"countryCode":"AU","regionCode":"AU-NSW","name":"Canberra","latitude":-35.2809,"longitude":149.13,"population":456692,"isCapital":1},
+  {"countryCode":"AU","regionCode":"AU-NSW","name":"Sydney","latitude":-33.8688,"longitude":151.2093,"population":5312163,"isCapital":0}
+]

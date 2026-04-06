@@ -1,0 +1,14 @@
+[
+  {"countryCode":"US","code":"US-NE","name":"Northeast","strategicValue":15,"sourceExternalId":"gadm_us_ne"},
+  {"countryCode":"US","code":"US-W","name":"West Coast","strategicValue":18,"sourceExternalId":"gadm_us_w"},
+  {"countryCode":"TR","code":"TR-MRM","name":"Marmara","strategicValue":17,"sourceExternalId":"gadm_tr_mrm"},
+  {"countryCode":"TR","code":"TR-ICA","name":"Central Anatolia","strategicValue":13,"sourceExternalId":"gadm_tr_ica"},
+  {"countryCode":"DE","code":"DE-BY","name":"Bavaria","strategicValue":14,"sourceExternalId":"gadm_de_by"},
+  {"countryCode":"FR","code":"FR-IDF","name":"Île-de-France","strategicValue":16,"sourceExternalId":"gadm_fr_idf"},
+  {"countryCode":"GB","code":"GB-ENG","name":"England","strategicValue":16,"sourceExternalId":"gadm_gb_eng"},
+  {"countryCode":"JP","code":"JP-KAN","name":"Kantō","strategicValue":18,"sourceExternalId":"gadm_jp_kan"},
+  {"countryCode":"BR","code":"BR-SE","name":"Southeast","strategicValue":15,"sourceExternalId":"gadm_br_se"},
+  {"countryCode":"CA","code":"CA-ON","name":"Ontario","strategicValue":14,"sourceExternalId":"gadm_ca_on"},
+  {"countryCode":"IN","code":"IN-NCR","name":"National Capital Region","strategicValue":16,"sourceExternalId":"gadm_in_ncr"},
+  {"countryCode":"AU","code":"AU-NSW","name":"New South Wales","strategicValue":13,"sourceExternalId":"gadm_au_nsw"}
+]

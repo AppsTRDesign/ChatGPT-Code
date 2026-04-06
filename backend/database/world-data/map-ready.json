@@ -1,0 +1,363 @@
+{
+  "generatedAt": "2026-04-06T12:41:30.142Z",
+  "schemaVersion": "v1",
+  "provider": "natural_earth + gadm + geonames (curated sample bootstrap)",
+  "countries": [
+    {
+      "code": "US",
+      "iso3": "USA",
+      "name": "United States",
+      "flagEmoji": "🇺🇸",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_usa"
+      },
+      "regions": [
+        {
+          "code": "US-NE",
+          "name": "Northeast",
+          "strategicValue": 15,
+          "sourceExternalId": "gadm_us_ne",
+          "cities": [
+            {
+              "name": "Washington",
+              "latitude": 38.9072,
+              "longitude": -77.0369,
+              "population": 705749,
+              "isCapital": true
+            }
+          ]
+        },
+        {
+          "code": "US-W",
+          "name": "West Coast",
+          "strategicValue": 18,
+          "sourceExternalId": "gadm_us_w",
+          "cities": [
+            {
+              "name": "Los Angeles",
+              "latitude": 34.0522,
+              "longitude": -118.2437,
+              "population": 3898747,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "TR",
+      "iso3": "TUR",
+      "name": "Türkiye",
+      "flagEmoji": "🇹🇷",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_tur"
+      },
+      "regions": [
+        {
+          "code": "TR-MRM",
+          "name": "Marmara",
+          "strategicValue": 17,
+          "sourceExternalId": "gadm_tr_mrm",
+          "cities": [
+            {
+              "name": "İstanbul",
+              "latitude": 41.0082,
+              "longitude": 28.9784,
+              "population": 15636243,
+              "isCapital": false
+            }
+          ]
+        },
+        {
+          "code": "TR-ICA",
+          "name": "Central Anatolia",
+          "strategicValue": 13,
+          "sourceExternalId": "gadm_tr_ica",
+          "cities": [
+            {
+              "name": "Ankara",
+              "latitude": 39.9334,
+              "longitude": 32.8597,
+              "population": 5747325,
+              "isCapital": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "DE",
+      "iso3": "DEU",
+      "name": "Germany",
+      "flagEmoji": "🇩🇪",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_deu"
+      },
+      "regions": [
+        {
+          "code": "DE-BY",
+          "name": "Bavaria",
+          "strategicValue": 14,
+          "sourceExternalId": "gadm_de_by",
+          "cities": [
+            {
+              "name": "Munich",
+              "latitude": 48.1351,
+              "longitude": 11.582,
+              "population": 1488202,
+              "isCapital": false
+            },
+            {
+              "name": "Berlin",
+              "latitude": 52.52,
+              "longitude": 13.405,
+              "population": 3677472,
+              "isCapital": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "FR",
+      "iso3": "FRA",
+      "name": "France",
+      "flagEmoji": "🇫🇷",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_fra"
+      },
+      "regions": [
+        {
+          "code": "FR-IDF",
+          "name": "Île-de-France",
+          "strategicValue": 16,
+          "sourceExternalId": "gadm_fr_idf",
+          "cities": [
+            {
+              "name": "Paris",
+              "latitude": 48.8566,
+              "longitude": 2.3522,
+              "population": 2161000,
+              "isCapital": true
+            },
+            {
+              "name": "Nanterre",
+              "latitude": 48.8924,
+              "longitude": 2.2066,
+              "population": 96996,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "GB",
+      "iso3": "GBR",
+      "name": "United Kingdom",
+      "flagEmoji": "🇬🇧",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_gbr"
+      },
+      "regions": [
+        {
+          "code": "GB-ENG",
+          "name": "England",
+          "strategicValue": 16,
+          "sourceExternalId": "gadm_gb_eng",
+          "cities": [
+            {
+              "name": "London",
+              "latitude": 51.5072,
+              "longitude": -0.1276,
+              "population": 8982000,
+              "isCapital": true
+            },
+            {
+              "name": "Manchester",
+              "latitude": 53.4808,
+              "longitude": -2.2426,
+              "population": 568996,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "JP",
+      "iso3": "JPN",
+      "name": "Japan",
+      "flagEmoji": "🇯🇵",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_jpn"
+      },
+      "regions": [
+        {
+          "code": "JP-KAN",
+          "name": "Kantō",
+          "strategicValue": 18,
+          "sourceExternalId": "gadm_jp_kan",
+          "cities": [
+            {
+              "name": "Tokyo",
+              "latitude": 35.6762,
+              "longitude": 139.6503,
+              "population": 13960000,
+              "isCapital": true
+            },
+            {
+              "name": "Yokohama",
+              "latitude": 35.4437,
+              "longitude": 139.638,
+              "population": 3777491,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "BR",
+      "iso3": "BRA",
+      "name": "Brazil",
+      "flagEmoji": "🇧🇷",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_bra"
+      },
+      "regions": [
+        {
+          "code": "BR-SE",
+          "name": "Southeast",
+          "strategicValue": 15,
+          "sourceExternalId": "gadm_br_se",
+          "cities": [
+            {
+              "name": "Brasília",
+              "latitude": -15.7939,
+              "longitude": -47.8828,
+              "population": 3055149,
+              "isCapital": true
+            },
+            {
+              "name": "São Paulo",
+              "latitude": -23.5558,
+              "longitude": -46.6396,
+              "population": 12330000,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "CA",
+      "iso3": "CAN",
+      "name": "Canada",
+      "flagEmoji": "🇨🇦",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_can"
+      },
+      "regions": [
+        {
+          "code": "CA-ON",
+          "name": "Ontario",
+          "strategicValue": 14,
+          "sourceExternalId": "gadm_ca_on",
+          "cities": [
+            {
+              "name": "Ottawa",
+              "latitude": 45.4215,
+              "longitude": -75.6972,
+              "population": 1017449,
+              "isCapital": true
+            },
+            {
+              "name": "Toronto",
+              "latitude": 43.6532,
+              "longitude": -79.3832,
+              "population": 2794356,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "IN",
+      "iso3": "IND",
+      "name": "India",
+      "flagEmoji": "🇮🇳",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_ind"
+      },
+      "regions": [
+        {
+          "code": "IN-NCR",
+          "name": "National Capital Region",
+          "strategicValue": 16,
+          "sourceExternalId": "gadm_in_ncr",
+          "cities": [
+            {
+              "name": "New Delhi",
+              "latitude": 28.6139,
+              "longitude": 77.209,
+              "population": 16787941,
+              "isCapital": true
+            },
+            {
+              "name": "Gurugram",
+              "latitude": 28.4595,
+              "longitude": 77.0266,
+              "population": 1535149,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "AU",
+      "iso3": "AUS",
+      "name": "Australia",
+      "flagEmoji": "🇦🇺",
+      "source": {
+        "provider": "natural_earth",
+        "countryExternalId": "ne_aus"
+      },
+      "regions": [
+        {
+          "code": "AU-NSW",
+          "name": "New South Wales",
+          "strategicValue": 13,
+          "sourceExternalId": "gadm_au_nsw",
+          "cities": [
+            {
+              "name": "Canberra",
+              "latitude": -35.2809,
+              "longitude": 149.13,
+              "population": 456692,
+              "isCapital": true
+            },
+            {
+              "name": "Sydney",
+              "latitude": -33.8688,
+              "longitude": 151.2093,
+              "population": 5312163,
+              "isCapital": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

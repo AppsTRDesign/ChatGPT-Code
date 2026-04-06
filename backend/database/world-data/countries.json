@@ -1,0 +1,12 @@
+[
+  {"code":"US","iso3":"USA","name":"United States","flagEmoji":"🇺🇸","capitalCity":"Washington","sourceExternalId":"ne_usa","playable":1,"active":1},
+  {"code":"TR","iso3":"TUR","name":"Türkiye","flagEmoji":"🇹🇷","capitalCity":"Ankara","sourceExternalId":"ne_tur","playable":1,"active":1},
+  {"code":"DE","iso3":"DEU","name":"Germany","flagEmoji":"🇩🇪","capitalCity":"Berlin","sourceExternalId":"ne_deu","playable":1,"active":1},
+  {"code":"FR","iso3":"FRA","name":"France","flagEmoji":"🇫🇷","capitalCity":"Paris","sourceExternalId":"ne_fra","playable":1,"active":1},
+  {"code":"GB","iso3":"GBR","name":"United Kingdom","flagEmoji":"🇬🇧","capitalCity":"London","sourceExternalId":"ne_gbr","playable":1,"active":1},
+  {"code":"JP","iso3":"JPN","name":"Japan","flagEmoji":"🇯🇵","capitalCity":"Tokyo","sourceExternalId":"ne_jpn","playable":1,"active":1},
+  {"code":"BR","iso3":"BRA","name":"Brazil","flagEmoji":"🇧🇷","capitalCity":"Brasília","sourceExternalId":"ne_bra","playable":1,"active":1},
+  {"code":"CA","iso3":"CAN","name":"Canada","flagEmoji":"🇨🇦","capitalCity":"Ottawa","sourceExternalId":"ne_can","playable":1,"active":1},
+  {"code":"IN","iso3":"IND","name":"India","flagEmoji":"🇮🇳","capitalCity":"New Delhi","sourceExternalId":"ne_ind","playable":1,"active":1},
+  {"code":"AU","iso3":"AUS","name":"Australia","flagEmoji":"🇦🇺","capitalCity":"Canberra","sourceExternalId":"ne_aus","playable":1,"active":1}
+]
