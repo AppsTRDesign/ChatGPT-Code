@@ -67,10 +67,10 @@ Tamamlanan adımların üstü çizilmiştir.
     - ~~front/battle mekanikleri~~
     - ~~region kontrol transferi~~
 
-12. PHASE 12: REALTIME + NOTIFICATIONS
-    - chat
-    - canlı seyahat/savaş/seçim güncellemeleri
-    - bildirim akışı
+12. ~~PHASE 12: REALTIME + NOTIFICATIONS~~
+    - ~~chat~~
+    - ~~canlı seyahat/savaş/seçim güncellemeleri~~
+    - ~~bildirim akışı~~
 
 13. PHASE 13: UI POLISH
     - animasyon ve kart iyileştirmeleri

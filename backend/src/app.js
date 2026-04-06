@@ -14,6 +14,9 @@ const governorsRoutes = require('../modules/governors/governors.routes');
 const politicsRoutes = require('../modules/politics/politics.routes');
 const economyRoutes = require('../modules/economy/economy.routes');
 const warRoutes = require('../modules/war/war.routes');
+const chatRoutes = require('../modules/chat/chat.routes');
+const notificationsRoutes = require('../modules/notifications/notifications.routes');
+const realtimeRoutes = require('../modules/realtime/realtime.routes');
 const { getEnabledLanguageCodes, detectLanguageFromHeaders, resolveLanguagePreference } = require('../modules/i18n/i18n.service');
 
 const app = express();
@@ -55,6 +58,9 @@ app.use('/api/v1/governors', governorsRoutes);
 app.use('/api/v1/politics', politicsRoutes);
 app.use('/api/v1/economy', economyRoutes);
 app.use('/api/v1/war', warRoutes);
+app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/notifications', notificationsRoutes);
+app.use('/api/v1/realtime', realtimeRoutes);
 
 app.use(function (req, res) {
   res.status(404).json({ ok: false, error: 'Not Found' });

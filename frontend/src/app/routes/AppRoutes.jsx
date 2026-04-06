@@ -8,6 +8,7 @@ import TravelPage from '../../pages/travel/TravelPage';
 import ElectionsPage from '../../pages/elections/ElectionsPage';
 import EconomyPage from '../../pages/economy/EconomyPage';
 import WarPage from '../../pages/war/WarPage';
+import RealtimePage from '../../pages/realtime/RealtimePage';
 
 export default function AppRoutes() {
   return (
@@ -20,6 +21,7 @@ export default function AppRoutes() {
       <Route path="/elections" element={<ElectionsPage />} />
       <Route path="/economy" element={<EconomyPage />} />
       <Route path="/war" element={<WarPage />} />
+      <Route path="/realtime" element={<RealtimePage />} />
       <Route path="*" element={<Navigate to="/map" replace />} />
     </Routes>
   );

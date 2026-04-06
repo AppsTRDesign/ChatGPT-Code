@@ -15,6 +15,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 - ✅ Phase 9 (Politics) tamamlandı.
 - ✅ Phase 10 (Economy) tamamlandı.
 - ✅ Phase 11 (War) tamamlandı.
+- ✅ Phase 12 (Realtime + Notifications) tamamlandı.
 - Belgeler:
   - `docs/phase-01-architecture.md`
   - `docs/phase-02-database.md`
@@ -27,6 +28,7 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
   - `docs/phase-09-politics.md`
   - `docs/phase-10-economy.md`
   - `docs/phase-11-war.md`
+  - `docs/phase-12-realtime-notifications.md`
 
 ## Klasörler
 
@@ -38,4 +40,4 @@ Browser tabanlı grand strategy / politik simülasyon oyunu için üretim odakl�
 
 ## Sonraki Adım
 
-- Phase 12: Realtime + Notifications
+- Phase 13: UI Polish
