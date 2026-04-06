@@ -146,6 +146,8 @@ final class GameService
         $user = $this->regenerateEnergy($user);
 
         $nation = $this->nationContext((int) $user['country_id']);
+        $this->closeExpiredElections((int) $user['country_id']);
+        $this->closeExpiredLaws((int) $user['country_id']);
 
         return [
             'user' => $user,
@@ -163,6 +165,10 @@ final class GameService
             'factories' => $this->userFactories($userId),
             'active_war' => $this->activeWarForCountry((int) $user['country_id']),
             'war_reports' => $this->recentWarReports((int) $user['country_id']),
+            'my_party' => $this->myParty($userId),
+            'parties' => $this->partiesByCountry((int) $user['country_id']),
+            'election' => $this->electionSnapshot((int) $user['country_id']),
+            'parliament_laws' => $this->parliamentSnapshot((int) $user['country_id']),
             'top_city' => $this->topCity(),
         ];
     }
@@ -866,6 +872,408 @@ final class GameService
             'damage_max' => $maxDamage,
             'score_to_win' => max(200, min(10000, (int) $map['war_score_to_win'])),
         ];
+    }
+
+    public function createParty(int $userId, string $name, string $ideology): array
+    {
+        $name = trim($name);
+        $ideology = trim($ideology);
+        if (mb_strlen($name) < 3 || mb_strlen($ideology) < 3) {
+            return ['ok' => false, 'message' => 'Parti adı ve ideoloji en az 3 karakter olmalı.'];
+        }
+
+        $userStmt = $this->db->prepare('SELECT id, country_id, gold FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+        if ($this->myParty($userId)) {
+            return ['ok' => false, 'message' => 'Zaten bir partiye üyesin.'];
+        }
+
+        $cost = $this->politicsRules()['party_create_gold_cost'];
+        if ((float) $user['gold'] < $cost) {
+            return ['ok' => false, 'message' => 'Parti kurmak için ' . number_format($cost, 2, ',', '.') . ' gold gerekli.'];
+        }
+
+        $existsStmt = $this->db->prepare('SELECT id FROM parties WHERE country_id = :country_id AND name = :name LIMIT 1');
+        $existsStmt->execute(['country_id' => $user['country_id'], 'name' => $name]);
+        if ($existsStmt->fetch()) {
+            return ['ok' => false, 'message' => 'Bu isimde parti zaten var.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare('UPDATE users SET gold = gold - :gold WHERE id = :id')->execute(['gold' => $cost, 'id' => $userId]);
+            $this->db->prepare('INSERT INTO parties (country_id, founder_id, name, ideology, created_at) VALUES (:country_id,:founder_id,:name,:ideology,NOW())')->execute([
+                'country_id' => $user['country_id'],
+                'founder_id' => $userId,
+                'name' => $name,
+                'ideology' => $ideology,
+            ]);
+            $partyId = (int) $this->db->lastInsertId();
+            $this->db->prepare('INSERT INTO party_members (party_id, user_id, role_name, joined_at) VALUES (:party_id, :user_id, "founder", NOW())')->execute([
+                'party_id' => $partyId,
+                'user_id' => $userId,
+            ]);
+            $this->db->commit();
+            return ['ok' => true, 'message' => 'Parti kuruldu: ' . $name];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => 'Parti kurulamadı.'];
+        }
+    }
+
+    public function joinParty(int $userId, int $partyId): array
+    {
+        if ($partyId <= 0) {
+            return ['ok' => false, 'message' => 'Geçersiz parti.'];
+        }
+        if ($this->myParty($userId)) {
+            return ['ok' => false, 'message' => 'Önce mevcut partinden ayrılmalısın.'];
+        }
+
+        $userStmt = $this->db->prepare('SELECT id, country_id FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+
+        $partyStmt = $this->db->prepare('SELECT id, country_id, name FROM parties WHERE id = :id LIMIT 1');
+        $partyStmt->execute(['id' => $partyId]);
+        $party = $partyStmt->fetch();
+        if (!$party || (int) $party['country_id'] !== (int) $user['country_id']) {
+            return ['ok' => false, 'message' => 'Sadece kendi ülkenin partilerine katılabilirsin.'];
+        }
+
+        $this->db->prepare('INSERT INTO party_members (party_id, user_id, role_name, joined_at) VALUES (:party_id, :user_id, "member", NOW())')->execute([
+            'party_id' => $partyId,
+            'user_id' => $userId,
+        ]);
+
+        return ['ok' => true, 'message' => $party['name'] . ' partisine katıldın.'];
+    }
+
+    public function leaveParty(int $userId): array
+    {
+        $party = $this->myParty($userId);
+        if (!$party) {
+            return ['ok' => false, 'message' => 'Üye olduğun parti yok.'];
+        }
+        if (($party['my_role'] ?? 'member') === 'founder') {
+            return ['ok' => false, 'message' => 'Kurucu olduğun partiden çıkamazsın.'];
+        }
+
+        $stmt = $this->db->prepare('DELETE FROM party_members WHERE party_id = :party_id AND user_id = :user_id');
+        $stmt->execute(['party_id' => $party['id'], 'user_id' => $userId]);
+        return ['ok' => true, 'message' => 'Partiden ayrıldın.'];
+    }
+
+    public function openElection(int $userId): array
+    {
+        $party = $this->myParty($userId);
+        if (!$party) {
+            return ['ok' => false, 'message' => 'Seçim açmak için bir partide olmalısın.'];
+        }
+
+        $userStmt = $this->db->prepare('SELECT id, country_id, level FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+        if ((int) $user['level'] < 5) {
+            return ['ok' => false, 'message' => 'Seçim açmak için en az seviye 5 olmalısın.'];
+        }
+        if (!in_array((string) ($party['my_role'] ?? 'member'), ['founder', 'leader'], true)) {
+            return ['ok' => false, 'message' => 'Seçim açmak için parti yöneticisi olmalısın.'];
+        }
+
+        $openStmt = $this->db->prepare('SELECT id FROM elections WHERE country_id = :country_id AND status = "open" LIMIT 1');
+        $openStmt->execute(['country_id' => $user['country_id']]);
+        if ($openStmt->fetch()) {
+            return ['ok' => false, 'message' => 'Bu ülkede zaten açık seçim var.'];
+        }
+
+        $hours = $this->politicsRules()['election_default_duration_hours'];
+        $ins = $this->db->prepare('INSERT INTO elections (country_id, system, starts_at, ends_at, status, created_at) VALUES (:country_id, "republic", NOW(), DATE_ADD(NOW(), INTERVAL :hours HOUR), "open", NOW())');
+        $ins->execute(['country_id' => $user['country_id'], 'hours' => $hours]);
+
+        return ['ok' => true, 'message' => 'Seçim açıldı.'];
+    }
+
+    public function voteElection(int $userId, int $electionId, int $partyId): array
+    {
+        if ($electionId <= 0 || $partyId <= 0) {
+            return ['ok' => false, 'message' => 'Geçersiz seçim oyu.'];
+        }
+        $rules = $this->politicsRules();
+
+        $this->db->beginTransaction();
+        try {
+            $userStmt = $this->db->prepare('SELECT id, country_id, energy FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
+            $userStmt->execute(['id' => $userId]);
+            $user = $userStmt->fetch();
+            if (!$user) {
+                throw new \RuntimeException('Kullanıcı bulunamadı.');
+            }
+            if ((int) $user['energy'] < $rules['election_vote_energy_cost']) {
+                throw new \RuntimeException('Oy kullanmak için enerji yetersiz.');
+            }
+
+            $electionStmt = $this->db->prepare('SELECT * FROM elections WHERE id = :id AND status = "open" LIMIT 1 FOR UPDATE');
+            $electionStmt->execute(['id' => $electionId]);
+            $election = $electionStmt->fetch();
+            if (!$election) {
+                throw new \RuntimeException('Açık seçim bulunamadı.');
+            }
+            if ((int) $election['country_id'] !== (int) $user['country_id']) {
+                throw new \RuntimeException('Sadece kendi ülke seçiminde oy kullanabilirsin.');
+            }
+
+            $partyStmt = $this->db->prepare('SELECT id FROM parties WHERE id = :id AND country_id = :country_id LIMIT 1');
+            $partyStmt->execute(['id' => $partyId, 'country_id' => $user['country_id']]);
+            if (!$partyStmt->fetch()) {
+                throw new \RuntimeException('Seçilen parti geçersiz.');
+            }
+
+            $this->db->prepare('INSERT INTO election_votes (election_id, voter_id, party_id, created_at) VALUES (:election_id,:voter_id,:party_id,NOW())')->execute([
+                'election_id' => $electionId,
+                'voter_id' => $userId,
+                'party_id' => $partyId,
+            ]);
+
+            $this->db->prepare('UPDATE users SET energy = energy - :energy, experience = experience + 8 WHERE id = :id')->execute([
+                'energy' => $rules['election_vote_energy_cost'],
+                'id' => $userId,
+            ]);
+
+            $this->db->commit();
+            return ['ok' => true, 'message' => 'Oyun başarıyla kaydedildi.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Oy verme başarısız.'];
+        }
+    }
+
+    public function proposeLaw(int $userId, string $title, string $body): array
+    {
+        $title = trim($title);
+        $body = trim($body);
+        if (mb_strlen($title) < 5 || mb_strlen($body) < 10) {
+            return ['ok' => false, 'message' => 'Kanun başlığı ve metni çok kısa.'];
+        }
+
+        $party = $this->myParty($userId);
+        if (!$party) {
+            return ['ok' => false, 'message' => 'Kanun önermek için parti üyesi olmalısın.'];
+        }
+        if (!in_array((string) ($party['my_role'] ?? 'member'), ['founder', 'leader'], true)) {
+            return ['ok' => false, 'message' => 'Kanun önermek için parti yöneticisi olmalısın.'];
+        }
+
+        $userStmt = $this->db->prepare('SELECT country_id FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+
+        $hours = $this->politicsRules()['law_default_duration_hours'];
+        $stmt = $this->db->prepare('INSERT INTO parliament_laws (country_id, proposer_user_id, title, body, status, ends_at, created_at, updated_at) VALUES (:country_id,:proposer_user_id,:title,:body,"open",DATE_ADD(NOW(), INTERVAL :hours HOUR),NOW(),NOW())');
+        $stmt->execute([
+            'country_id' => $user['country_id'],
+            'proposer_user_id' => $userId,
+            'title' => $title,
+            'body' => $body,
+            'hours' => $hours,
+        ]);
+
+        return ['ok' => true, 'message' => 'Kanun teklifi meclise sunuldu.'];
+    }
+
+    public function voteLaw(int $userId, int $lawId, string $vote): array
+    {
+        if ($lawId <= 0 || !in_array($vote, ['yes', 'no'], true)) {
+            return ['ok' => false, 'message' => 'Geçersiz kanun oyu.'];
+        }
+        $rules = $this->politicsRules();
+
+        $this->db->beginTransaction();
+        try {
+            $userStmt = $this->db->prepare('SELECT id, country_id, energy FROM users WHERE id = :id LIMIT 1 FOR UPDATE');
+            $userStmt->execute(['id' => $userId]);
+            $user = $userStmt->fetch();
+            if (!$user) {
+                throw new \RuntimeException('Kullanıcı bulunamadı.');
+            }
+            if ((int) $user['energy'] < $rules['law_vote_energy_cost']) {
+                throw new \RuntimeException('Meclis oyu için enerji yetersiz.');
+            }
+
+            $lawStmt = $this->db->prepare('SELECT * FROM parliament_laws WHERE id = :id AND status = "open" LIMIT 1 FOR UPDATE');
+            $lawStmt->execute(['id' => $lawId]);
+            $law = $lawStmt->fetch();
+            if (!$law) {
+                throw new \RuntimeException('Açık kanun teklifi bulunamadı.');
+            }
+            if ((int) $law['country_id'] !== (int) $user['country_id']) {
+                throw new \RuntimeException('Sadece kendi ülkenin kanunlarında oy kullanabilirsin.');
+            }
+
+            $this->db->prepare('INSERT INTO parliament_law_votes (law_id, voter_user_id, vote, created_at) VALUES (:law_id,:voter_user_id,:vote,NOW())')->execute([
+                'law_id' => $lawId,
+                'voter_user_id' => $userId,
+                'vote' => $vote,
+            ]);
+
+            $updateSql = $vote === 'yes'
+                ? 'UPDATE parliament_laws SET yes_votes = yes_votes + 1, updated_at = NOW() WHERE id = :id'
+                : 'UPDATE parliament_laws SET no_votes = no_votes + 1, updated_at = NOW() WHERE id = :id';
+            $this->db->prepare($updateSql)->execute(['id' => $lawId]);
+
+            $this->db->prepare('UPDATE users SET energy = energy - :energy, experience = experience + 5 WHERE id = :id')->execute([
+                'energy' => $rules['law_vote_energy_cost'],
+                'id' => $userId,
+            ]);
+
+            $this->db->commit();
+            return ['ok' => true, 'message' => 'Kanun oyu kaydedildi.'];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => $e->getMessage() ?: 'Kanun oylaması başarısız.'];
+        }
+    }
+
+    public function partiesByCountry(int $countryId): array
+    {
+        $stmt = $this->db->prepare('SELECT p.id, p.name, p.ideology, p.founder_id, p.created_at, COUNT(pm.user_id) AS member_count
+            FROM parties p
+            LEFT JOIN party_members pm ON pm.party_id = p.id
+            WHERE p.country_id = :country_id
+            GROUP BY p.id, p.name, p.ideology, p.founder_id, p.created_at
+            ORDER BY member_count DESC, p.name ASC');
+        $stmt->execute(['country_id' => $countryId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function myParty(int $userId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT p.id, p.country_id, p.name, p.ideology, pm.role_name AS my_role
+            FROM party_members pm
+            JOIN parties p ON p.id = pm.party_id
+            WHERE pm.user_id = :user_id
+            LIMIT 1');
+        $stmt->execute(['user_id' => $userId]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function electionSnapshot(int $countryId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM elections WHERE country_id = :country_id AND status = "open" ORDER BY id DESC LIMIT 1');
+        $stmt->execute(['country_id' => $countryId]);
+        $election = $stmt->fetch();
+        if (!$election) {
+            return null;
+        }
+
+        $votesStmt = $this->db->prepare('SELECT p.id, p.name, COUNT(ev.voter_id) AS vote_count
+            FROM parties p
+            LEFT JOIN election_votes ev ON ev.party_id = p.id AND ev.election_id = :election_id
+            WHERE p.country_id = :country_id
+            GROUP BY p.id, p.name
+            ORDER BY vote_count DESC, p.name ASC');
+        $votesStmt->execute([
+            'election_id' => $election['id'],
+            'country_id' => $countryId,
+        ]);
+
+        $election['parties'] = $votesStmt->fetchAll() ?: [];
+        return $election;
+    }
+
+    public function parliamentSnapshot(int $countryId): array
+    {
+        $stmt = $this->db->prepare('SELECT pl.id, pl.title, pl.status, pl.yes_votes, pl.no_votes, pl.ends_at, pl.created_at, u.username AS proposer_name
+            FROM parliament_laws pl
+            JOIN users u ON u.id = pl.proposer_user_id
+            WHERE pl.country_id = :country_id
+            ORDER BY pl.id DESC
+            LIMIT 20');
+        $stmt->execute(['country_id' => $countryId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    public function politicsRules(): array
+    {
+        $defaults = [
+            'election_default_duration_hours' => '24',
+            'election_vote_energy_cost' => '120',
+            'party_create_gold_cost' => '75',
+            'law_default_duration_hours' => '24',
+            'law_vote_energy_cost' => '60',
+        ];
+        $keys = array_keys($defaults);
+        $inClause = implode(',', array_fill(0, count($keys), '?'));
+        $stmt = $this->db->prepare("SELECT `key`, `value` FROM settings WHERE `key` IN ($inClause)");
+        $stmt->execute($keys);
+        $rows = $stmt->fetchAll() ?: [];
+
+        $map = $defaults;
+        foreach ($rows as $row) {
+            $map[(string) $row['key']] = (string) $row['value'];
+        }
+
+        return [
+            'election_default_duration_hours' => max(1, min(168, (int) $map['election_default_duration_hours'])),
+            'election_vote_energy_cost' => max(10, min(600, (int) $map['election_vote_energy_cost'])),
+            'party_create_gold_cost' => max(0.0, min(10000.0, (float) $map['party_create_gold_cost'])),
+            'law_default_duration_hours' => max(1, min(168, (int) $map['law_default_duration_hours'])),
+            'law_vote_energy_cost' => max(10, min(600, (int) $map['law_vote_energy_cost'])),
+        ];
+    }
+
+    public function closeExpiredElections(int $countryId): void
+    {
+        $expiredStmt = $this->db->prepare('SELECT id FROM elections WHERE country_id = :country_id AND status = "open" AND ends_at <= NOW()');
+        $expiredStmt->execute(['country_id' => $countryId]);
+        $expired = $expiredStmt->fetchAll() ?: [];
+        foreach ($expired as $row) {
+            $electionId = (int) $row['id'];
+            $winnerStmt = $this->db->prepare('SELECT party_id, COUNT(*) AS vote_count FROM election_votes WHERE election_id = :election_id GROUP BY party_id ORDER BY vote_count DESC, party_id ASC LIMIT 1');
+            $winnerStmt->execute(['election_id' => $electionId]);
+            $winner = $winnerStmt->fetch();
+
+            $this->db->beginTransaction();
+            try {
+                $this->db->prepare('UPDATE elections SET status = "closed" WHERE id = :id')->execute(['id' => $electionId]);
+                if ($winner) {
+                    $leaderStmt = $this->db->prepare('SELECT user_id FROM party_members WHERE party_id = :party_id ORDER BY role_name = "founder" DESC, joined_at ASC LIMIT 1');
+                    $leaderStmt->execute(['party_id' => $winner['party_id']]);
+                    $leader = $leaderStmt->fetch();
+                    if ($leader) {
+                        $this->db->prepare('INSERT INTO country_government_roles (country_id, user_id, role_key, assigned_at) VALUES (:country_id,:user_id,"president",NOW()) ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), assigned_at = NOW()')->execute([
+                            'country_id' => $countryId,
+                            'user_id' => $leader['user_id'],
+                        ]);
+                    }
+                }
+                $this->db->commit();
+            } catch (\Throwable) {
+                $this->db->rollBack();
+            }
+        }
+    }
+
+    public function closeExpiredLaws(int $countryId): void
+    {
+        $stmt = $this->db->prepare('UPDATE parliament_laws
+            SET status = CASE WHEN yes_votes > no_votes THEN "accepted" ELSE "rejected" END, updated_at = NOW()
+            WHERE country_id = :country_id AND status = "open" AND ends_at <= NOW()');
+        $stmt->execute(['country_id' => $countryId]);
     }
 
 

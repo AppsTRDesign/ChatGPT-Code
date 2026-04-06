@@ -94,6 +94,36 @@
         `).join('');
     };
 
+    const renderParties = (rows) => {
+        const tbody = document.getElementById('partyTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((p) => `
+            <tr>
+                <td>${p.name}</td>
+                <td>${Number(p.member_count).toLocaleString('tr-TR')}</td>
+                <td><button class="btn btn-sm btn-success action-btn" data-action="party-join" data-party-id="${p.id}">Katıl</button></td>
+            </tr>
+        `).join('');
+    };
+
+    const renderLaws = (rows) => {
+        const tbody = document.getElementById('lawTable');
+        if (!tbody) return;
+        tbody.innerHTML = rows.map((law) => `
+            <tr>
+                <td>${law.title}</td>
+                <td>${law.status}</td>
+                <td>${Number(law.yes_votes).toLocaleString('tr-TR')} / ${Number(law.no_votes).toLocaleString('tr-TR')}</td>
+                <td>
+                    ${law.status === 'open'
+                        ? `<button class="btn btn-sm btn-success action-btn" data-action="law-vote" data-law-id="${law.id}" data-vote="yes">Evet</button>
+                           <button class="btn btn-sm btn-danger action-btn" data-action="law-vote" data-law-id="${law.id}" data-vote="no">Hayır</button>`
+                        : ''}
+                </td>
+            </tr>
+        `).join('');
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -109,6 +139,8 @@
         renderResourceMarket(payload.data.resource_market || []);
         renderFactories(payload.data.factories || []);
         renderWarReports(payload.data.war_reports || []);
+        renderParties(payload.data.parties || []);
+        renderLaws(payload.data.parliament_laws || []);
     };
 
     const refreshState = async () => {
@@ -160,6 +192,39 @@
         }
         if (action === 'war-attack') {
             return post('/api/war/attack', { war_id: button.dataset.warId || 0 });
+        }
+        if (action === 'party-create') {
+            return post('/api/party/create', {
+                name: document.getElementById('partyName')?.value || '',
+                ideology: document.getElementById('partyIdeology')?.value || '',
+            });
+        }
+        if (action === 'party-join') {
+            return post('/api/party/join', { party_id: button.dataset.partyId || 0 });
+        }
+        if (action === 'party-leave') {
+            return post('/api/party/leave', {});
+        }
+        if (action === 'election-open') {
+            return post('/api/election/open', {});
+        }
+        if (action === 'election-vote') {
+            return post('/api/election/vote', {
+                election_id: button.dataset.electionId || 0,
+                party_id: document.getElementById('electionPartyId')?.value || 0,
+            });
+        }
+        if (action === 'law-propose') {
+            return post('/api/law/propose', {
+                title: document.getElementById('lawTitle')?.value || '',
+                body: document.getElementById('lawBody')?.value || '',
+            });
+        }
+        if (action === 'law-vote') {
+            return post('/api/law/vote', {
+                law_id: button.dataset.lawId || 0,
+                vote: button.dataset.vote || '',
+            });
         }
         return { ok: false, message: 'Bilinmeyen eylem.' };
     };

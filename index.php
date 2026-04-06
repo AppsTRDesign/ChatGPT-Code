@@ -44,6 +44,13 @@ $router->post('/api/factory/create', [$apiController, 'factoryCreate']);
 $router->post('/api/factory/produce', [$apiController, 'factoryProduce']);
 $router->post('/api/war/start', [$apiController, 'warStart']);
 $router->post('/api/war/attack', [$apiController, 'warAttack']);
+$router->post('/api/party/create', [$apiController, 'partyCreate']);
+$router->post('/api/party/join', [$apiController, 'partyJoin']);
+$router->post('/api/party/leave', [$apiController, 'partyLeave']);
+$router->post('/api/election/open', [$apiController, 'electionOpen']);
+$router->post('/api/election/vote', [$apiController, 'electionVote']);
+$router->post('/api/law/propose', [$apiController, 'lawPropose']);
+$router->post('/api/law/vote', [$apiController, 'lawVote']);
 
 $router->get('/admin', [$adminController, 'index']);
 $router->post('/admin/world/country', [$adminController, 'addCountry']);

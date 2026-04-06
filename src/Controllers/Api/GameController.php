@@ -143,4 +143,90 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function partyCreate(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $name = (string) ($_POST['name'] ?? '');
+        $ideology = (string) ($_POST['ideology'] ?? '');
+        $result = (new GameService())->createParty($userId, $name, $ideology);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function partyJoin(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $partyId = (int) ($_POST['party_id'] ?? 0);
+        $result = (new GameService())->joinParty($userId, $partyId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function partyLeave(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $result = (new GameService())->leaveParty($userId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function electionOpen(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $result = (new GameService())->openElection($userId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function electionVote(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $electionId = (int) ($_POST['election_id'] ?? 0);
+        $partyId = (int) ($_POST['party_id'] ?? 0);
+        $result = (new GameService())->voteElection($userId, $electionId, $partyId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function lawPropose(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $title = (string) ($_POST['title'] ?? '');
+        $body = (string) ($_POST['body'] ?? '');
+        $result = (new GameService())->proposeLaw($userId, $title, $body);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function lawVote(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+        $lawId = (int) ($_POST['law_id'] ?? 0);
+        $vote = (string) ($_POST['vote'] ?? '');
+        $result = (new GameService())->voteLaw($userId, $lawId, $vote);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
 }

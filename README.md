@@ -13,6 +13,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
 - Ülke bazlı farklı günlük kaynak üretim dağılımı.
 - Global market: oyuncu ilan açma / satın alma, vergi+komisyon ve fiyat koruma kuralları.
 - Ülke savaş çekirdeği: savaş başlatma, cephe saldırısı, skor ve savaş raporları.
+- Parti/Seçim/Meclis: parti yönetimi, seçim oylaması ve kanun teklif/oylama çekirdeği.
 - Dünya haritası (jsVectorMap) ve şehir bazlı oyuncu yoğunluğu işaretleme.
 - Admin panelden ülke/şehir/kaynak dağılımı ekleme.
 - Gelecekteki genişleme için seçim/parti/yönetim tabloları (schema hazır).
@@ -28,6 +29,13 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
   - `POST /api/market/buy`
   - `POST /api/war/start`
   - `POST /api/war/attack`
+  - `POST /api/party/create`
+  - `POST /api/party/join`
+  - `POST /api/party/leave`
+  - `POST /api/election/open`
+  - `POST /api/election/vote`
+  - `POST /api/law/propose`
+  - `POST /api/law/vote`
 
 ## Kurulum
 1. Dosyaları `/var/www/vhosts/noasoft.org/game.noasoft.org` içine koy.
@@ -42,6 +50,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
    - `db/migrations/20260405_000007_factory_system.sql`
    - `db/migrations/20260406_000008_market_hardening.sql`
    - `db/migrations/20260406_000009_war_core.sql`
+   - `db/migrations/20260406_000010_politics_core.sql`
    (veya `database.sql` içindeki SOURCE sırasını kullan.)
 4. Apache `mod_rewrite` açık olmalı.
 5. Admin varsayılan giriş:
@@ -73,3 +82,5 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Market tam sürüm notu: `docs/MARKET_FULL_TASK9.md`
 
 - Savaş çekirdeği notu: `docs/WAR_CORE_TASK10.md`
+
+- Siyaset sistemi notu: `docs/POLITICS_TASK11.md`

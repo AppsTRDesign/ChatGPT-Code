@@ -124,6 +124,14 @@
 - Savaş saldırıları raporlanır hale geldi (`war_battles`) ve dashboard’da canlı listeye bağlandı.
 - API’ye `POST /api/war/start` ve `POST /api/war/attack` endpointleri eklendi.
 
+
+## 11. Görev Çıktısı (Tamamlandı)
+- Parti sistemi aktif edildi (parti kurma/katılma/ayrılma).
+- Seçim çekirdeği genişletildi (seçim açma, oy verme, seçim kapanışında lider rol atama).
+- Meclis kanun teklif/oylama modeli eklendi (`parliament_laws`, `parliament_law_votes`).
+- Dashboard’a siyaset merkezi eklendi (partiler, seçim ekranı, meclis kanun listesi).
+- API’ye siyasi endpointler eklendi (`/api/party/*`, `/api/election/*`, `/api/law/*`).
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -135,7 +143,7 @@
 8.) Görev: ~~Fabrika sistemi (kurulum/seviye/işçi)~~ ✅
 9.) Görev: ~~Market tam sürüm (vergi, komisyon, korumalar)~~ ✅
 10.) Görev: ~~Savaş sistemi çekirdeği + raporlama~~ ✅
-11.) Görev: Parti/Seçim/Meclis sistemleri
+11.) Görev: ~~Parti/Seçim/Meclis sistemleri~~ ✅
 12.) Görev: Bakanlık rolleri ve yetki akışları
 13.) Görev: Oturum/geçiş izin sistemi
 14.) Görev: Harita modülü genişletme + world builder
@@ -145,4 +153,4 @@
 
 ---
 
-**Sonraki adım önerisi:** 11. göreve geçelim (Parti/Seçim/Meclis sistemleri). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
+**Sonraki adım önerisi:** 12. göreve geçelim (Bakanlık rolleri ve yetki akışları). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
