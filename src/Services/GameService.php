@@ -1797,4 +1797,72 @@ final class GameService
 
         return ['ok' => true, 'message' => 'Şehir POI kaydedildi.'];
     }
+
+    public function healthSnapshot(): array
+    {
+        $started = microtime(true);
+        $dbOk = false;
+        $dbLatencyMs = 0;
+
+        try {
+            $dbStart = microtime(true);
+            $this->db->query('SELECT 1')->fetchColumn();
+            $dbLatencyMs = (int) round((microtime(true) - $dbStart) * 1000);
+            $dbOk = true;
+        } catch (\Throwable $e) {
+            $this->logAppError('error', 'health.db', $e->getMessage(), ['exception' => get_class($e)]);
+        }
+
+        $settingsStmt = $this->db->prepare('SELECT `key`, `value` FROM settings WHERE `key` IN ("app_release_channel","app_release_version","monitor_heartbeat_enabled")');
+        $settingsStmt->execute();
+        $settingsRows = $settingsStmt->fetchAll() ?: [];
+        $settings = [];
+        foreach ($settingsRows as $row) {
+            $settings[(string) $row['key']] = (string) $row['value'];
+        }
+
+        $status = $dbOk ? 'ok' : 'degraded';
+        $responseMs = (int) round((microtime(true) - $started) * 1000);
+
+        if (($settings['monitor_heartbeat_enabled'] ?? '1') === '1') {
+            $this->logHeartbeat($status, $dbOk, (string) ($settings['app_release_version'] ?? '0.1.0'), $responseMs);
+        }
+
+        return [
+            'ok' => $dbOk,
+            'status' => $status,
+            'db_ok' => $dbOk,
+            'db_latency_ms' => $dbLatencyMs,
+            'response_ms' => $responseMs,
+            'release_channel' => $settings['app_release_channel'] ?? 'stable',
+            'release_version' => $settings['app_release_version'] ?? '0.1.0',
+            'server_time' => (new \DateTimeImmutable('now'))->format(DATE_ATOM),
+        ];
+    }
+
+    private function logHeartbeat(string $status, bool $dbOk, string $version, int $responseMs): void
+    {
+        $stmt = $this->db->prepare('INSERT INTO app_heartbeat_logs (status, db_ok, app_version, response_ms, created_at) VALUES (:status,:db_ok,:app_version,:response_ms,NOW())');
+        $stmt->execute([
+            'status' => $status,
+            'db_ok' => $dbOk ? 1 : 0,
+            'app_version' => $version,
+            'response_ms' => max(0, $responseMs),
+        ]);
+    }
+
+    private function logAppError(string $level, string $contextKey, string $message, ?array $payload = null): void
+    {
+        try {
+            $stmt = $this->db->prepare('INSERT INTO app_error_events (level, context_key, message, payload_json, created_at) VALUES (:level,:context_key,:message,:payload_json,NOW())');
+            $stmt->execute([
+                'level' => $level,
+                'context_key' => $contextKey,
+                'message' => mb_substr($message, 0, 4000),
+                'payload_json' => $payload ? json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null,
+            ]);
+        } catch (\Throwable) {
+            // silent: avoid recursive logging failures
+        }
+    }
 }

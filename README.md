@@ -44,6 +44,7 @@ Bu sürüm, önceki basit scaffold yerine daha kapsamlı bir oyun çekirdeği i�
   - `POST /api/travel/request-permit`
   - `POST /api/travel/permit-decision`
   - `POST /api/travel/move`
+  - `GET /health` (operasyonel sağlık endpointi)
 
 ## Kurulum
 1. Dosyaları `/var/www/vhosts/noasoft.org/game.noasoft.org` içine koy.
@@ -101,3 +102,8 @@ Bir sonraki adımda savaş yasası/meclis oylama, vizeler/oturum izinleri, fabri
 - Oturum/geçiş izin sistemi notu: `docs/TRAVEL_PERMIT_TASK13.md`
 
 - Harita/world builder notu: `docs/MAP_WORLDBUILDER_TASK14.md`
+
+- Test/izleme/canlıya çıkış notu: `docs/RELEASE_MONITORING_TASK15.md`
+
+## Operasyonel Kontroller
+- Hızlı release kontrol scripti: `scripts/release_checks.sh`

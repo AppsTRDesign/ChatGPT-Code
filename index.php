@@ -9,6 +9,7 @@ use App\Controllers\Admin\LoginController;
 use App\Controllers\Api\GameController;
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;
+use App\Controllers\SystemController;
 use App\Core\Router;
 
 $router = new Router();
@@ -18,6 +19,7 @@ $apiController = new GameController($config);
 $adminController = new DashboardController($config);
 $loginController = new LoginController($config);
 $authController = new AuthController($config);
+$systemController = new SystemController();
 
 $router->get('/', [$homeController, 'index']);
 $router->post('/action/work', [$homeController, 'work']);
@@ -33,6 +35,7 @@ $router->post('/forgot-password', [$authController, 'forgot']);
 $router->get('/reset-password', [$authController, 'showReset']);
 $router->post('/reset-password', [$authController, 'reset']);
 $router->post('/logout', [$authController, 'logout']);
+$router->get('/health', [$systemController, 'health']);
 
 $router->get('/api/state', [$apiController, 'state']);
 $router->post('/api/action/work', [$apiController, 'work']);

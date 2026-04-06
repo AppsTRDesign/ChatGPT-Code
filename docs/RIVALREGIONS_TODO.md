@@ -156,6 +156,13 @@
 - Admin world builder’a harita katmanı ve POI yönetim formları eklendi.
 - Admin panelde harita katmanları/POI listeleri görüntülenebilir hale geldi.
 
+
+## 15. Görev Çıktısı (Tamamlandı)
+- Sağlık endpointi eklendi (`GET /health`) ve heartbeat/error event izleme altyapısı eklendi.
+- Observability migration’ı eklendi (`app_heartbeat_logs`, `app_error_events`).
+- Release kontrol scripti eklendi (`scripts/release_checks.sh`).
+- README’ye operasyonel kontrol ve canlıya çıkış notları eklendi.
+
 ---
 
 2.) Görev: ~~Veritabanı mimarisini production seviyesinde revize et~~ ✅
@@ -171,10 +178,10 @@
 12.) Görev: ~~Bakanlık rolleri ve yetki akışları~~ ✅
 13.) Görev: ~~Oturum/geçiş izin sistemi~~ ✅
 14.) Görev: ~~Harita modülü genişletme + world builder~~ ✅
-15.) Görev: Test, izleme, canlıya çıkış planı
+15.) Görev: ~~Test, izleme, canlıya çıkış planı~~ ✅
 26.) Görev: Gezgin Tüccar Sistemi (Node.js anlık toast bildirim)
 27.) Görev: Node.js 16.20.2 + socket.io uyumlu anlık savaş mekaniği/bildirimler
 
 ---
 
-**Sonraki adım önerisi:** 15. göreve geçelim (Test, izleme, canlıya çıkış planı). 26 ve 27 numaralı Node.js gerçek zamanlı görevler sonraki fazda ele alınacak.
+**Sonraki adım önerisi:** 26. göreve geçelim (Gezgin Tüccar Sistemi). 27. görev gerçek zamanlı savaş/socket katmanına geçiş olarak devam edecek.

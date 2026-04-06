@@ -14,6 +14,7 @@
 -- 11) db/migrations/20260406_000011_government_roles.sql
 -- 12) db/migrations/20260406_000012_travel_permits.sql
 -- 13) db/migrations/20260406_000013_map_worldbuilder.sql
+-- 14) db/migrations/20260406_000014_observability_release.sql
 
 SOURCE db/migrations/20260405_000001_core_schema.sql;
 SOURCE db/migrations/20260405_000002_seed_core_data.sql;
@@ -29,3 +30,4 @@ SOURCE db/migrations/20260406_000010_politics_core.sql;
 SOURCE db/migrations/20260406_000011_government_roles.sql;
 SOURCE db/migrations/20260406_000012_travel_permits.sql;
 SOURCE db/migrations/20260406_000013_map_worldbuilder.sql;
+SOURCE db/migrations/20260406_000014_observability_release.sql;
