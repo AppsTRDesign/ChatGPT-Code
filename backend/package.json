@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "node src/server.js",
     "start": "NODE_ENV=production node src/server.js",
+    "lint": "npm run check",
     "check": "node --check src/server.js && node --check src/app.js",
-    "test": "node tests/run-tests.js"
+    "test": "node tests/run-tests.js",
+    "test:integration": "node tests/run-integration-tests.js"
   },
   "engines": {
     "node": ">=16.20.2 <17"

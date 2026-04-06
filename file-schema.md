@@ -151,8 +151,8 @@ docs/
 
 ## 6) Yeni Yapılacaklar Listesi (Post-Scaffold Backlog)
 
-1. ⏳ **CI/CD**: lint + test + build + deploy pipeline.
-2. ⏳ **Integration testleri**: DB bağlı API testleri.
+1. ✅ ~~**CI/CD**: lint + test + build + deploy pipeline.~~ **(bitirildi)**
+2. ✅ ~~**Integration testleri**: DB bağlı API testleri.~~ **(bitirildi)**
 3. ⏳ **E2E UI testleri**: Playwright/Cypress ile kritik akışlar.
 4. ⏳ **Admin panel derinleştirme**: moderation, balancing sliders, i18n live edit.
 5. ⏳ **Inventory modülü tamamı**: item effects, equip logic, market/trade.

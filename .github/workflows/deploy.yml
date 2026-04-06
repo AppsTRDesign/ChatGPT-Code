@@ -9,8 +9,34 @@ on:
         default: production
 
 jobs:
+  preflight:
+    if: github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.2'
+
+      - name: Backend install + lint + tests
+        working-directory: backend
+        run: |
+          npm install
+          npm run lint
+          npm test
+
+      - name: Frontend install + lint + build
+        working-directory: frontend
+        run: |
+          npm install
+          npm run lint
+          npm run build
+
   deploy-production:
     if: github.event.inputs.environment == 'production'
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,12 +49,12 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Build backend dependencies
         working-directory: backend
-        run: npm ci --omit=dev
+        run: npm install --omit=dev
 
       - name: Package release
         run: |
