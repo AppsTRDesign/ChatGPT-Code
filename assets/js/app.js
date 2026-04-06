@@ -276,6 +276,21 @@
         `).join('');
     };
 
+    const renderJobStatus = (job, cityFactory) => {
+        const el = document.getElementById('jobStatus');
+        if (!el) return;
+
+        if (job) {
+            el.innerHTML = `Aktif işin: <strong>${job.factory_name || 'Yönetim Fabrikası'}</strong>`;
+            return;
+        }
+        if (cityFactory) {
+            el.innerHTML = `Bu şehirde çalışabilmek için önce <strong>${cityFactory.name || 'Yönetim Fabrikası'}</strong> için işe başlamalısın.`;
+            return;
+        }
+        el.textContent = 'Bu şehirde aktif yönetim fabrikası yok. Yönetici panelinden fabrika açılması gerekiyor.';
+    };
+
     const syncStats = (payload) => {
         const user = payload?.data?.user;
         if (!user) return;
@@ -305,6 +320,7 @@
         renderUpgradeQueue(payload.data.upgrade_queue || []);
         renderTravelerOffers(payload.data.traveler_offers || []);
         renderProvinces(payload.data.my_provinces || []);
+        renderJobStatus(payload.data.government_factory_job || null, payload.data.government_factory_city || null);
     };
 
     const refreshState = async () => {
@@ -331,6 +347,12 @@
         }
         if (action === 'battle') {
             return post(`${apiBase}/action/battle`, {});
+        }
+        if (action === 'gov-job-start') {
+            return post(`${apiBase}/gov-factory/job/start`, {});
+        }
+        if (action === 'gov-job-leave') {
+            return post(`${apiBase}/gov-factory/job/leave`, {});
         }
         if (action === 'upgrade') {
             return post(`${apiBase}/action/upgrade`, { stat: button.dataset.stat || 'strength' });
@@ -508,6 +530,24 @@
     const initMap = async () => {
         const mapElement = document.getElementById('worldMap');
         if (!mapElement) return;
+        const mapLegend = document.getElementById('mapLegend');
+
+        const renderMapFallback = () => {
+            const rows = bootstrapData.countries || [];
+            const topRows = [...rows].sort((a, b) => Number(b.player_count || 0) - Number(a.player_count || 0)).slice(0, 8);
+            mapElement.innerHTML = `
+                <div class="alert alert-warning small mb-2">İnteraktif harita yüklenemedi. Fallback ülke listesi gösteriliyor.</div>
+                <div class="table-responsive">
+                    <table class="table table-dark table-sm mb-0">
+                        <thead><tr><th>Ülke</th><th>Oyuncu</th></tr></thead>
+                        <tbody>${topRows.map((r) => `<tr><td>${r.flag_emoji || ''} ${r.name}</td><td>${Number(r.player_count || 0).toLocaleString('tr-TR')}</td></tr>`).join('')}</tbody>
+                    </table>
+                </div>
+            `;
+            if (mapLegend) {
+                mapLegend.textContent = 'Fallback görünümü aktif.';
+            }
+        };
 
         try {
             if (typeof window.jsVectorMap === 'undefined') {
@@ -516,6 +556,7 @@
             }
 
             if (typeof window.jsVectorMap === 'undefined') {
+                renderMapFallback();
                 return;
             }
 
@@ -541,7 +582,6 @@
             const allMarkers = [...cityMarkers, ...poiMarkers];
             const mapLayerSelect = document.getElementById('mapLayerSelect');
             const markerFilterSelect = document.getElementById('mapMarkerFilter');
-            const mapLegend = document.getElementById('mapLegend');
             const mapCountryDetail = document.getElementById('mapCountryDetail');
             const userCountryCode = String(bootstrapData.user?.country_code || '').toUpperCase();
 
@@ -694,6 +734,7 @@
             renderCountryDetail(userCountryCode);
         } catch (error) {
             console.warn('Map library yüklenemedi:', error);
+            renderMapFallback();
         }
     };
 

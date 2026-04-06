@@ -188,6 +188,8 @@ final class GameService
             'upgrade_queue' => $this->userUpgradeQueue($userId),
             'traveler_offers' => $this->travelerOffers(),
             'my_provinces' => $this->userProvinces($userId),
+            'government_factory_city' => $this->cityGovernmentFactory((int) $user['city_id']),
+            'government_factory_job' => $this->activeGovernmentJobForUser($userId),
         ];
     }
 
@@ -205,6 +207,10 @@ final class GameService
 
         if (!$user) {
             return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+        $job = $this->activeGovernmentJobForUser($userId);
+        if (!$job || (int) ($job['city_id'] ?? 0) !== (int) $user['city_id']) {
+            return ['ok' => false, 'message' => 'Çalışmak için önce bulunduğun şehirdeki yönetim fabrikasına işe başlamalısın.'];
         }
         if ((int) $user['energy'] < 300) {
             return ['ok' => false, 'message' => 'Çalışmak için en az 300 enerji gerekli.'];
@@ -264,7 +270,56 @@ final class GameService
 
         $this->autoLevelUp($userId);
 
-        return ['ok' => true, 'message' => $resource['name'] . ' üretimi +' . $gain . ''];
+        return ['ok' => true, 'message' => $resource['name'] . ' üretimi +' . $gain . ' (Fabrika: ' . ($job['factory_name'] ?? 'Yönetim Fabrikası') . ')'];
+    }
+
+    public function joinGovernmentFactoryJob(int $userId): array
+    {
+        $userStmt = $this->db->prepare('SELECT id, city_id FROM users WHERE id = :id LIMIT 1');
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+        if (!$user) {
+            return ['ok' => false, 'message' => 'Kullanıcı bulunamadı.'];
+        }
+
+        $factory = $this->cityGovernmentFactory((int) $user['city_id']);
+        if (!$factory) {
+            return ['ok' => false, 'message' => 'Bu şehirde aktif yönetim fabrikası yok.'];
+        }
+        $current = $this->activeGovernmentJobForUser($userId);
+        if ($current && (int) $current['factory_id'] === (int) $factory['id']) {
+            return ['ok' => false, 'message' => 'Zaten bu fabrikada aktif işin var.'];
+        }
+
+        $countStmt = $this->db->prepare('SELECT COUNT(*) FROM factory_workers WHERE factory_id = :factory_id AND status = "active"');
+        $countStmt->execute(['factory_id' => $factory['id']]);
+        $activeCount = (int) $countStmt->fetchColumn();
+        if ($activeCount >= (int) $factory['max_workers']) {
+            return ['ok' => false, 'message' => 'Fabrika kapasitesi dolu.'];
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare('UPDATE factory_workers SET status = "left" WHERE user_id = :user_id AND status = "active"')->execute(['user_id' => $userId]);
+            $this->db->prepare('INSERT INTO factory_workers (factory_id, user_id, role_key, joined_at, status) VALUES (:factory_id, :user_id, "worker", NOW(), "active")')
+                ->execute(['factory_id' => $factory['id'], 'user_id' => $userId]);
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            return ['ok' => false, 'message' => 'İşe başlama işlemi başarısız oldu.'];
+        }
+
+        return ['ok' => true, 'message' => $factory['name'] . ' için işe başlandı.'];
+    }
+
+    public function leaveGovernmentFactoryJob(int $userId): array
+    {
+        $stmt = $this->db->prepare('UPDATE factory_workers SET status = "left" WHERE user_id = :user_id AND status = "active"');
+        $stmt->execute(['user_id' => $userId]);
+        if ($stmt->rowCount() < 1) {
+            return ['ok' => false, 'message' => 'Aktif iş bulunamadı.'];
+        }
+        return ['ok' => true, 'message' => 'Fabrikadaki aktif işin bırakıldı.'];
     }
 
     public function battle(int $userId): array
@@ -890,6 +945,36 @@ final class GameService
             ORDER BY c.code, r.id')->fetchAll() ?: [];
 
         return ['cities' => $cities, 'country_resources' => $countryResources, 'layers' => $layers, 'pois' => $pois];
+    }
+
+    private function cityGovernmentFactory(int $cityId): ?array
+    {
+        if ($cityId <= 0) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare('SELECT id, city_id, country_id, name, level, max_workers, status FROM government_factories WHERE city_id = :city_id AND status = "active" LIMIT 1');
+        $stmt->execute(['city_id' => $cityId]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    private function activeGovernmentJobForUser(int $userId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT fw.id, fw.factory_id, fw.user_id, fw.joined_at, fw.role_key, gf.name AS factory_name, gf.city_id, gf.country_id, gf.status
+            FROM factory_workers fw
+            JOIN government_factories gf ON gf.id = fw.factory_id
+            WHERE fw.user_id = :user_id AND fw.status = "active"
+            ORDER BY fw.id DESC
+            LIMIT 1');
+        $stmt->execute(['user_id' => $userId]);
+        $row = $stmt->fetch();
+
+        if (!$row || (string) ($row['status'] ?? '') !== 'active') {
+            return null;
+        }
+
+        return $row;
     }
 
     public function activeWarForCountry(int $countryId): ?array
@@ -2465,6 +2550,39 @@ final class GameService
                 'id' => $userId,
             ]);
         }
+    }
+
+    public function seedGovernmentFactoriesForAllCities(): array
+    {
+        $stmt = $this->db->prepare('SELECT `key`, `value` FROM settings WHERE `key` IN ("gov_factory_default_level", "gov_factory_default_max_workers")');
+        $stmt->execute();
+        $rows = $stmt->fetchAll() ?: [];
+        $defaults = ['gov_factory_default_level' => 50, 'gov_factory_default_max_workers' => 1000];
+        foreach ($rows as $row) {
+            $defaults[(string) $row['key']] = (int) $row['value'];
+        }
+
+        $sql = <<<SQL
+INSERT INTO government_factories (country_id, city_id, name, level, max_workers, base_wage_gold, status, created_by_admin, created_at, updated_at)
+SELECT ci.country_id, ci.id, CONCAT(c.name, ' / ', ci.name, ' Yönetim Fabrikası'), :level, :max_workers, 4.00, 'active', 1, NOW(), NOW()
+FROM cities ci
+JOIN countries c ON c.id = ci.country_id
+WHERE ci.is_active = 1
+ON DUPLICATE KEY UPDATE
+  country_id = VALUES(country_id),
+  name = VALUES(name),
+  level = VALUES(level),
+  max_workers = VALUES(max_workers),
+  status = 'active',
+  updated_at = NOW()
+SQL;
+        $ins = $this->db->prepare($sql);
+        $ins->execute([
+            'level' => max(1, (int) $defaults['gov_factory_default_level']),
+            'max_workers' => max(1, (int) $defaults['gov_factory_default_max_workers']),
+        ]);
+
+        return ['ok' => true, 'message' => 'Tüm aktif şehirler için yönetim fabrikaları oluşturuldu/güncellendi.'];
     }
 
     public function adminWorldData(): array

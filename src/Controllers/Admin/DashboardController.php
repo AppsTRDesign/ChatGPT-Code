@@ -177,4 +177,14 @@ final class DashboardController
         $res = (new GameService())->importWorldBuilder($json);
         Response::redirect('/admin?toast=' . urlencode($res['message']));
     }
+
+    public function seedGovernmentFactories(): void
+    {
+        if (!Auth::adminCheck() || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::redirect('/admin?toast=Yetkisiz');
+        }
+
+        $res = (new GameService())->seedGovernmentFactoriesForAllCities();
+        Response::redirect('/admin?toast=' . urlencode($res['message']));
+    }
 }

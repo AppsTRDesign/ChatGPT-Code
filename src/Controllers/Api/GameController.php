@@ -39,6 +39,30 @@ final class GameController
         Response::json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function govFactoryJobStart(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $result = (new GameService())->joinGovernmentFactoryJob($userId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
+    public function govFactoryJobLeave(): void
+    {
+        $userId = Auth::userId();
+        if (!$userId || !Csrf::validate($_POST['_csrf'] ?? null)) {
+            Response::json(['ok' => false, 'message' => 'Unauthorized'], 401);
+            return;
+        }
+
+        $result = (new GameService())->leaveGovernmentFactoryJob($userId);
+        Response::json($result, $result['ok'] ? 200 : 422);
+    }
+
     public function battle(): void
     {
         $userId = Auth::userId();

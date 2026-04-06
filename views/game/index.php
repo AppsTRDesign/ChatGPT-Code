@@ -43,6 +43,8 @@ $eventFeed = $state['event_feed'] ?? [];
 $upgradeQueue = $state['upgrade_queue'] ?? [];
 $travelerOffers = $state['traveler_offers'] ?? [];
 $myProvinces = $state['my_provinces'] ?? [];
+$governmentFactoryCity = $state['government_factory_city'] ?? null;
+$governmentFactoryJob = $state['government_factory_job'] ?? null;
 ?>
 <div class="container py-3 py-md-4">
     <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -75,6 +77,15 @@ $myProvinces = $state['my_provinces'] ?? [];
         <div class="col-12 col-xl-5">
             <div class="card panel"><div class="card-body">
                 <h2 class="h5">Çalışma / Savaş</h2>
+                <div class="alert alert-secondary py-2 small mb-2" id="jobStatus">
+                    <?php if ($governmentFactoryJob): ?>
+                        Aktif işin: <strong><?= htmlspecialchars((string) ($governmentFactoryJob['factory_name'] ?? 'Yönetim Fabrikası'), ENT_QUOTES, 'UTF-8') ?></strong>
+                    <?php elseif ($governmentFactoryCity): ?>
+                        Bu şehirde çalışabilmek için önce <strong><?= htmlspecialchars((string) ($governmentFactoryCity['name'] ?? 'Yönetim Fabrikası'), ENT_QUOTES, 'UTF-8') ?></strong> için işe başlamalısın.
+                    <?php else: ?>
+                        Bu şehirde aktif yönetim fabrikası yok. Yönetici panelinden fabrika açılması gerekiyor.
+                    <?php endif; ?>
+                </div>
                 <div class="d-grid gap-2">
                     <select id="resourceKey" class="form-select">
                         <?php foreach ($resources as $r): ?>
@@ -83,6 +94,10 @@ $myProvinces = $state['my_provinces'] ?? [];
                     </select>
                     <button class="btn btn-primary action-btn" data-action="work">300 Enerji ile Çalış</button>
                     <button class="btn btn-danger action-btn" data-action="battle">300 Enerji ile Savaş</button>
+                </div>
+                <div class="d-grid gap-2 mt-2">
+                    <button class="btn btn-outline-success action-btn" data-action="gov-job-start">İşe Başla (Yönetim Fabrikası)</button>
+                    <button class="btn btn-outline-secondary action-btn" data-action="gov-job-leave">İşi Bırak</button>
                 </div>
                 <div class="d-grid gap-2 mt-2">
                     <button class="btn btn-outline-info action-btn" data-action="upgrade" data-stat="strength">Kuvvet +1 (5 LP + 5 Gold)</button>
