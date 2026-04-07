@@ -78,7 +78,7 @@ final class PlayerService
         }
 
         $distance = $this->distanceKm((float) $fromRegion['lat'], (float) $fromRegion['lng'], (float) $destination['lat'], (float) $destination['lng']);
-        $airportCount = (int) ($fromRegion['airport_building_count'] ?? 100);
+        $airportCount = (int) ($fromRegion['airport_level'] ?? 1);
         $effectiveSpeed = self::TRAVEL_SPEED_KMH * (1 + log($airportCount + 1) * 0.25);
         $durationSeconds = max(5, (int) round(($distance / max(1, $effectiveSpeed)) * 3600));
         $coinCost = max(1000, (int) ceil($distance * 50));

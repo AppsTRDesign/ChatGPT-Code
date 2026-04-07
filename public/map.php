@@ -128,7 +128,7 @@ function openSheet(region){
     const from = layers.get(currentRegionId).region;
     const dist = distanceKm(Number(from.lat), Number(from.lng), Number(region.lat), Number(region.lng));
     cost = Math.max(1000, dist * 50);
-    const airportCount = Number(from.airport_building_count || 100);
+    const airportCount = Number(from.airport_level || 1);
     const effectiveSpeed = 3200 * (1 + Math.log(airportCount + 1) * 0.25);
     const avgSeconds = Math.max(5, Math.round((dist / Math.max(1, effectiveSpeed)) * 3600));
     costHint.textContent = `Travel Cost: ${Math.ceil(cost)} coins • Avg Flight: ${fmt(avgSeconds)}`;

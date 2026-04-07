@@ -23,7 +23,7 @@ async function loadCountries(){
 async function loadRegions(){
   REGION_ROWS=(await (await fetch('/api/map/regions')).json()).data||[];
   const selected=Number(countrySel.value||0);
-  const rows=REGION_ROWS.filter(x=>Number(x.owner_region_id)===selected).map(x=>`<div class='glass' style='padding:10px;margin:6px 0'><b>${x.name}</b> (${x.region_type})<br>Total: ${x.total_building_count} • Airport ${x.airport_building_count} • Army ${x.army_building_count} • Hospital ${x.hospital_building_count} • Education ${x.education_building_count} • Port ${x.port_count}</div>`).join('');
+  const rows=REGION_ROWS.filter(x=>Number(x.owner_region_id)===selected).map(x=>`<div class='glass' style='padding:10px;margin:6px 0'><b>${x.name}</b> (${x.region_type})<br>Total: ${x.total_level} • Airport ${x.airport_level} • Army ${x.army_level} • Hospital ${x.hospital_level} • Education ${x.education_level} • School ${x.school_level} • Port ${x.port_level}</div>`).join('');
   regions.innerHTML=rows||'No regions';
 }
 function metricRows(list){return (list||[]).map(x=>`<div><a href='#' data-region-id='${x.id}' class='rank-region'>${x.name} (${x.country_name}) — ${x.value ?? x.score}</a></div>`).join('');}
@@ -47,13 +47,13 @@ function bindRankClicks(){
 async function showRegionDetail(id){
   const res = await fetch(`/api/map/region-detail?id=${id}`).then(r=>r.json());
   const r = res.data; if(!r){detailPanel.textContent='Invalid region';return;}
-  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${r.name}</b><br>Total: ${r.total_building_count}<br>Airport ${r.airport_building_count} • Army ${r.army_building_count} • Hospital ${r.hospital_building_count} • Education ${r.education_building_count} • Port ${r.port_count}<br><button class='primary-btn' id='travelRegionBtn'>Travel</button></div>`;
+  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${r.name}</b><br>Total: ${r.total_level}<br>Airport ${r.airport_level} • Army ${r.army_level} • Hospital ${r.hospital_level} • Education ${r.education_level} • School ${r.school_level} • Port ${r.port_level}<br><button class='primary-btn' id='travelRegionBtn'>Travel</button></div>`;
   document.getElementById('travelRegionBtn').onclick=()=>travelToRegion(r.id);
 }
 async function showCountryDetail(id){
   const res = await fetch(`/api/map/country-detail?id=${id}`).then(r=>r.json());
   const c = res.data; if(!c){detailPanel.textContent='Invalid country';return;}
-  const regs=(c.regions||[]).map(x=>`${x.name} (${Number(x.airport_building_count)+Number(x.army_building_count)+Number(x.hospital_building_count)+Number(x.education_building_count)+Number(x.port_count)})`).join(', ');
+  const regs=(c.regions||[]).map(x=>`${x.name} (${Number(x.airport_level)+Number(x.army_level)+Number(x.hospital_level)+Number(x.education_level)+Number(x.school_level)+Number(x.port_level)})`).join(', ');
   detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${c.country_name}</b><br>Capital: ${c.name}<br>Government: ${c.government_type}<br>Regions: ${c.region_count}<br>State Money: ${c.treasury_state_money}<br>Gold: ${c.treasury_gold}<br>Diamond: ${c.treasury_diamond}<br>Oil: ${c.treasury_oil}<br>Mineral: ${c.treasury_mineral}<br>Uranium: ${c.treasury_uranium}<br>${regs}<br><button class='primary-btn' id='travelCapitalBtn'>Travel</button></div>`;
   document.getElementById('travelCapitalBtn').onclick=()=>travelToRegion(c.id);
 }

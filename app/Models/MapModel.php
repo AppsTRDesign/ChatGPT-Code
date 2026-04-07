@@ -19,8 +19,8 @@ final class MapModel
     {
         $sql = 'SELECT r.id,r.country_id,r.country_code,r.country_name,r.name,r.slug,r.lat,r.lng,r.polygon_json,
                 (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_region_id = r.id) AS population,
-                r.resource_type,r.owner_region_id,r.airport_building_count,r.army_building_count,r.hospital_building_count,r.education_building_count,r.port_count,r.is_coastal,r.region_type,r.capital_region_id,r.neighbors_json,r.color,r.flag_url,
-                (r.airport_building_count+r.army_building_count+r.hospital_building_count+r.education_building_count+r.port_count) AS total_building_count,
+                r.resource_type,r.owner_region_id,r.airport_level,r.army_level,r.hospital_level,r.education_level,r.school_level,r.port_level,r.is_coastal,r.region_type,r.capital_region_id,r.neighbors_json,r.color,r.flag_url,
+                (r.airport_level+r.army_level+r.hospital_level+r.education_level+r.school_level+r.port_level) AS total_level,
                 owner.name AS owner_region_name
                 FROM regions r
                 LEFT JOIN regions owner ON owner.id = r.owner_region_id
@@ -39,8 +39,8 @@ final class MapModel
     {
         $topRegions = Database::connection()->query(
             'SELECT r.id,r.name,r.country_name,
-             (r.airport_building_count+r.army_building_count+r.hospital_building_count+r.education_building_count+r.port_count) AS score,
-             r.airport_building_count,r.army_building_count,r.hospital_building_count,r.education_building_count,r.port_count,
+             (r.airport_level+r.army_level+r.hospital_level+r.education_level+r.school_level+r.port_level) AS score,
+             r.airport_level,r.army_level,r.hospital_level,r.education_level,r.school_level,r.port_level,
              (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_region_id = r.id) AS population
              FROM regions r
              ORDER BY score DESC LIMIT 10'
@@ -48,12 +48,12 @@ final class MapModel
 
         $topCountries = Database::connection()->query(
             'SELECT c.id,c.country_name,c.name AS capital_name,c.government_type,
-             SUM(r.airport_building_count+r.army_building_count+r.hospital_building_count+r.education_building_count+r.port_count) AS total_score,
-             SUM(r.airport_building_count) AS airport_total,
-             SUM(r.army_building_count) AS army_total,
-             SUM(r.hospital_building_count) AS hospital_total,
-             SUM(r.education_building_count) AS education_total,
-             SUM(r.port_count) AS port_total,
+             SUM(r.airport_level+r.army_level+r.hospital_level+r.education_level+r.school_level+r.port_level) AS total_score,
+             SUM(r.airport_level) AS airport_total,
+             SUM(r.army_level) AS army_total,
+             SUM(r.hospital_level) AS hospital_total,
+             SUM(r.education_level) AS education_total,
+             SUM(r.port_level) AS port_total,
              COUNT(r.id) AS region_count,
              (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_country_region_id = c.id) AS population
              FROM regions c
@@ -63,11 +63,11 @@ final class MapModel
              ORDER BY total_score DESC LIMIT 10'
         )->fetchAll();
 
-        $topAirports = Database::connection()->query('SELECT id,name,country_name,airport_building_count AS value FROM regions ORDER BY airport_building_count DESC LIMIT 10')->fetchAll();
-        $topArmies = Database::connection()->query('SELECT id,name,country_name,army_building_count AS value FROM regions ORDER BY army_building_count DESC LIMIT 10')->fetchAll();
-        $topHospitals = Database::connection()->query('SELECT id,name,country_name,hospital_building_count AS value FROM regions ORDER BY hospital_building_count DESC LIMIT 10')->fetchAll();
-        $topEducations = Database::connection()->query('SELECT id,name,country_name,education_building_count AS value FROM regions ORDER BY education_building_count DESC LIMIT 10')->fetchAll();
-        $topPorts = Database::connection()->query('SELECT id,name,country_name,port_count AS value FROM regions ORDER BY port_count DESC LIMIT 10')->fetchAll();
+        $topAirports = Database::connection()->query('SELECT id,name,country_name,airport_level AS value FROM regions ORDER BY airport_level DESC LIMIT 10')->fetchAll();
+        $topArmies = Database::connection()->query('SELECT id,name,country_name,army_level AS value FROM regions ORDER BY army_level DESC LIMIT 10')->fetchAll();
+        $topHospitals = Database::connection()->query('SELECT id,name,country_name,hospital_level AS value FROM regions ORDER BY hospital_level DESC LIMIT 10')->fetchAll();
+        $topEducations = Database::connection()->query('SELECT id,name,country_name,education_level AS value FROM regions ORDER BY education_level DESC LIMIT 10')->fetchAll();
+        $topPorts = Database::connection()->query('SELECT id,name,country_name,port_level AS value FROM regions ORDER BY port_level DESC LIMIT 10')->fetchAll();
         $topCountryPopulation = Database::connection()->query('SELECT c.id,c.country_name,SUM(r.population) AS total_population FROM regions c JOIN regions r ON r.owner_region_id = c.id WHERE c.region_type="country" GROUP BY c.id,c.country_name ORDER BY total_population DESC LIMIT 10')->fetchAll();
         $topRegionPopulation = Database::connection()->query('SELECT id,name,country_name,population AS total_population FROM regions ORDER BY population DESC LIMIT 10')->fetchAll();
 
@@ -88,7 +88,7 @@ final class MapModel
     {
         $stmt = Database::connection()->prepare(
             'SELECT r.*, owner.name AS owner_region_name,
-                    (r.airport_building_count+r.army_building_count+r.hospital_building_count+r.education_building_count+r.port_count) AS total_building_count,
+                    (r.airport_level+r.army_level+r.hospital_level+r.education_level+r.school_level+r.port_level) AS total_level,
                     (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_region_id=r.id) AS population
              FROM regions r
              LEFT JOIN regions owner ON owner.id = r.owner_region_id
@@ -122,7 +122,7 @@ final class MapModel
         }
 
         $regionsStmt = Database::connection()->prepare(
-            'SELECT id,name,country_name,airport_building_count,army_building_count,hospital_building_count,education_building_count,port_count,region_type
+            'SELECT id,name,country_name,airport_level,army_level,hospital_level,education_level,school_level,port_level,region_type
              FROM regions
              WHERE owner_region_id=:id
              ORDER BY id'

@@ -39,8 +39,8 @@ foreach ($data['countries'] as $country) {
 
 $palette = ['#2563eb','#16a34a','#dc2626','#ea580c','#7c3aed','#0891b2','#ca8a04','#9333ea','#be123c','#0f766e'];
 $regionStmt = $pdo->prepare(
-    'INSERT INTO regions(id,country_id,country_code,country_name,name,slug,lat,lng,polygon_json,population,resource_type,owner_region_id,region_type,capital_region_id,government_type,color,flag_url,neighbors_json,treasury_state_money,treasury_gold,treasury_uranium,treasury_mineral,treasury_oil,treasury_diamond,general_tax_rate,sales_tax_rate,factory_tax_uranium,factory_tax_mineral,factory_tax_oil,factory_tax_gold,factory_tax_diamond,airport_building_count,army_building_count,hospital_building_count,education_building_count,port_count,is_coastal,created_at)
-     VALUES(:id,:country_id,:country_code,:country_name,:name,:slug,:lat,:lng,:polygon_json,:population,:resource_type,NULL,:region_type,:capital_region_id,:government_type,:color,:flag_url,JSON_ARRAY(),250000000,250000000,1000000,1000000,1000000,1000000,10,0,0,0,0,0,0,100,100,100,100,100,0,NOW())'
+    'INSERT INTO regions(id,country_id,country_code,country_name,name,slug,lat,lng,polygon_json,population,resource_type,owner_region_id,region_type,capital_region_id,government_type,color,flag_url,neighbors_json,treasury_state_money,treasury_gold,treasury_uranium,treasury_mineral,treasury_oil,treasury_diamond,general_tax_rate,sales_tax_rate,factory_tax_uranium,factory_tax_mineral,factory_tax_oil,factory_tax_gold,factory_tax_diamond,airport_level,army_level,hospital_level,education_level,school_level,port_level,is_coastal,created_at)
+     VALUES(:id,:country_id,:country_code,:country_name,:name,:slug,:lat,:lng,:polygon_json,:population,:resource_type,NULL,:region_type,:capital_region_id,:government_type,:color,:flag_url,JSON_ARRAY(),250000000,250000000,1000000,1000000,1000000,1000000,10,0,0,0,0,0,0,1,1,1,1,1,1,0,NOW())'
 );
 
 $countryCapitalByCountryId = [];
