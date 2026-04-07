@@ -1,0 +1,2955 @@
+{
+  "countries": [
+    {
+      "id": 1,
+      "name": "United States",
+      "slug": "us",
+      "flag_url": "https://flagcdn.com/w320/us.png",
+      "color": "#4ecdc4",
+      "government_type": "republic"
+    },
+    {
+      "id": 2,
+      "name": "Canada",
+      "slug": "ca",
+      "flag_url": "https://flagcdn.com/w320/ca.png",
+      "color": "#ffe66d",
+      "government_type": "republic"
+    },
+    {
+      "id": 3,
+      "name": "Mexico",
+      "slug": "mx",
+      "flag_url": "https://flagcdn.com/w320/mx.png",
+      "color": "#1a535c",
+      "government_type": "republic"
+    },
+    {
+      "id": 4,
+      "name": "Brazil",
+      "slug": "br",
+      "flag_url": "https://flagcdn.com/w320/br.png",
+      "color": "#5b8def",
+      "government_type": "republic"
+    },
+    {
+      "id": 5,
+      "name": "Argentina",
+      "slug": "ar",
+      "flag_url": "https://flagcdn.com/w320/ar.png",
+      "color": "#f79d65",
+      "government_type": "republic"
+    },
+    {
+      "id": 6,
+      "name": "United Kingdom",
+      "slug": "gb",
+      "flag_url": "https://flagcdn.com/w320/gb.png",
+      "color": "#9b5de5",
+      "government_type": "republic"
+    },
+    {
+      "id": 7,
+      "name": "France",
+      "slug": "fr",
+      "flag_url": "https://flagcdn.com/w320/fr.png",
+      "color": "#00bbf9",
+      "government_type": "republic"
+    },
+    {
+      "id": 8,
+      "name": "Germany",
+      "slug": "de",
+      "flag_url": "https://flagcdn.com/w320/de.png",
+      "color": "#ef476f",
+      "government_type": "republic"
+    },
+    {
+      "id": 9,
+      "name": "Italy",
+      "slug": "it",
+      "flag_url": "https://flagcdn.com/w320/it.png",
+      "color": "#06d6a0",
+      "government_type": "republic"
+    },
+    {
+      "id": 10,
+      "name": "Spain",
+      "slug": "es",
+      "flag_url": "https://flagcdn.com/w320/es.png",
+      "color": "#ff6b6b",
+      "government_type": "republic"
+    },
+    {
+      "id": 11,
+      "name": "Turkey",
+      "slug": "tr",
+      "flag_url": "https://flagcdn.com/w320/tr.png",
+      "color": "#4ecdc4",
+      "government_type": "republic"
+    },
+    {
+      "id": 12,
+      "name": "Russia",
+      "slug": "ru",
+      "flag_url": "https://flagcdn.com/w320/ru.png",
+      "color": "#ffe66d",
+      "government_type": "republic"
+    },
+    {
+      "id": 13,
+      "name": "Egypt",
+      "slug": "eg",
+      "flag_url": "https://flagcdn.com/w320/eg.png",
+      "color": "#1a535c",
+      "government_type": "republic"
+    },
+    {
+      "id": 14,
+      "name": "South Africa",
+      "slug": "za",
+      "flag_url": "https://flagcdn.com/w320/za.png",
+      "color": "#5b8def",
+      "government_type": "republic"
+    },
+    {
+      "id": 15,
+      "name": "Nigeria",
+      "slug": "ng",
+      "flag_url": "https://flagcdn.com/w320/ng.png",
+      "color": "#f79d65",
+      "government_type": "republic"
+    },
+    {
+      "id": 16,
+      "name": "Kenya",
+      "slug": "ke",
+      "flag_url": "https://flagcdn.com/w320/ke.png",
+      "color": "#9b5de5",
+      "government_type": "republic"
+    },
+    {
+      "id": 17,
+      "name": "India",
+      "slug": "in",
+      "flag_url": "https://flagcdn.com/w320/in.png",
+      "color": "#00bbf9",
+      "government_type": "republic"
+    },
+    {
+      "id": 18,
+      "name": "China",
+      "slug": "cn",
+      "flag_url": "https://flagcdn.com/w320/cn.png",
+      "color": "#ef476f",
+      "government_type": "republic"
+    },
+    {
+      "id": 19,
+      "name": "Japan",
+      "slug": "jp",
+      "flag_url": "https://flagcdn.com/w320/jp.png",
+      "color": "#06d6a0",
+      "government_type": "republic"
+    },
+    {
+      "id": 20,
+      "name": "South Korea",
+      "slug": "kr",
+      "flag_url": "https://flagcdn.com/w320/kr.png",
+      "color": "#ff6b6b",
+      "government_type": "republic"
+    },
+    {
+      "id": 21,
+      "name": "Indonesia",
+      "slug": "id",
+      "flag_url": "https://flagcdn.com/w320/id.png",
+      "color": "#4ecdc4",
+      "government_type": "republic"
+    },
+    {
+      "id": 22,
+      "name": "Australia",
+      "slug": "au",
+      "flag_url": "https://flagcdn.com/w320/au.png",
+      "color": "#ffe66d",
+      "government_type": "republic"
+    },
+    {
+      "id": 23,
+      "name": "New Zealand",
+      "slug": "nz",
+      "flag_url": "https://flagcdn.com/w320/nz.png",
+      "color": "#1a535c",
+      "government_type": "republic"
+    },
+    {
+      "id": 24,
+      "name": "Saudi Arabia",
+      "slug": "sa",
+      "flag_url": "https://flagcdn.com/w320/sa.png",
+      "color": "#5b8def",
+      "government_type": "republic"
+    },
+    {
+      "id": 25,
+      "name": "United Arab Emirates",
+      "slug": "ae",
+      "flag_url": "https://flagcdn.com/w320/ae.png",
+      "color": "#f79d65",
+      "government_type": "republic"
+    },
+    {
+      "id": 26,
+      "name": "Iran",
+      "slug": "ir",
+      "flag_url": "https://flagcdn.com/w320/ir.png",
+      "color": "#9b5de5",
+      "government_type": "republic"
+    },
+    {
+      "id": 27,
+      "name": "Pakistan",
+      "slug": "pk",
+      "flag_url": "https://flagcdn.com/w320/pk.png",
+      "color": "#00bbf9",
+      "government_type": "republic"
+    },
+    {
+      "id": 28,
+      "name": "Bangladesh",
+      "slug": "bd",
+      "flag_url": "https://flagcdn.com/w320/bd.png",
+      "color": "#ef476f",
+      "government_type": "republic"
+    },
+    {
+      "id": 29,
+      "name": "Thailand",
+      "slug": "th",
+      "flag_url": "https://flagcdn.com/w320/th.png",
+      "color": "#06d6a0",
+      "government_type": "republic"
+    },
+    {
+      "id": 30,
+      "name": "Vietnam",
+      "slug": "vn",
+      "flag_url": "https://flagcdn.com/w320/vn.png",
+      "color": "#ff6b6b",
+      "government_type": "republic"
+    }
+  ],
+  "regions": [
+    {
+      "id": 1,
+      "country_slug": "us",
+      "name": "New York",
+      "slug": "new-york",
+      "lat": 40.7128,
+      "lng": -74.006,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -75.206,
+                39.5128
+              ],
+              [
+                -72.806,
+                39.5128
+              ],
+              [
+                -72.806,
+                41.912800000000004
+              ],
+              [
+                -75.206,
+                41.912800000000004
+              ],
+              [
+                -75.206,
+                39.5128
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "New York"
+        }
+      },
+      "population": 8804190,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 2,
+      "country_slug": "us",
+      "name": "Los Angeles",
+      "slug": "los-angeles",
+      "lat": 34.0522,
+      "lng": -118.2437,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -119.4437,
+                32.852199999999996
+              ],
+              [
+                -117.0437,
+                32.852199999999996
+              ],
+              [
+                -117.0437,
+                35.2522
+              ],
+              [
+                -119.4437,
+                35.2522
+              ],
+              [
+                -119.4437,
+                32.852199999999996
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Los Angeles"
+        }
+      },
+      "population": 3898747,
+      "resource_type": "agriculture"
+    },
+    {
+      "id": 3,
+      "country_slug": "us",
+      "name": "Chicago",
+      "slug": "chicago",
+      "lat": 41.8781,
+      "lng": -87.6298,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -88.8298,
+                40.6781
+              ],
+              [
+                -86.4298,
+                40.6781
+              ],
+              [
+                -86.4298,
+                43.078100000000006
+              ],
+              [
+                -88.8298,
+                43.078100000000006
+              ],
+              [
+                -88.8298,
+                40.6781
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Chicago"
+        }
+      },
+      "population": 2746388,
+      "resource_type": "iron"
+    },
+    {
+      "id": 4,
+      "country_slug": "ca",
+      "name": "Toronto",
+      "slug": "toronto",
+      "lat": 43.6532,
+      "lng": -79.3832,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -80.5832,
+                42.453199999999995
+              ],
+              [
+                -78.1832,
+                42.453199999999995
+              ],
+              [
+                -78.1832,
+                44.8532
+              ],
+              [
+                -80.5832,
+                44.8532
+              ],
+              [
+                -80.5832,
+                42.453199999999995
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Toronto"
+        }
+      },
+      "population": 2930000,
+      "resource_type": "gas"
+    },
+    {
+      "id": 5,
+      "country_slug": "ca",
+      "name": "Vancouver",
+      "slug": "vancouver",
+      "lat": 49.2827,
+      "lng": -123.1207,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -124.3207,
+                48.082699999999996
+              ],
+              [
+                -121.9207,
+                48.082699999999996
+              ],
+              [
+                -121.9207,
+                50.4827
+              ],
+              [
+                -124.3207,
+                50.4827
+              ],
+              [
+                -124.3207,
+                48.082699999999996
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Vancouver"
+        }
+      },
+      "population": 662248,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 6,
+      "country_slug": "mx",
+      "name": "Mexico City",
+      "slug": "mexico-city",
+      "lat": 19.4326,
+      "lng": -99.1332,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -100.3332,
+                18.2326
+              ],
+              [
+                -97.9332,
+                18.2326
+              ],
+              [
+                -97.9332,
+                20.6326
+              ],
+              [
+                -100.3332,
+                20.6326
+              ],
+              [
+                -100.3332,
+                18.2326
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Mexico City"
+        }
+      },
+      "population": 9209944,
+      "resource_type": "gas"
+    },
+    {
+      "id": 7,
+      "country_slug": "mx",
+      "name": "Guadalajara",
+      "slug": "guadalajara",
+      "lat": 20.6597,
+      "lng": -103.3496,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -104.5496,
+                19.4597
+              ],
+              [
+                -102.14959999999999,
+                19.4597
+              ],
+              [
+                -102.14959999999999,
+                21.8597
+              ],
+              [
+                -104.5496,
+                21.8597
+              ],
+              [
+                -104.5496,
+                19.4597
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Guadalajara"
+        }
+      },
+      "population": 1495182,
+      "resource_type": "iron"
+    },
+    {
+      "id": 8,
+      "country_slug": "br",
+      "name": "Sao Paulo",
+      "slug": "sao-paulo",
+      "lat": -23.5505,
+      "lng": -46.6333,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -47.8333,
+                -24.7505
+              ],
+              [
+                -45.433299999999996,
+                -24.7505
+              ],
+              [
+                -45.433299999999996,
+                -22.3505
+              ],
+              [
+                -47.8333,
+                -22.3505
+              ],
+              [
+                -47.8333,
+                -24.7505
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Sao Paulo"
+        }
+      },
+      "population": 12300000,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 9,
+      "country_slug": "br",
+      "name": "Rio de Janeiro",
+      "slug": "rio-de-janeiro",
+      "lat": -22.9068,
+      "lng": -43.1729,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -44.3729,
+                -24.1068
+              ],
+              [
+                -41.972899999999996,
+                -24.1068
+              ],
+              [
+                -41.972899999999996,
+                -21.7068
+              ],
+              [
+                -44.3729,
+                -21.7068
+              ],
+              [
+                -44.3729,
+                -24.1068
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Rio de Janeiro"
+        }
+      },
+      "population": 6748000,
+      "resource_type": "tech"
+    },
+    {
+      "id": 10,
+      "country_slug": "ar",
+      "name": "Buenos Aires",
+      "slug": "buenos-aires",
+      "lat": -34.6037,
+      "lng": -58.3816,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -59.5816,
+                -35.803700000000006
+              ],
+              [
+                -57.181599999999996,
+                -35.803700000000006
+              ],
+              [
+                -57.181599999999996,
+                -33.4037
+              ],
+              [
+                -59.5816,
+                -33.4037
+              ],
+              [
+                -59.5816,
+                -35.803700000000006
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Buenos Aires"
+        }
+      },
+      "population": 3120612,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 11,
+      "country_slug": "ar",
+      "name": "Cordoba",
+      "slug": "cordoba",
+      "lat": -31.4201,
+      "lng": -64.1888,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -65.3888,
+                -32.6201
+              ],
+              [
+                -62.9888,
+                -32.6201
+              ],
+              [
+                -62.9888,
+                -30.220100000000002
+              ],
+              [
+                -65.3888,
+                -30.220100000000002
+              ],
+              [
+                -65.3888,
+                -32.6201
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Cordoba"
+        }
+      },
+      "population": 1565112,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 12,
+      "country_slug": "gb",
+      "name": "London",
+      "slug": "london",
+      "lat": 51.5074,
+      "lng": -0.1278,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -1.3277999999999999,
+                50.307399999999994
+              ],
+              [
+                1.0722,
+                50.307399999999994
+              ],
+              [
+                1.0722,
+                52.7074
+              ],
+              [
+                -1.3277999999999999,
+                52.7074
+              ],
+              [
+                -1.3277999999999999,
+                50.307399999999994
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "London"
+        }
+      },
+      "population": 8982000,
+      "resource_type": "gas"
+    },
+    {
+      "id": 13,
+      "country_slug": "gb",
+      "name": "Manchester",
+      "slug": "manchester",
+      "lat": 53.4808,
+      "lng": -2.2426,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -3.4425999999999997,
+                52.2808
+              ],
+              [
+                -1.0426,
+                52.2808
+              ],
+              [
+                -1.0426,
+                54.680800000000005
+              ],
+              [
+                -3.4425999999999997,
+                54.680800000000005
+              ],
+              [
+                -3.4425999999999997,
+                52.2808
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Manchester"
+        }
+      },
+      "population": 552000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 14,
+      "country_slug": "fr",
+      "name": "Paris",
+      "slug": "paris",
+      "lat": 48.8566,
+      "lng": 2.3522,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                1.1522,
+                47.6566
+              ],
+              [
+                3.5522,
+                47.6566
+              ],
+              [
+                3.5522,
+                50.0566
+              ],
+              [
+                1.1522,
+                50.0566
+              ],
+              [
+                1.1522,
+                47.6566
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Paris"
+        }
+      },
+      "population": 2161000,
+      "resource_type": "gold"
+    },
+    {
+      "id": 15,
+      "country_slug": "fr",
+      "name": "Lyon",
+      "slug": "lyon",
+      "lat": 45.764,
+      "lng": 4.8357,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                3.6357,
+                44.564
+              ],
+              [
+                6.0357,
+                44.564
+              ],
+              [
+                6.0357,
+                46.964000000000006
+              ],
+              [
+                3.6357,
+                46.964000000000006
+              ],
+              [
+                3.6357,
+                44.564
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Lyon"
+        }
+      },
+      "population": 522000,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 16,
+      "country_slug": "de",
+      "name": "Berlin",
+      "slug": "berlin",
+      "lat": 52.52,
+      "lng": 13.405,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                12.205,
+                51.32
+              ],
+              [
+                14.604999999999999,
+                51.32
+              ],
+              [
+                14.604999999999999,
+                53.720000000000006
+              ],
+              [
+                12.205,
+                53.720000000000006
+              ],
+              [
+                12.205,
+                51.32
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Berlin"
+        }
+      },
+      "population": 3645000,
+      "resource_type": "gas"
+    },
+    {
+      "id": 17,
+      "country_slug": "de",
+      "name": "Munich",
+      "slug": "munich",
+      "lat": 48.1351,
+      "lng": 11.582,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                10.382000000000001,
+                46.9351
+              ],
+              [
+                12.782,
+                46.9351
+              ],
+              [
+                12.782,
+                49.335100000000004
+              ],
+              [
+                10.382000000000001,
+                49.335100000000004
+              ],
+              [
+                10.382000000000001,
+                46.9351
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Munich"
+        }
+      },
+      "population": 1472000,
+      "resource_type": "oil"
+    },
+    {
+      "id": 18,
+      "country_slug": "it",
+      "name": "Rome",
+      "slug": "rome",
+      "lat": 41.9028,
+      "lng": 12.4964,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                11.2964,
+                40.702799999999996
+              ],
+              [
+                13.696399999999999,
+                40.702799999999996
+              ],
+              [
+                13.696399999999999,
+                43.1028
+              ],
+              [
+                11.2964,
+                43.1028
+              ],
+              [
+                11.2964,
+                40.702799999999996
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Rome"
+        }
+      },
+      "population": 2873000,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 19,
+      "country_slug": "it",
+      "name": "Milan",
+      "slug": "milan",
+      "lat": 45.4642,
+      "lng": 9.19,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                7.989999999999999,
+                44.264199999999995
+              ],
+              [
+                10.389999999999999,
+                44.264199999999995
+              ],
+              [
+                10.389999999999999,
+                46.6642
+              ],
+              [
+                7.989999999999999,
+                46.6642
+              ],
+              [
+                7.989999999999999,
+                44.264199999999995
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Milan"
+        }
+      },
+      "population": 1379000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 20,
+      "country_slug": "es",
+      "name": "Madrid",
+      "slug": "madrid",
+      "lat": 40.4168,
+      "lng": -3.7038,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -4.9038,
+                39.2168
+              ],
+              [
+                -2.5038,
+                39.2168
+              ],
+              [
+                -2.5038,
+                41.616800000000005
+              ],
+              [
+                -4.9038,
+                41.616800000000005
+              ],
+              [
+                -4.9038,
+                39.2168
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Madrid"
+        }
+      },
+      "population": 3223000,
+      "resource_type": "tech"
+    },
+    {
+      "id": 21,
+      "country_slug": "es",
+      "name": "Barcelona",
+      "slug": "barcelona",
+      "lat": 41.3874,
+      "lng": 2.1686,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0.9686000000000001,
+                40.1874
+              ],
+              [
+                3.3686,
+                40.1874
+              ],
+              [
+                3.3686,
+                42.5874
+              ],
+              [
+                0.9686000000000001,
+                42.5874
+              ],
+              [
+                0.9686000000000001,
+                40.1874
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Barcelona"
+        }
+      },
+      "population": 1620000,
+      "resource_type": "gold"
+    },
+    {
+      "id": 22,
+      "country_slug": "tr",
+      "name": "Istanbul",
+      "slug": "istanbul",
+      "lat": 41.0082,
+      "lng": 28.9784,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                27.7784,
+                39.8082
+              ],
+              [
+                30.1784,
+                39.8082
+              ],
+              [
+                30.1784,
+                42.208200000000005
+              ],
+              [
+                27.7784,
+                42.208200000000005
+              ],
+              [
+                27.7784,
+                39.8082
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Istanbul"
+        }
+      },
+      "population": 15460000,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 23,
+      "country_slug": "tr",
+      "name": "Ankara",
+      "slug": "ankara",
+      "lat": 39.9334,
+      "lng": 32.8597,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                31.659699999999997,
+                38.733399999999996
+              ],
+              [
+                34.0597,
+                38.733399999999996
+              ],
+              [
+                34.0597,
+                41.1334
+              ],
+              [
+                31.659699999999997,
+                41.1334
+              ],
+              [
+                31.659699999999997,
+                38.733399999999996
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Ankara"
+        }
+      },
+      "population": 5663000,
+      "resource_type": "tech"
+    },
+    {
+      "id": 24,
+      "country_slug": "ru",
+      "name": "Moscow",
+      "slug": "moscow",
+      "lat": 55.7558,
+      "lng": 37.6173,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                36.4173,
+                54.5558
+              ],
+              [
+                38.8173,
+                54.5558
+              ],
+              [
+                38.8173,
+                56.9558
+              ],
+              [
+                36.4173,
+                56.9558
+              ],
+              [
+                36.4173,
+                54.5558
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Moscow"
+        }
+      },
+      "population": 12655050,
+      "resource_type": "tech"
+    },
+    {
+      "id": 25,
+      "country_slug": "ru",
+      "name": "Saint Petersburg",
+      "slug": "saint-petersburg",
+      "lat": 59.9343,
+      "lng": 30.3351,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                29.1351,
+                58.7343
+              ],
+              [
+                31.5351,
+                58.7343
+              ],
+              [
+                31.5351,
+                61.1343
+              ],
+              [
+                29.1351,
+                61.1343
+              ],
+              [
+                29.1351,
+                58.7343
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Saint Petersburg"
+        }
+      },
+      "population": 5383890,
+      "resource_type": "tech"
+    },
+    {
+      "id": 26,
+      "country_slug": "eg",
+      "name": "Cairo",
+      "slug": "cairo",
+      "lat": 30.0444,
+      "lng": 31.2357,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                30.035700000000002,
+                28.8444
+              ],
+              [
+                32.435700000000004,
+                28.8444
+              ],
+              [
+                32.435700000000004,
+                31.2444
+              ],
+              [
+                30.035700000000002,
+                31.2444
+              ],
+              [
+                30.035700000000002,
+                28.8444
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Cairo"
+        }
+      },
+      "population": 10230350,
+      "resource_type": "iron"
+    },
+    {
+      "id": 27,
+      "country_slug": "eg",
+      "name": "Alexandria",
+      "slug": "alexandria",
+      "lat": 31.2001,
+      "lng": 29.9187,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                28.718700000000002,
+                30.0001
+              ],
+              [
+                31.1187,
+                30.0001
+              ],
+              [
+                31.1187,
+                32.4001
+              ],
+              [
+                28.718700000000002,
+                32.4001
+              ],
+              [
+                28.718700000000002,
+                30.0001
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Alexandria"
+        }
+      },
+      "population": 5200000,
+      "resource_type": "oil"
+    },
+    {
+      "id": 28,
+      "country_slug": "za",
+      "name": "Johannesburg",
+      "slug": "johannesburg",
+      "lat": -26.2041,
+      "lng": 28.0473,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                26.8473,
+                -27.4041
+              ],
+              [
+                29.2473,
+                -27.4041
+              ],
+              [
+                29.2473,
+                -25.0041
+              ],
+              [
+                26.8473,
+                -25.0041
+              ],
+              [
+                26.8473,
+                -27.4041
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Johannesburg"
+        }
+      },
+      "population": 5635000,
+      "resource_type": "agriculture"
+    },
+    {
+      "id": 29,
+      "country_slug": "za",
+      "name": "Cape Town",
+      "slug": "cape-town",
+      "lat": -33.9249,
+      "lng": 18.4241,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                17.2241,
+                -35.124900000000004
+              ],
+              [
+                19.6241,
+                -35.124900000000004
+              ],
+              [
+                19.6241,
+                -32.7249
+              ],
+              [
+                17.2241,
+                -32.7249
+              ],
+              [
+                17.2241,
+                -35.124900000000004
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Cape Town"
+        }
+      },
+      "population": 433688,
+      "resource_type": "tech"
+    },
+    {
+      "id": 30,
+      "country_slug": "ng",
+      "name": "Lagos",
+      "slug": "lagos",
+      "lat": 6.5244,
+      "lng": 3.3792,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                2.1792,
+                5.3244
+              ],
+              [
+                4.5792,
+                5.3244
+              ],
+              [
+                4.5792,
+                7.7244
+              ],
+              [
+                2.1792,
+                7.7244
+              ],
+              [
+                2.1792,
+                5.3244
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Lagos"
+        }
+      },
+      "population": 14800000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 31,
+      "country_slug": "ng",
+      "name": "Abuja",
+      "slug": "abuja",
+      "lat": 9.0765,
+      "lng": 7.3986,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                6.1986,
+                7.876499999999999
+              ],
+              [
+                8.5986,
+                7.876499999999999
+              ],
+              [
+                8.5986,
+                10.276499999999999
+              ],
+              [
+                6.1986,
+                10.276499999999999
+              ],
+              [
+                6.1986,
+                7.876499999999999
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Abuja"
+        }
+      },
+      "population": 3770000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 32,
+      "country_slug": "ke",
+      "name": "Nairobi",
+      "slug": "nairobi",
+      "lat": -1.2921,
+      "lng": 36.8219,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                35.6219,
+                -2.4920999999999998
+              ],
+              [
+                38.0219,
+                -2.4920999999999998
+              ],
+              [
+                38.0219,
+                -0.09210000000000007
+              ],
+              [
+                35.6219,
+                -0.09210000000000007
+              ],
+              [
+                35.6219,
+                -2.4920999999999998
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Nairobi"
+        }
+      },
+      "population": 4397000,
+      "resource_type": "gold"
+    },
+    {
+      "id": 33,
+      "country_slug": "ke",
+      "name": "Mombasa",
+      "slug": "mombasa",
+      "lat": -4.0435,
+      "lng": 39.6682,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                38.468199999999996,
+                -5.2435
+              ],
+              [
+                40.8682,
+                -5.2435
+              ],
+              [
+                40.8682,
+                -2.8434999999999997
+              ],
+              [
+                38.468199999999996,
+                -2.8434999999999997
+              ],
+              [
+                38.468199999999996,
+                -5.2435
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Mombasa"
+        }
+      },
+      "population": 1208000,
+      "resource_type": "iron"
+    },
+    {
+      "id": 34,
+      "country_slug": "in",
+      "name": "Mumbai",
+      "slug": "mumbai",
+      "lat": 19.076,
+      "lng": 72.8777,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                71.6777,
+                17.876
+              ],
+              [
+                74.07770000000001,
+                17.876
+              ],
+              [
+                74.07770000000001,
+                20.276
+              ],
+              [
+                71.6777,
+                20.276
+              ],
+              [
+                71.6777,
+                17.876
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Mumbai"
+        }
+      },
+      "population": 12442373,
+      "resource_type": "gas"
+    },
+    {
+      "id": 35,
+      "country_slug": "in",
+      "name": "Delhi",
+      "slug": "delhi",
+      "lat": 28.7041,
+      "lng": 77.1025,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                75.9025,
+                27.5041
+              ],
+              [
+                78.30250000000001,
+                27.5041
+              ],
+              [
+                78.30250000000001,
+                29.9041
+              ],
+              [
+                75.9025,
+                29.9041
+              ],
+              [
+                75.9025,
+                27.5041
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Delhi"
+        }
+      },
+      "population": 16787941,
+      "resource_type": "iron"
+    },
+    {
+      "id": 36,
+      "country_slug": "in",
+      "name": "Bengaluru",
+      "slug": "bengaluru",
+      "lat": 12.9716,
+      "lng": 77.5946,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                76.3946,
+                11.771600000000001
+              ],
+              [
+                78.7946,
+                11.771600000000001
+              ],
+              [
+                78.7946,
+                14.1716
+              ],
+              [
+                76.3946,
+                14.1716
+              ],
+              [
+                76.3946,
+                11.771600000000001
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Bengaluru"
+        }
+      },
+      "population": 8443675,
+      "resource_type": "iron"
+    },
+    {
+      "id": 37,
+      "country_slug": "cn",
+      "name": "Beijing",
+      "slug": "beijing",
+      "lat": 39.9042,
+      "lng": 116.4074,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                115.20739999999999,
+                38.7042
+              ],
+              [
+                117.6074,
+                38.7042
+              ],
+              [
+                117.6074,
+                41.104200000000006
+              ],
+              [
+                115.20739999999999,
+                41.104200000000006
+              ],
+              [
+                115.20739999999999,
+                38.7042
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Beijing"
+        }
+      },
+      "population": 21540000,
+      "resource_type": "gas"
+    },
+    {
+      "id": 38,
+      "country_slug": "cn",
+      "name": "Shanghai",
+      "slug": "shanghai",
+      "lat": 31.2304,
+      "lng": 121.4737,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                120.27369999999999,
+                30.0304
+              ],
+              [
+                122.6737,
+                30.0304
+              ],
+              [
+                122.6737,
+                32.4304
+              ],
+              [
+                120.27369999999999,
+                32.4304
+              ],
+              [
+                120.27369999999999,
+                30.0304
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Shanghai"
+        }
+      },
+      "population": 24870895,
+      "resource_type": "oil"
+    },
+    {
+      "id": 39,
+      "country_slug": "cn",
+      "name": "Shenzhen",
+      "slug": "shenzhen",
+      "lat": 22.5431,
+      "lng": 114.0579,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                112.8579,
+                21.3431
+              ],
+              [
+                115.2579,
+                21.3431
+              ],
+              [
+                115.2579,
+                23.7431
+              ],
+              [
+                112.8579,
+                23.7431
+              ],
+              [
+                112.8579,
+                21.3431
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Shenzhen"
+        }
+      },
+      "population": 12528300,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 40,
+      "country_slug": "jp",
+      "name": "Tokyo",
+      "slug": "tokyo",
+      "lat": 35.6762,
+      "lng": 139.6503,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                138.4503,
+                34.4762
+              ],
+              [
+                140.85029999999998,
+                34.4762
+              ],
+              [
+                140.85029999999998,
+                36.876200000000004
+              ],
+              [
+                138.4503,
+                36.876200000000004
+              ],
+              [
+                138.4503,
+                34.4762
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Tokyo"
+        }
+      },
+      "population": 13960000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 41,
+      "country_slug": "jp",
+      "name": "Osaka",
+      "slug": "osaka",
+      "lat": 34.6937,
+      "lng": 135.5023,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                134.3023,
+                33.4937
+              ],
+              [
+                136.70229999999998,
+                33.4937
+              ],
+              [
+                136.70229999999998,
+                35.8937
+              ],
+              [
+                134.3023,
+                35.8937
+              ],
+              [
+                134.3023,
+                33.4937
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Osaka"
+        }
+      },
+      "population": 2691000,
+      "resource_type": "tech"
+    },
+    {
+      "id": 42,
+      "country_slug": "kr",
+      "name": "Seoul",
+      "slug": "seoul",
+      "lat": 37.5665,
+      "lng": 126.978,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                125.77799999999999,
+                36.366499999999995
+              ],
+              [
+                128.178,
+                36.366499999999995
+              ],
+              [
+                128.178,
+                38.7665
+              ],
+              [
+                125.77799999999999,
+                38.7665
+              ],
+              [
+                125.77799999999999,
+                36.366499999999995
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Seoul"
+        }
+      },
+      "population": 9776000,
+      "resource_type": "tech"
+    },
+    {
+      "id": 43,
+      "country_slug": "kr",
+      "name": "Busan",
+      "slug": "busan",
+      "lat": 35.1796,
+      "lng": 129.0756,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                127.8756,
+                33.9796
+              ],
+              [
+                130.2756,
+                33.9796
+              ],
+              [
+                130.2756,
+                36.3796
+              ],
+              [
+                127.8756,
+                36.3796
+              ],
+              [
+                127.8756,
+                33.9796
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Busan"
+        }
+      },
+      "population": 3334000,
+      "resource_type": "agriculture"
+    },
+    {
+      "id": 44,
+      "country_slug": "id",
+      "name": "Jakarta",
+      "slug": "jakarta",
+      "lat": -6.2088,
+      "lng": 106.8456,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                105.6456,
+                -7.4088
+              ],
+              [
+                108.04560000000001,
+                -7.4088
+              ],
+              [
+                108.04560000000001,
+                -5.0088
+              ],
+              [
+                105.6456,
+                -5.0088
+              ],
+              [
+                105.6456,
+                -7.4088
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Jakarta"
+        }
+      },
+      "population": 10562088,
+      "resource_type": "iron"
+    },
+    {
+      "id": 45,
+      "country_slug": "id",
+      "name": "Surabaya",
+      "slug": "surabaya",
+      "lat": -7.2575,
+      "lng": 112.7521,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                111.5521,
+                -8.4575
+              ],
+              [
+                113.9521,
+                -8.4575
+              ],
+              [
+                113.9521,
+                -6.0575
+              ],
+              [
+                111.5521,
+                -6.0575
+              ],
+              [
+                111.5521,
+                -8.4575
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Surabaya"
+        }
+      },
+      "population": 2874000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 46,
+      "country_slug": "au",
+      "name": "Sydney",
+      "slug": "sydney",
+      "lat": -33.8688,
+      "lng": 151.2093,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                150.00930000000002,
+                -35.0688
+              ],
+              [
+                152.4093,
+                -35.0688
+              ],
+              [
+                152.4093,
+                -32.6688
+              ],
+              [
+                150.00930000000002,
+                -32.6688
+              ],
+              [
+                150.00930000000002,
+                -35.0688
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Sydney"
+        }
+      },
+      "population": 5312163,
+      "resource_type": "iron"
+    },
+    {
+      "id": 47,
+      "country_slug": "au",
+      "name": "Melbourne",
+      "slug": "melbourne",
+      "lat": -37.8136,
+      "lng": 144.9631,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                143.7631,
+                -39.013600000000004
+              ],
+              [
+                146.1631,
+                -39.013600000000004
+              ],
+              [
+                146.1631,
+                -36.6136
+              ],
+              [
+                143.7631,
+                -36.6136
+              ],
+              [
+                143.7631,
+                -39.013600000000004
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Melbourne"
+        }
+      },
+      "population": 5078193,
+      "resource_type": "agriculture"
+    },
+    {
+      "id": 48,
+      "country_slug": "nz",
+      "name": "Auckland",
+      "slug": "auckland",
+      "lat": -36.8509,
+      "lng": 174.7645,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                173.5645,
+                -38.050900000000006
+              ],
+              [
+                175.9645,
+                -38.050900000000006
+              ],
+              [
+                175.9645,
+                -35.6509
+              ],
+              [
+                173.5645,
+                -35.6509
+              ],
+              [
+                173.5645,
+                -38.050900000000006
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Auckland"
+        }
+      },
+      "population": 1657000,
+      "resource_type": "iron"
+    },
+    {
+      "id": 49,
+      "country_slug": "nz",
+      "name": "Wellington",
+      "slug": "wellington",
+      "lat": -41.2865,
+      "lng": 174.7762,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                173.5762,
+                -42.4865
+              ],
+              [
+                175.97619999999998,
+                -42.4865
+              ],
+              [
+                175.97619999999998,
+                -40.086499999999994
+              ],
+              [
+                173.5762,
+                -40.086499999999994
+              ],
+              [
+                173.5762,
+                -42.4865
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Wellington"
+        }
+      },
+      "population": 215100,
+      "resource_type": "gas"
+    },
+    {
+      "id": 50,
+      "country_slug": "sa",
+      "name": "Riyadh",
+      "slug": "riyadh",
+      "lat": 24.7136,
+      "lng": 46.6753,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                45.4753,
+                23.5136
+              ],
+              [
+                47.8753,
+                23.5136
+              ],
+              [
+                47.8753,
+                25.9136
+              ],
+              [
+                45.4753,
+                25.9136
+              ],
+              [
+                45.4753,
+                23.5136
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Riyadh"
+        }
+      },
+      "population": 7676654,
+      "resource_type": "iron"
+    },
+    {
+      "id": 51,
+      "country_slug": "sa",
+      "name": "Jeddah",
+      "slug": "jeddah",
+      "lat": 21.4858,
+      "lng": 39.1925,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                37.9925,
+                20.285800000000002
+              ],
+              [
+                40.392500000000005,
+                20.285800000000002
+              ],
+              [
+                40.392500000000005,
+                22.6858
+              ],
+              [
+                37.9925,
+                22.6858
+              ],
+              [
+                37.9925,
+                20.285800000000002
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Jeddah"
+        }
+      },
+      "population": 4697000,
+      "resource_type": "tech"
+    },
+    {
+      "id": 52,
+      "country_slug": "ae",
+      "name": "Dubai",
+      "slug": "dubai",
+      "lat": 25.2048,
+      "lng": 55.2708,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                54.0708,
+                24.0048
+              ],
+              [
+                56.470800000000004,
+                24.0048
+              ],
+              [
+                56.470800000000004,
+                26.404799999999998
+              ],
+              [
+                54.0708,
+                26.404799999999998
+              ],
+              [
+                54.0708,
+                24.0048
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Dubai"
+        }
+      },
+      "population": 3565000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 53,
+      "country_slug": "ae",
+      "name": "Abu Dhabi",
+      "slug": "abu-dhabi",
+      "lat": 24.4539,
+      "lng": 54.3773,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                53.177299999999995,
+                23.2539
+              ],
+              [
+                55.5773,
+                23.2539
+              ],
+              [
+                55.5773,
+                25.6539
+              ],
+              [
+                53.177299999999995,
+                25.6539
+              ],
+              [
+                53.177299999999995,
+                23.2539
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Abu Dhabi"
+        }
+      },
+      "population": 1500000,
+      "resource_type": "agriculture"
+    },
+    {
+      "id": 54,
+      "country_slug": "ir",
+      "name": "Tehran",
+      "slug": "tehran",
+      "lat": 35.6892,
+      "lng": 51.389,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                50.189,
+                34.4892
+              ],
+              [
+                52.589000000000006,
+                34.4892
+              ],
+              [
+                52.589000000000006,
+                36.8892
+              ],
+              [
+                50.189,
+                36.8892
+              ],
+              [
+                50.189,
+                34.4892
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Tehran"
+        }
+      },
+      "population": 9259000,
+      "resource_type": "uranium"
+    },
+    {
+      "id": 55,
+      "country_slug": "ir",
+      "name": "Mashhad",
+      "slug": "mashhad",
+      "lat": 36.2605,
+      "lng": 59.6168,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                58.416799999999995,
+                35.0605
+              ],
+              [
+                60.8168,
+                35.0605
+              ],
+              [
+                60.8168,
+                37.4605
+              ],
+              [
+                58.416799999999995,
+                37.4605
+              ],
+              [
+                58.416799999999995,
+                35.0605
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Mashhad"
+        }
+      },
+      "population": 3001184,
+      "resource_type": "iron"
+    },
+    {
+      "id": 56,
+      "country_slug": "pk",
+      "name": "Karachi",
+      "slug": "karachi",
+      "lat": 24.8607,
+      "lng": 67.0011,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                65.80109999999999,
+                23.660700000000002
+              ],
+              [
+                68.2011,
+                23.660700000000002
+              ],
+              [
+                68.2011,
+                26.0607
+              ],
+              [
+                65.80109999999999,
+                26.0607
+              ],
+              [
+                65.80109999999999,
+                23.660700000000002
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Karachi"
+        }
+      },
+      "population": 14910352,
+      "resource_type": "oil"
+    },
+    {
+      "id": 57,
+      "country_slug": "pk",
+      "name": "Lahore",
+      "slug": "lahore",
+      "lat": 31.5204,
+      "lng": 74.3587,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                73.1587,
+                30.3204
+              ],
+              [
+                75.5587,
+                30.3204
+              ],
+              [
+                75.5587,
+                32.7204
+              ],
+              [
+                73.1587,
+                32.7204
+              ],
+              [
+                73.1587,
+                30.3204
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Lahore"
+        }
+      },
+      "population": 11126000,
+      "resource_type": "agriculture"
+    },
+    {
+      "id": 58,
+      "country_slug": "bd",
+      "name": "Dhaka",
+      "slug": "dhaka",
+      "lat": 23.8103,
+      "lng": 90.4125,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                89.21249999999999,
+                22.610300000000002
+              ],
+              [
+                91.6125,
+                22.610300000000002
+              ],
+              [
+                91.6125,
+                25.0103
+              ],
+              [
+                89.21249999999999,
+                25.0103
+              ],
+              [
+                89.21249999999999,
+                22.610300000000002
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Dhaka"
+        }
+      },
+      "population": 10280000,
+      "resource_type": "tourism"
+    },
+    {
+      "id": 59,
+      "country_slug": "bd",
+      "name": "Chittagong",
+      "slug": "chittagong",
+      "lat": 22.3569,
+      "lng": 91.7832,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                90.58319999999999,
+                21.1569
+              ],
+              [
+                92.9832,
+                21.1569
+              ],
+              [
+                92.9832,
+                23.5569
+              ],
+              [
+                90.58319999999999,
+                23.5569
+              ],
+              [
+                90.58319999999999,
+                21.1569
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Chittagong"
+        }
+      },
+      "population": 2581643,
+      "resource_type": "tech"
+    },
+    {
+      "id": 60,
+      "country_slug": "th",
+      "name": "Bangkok",
+      "slug": "bangkok",
+      "lat": 13.7563,
+      "lng": 100.5018,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                99.3018,
+                12.5563
+              ],
+              [
+                101.7018,
+                12.5563
+              ],
+              [
+                101.7018,
+                14.956299999999999
+              ],
+              [
+                99.3018,
+                14.956299999999999
+              ],
+              [
+                99.3018,
+                12.5563
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Bangkok"
+        }
+      },
+      "population": 10539000,
+      "resource_type": "gold"
+    },
+    {
+      "id": 61,
+      "country_slug": "th",
+      "name": "Chiang Mai",
+      "slug": "chiang-mai",
+      "lat": 18.7883,
+      "lng": 98.9853,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                97.78529999999999,
+                17.5883
+              ],
+              [
+                100.1853,
+                17.5883
+              ],
+              [
+                100.1853,
+                19.9883
+              ],
+              [
+                97.78529999999999,
+                19.9883
+              ],
+              [
+                97.78529999999999,
+                17.5883
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Chiang Mai"
+        }
+      },
+      "population": 127240,
+      "resource_type": "agriculture"
+    },
+    {
+      "id": 62,
+      "country_slug": "vn",
+      "name": "Ho Chi Minh City",
+      "slug": "ho-chi-minh-city",
+      "lat": 10.8231,
+      "lng": 106.6297,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                105.4297,
+                9.6231
+              ],
+              [
+                107.8297,
+                9.6231
+              ],
+              [
+                107.8297,
+                12.0231
+              ],
+              [
+                105.4297,
+                12.0231
+              ],
+              [
+                105.4297,
+                9.6231
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Ho Chi Minh City"
+        }
+      },
+      "population": 8993000,
+      "resource_type": "tech"
+    },
+    {
+      "id": 63,
+      "country_slug": "vn",
+      "name": "Hanoi",
+      "slug": "hanoi",
+      "lat": 21.0278,
+      "lng": 105.8342,
+      "polygon_json": {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                104.63419999999999,
+                19.8278
+              ],
+              [
+                107.0342,
+                19.8278
+              ],
+              [
+                107.0342,
+                22.2278
+              ],
+              [
+                104.63419999999999,
+                22.2278
+              ],
+              [
+                104.63419999999999,
+                19.8278
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "name": "Hanoi"
+        }
+      },
+      "population": 8053663,
+      "resource_type": "gas"
+    }
+  ]
+}

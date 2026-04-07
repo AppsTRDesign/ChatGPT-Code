@@ -1,0 +1,76 @@
+{
+  "toast": {
+    "login_required": "Please login first.",
+    "travel_started": "Travel started.",
+    "travel_reversed": "Travel canceled, return started.",
+    "buy_energy_success": "Energy purchased successfully.",
+    "unauthorized": "Unauthorized action.",
+    "not_enough_gold": "Not enough gold (need 1000).",
+    "request_failed": "Request failed.",
+    "arrived": "Arrival complete.",
+    "cancel_in_progress": "Canceling..."
+  },
+  "ui": {
+    "traveling": "Traveling",
+    "returning": "Returning",
+    "remaining": "remaining",
+    "cancel_travel": "Cancel Travel",
+    "canceling": "Canceling...",
+    "buy_energy": "Buy +100000 Total Energy (1000 Gold)",
+    "need_gold": "Need 1000 gold to buy energy",
+    "instant_energy": "Instant Energy",
+    "total_energy": "Total Energy Reserve",
+    "travel_to_region": "Travel to this region",
+    "starting_travel": "Starting travel..."
+  },
+  "auth": {
+    "login_title": "Welcome Back",
+    "login_sub": "Login to continue your geopolitical campaign.",
+    "email": "Email",
+    "password": "Password",
+    "password_hint": "Password (8+ chars)",
+    "login": "Login",
+    "logging_in": "Logging in...",
+    "login_failed": "Login failed.",
+    "login_success": "Login successful.",
+    "register_title": "Create Account",
+    "register_sub": "Join the geopolitical simulation.",
+    "username": "Username",
+    "create_account": "Create account",
+    "creating": "Creating...",
+    "register_failed": "Registration failed.",
+    "register_success": "Account created.",
+    "no_account": "No account?",
+    "register_here": "Register here",
+    "have_account": "Already have an account?",
+    "logout": "Logout"
+  },
+  "nav": {
+    "profile": "Profile",
+    "map": "Map"
+  },
+  "dash": {
+    "title": "World Dashboard",
+    "top_regions": "Top Regions",
+    "top_countries": "Top Countries",
+    "top_independents": "Top Independents",
+    "army": "Army",
+    "edu": "Edu",
+    "hosp": "Hosp",
+    "air": "Air",
+    "port": "Port",
+    "no_regions": "No regions",
+    "detail": "Detail"
+  },
+  "errors": {
+    "not_enough_gold": "Not enough gold.",
+    "not_enough_energy": "Not enough energy.",
+    "not_enough_coins": "Not enough coins.",
+    "already_traveling": "You already have an active travel.",
+    "invalid_region": "Invalid region.",
+    "no_active_travel": "No active travel found.",
+    "invalid_request": "Invalid request.",
+    "travel_failed": "Failed to start travel.",
+    "player_not_found": "Player not found."
+  }
+}
