@@ -11,7 +11,7 @@
   <div class="bar"><div id="xpBar" class="bar-fill"></div></div><small id="xpText" class="muted"></small>
   <div class="bar"><div id="enBar" class="bar-fill energy"></div></div><small id="enText" class="muted"></small>
   <p id="totalEnergyText" class="muted"></p>
-  <button id="buyEnergyBtn">Buy +100000 Total Energy (1000 Gold)</button>
+  <div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input id="energyAmountInput" type="number" min="1" step="1" value="100000" style="max-width:180px"><button id="buyEnergyBtn">Buy Energy with Gold</button></div><small id="buyEnergyHint" class="muted"></small>
   <hr>
   <h3>Travel</h3>
   <div id="travelCard" class="muted">No active travel.</div>
@@ -44,9 +44,12 @@ async function load(){
   const xpPct=Math.round((p.xp/p.xp_to_next)*100); xpBar.style.width=`${xpPct}%`; xpText.textContent=`XP ${p.xp}/${p.xp_to_next}`;
   const ePct=Math.round((p.instant_energy/p.max_instant_energy)*100); enBar.style.width=`${ePct}%`; enText.textContent=`Instant Energy ${p.instant_energy}/${p.max_instant_energy}`;
   totalEnergyText.textContent = `Total Energy Reserve: ${Number(p.total_energy).toFixed(0)}`;
-  const canBuyEnergy = Number(p.gold) >= 1000;
+  const requested = Math.max(1, Number(energyAmountInput.value||100000));
+  const estimatedGold = Math.ceil((requested * 1000) / 100000);
+  buyEnergyHint.textContent = `Cost: ${estimatedGold} gold for +${requested} total energy`;
+  const canBuyEnergy = Number(p.gold) >= estimatedGold;
   buyEnergyBtn.disabled = !canBuyEnergy;
-  buyEnergyBtn.textContent = canBuyEnergy ? t('ui.buy_energy','Buy +100000 Total Energy (1000 Gold)') : t('ui.need_gold','Need 1000 gold to buy energy');
+  buyEnergyBtn.textContent = canBuyEnergy ? t('ui.buy_energy','Buy Energy with Gold') : `Need ${estimatedGold} gold`;
   if(p.is_traveling && p.travel){
     const t=p.travel; cancelBtn.style.display='block';
     const st=t.status==='returning'?tLang('ui.returning','Returning'):tLang('ui.traveling','Traveling');
@@ -66,13 +69,13 @@ cancelBtn.onclick=async()=>{
   isCanceling=false;cancelBtn.disabled=false;cancelBtn.textContent=t('ui.cancel_travel','Cancel Travel');load();
 };
 buyEnergyBtn.onclick=async()=>{
-  const res=await fetch('/api/player/me'); if(!res.ok){toast('Unauthorized',true);return;}
-  const p=(await res.json()).data;
-  if(Number(p.gold)<1000){toast(t('toast.not_enough_gold','Not enough gold (need 1000).'),true);return;}
-  const r=await fetch('/api/player/buy-energy',{method:'POST'});const j=await r.json();
+  const requested = Math.max(1, Number(energyAmountInput.value||100000));
+  const r=await fetch('/api/player/buy-energy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({energy_amount:requested})});
+  const j=await r.json();
   if(j.error){toast(j.message||t(`errors.${j.error}`,j.error),true);return;}
   toast(j.message||t('toast.buy_energy_success','Energy purchased successfully.'));load();
 };
+energyAmountInput.oninput=()=>load();
 langSelect.onchange=()=>{LANG=langSelect.value||'en'; loadLang().then(load);};
 setInterval(load,1000); loadLang().then(load);
 </script></body></html>

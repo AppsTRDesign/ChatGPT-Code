@@ -213,9 +213,11 @@ final class PlayerService
         return $this->playerModel->travelHistory($userId);
     }
 
-    public function buyEnergy(int $userId): array
+    public function buyEnergy(int $userId, int $energyAmount): array
     {
-        $ok = $this->playerModel->buyEnergyWithGold($userId, self::BUY_ENERGY_GOLD_COST, self::BUY_ENERGY_TOTAL_AMOUNT);
+        $energyAmount = max(1, $energyAmount);
+        $goldCost = (int) ceil(($energyAmount * self::BUY_ENERGY_GOLD_COST) / self::BUY_ENERGY_TOTAL_AMOUNT);
+        $ok = $this->playerModel->buyEnergyWithGold($userId, $goldCost, $energyAmount);
         if (!$ok) {
             throw new RuntimeException('not_enough_gold');
         }
@@ -224,8 +226,8 @@ final class PlayerService
             throw new RuntimeException('Player profile not found');
         }
         return [
-            'gold_spent' => self::BUY_ENERGY_GOLD_COST,
-            'total_energy_added' => self::BUY_ENERGY_TOTAL_AMOUNT,
+            'gold_spent' => $goldCost,
+            'total_energy_added' => $energyAmount,
             'instant_energy' => (int) $profile['instant_energy'],
             'max_instant_energy' => (int) $profile['max_instant_energy'],
             'total_energy' => (int) $profile['total_energy'],

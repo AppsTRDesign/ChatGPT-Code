@@ -66,7 +66,9 @@ final class PlayerController
     {
         $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
         try {
-            $result = $this->playerService->buyEnergy($userId);
+            $payload = $request->json();
+            $energyAmount = (int) ($payload['energy_amount'] ?? 100000);
+            $result = $this->playerService->buyEnergy($userId, $energyAmount);
             Response::json(['success' => true, 'message' => tr('toast.buy_energy_success'), 'data' => $result]);
         } catch (RuntimeException $e) {
             $code = $this->normalizeErrorCode($e->getMessage());
