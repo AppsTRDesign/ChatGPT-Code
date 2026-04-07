@@ -14,12 +14,13 @@ $pdo->beginTransaction();
 $pdo->exec('DELETE FROM regions');
 $pdo->exec('DELETE FROM countries');
 
-$countryStmt = $pdo->prepare('INSERT INTO countries(id,name,slug,flag_url,color,government_type,created_at) VALUES(:id,:name,:slug,:flag_url,:color,:government_type,NOW())');
+$countryStmt = $pdo->prepare('INSERT INTO countries(id,name,slug,iso_code,flag_url,color,government_type,created_at) VALUES(:id,:name,:slug,:iso_code,:flag_url,:color,:government_type,NOW())');
 foreach ($data['countries'] as $country) {
     $countryStmt->execute([
         'id' => $country['id'],
         'name' => $country['name'],
         'slug' => $country['slug'],
+        'iso_code' => strtoupper((string) $country['slug']),
         'flag_url' => $country['flag_url'],
         'color' => $country['color'],
         'government_type' => $country['government_type'],

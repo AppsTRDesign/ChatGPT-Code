@@ -13,9 +13,10 @@ sudo systemctl enable --now mariadb httpd
 cd /var/www/vhosts/noasoft.org/game.noasoft.org
 cp -r /path/to/repo/* .
 cp .env.example .env
+composer install --no-dev --optimize-autoloader
 ```
 
-Update `.env` with DB credentials.
+Update `.env` with DB credentials + geo settings.
 
 ## 3) Create database and user
 
@@ -30,6 +31,7 @@ FLUSH PRIVILEGES;
 
 ```bash
 mysql -u mmo_user -p mmo_game < database/migrations/001_schema.sql
+mysql -u mmo_user -p mmo_game < database/migrations/002_geo_columns.sql
 php database/seed_world.php
 ```
 

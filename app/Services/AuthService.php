@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\MapModel;
-use App\Models\PlayerModel;
+use App\Core\Database;
 use App\Models\TokenModel;
 use App\Models\UserModel;
 use RuntimeException;
@@ -15,8 +14,7 @@ final class AuthService
     public function __construct(
         private readonly UserModel $userModel = new UserModel(),
         private readonly TokenModel $tokenModel = new TokenModel(),
-        private readonly PlayerModel $playerModel = new PlayerModel(),
-        private readonly MapModel $mapModel = new MapModel()
+        private readonly LocationService $locationService = new LocationService()
     ) {
     }
 
@@ -27,15 +25,19 @@ final class AuthService
         }
 
         $hash = password_hash($password, PASSWORD_BCRYPT);
-        $userId = $this->userModel->create($username, $email, $hash);
+        $pdo = Database::connection();
 
-        $regions = $this->mapModel->regions();
-        if (count($regions) === 0) {
-            throw new RuntimeException('No regions seeded in database');
+        try {
+            $pdo->beginTransaction();
+            $userId = $this->userModel->create($username, $email, $hash);
+            $this->locationService->assignPlayerLocation($userId);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw new RuntimeException('Registration failed: ' . $e->getMessage());
         }
-        $spawnRegion = $regions[array_rand($regions)];
-        $this->playerModel->createProfile($userId, (int) $spawnRegion['id'], (int) $spawnRegion['country_id']);
-        $this->playerModel->createCitizenship($userId, (int) $spawnRegion['country_id']);
 
         return $this->issueToken($userId);
     }
