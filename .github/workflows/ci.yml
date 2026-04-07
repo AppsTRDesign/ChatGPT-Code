@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  backend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.2'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Backend lint
+        working-directory: backend
+        run: npm run lint
+
+  backend-test:
+    needs: backend-lint
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: noasoft_game
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h localhost -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: noasoft_game
+      JWT_ACCESS_SECRET: ci_access_secret
+      JWT_REFRESH_SECRET: ci_refresh_secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.2'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Install MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y mariadb-client
+
+      - name: Wait for DB
+        run: |
+          for i in {1..30}; do
+            mariadb -h 127.0.0.1 -uroot -proot -e "SELECT 1" && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Load schema + seed
+        run: |
+          mariadb -h 127.0.0.1 -uroot -proot noasoft_game < backend/database/schema.sql
+          mariadb -h 127.0.0.1 -uroot -proot noasoft_game < backend/database/seeds/001_base_languages.sql
+          mariadb -h 127.0.0.1 -uroot -proot noasoft_game < backend/database/seeds/generated/002_world_bootstrap.sql
+
+      - name: Unit tests
+        working-directory: backend
+        run: npm test
+
+      - name: Integration tests
+        working-directory: backend
+        run: npm run test:integration
+
+  frontend-lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.2'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Frontend lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build
+
+  frontend-e2e:
+    needs: frontend-lint-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.20.2'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: npm run test:e2e

@@ -1,0 +1,89 @@
+const express = require('express');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+
+const env = require('../config/env');
+const authRoutes = require('../modules/auth/auth.routes');
+const usersRoutes = require('../modules/users/users.routes');
+const mapRoutes = require('../modules/map/map.routes');
+const countriesRoutes = require('../modules/countries/countries.routes');
+const citiesRoutes = require('../modules/cities/cities.routes');
+const statsRoutes = require('../modules/stats/stats.routes');
+const travelRoutes = require('../modules/travel/travel.routes');
+const governorsRoutes = require('../modules/governors/governors.routes');
+const politicsRoutes = require('../modules/politics/politics.routes');
+const economyRoutes = require('../modules/economy/economy.routes');
+const warRoutes = require('../modules/war/war.routes');
+const chatRoutes = require('../modules/chat/chat.routes');
+const notificationsRoutes = require('../modules/notifications/notifications.routes');
+const realtimeRoutes = require('../modules/realtime/realtime.routes');
+const regionsRoutes = require('../modules/regions/regions.routes');
+const inventoryRoutes = require('../modules/inventory/inventory.routes');
+const adminRoutes = require('../modules/admin/admin.routes');
+const { getEnabledLanguageCodes, detectLanguageFromHeaders, resolveLanguagePreference } = require('../modules/i18n/i18n.service');
+
+const app = express();
+
+app.use(cors({ origin: env.corsOrigin, credentials: true }));
+app.use(express.json());
+app.use(cookieParser());
+
+app.use(async function (req, res, next) {
+  try {
+    const enabled = await getEnabledLanguageCodes();
+    const headerDetected = detectLanguageFromHeaders(req.headers['accept-language'], enabled);
+    const resolved = resolveLanguagePreference({
+      userPreferred: req.headers['x-user-language'],
+      guestOverride: req.headers['x-guest-language'],
+      headerDetected: headerDetected,
+      enabledCodes: enabled
+    });
+
+    req.language = resolved;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/v1/health', function (req, res) {
+  res.status(200).json({ ok: true, environment: env.nodeEnv, language: req.language });
+});
+
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/map', mapRoutes);
+app.use('/api/v1/countries', countriesRoutes);
+app.use('/api/v1/cities', citiesRoutes);
+app.use('/api/v1/stats', statsRoutes);
+app.use('/api/v1/travel', travelRoutes);
+app.use('/api/v1/governors', governorsRoutes);
+app.use('/api/v1/politics', politicsRoutes);
+app.use('/api/v1/economy', economyRoutes);
+app.use('/api/v1/war', warRoutes);
+app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/notifications', notificationsRoutes);
+app.use('/api/v1/realtime', realtimeRoutes);
+app.use('/api/v1/regions', regionsRoutes);
+app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/admin', adminRoutes);
+
+app.use(function (req, res) {
+  res.status(404).json({ ok: false, error: 'Not Found' });
+});
+
+app.use(function (err, req, res, next) {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+
+  const status = err.status || 500;
+  res.status(status).json({
+    ok: false,
+    error: err.message || 'Internal server error',
+    details: err.details || null
+  });
+});
+
+module.exports = app;
