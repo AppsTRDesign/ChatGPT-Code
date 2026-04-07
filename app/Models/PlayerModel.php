@@ -135,21 +135,22 @@ final class PlayerModel
         return $stmt->fetch() ?: null;
     }
 
-    public function createTravel(int $userId, int $fromRegionId, int $toRegionId, float $distanceKm, int $durationSeconds): array
+    public function createTravel(int $userId, int $fromRegionId, int $toRegionId, float $distanceKm, int $costCoins, int $durationSeconds): array
     {
         $start = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $end = $start->modify('+' . $durationSeconds . ' seconds');
 
         $stmt = Database::connection()->prepare(
-            'INSERT INTO player_travel(user_id,from_region_id,to_region_id,distance_km,duration_seconds,start_time,end_time,status,created_at)
-             VALUES(:user_id,:from_region_id,:to_region_id,:distance_km,:duration_seconds,:start_time,:end_time,"traveling",NOW())
-             ON DUPLICATE KEY UPDATE from_region_id=VALUES(from_region_id),to_region_id=VALUES(to_region_id),distance_km=VALUES(distance_km),duration_seconds=VALUES(duration_seconds),start_time=VALUES(start_time),end_time=VALUES(end_time),status="traveling"'
+            'INSERT INTO player_travel(user_id,from_region_id,to_region_id,distance_km,cost_coins,duration_seconds,start_time,end_time,status,created_at)
+             VALUES(:user_id,:from_region_id,:to_region_id,:distance_km,:cost_coins,:duration_seconds,:start_time,:end_time,"traveling",NOW())
+             ON DUPLICATE KEY UPDATE from_region_id=VALUES(from_region_id),to_region_id=VALUES(to_region_id),distance_km=VALUES(distance_km),cost_coins=VALUES(cost_coins),duration_seconds=VALUES(duration_seconds),start_time=VALUES(start_time),end_time=VALUES(end_time),status="traveling"'
         );
         $stmt->execute([
             'user_id' => $userId,
             'from_region_id' => $fromRegionId,
             'to_region_id' => $toRegionId,
             'distance_km' => $distanceKm,
+            'cost_coins' => $costCoins,
             'duration_seconds' => $durationSeconds,
             'start_time' => $start->format('Y-m-d H:i:s'),
             'end_time' => $end->format('Y-m-d H:i:s'),
@@ -159,6 +160,7 @@ final class PlayerModel
             'from_region_id' => $fromRegionId,
             'to_region_id' => $toRegionId,
             'distance_km' => round($distanceKm, 2),
+            'cost_coins' => $costCoins,
             'duration_seconds' => $durationSeconds,
             'start_time' => $start->format(DATE_ATOM),
             'end_time' => $end->format(DATE_ATOM),

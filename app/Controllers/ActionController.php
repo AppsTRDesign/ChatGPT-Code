@@ -34,7 +34,7 @@ final class ActionController
             $error = $e->getMessage();
             $status = match ($error) {
                 'unauthorized' => 401,
-                'invalid_action', 'invalid_region', 'same_region', 'already_traveling', 'not_enough_energy', 'not_enough_coins', 'not_enough_resources' => 400,
+                'invalid_action', 'invalid_region', 'same_region', 'already_traveling', 'Already traveling', 'not_enough_energy', 'not_enough_coins', 'Not enough coins', 'not_enough_resources' => 400,
                 default => 400,
             };
             Response::json(['error' => $error], $status);

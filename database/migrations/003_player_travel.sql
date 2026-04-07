@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS player_travel (
     from_region_id INT NOT NULL,
     to_region_id INT NOT NULL,
     distance_km DECIMAL(10,2) NOT NULL,
+    cost_coins INT NOT NULL,
     duration_seconds INT NOT NULL,
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,

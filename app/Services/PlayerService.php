@@ -44,7 +44,7 @@ final class PlayerService
         $me = $this->playerModel->me($userId);
 
         if ($this->playerModel->activeTravel($userId)) {
-            throw new RuntimeException('already_traveling');
+            throw new RuntimeException('Already traveling');
         }
 
         $fromRegionId = (int) $me['current_region_id'];
@@ -60,21 +60,21 @@ final class PlayerService
 
         $distance = $this->distanceKm((float) $fromRegion['lat'], (float) $fromRegion['lng'], (float) $destination['lat'], (float) $destination['lng']);
         $durationSeconds = max(5, (int) round(($distance / self::TRAVEL_SPEED_KMH) * 3600));
-        $coinCost = max(10.0, round($distance * 0.5, 2));
+        $coinCost = max(10, (int) ceil($distance * 0.5));
 
         if ((int) $me['energy'] < self::TRAVEL_ENERGY_COST) {
             throw new RuntimeException('not_enough_energy');
         }
         if ((float) $me['coins'] < $coinCost) {
-            throw new RuntimeException('not_enough_coins');
+            throw new RuntimeException('Not enough coins');
         }
 
         $spent = $this->playerModel->spendForTravel($userId, self::TRAVEL_ENERGY_COST, $coinCost);
         if (!$spent) {
-            throw new RuntimeException('not_enough_resources');
+            throw new RuntimeException('Not enough coins');
         }
 
-        $travel = $this->playerModel->createTravel($userId, $fromRegionId, $toRegionId, $distance, $durationSeconds);
+        $travel = $this->playerModel->createTravel($userId, $fromRegionId, $toRegionId, $distance, $coinCost, $durationSeconds);
         $travel['energy_cost'] = self::TRAVEL_ENERGY_COST;
         $travel['cost_coins'] = $coinCost;
 
