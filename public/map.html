@@ -2,50 +2,134 @@
 <html>
 <head>
 <meta charset="utf-8"><title>World Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="/styles.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <div id="map"></div>
-<div class="map-panel">
-  <h3>Region Info</h3>
-  <div id="regionInfo">Click a region.</div>
-  <button id="travelBtn" disabled>Travel Here</button>
-  <p><a href="/dashboard.html">Back dashboard</a></p>
+<div id="toast" class="toast"></div>
+<div id="sheet" class="action-sheet">
+  <div class="sheet-handle"></div>
+  <button class="sheet-close" id="closeSheet">×</button>
+  <h3 id="regionTitle">Region</h3>
+  <p id="regionMeta"></p>
+  <button id="travelBtn" class="primary-btn">Travel to this region</button>
 </div>
+<a class="map-back" href="/dashboard.html">Dashboard</a>
 <script>
-let selectedRegion = null, me = null, token = localStorage.getItem('token');
+let selectedRegion = null;
+let me = null;
+let token = localStorage.getItem('token');
+const layers = new Map();
+let currentRegionId = null;
+let selectedRegionId = null;
+let marker = null;
+let isActing = false;
+
 if(!token) location.href='/login.html';
+
 const map = L.map('map').setView([20,0],2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
-let marker;
+
+const sheet = document.getElementById('sheet');
+const toast = document.getElementById('toast');
+
 async function api(url, opts={}){
   opts.headers = {...(opts.headers||{}), Authorization:`Bearer ${token}`};
-  const r = await fetch(url,opts); return r.json();
+  const r = await fetch(url,opts);
+  return r.json();
 }
+
+function showToast(message, error=false){
+  toast.textContent = message;
+  toast.className = `toast show ${error ? 'error' : ''}`;
+  setTimeout(()=> toast.className = 'toast', 2200);
+}
+
+function openSheet(region){
+  selectedRegion = region;
+  selectedRegionId = region.id;
+  regionTitle.textContent = `${region.name}, ${region.country_name}`;
+  regionMeta.innerHTML = `Owner: ${region.owner_country_name || region.country_name}<br>Resource: ${region.resource_type}<br>Population: ${region.population}`;
+  travelBtn.disabled = isActing || currentRegionId === region.id;
+  sheet.classList.add('open');
+  refreshStyles();
+}
+
+function closeSheet(){
+  sheet.classList.remove('open');
+  selectedRegionId = null;
+  refreshStyles();
+}
+
+function styleFor(region){
+  const isCurrent = currentRegionId === region.id;
+  const isSelected = selectedRegionId === region.id;
+  return {
+    color: isSelected ? '#ffffff' : region.country_color,
+    fillColor: region.country_color,
+    fillOpacity: isCurrent ? 0.75 : 0.38,
+    weight: isCurrent ? 3 : (isSelected ? 3 : 1)
+  };
+}
+
+function refreshStyles(){
+  layers.forEach((obj, id)=>{
+    obj.layer.setStyle(styleFor(obj.region));
+  });
+}
+
 async function load(){
   me = (await api('/api/player/me')).data;
+  currentRegionId = Number(me.current_region_id);
   const regions = (await fetch('/api/map/regions').then(r=>r.json())).data;
+
   regions.forEach(region=>{
     const geo = JSON.parse(region.polygon_json);
-    const layer = L.geoJSON(geo,{style:{color: region.country_color, fillColor: region.country_color, fillOpacity:0.4, weight: me.current_region_id==region.id?3:1}}).addTo(map);
-    layer.on('click',()=>{
-      selectedRegion = region;
-      regionInfo.innerHTML = `<b>${region.name}</b><br>Country: ${region.country_name}<br>Owner: ${region.owner_country_name||region.country_name}<br>Resource: ${region.resource_type}`;
-      travelBtn.disabled = me.current_region_id == region.id;
-    });
+    const layer = L.geoJSON(geo,{style: styleFor(region)}).addTo(map);
+    layer.on('click',()=> openSheet(region));
+    layers.set(region.id,{layer,region});
   });
-  marker = L.circleMarker([me.current_region_lat || 0, me.current_region_lng || 0],{radius:8,color:'#fff'}).addTo(map);
-  const current = regions.find(r=>r.id==me.current_region_id);
-  if(current){ marker.setLatLng([current.lat,current.lng]); map.setView([current.lat,current.lng],5); }
+
+  const current = regions.find(r=>Number(r.id)===currentRegionId);
+  marker = L.circleMarker([current?.lat || 0, current?.lng || 0],{radius:8,color:'#fff',fillColor:'#0ea5e9',fillOpacity:1}).addTo(map);
+  if(current) map.setView([current.lat,current.lng],5);
 }
+
 travelBtn.onclick = async ()=>{
-  if(!selectedRegion) return;
-  const res = await api('/api/player/travel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_region_id:selectedRegion.id})});
-  if(res.error){ alert(res.error); return; }
-  alert('Travel completed'); location.reload();
+  if(!selectedRegion || isActing) return;
+  isActing = true;
+  travelBtn.textContent = 'Traveling...';
+  travelBtn.disabled = true;
+  const result = await api('/api/region/action',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({region_id:selectedRegion.id, action:'travel'})
+  });
+  if(result.error){
+    showToast(result.error, true);
+    isActing = false;
+    travelBtn.textContent = 'Travel to this region';
+    travelBtn.disabled = currentRegionId === selectedRegion.id;
+    return;
+  }
+
+  currentRegionId = Number(result.new_region_id);
+  const currentRegion = layers.get(currentRegionId)?.region;
+  if(currentRegion){
+    marker.setLatLng([currentRegion.lat,currentRegion.lng]);
+    map.panTo([currentRegion.lat,currentRegion.lng]);
+  }
+  refreshStyles();
+  closeSheet();
+  isActing = false;
+  travelBtn.textContent = 'Travel to this region';
+  showToast(result.message || 'Action completed');
 };
+
+closeSheet.onclick = closeSheet;
 load();
 </script>
 </body></html>

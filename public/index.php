@@ -18,6 +18,7 @@ spl_autoload_register(function (string $class): void {
     }
 });
 
+use App\Controllers\ActionController;
 use App\Controllers\AuthController;
 use App\Controllers\MapController;
 use App\Controllers\PlayerController;
@@ -32,6 +33,7 @@ $auth = new AuthMiddleware();
 authRoutes($router);
 mapRoutes($router);
 playerRoutes($router, $auth);
+actionRoutes($router, $auth);
 $router->dispatch($request);
 
 function authRoutes(Router $router): void
@@ -54,4 +56,10 @@ function playerRoutes(Router $router, AuthMiddleware $auth): void
     $router->add('GET', '/api/player/me', fn($req) => $controller->me($req), [fn($req) => $auth->handle($req)]);
     $router->add('POST', '/api/player/travel', fn($req) => $controller->travel($req), [fn($req) => $auth->handle($req)]);
     $router->add('GET', '/api/player/travel-history', fn($req) => $controller->travelHistory($req), [fn($req) => $auth->handle($req)]);
+}
+
+function actionRoutes(Router $router, AuthMiddleware $auth): void
+{
+    $controller = new ActionController();
+    $router->add('POST', '/api/region/action', fn($req) => $controller->regionAction($req), [fn($req) => $auth->handle($req)]);
 }
