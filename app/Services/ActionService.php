@@ -58,8 +58,8 @@ final class ActionService
         return [
             'success' => true,
             'action' => 'travel',
-            'message' => 'Travel completed',
-            'new_region_id' => (int) $travel['to_region_id'],
+            'message' => 'Travel started',
+            'travel' => $travel['travel'],
         ];
     }
 }

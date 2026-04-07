@@ -16,7 +16,9 @@ final class MapModel
 
     public function regions(): array
     {
-        $sql = 'SELECT r.id,r.country_id,r.name,r.slug,r.lat,r.lng,r.polygon_json,r.population,r.resource_type,r.owner_country_id,
+        $sql = 'SELECT r.id,r.country_id,r.name,r.slug,r.lat,r.lng,r.polygon_json,
+                (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_region_id = r.id) AS population,
+                r.resource_type,r.owner_country_id,
                 c.name AS country_name,c.color AS country_color,oc.name AS owner_country_name
                 FROM regions r
                 JOIN countries c ON c.id = r.country_id

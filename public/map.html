@@ -6,10 +6,13 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="/styles.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
 <div id="map"></div>
+<div id="sheetBackdrop" class="sheet-backdrop"></div>
 <div id="toast" class="toast"></div>
+<div id="travelStatus" class="travel-status" style="display:none"></div>
 <div id="sheet" class="action-sheet">
   <div class="sheet-handle"></div>
   <button class="sheet-close" id="closeSheet">×</button>
@@ -27,16 +30,22 @@
 let selectedRegion = null;
 let me = null;
 let isAuthed = false;
+let activeTravel = null;
 const layers = new Map();
 let currentRegionId = null;
 let selectedRegionId = null;
 let marker = null;
+let routeLine = null;
+let planeMarker = null;
+let countdownTimer = null;
 let isActing = false;
 
 const map = L.map('map').setView([20,0],2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
 const sheet = document.getElementById('sheet');
+const backdrop = document.getElementById('sheetBackdrop');
 const toastEl = document.getElementById('toast');
+const travelStatusEl = document.getElementById('travelStatus');
 
 function updateNavMode() {
   dashLink.style.display = isAuthed ? 'inline-block' : 'none';
@@ -60,14 +69,16 @@ function openSheet(region){
   selectedRegionId = Number(region.id);
   regionTitle.textContent = `${region.name}, ${region.country_name}`;
   regionMeta.innerHTML = `Owner: ${region.owner_country_name || region.country_name}<br>Resource: ${region.resource_type}<br>Population: ${region.population}`;
-  modeHint.textContent = isAuthed ? '' : 'Login to interact with this region.';
-  travelBtn.disabled = !isAuthed || isActing || currentRegionId === Number(region.id);
+  modeHint.textContent = !isAuthed ? 'Login to interact with this region.' : activeTravel ? 'Travel already in progress.' : '';
+  travelBtn.disabled = !isAuthed || isActing || !!activeTravel || currentRegionId === Number(region.id);
   sheet.classList.add('open');
+  backdrop.classList.add('open');
   refreshStyles();
 }
 
 function closeSheet(){
   sheet.classList.remove('open');
+  backdrop.classList.remove('open');
   selectedRegionId = null;
   refreshStyles();
 }
@@ -88,6 +99,83 @@ function refreshStyles(){
   layers.forEach((obj)=> obj.layer.setStyle(styleFor(obj.region)));
 }
 
+function fmt(sec){
+  const m = String(Math.floor(sec/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+function drawTravel(travel){
+  clearTravelVisuals();
+  activeTravel = travel;
+
+  const from = layers.get(Number(travel.from_region_id))?.region;
+  const to = layers.get(Number(travel.to_region_id))?.region;
+  if(!from || !to) return;
+
+  routeLine = L.polyline([[from.lat, from.lng],[to.lat,to.lng]],{color:'#60a5fa',dashArray:'8,8',weight:3}).addTo(map);
+  planeMarker = L.marker([from.lat, from.lng], {
+    icon: L.divIcon({className:'',html:'✈️',iconSize:[20,20]})
+  }).addTo(map);
+
+  updateTravelVisuals();
+  countdownTimer = setInterval(updateTravelVisuals, 1000);
+}
+
+function updateTravelVisuals(){
+  if(!activeTravel) return;
+  const from = layers.get(Number(activeTravel.from_region_id))?.region;
+  const to = layers.get(Number(activeTravel.to_region_id))?.region;
+  if(!from || !to) return;
+
+  const start = new Date(activeTravel.start_time).getTime();
+  const end = new Date(activeTravel.end_time).getTime();
+  const now = Date.now();
+  const progress = Math.min(1, Math.max(0, (now-start)/(end-start)));
+
+  const lat = Number(from.lat) + (Number(to.lat)-Number(from.lat))*progress;
+  const lng = Number(from.lng) + (Number(to.lng)-Number(from.lng))*progress;
+  if (planeMarker) planeMarker.setLatLng([lat,lng]);
+
+  const remaining = Math.max(0, Math.ceil((end-now)/1000));
+  travelStatusEl.style.display = 'block';
+  travelStatusEl.textContent = `Traveling to ${to.name} • Arriving in ${fmt(remaining)}`;
+
+  if (remaining <= 0) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+    completeTravelCheck();
+  }
+}
+
+async function completeTravelCheck(){
+  const meRes = await fetch('/api/player/me');
+  if(!meRes.ok) return;
+  const payload = await meRes.json();
+  if(payload.data){
+    currentRegionId = Number(payload.data.current_region_id);
+    activeTravel = payload.data.active_travel;
+    if(!activeTravel){
+      clearTravelVisuals();
+      const currentRegion = layers.get(currentRegionId)?.region;
+      if(currentRegion && marker){
+        marker.setLatLng([currentRegion.lat,currentRegion.lng]);
+        map.panTo([currentRegion.lat,currentRegion.lng]);
+      }
+      refreshStyles();
+      showToast(`Arrived at ${currentRegion?.name || 'destination'}`);
+    }
+  }
+}
+
+function clearTravelVisuals(){
+  if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
+  if(planeMarker){ map.removeLayer(planeMarker); planeMarker = null; }
+  if(countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
+  travelStatusEl.style.display = activeTravel ? 'block' : 'none';
+  if(!activeTravel) travelStatusEl.textContent = '';
+}
+
 async function load(){
   const meRes = await fetch('/api/player/me');
   if (meRes.ok) {
@@ -96,6 +184,7 @@ async function load(){
       me = parsed.data;
       isAuthed = true;
       currentRegionId = Number(me.current_region_id);
+      activeTravel = me.active_travel || null;
     }
   }
   updateNavMode();
@@ -113,13 +202,17 @@ async function load(){
     marker = L.circleMarker([current?.lat || 0, current?.lng || 0],{radius:8,color:'#fff',fillColor:'#0ea5e9',fillOpacity:1}).addTo(map);
     if (current) map.setView([current.lat,current.lng],5);
   }
+
+  if(activeTravel){
+    drawTravel(activeTravel);
+  }
 }
 
 travelBtn.onclick = async ()=>{
   if (!isAuthed) { showToast('Please login first', true); return; }
-  if(!selectedRegion || isActing) return;
+  if(!selectedRegion || isActing || activeTravel) return;
   isActing = true;
-  travelBtn.textContent = 'Traveling...';
+  travelBtn.textContent = 'Starting travel...';
   travelBtn.disabled = true;
 
   const result = await api('/api/region/action',{
@@ -131,23 +224,33 @@ travelBtn.onclick = async ()=>{
   if(result.error){
     showToast(result.error, true);
   } else {
-    currentRegionId = Number(result.new_region_id);
-    const currentRegion = layers.get(currentRegionId)?.region;
-    if(currentRegion && marker){
-      marker.setLatLng([currentRegion.lat,currentRegion.lng]);
-      map.panTo([currentRegion.lat,currentRegion.lng]);
-    }
-    refreshStyles();
+    activeTravel = result.travel;
+    drawTravel(activeTravel);
     closeSheet();
-    showToast(result.message || 'Action completed');
+    showToast('Travel started');
   }
 
   isActing = false;
   travelBtn.textContent = 'Travel to this region';
-  travelBtn.disabled = !isAuthed || (selectedRegion && currentRegionId === Number(selectedRegion.id));
 };
 
+function initSocket(){
+  try {
+    const socket = io('http://127.0.0.1:3001', { transports:['websocket'], withCredentials:false });
+    socket.on('travel_progress', (evt)=> {
+      if(!activeTravel || Number(evt.user_id) !== Number(me?.id)) return;
+      if(evt.remaining_seconds <= 1){
+        completeTravelCheck();
+      }
+    });
+    socket.on('travel_complete', (evt)=> {
+      if(Number(evt.user_id) === Number(me?.id)) completeTravelCheck();
+    });
+  } catch (_) {}
+}
+
 closeSheet.onclick = closeSheet;
-load();
+backdrop.onclick = closeSheet;
+load().then(initSocket);
 </script>
 </body></html>

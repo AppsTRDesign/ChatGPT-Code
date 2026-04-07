@@ -32,6 +32,7 @@ FLUSH PRIVILEGES;
 ```bash
 mysql -u mmo_user -p mmo_game < database/migrations/001_schema.sql
 mysql -u mmo_user -p mmo_game < database/migrations/002_geo_columns.sql
+mysql -u mmo_user -p mmo_game < database/migrations/003_player_travel.sql
 php database/seed_world.php
 ```
 
@@ -42,4 +43,13 @@ Point vhost document root to `/var/www/vhosts/noasoft.org/game.noasoft.org/publi
 
 ```bash
 curl -s https://game.noasoft.org/api/map/regions
+```
+
+
+## 7) Realtime travel socket server
+
+```bash
+cd realtime
+npm install
+DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=mmo_user DB_PASS=change_me DB_NAME=mmo_game node server.js
 ```

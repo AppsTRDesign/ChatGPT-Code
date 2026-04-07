@@ -30,9 +30,9 @@ echo "valid travel action passed"
 
 same=$(curl -s -b "$COOKIE_JAR" -X POST "$BASE_URL/api/region/action" -H 'Content-Type: application/json' -d "$valid_payload")
 same_err=$(php -r '$j=json_decode($argv[1],true); echo $j["error"] ?? "";' "$same")
-[[ "$same_err" == "same_region" ]] || { echo "same region prevention failed"; exit 1; }
+[[ "$same_err" == "already_traveling" ]] || { echo "travel lock test failed"; exit 1; }
 
-echo "same region prevention passed"
+echo "travel lock test passed"
 
 bad=$(curl -s -b "$COOKIE_JAR" -X POST "$BASE_URL/api/region/action" -H 'Content-Type: application/json' -d '{"region_id":999999,"action":"travel"}')
 bad_err=$(php -r '$j=json_decode($argv[1],true); echo $j["error"] ?? "";' "$bad")

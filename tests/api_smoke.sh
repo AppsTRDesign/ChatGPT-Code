@@ -33,6 +33,6 @@ JSON
 )
 TRAVEL=$(curl -s -b "$COOKIE_JAR" -X POST "$BASE_URL/api/player/travel" -H 'Content-Type: application/json' -d "$TRAVEL_PAYLOAD")
 STATUS=$(php -r '$j=json_decode($argv[1],true); echo $j["data"]["status"] ?? "";' "$TRAVEL")
-[[ "$STATUS" == "completed" ]] || { echo "Travel validation test failed"; exit 1; }
+[[ "$STATUS" == "traveling" ]] || { echo "Travel validation test failed"; exit 1; }
 
 echo "Travel validation test passed"
