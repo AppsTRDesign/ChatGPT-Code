@@ -288,9 +288,13 @@ async function completeTravelCheck(){
   if(!meRes.ok) return;
   const payload = await meRes.json();
   if(payload.data){
+    const prevTravel = activeTravel;
     currentRegionId = Number(payload.data.current_region_id);
     activeTravel = payload.data.active_travel;
     if(!activeTravel){
+      const destinationId = finalDestinationFromTravel(prevTravel);
+      const fromId = prevTravel ? Number(prevTravel.from_region_id) : 0;
+      if (destinationId) applyPopulationTransfer(fromId, destinationId);
       clearTravelVisuals();
       const currentRegion = layers.get(currentRegionId)?.region;
       if(currentRegion && marker){
@@ -299,6 +303,31 @@ async function completeTravelCheck(){
       }
       refreshStyles();
       showToast(t('toast.arrived', 'Arrival complete.'));
+    }
+  }
+}
+
+
+function finalDestinationFromTravel(travel){
+  if(!travel) return null;
+  return travel.status === 'returning' ? Number(travel.from_region_id) : Number(travel.to_region_id);
+}
+
+function applyPopulationTransfer(fromRegionId, toRegionId){
+  if(!fromRegionId || !toRegionId || fromRegionId===toRegionId) return;
+  const fromObj = layers.get(Number(fromRegionId));
+  const toObj = layers.get(Number(toRegionId));
+  if(fromObj?.region){
+    fromObj.region.population = Math.max(0, Number(fromObj.region.population||0)-1);
+  }
+  if(toObj?.region){
+    toObj.region.population = Number(toObj.region.population||0)+1;
+  }
+  if(selectedRegion){
+    const selectedObj = layers.get(Number(selectedRegion.id));
+    if(selectedObj?.region){
+      selectedRegion = selectedObj.region;
+      regionMeta.innerHTML = `Owner Region: ${selectedRegion.owner_region_name || selectedRegion.country_name}<br>Resource: ${selectedRegion.resource_type}<br>Population: ${selectedRegion.population}`;
     }
   }
 }
@@ -323,7 +352,11 @@ async function syncTravelFromBackend(){
   playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Instant ${me.instant_energy}/${me.max_instant_energy}`;
 
   if(!latestTravel){
+    const prevTravel = activeTravel;
     activeTravel = null;
+    const destinationId = finalDestinationFromTravel(prevTravel);
+    const fromId = prevTravel ? Number(prevTravel.from_region_id) : 0;
+    if (destinationId) applyPopulationTransfer(fromId, destinationId);
     clearTravelVisuals();
     if (marker && payload.data.current_position) {
       marker.setLatLng([Number(payload.data.current_position.lat), Number(payload.data.current_position.lng)]);
