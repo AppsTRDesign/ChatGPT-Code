@@ -4,6 +4,7 @@
 <meta charset="utf-8"><title>World Map</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="/styles.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -115,7 +116,7 @@ function drawTravel(travel){
 
   routeLine = L.polyline([[from.lat, from.lng],[to.lat,to.lng]],{color:'#60a5fa',dashArray:'8,8',weight:3}).addTo(map);
   planeMarker = L.marker([from.lat, from.lng], {
-    icon: L.divIcon({className:'',html:'✈️',iconSize:[20,20]})
+    icon: L.divIcon({className:'',html:'<i class="fa-solid fa-plane" style="color:#38bdf8"></i>',iconSize:[20,20]})
   }).addTo(map);
 
   updateTravelVisuals();
@@ -236,12 +237,16 @@ travelBtn.onclick = async ()=>{
 
 function initSocket(){
   try {
-    const socket = io('http://127.0.0.1:3001', { transports:['websocket'], withCredentials:false });
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    const socket = io(`${protocol}://${location.hostname}:3001`, { transports:['websocket'], withCredentials:false });
     socket.on('travel_progress', (evt)=> {
       if(!activeTravel || Number(evt.user_id) !== Number(me?.id)) return;
-      if(evt.remaining_seconds <= 1){
-        completeTravelCheck();
+      if (planeMarker && typeof evt.lat === 'number' && typeof evt.lng === 'number') {
+        planeMarker.setLatLng([evt.lat, evt.lng]);
       }
+      travelStatusEl.style.display = 'block';
+      travelStatusEl.textContent = `Traveling • Arriving in ${fmt(evt.remaining_seconds)}`;
+      if(evt.remaining_seconds <= 1) completeTravelCheck();
     });
     socket.on('travel_complete', (evt)=> {
       if(Number(evt.user_id) === Number(me?.id)) completeTravelCheck();
