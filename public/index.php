@@ -26,6 +26,10 @@ use App\Core\Request;
 use App\Core\Router;
 use App\Middlewares\AuthMiddleware;
 
+
+$rawRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+error_log('[router] REQUEST_URI=' . $rawRequestUri);
+
 $request = new Request();
 $router = new Router();
 $auth = new AuthMiddleware();
