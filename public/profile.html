@@ -17,6 +17,7 @@
 <div id="toast" class="toast"></div>
 <script>
 function toast(m,e=false){toast.textContent=m;toast.className=`toast show ${e?'error':''}`;setTimeout(()=>toast.className='toast',2200)}
+function fmt(sec){const s=Math.max(0,Number(sec||0));const m=String(Math.floor(s/60)).padStart(2,'0');const ss=String(s%60).padStart(2,'0');return `${m}:${ss}`;}
 async function load(){
   const res=await fetch('/api/player/me'); if(!res.ok){location.href='/login';return;}
   const p=(await res.json()).data;
@@ -26,7 +27,8 @@ async function load(){
   totalEnergyText.textContent = `Total Energy Reserve: ${Number(p.total_energy).toFixed(0)}`;
   if(p.is_traveling && p.travel){
     const t=p.travel; cancelBtn.style.display='block';
-    travelCard.innerHTML=`<p>From ${t.from_region_id} → ${t.to_region_id}</p><p>Traveling... ${Math.max(0,t.remaining_seconds)}s remaining</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${t.status==='returning' ? 100-(t.progress_percent||0) : (t.progress_percent||0)}%'></div></div>`;
+    const st=t.status==='returning'?'Returning':'Traveling';
+    travelCard.innerHTML=`<p>From ${t.from_region_id} → ${t.to_region_id}</p><p>${st}... ${fmt(t.remaining_seconds)} remaining</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${t.status==='returning' ? 100-(t.progress_percent||0) : (t.progress_percent||0)}%'></div></div>`;
   }else{cancelBtn.style.display='none'; travelCard.textContent='No active travel.';}
 }
 cancelBtn.onclick=async()=>{const r=await fetch('/api/player/cancel-travel',{method:'POST'});const j=await r.json();if(j.error){toast(j.error,true);return;}toast('Travel reversed');load();};
