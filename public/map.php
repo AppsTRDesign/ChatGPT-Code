@@ -181,9 +181,11 @@ function distanceKm(a,b,c,d){
 }
 
 function fmt(sec){
-  const m = String(Math.floor(sec/60)).padStart(2,'0');
-  const s = String(sec%60).padStart(2,'0');
-  return `${m}:${s}`;
+  const total = Math.max(0, Number(sec||0));
+  const h = String(Math.floor(total/3600)).padStart(2,'0');
+  const m = String(Math.floor((total%3600)/60)).padStart(2,'0');
+  const s = String(Math.floor(total%60)).padStart(2,'0');
+  return `${h}:${m}:${s}`;
 }
 
 function drawTravel(travel){
@@ -227,7 +229,7 @@ function showPlanePopup(){
 
 function openTravelSheet(){
   if (!activeTravel) return;
-  regionTitle.textContent = `${t('ui.traveling','Traveling')} #${activeTravel.from_region_id} → #${activeTravel.to_region_id}`;
+  regionTitle.textContent = `${t('ui.traveling','Traveling')} ${activeTravel.from_region_name || ('#'+activeTravel.from_region_id)} → ${activeTravel.to_region_name || ('#'+activeTravel.to_region_id)}`;
   regionMeta.innerHTML = `${t('ui.remaining','remaining')}: ${fmt(Math.max(0, Number(activeTravel.remaining_seconds||0)))}`;
   modeHint.textContent = activeTravel.status === 'returning'
     ? t('ui.returning','Returning')
@@ -248,7 +250,7 @@ function buildPlanePopupContent(){
     <div style="min-width:220px">
       <strong>${statusText}</strong><br>
       ${t('ui.remaining', 'Remaining')}: ${fmt(Math.max(0, Number(activeTravel?.remaining_seconds || 0)))}<br>
-      Route: ${activeTravel?.from_region_id} → ${activeTravel?.to_region_id}<br>
+      Route: ${activeTravel?.from_region_name || ('#'+activeTravel?.from_region_id)} → ${activeTravel?.to_region_name || ('#'+activeTravel?.to_region_id)}<br>
       <button id="popupCancelTravelBtn" style="margin-top:8px;background:#dc2626;color:#fff;border:0;padding:8px 10px;border-radius:8px;cursor:pointer">${isCanceling ? t('ui.canceling', 'Canceling...') : t('ui.cancel_travel', 'Cancel Travel')}</button>
     </div>
   `;
@@ -479,8 +481,11 @@ function initSocket(){
     socket.on('travel_progress', (evt)=> {
       if(!activeTravel || Number(evt.user_id) !== Number(me?.id)) return;
       activeTravel.progress_percent = Number(evt.progress_percent || 0);
+      activeTravel.remaining_seconds = Number(evt.remaining_seconds || 0);
       activeTravel.current_position = { lat: Number(evt.lat), lng: Number(evt.lng) };
       if (evt.status) activeTravel.status = evt.status;
+      if (evt.from_region_name) activeTravel.from_region_name = evt.from_region_name;
+      if (evt.to_region_name) activeTravel.to_region_name = evt.to_region_name;
       if (planeMarker && typeof evt.lat === 'number' && typeof evt.lng === 'number') {
         planeMarker.setLatLng([evt.lat, evt.lng]);
       }

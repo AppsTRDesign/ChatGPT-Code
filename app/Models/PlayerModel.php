@@ -204,7 +204,15 @@ final class PlayerModel
 
     public function activeTravel(int $userId): ?array
     {
-        $stmt = Database::connection()->prepare('SELECT pt.*, UNIX_TIMESTAMP(pt.start_time) AS start_ts, UNIX_TIMESTAMP(pt.end_time) AS end_ts FROM player_travel pt WHERE pt.user_id = :user_id AND pt.status IN ("traveling","returning") LIMIT 1');
+        $stmt = Database::connection()->prepare(
+            'SELECT pt.*, UNIX_TIMESTAMP(pt.start_time) AS start_ts, UNIX_TIMESTAMP(pt.end_time) AS end_ts,
+                    fr.name AS from_region_name, tr.name AS to_region_name
+             FROM player_travel pt
+             JOIN regions fr ON fr.id = pt.from_region_id
+             JOIN regions tr ON tr.id = pt.to_region_id
+             WHERE pt.user_id = :user_id AND pt.status IN ("traveling","returning")
+             LIMIT 1'
+        );
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetch() ?: null;
     }
@@ -273,5 +281,39 @@ final class PlayerModel
         $stmt = Database::connection()->prepare('UPDATE player_travel SET status="completed" WHERE user_id = :user_id AND status IN ("traveling","returning")');
         $stmt->execute(['user_id' => $userId]);
         return $travel;
+    }
+
+    public function notifications(int $userId, int $limit = 30): array
+    {
+        $stmt = Database::connection()->prepare(
+            'SELECT id,type,data,is_read,created_at
+             FROM notifications
+             WHERE user_id = :user_id
+             ORDER BY id DESC
+             LIMIT :lim'
+        );
+        $stmt->bindValue(':user_id', $userId, \PDO::PARAM_INT);
+        $stmt->bindValue(':lim', max(1, $limit), \PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
+        foreach ($rows as &$row) {
+            $decoded = json_decode((string) ($row['data'] ?? '{}'), true);
+            $row['data'] = is_array($decoded) ? $decoded : [];
+            $row['is_read'] = (int) ($row['is_read'] ?? 0);
+        }
+        return $rows;
+    }
+
+    public function unreadNotificationCount(int $userId): int
+    {
+        $stmt = Database::connection()->prepare('SELECT COUNT(*) AS c FROM notifications WHERE user_id = :user_id AND is_read = 0');
+        $stmt->execute(['user_id' => $userId]);
+        return (int) (($stmt->fetch()['c'] ?? 0));
+    }
+
+    public function markNotificationsRead(int $userId): void
+    {
+        $stmt = Database::connection()->prepare('UPDATE notifications SET is_read = 1 WHERE user_id = :user_id AND is_read = 0');
+        $stmt->execute(['user_id' => $userId]);
     }
 }

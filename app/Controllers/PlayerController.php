@@ -109,6 +109,18 @@ final class PlayerController
         }
     }
 
+    public function notifications(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        Response::json(['data' => $this->playerService->notifications($userId)]);
+    }
+
+    public function readNotifications(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        Response::json(['success' => true, 'data' => $this->playerService->markNotificationsRead($userId)]);
+    }
+
     private function normalizeErrorCode(string $raw): string
     {
         return match ($raw) {

@@ -149,7 +149,9 @@ final class PlayerService
         $currentLng = $fromLng + (($toLng - $fromLng) * $progress);
         return [
             'from_region_id' => (int) $travel['from_region_id'],
+            'from_region_name' => (string) ($travel['from_region_name'] ?? ''),
             'to_region_id' => (int) $travel['to_region_id'],
+            'to_region_name' => (string) ($travel['to_region_name'] ?? ''),
             'distance_km' => (float) $travel['distance_km'],
             'cost_coins' => (int) ($travel['cost_coins'] ?? 0),
             'duration_seconds' => (int) $travel['duration_seconds'],
@@ -193,7 +195,14 @@ final class PlayerService
         $this->playerModel->transferPopulation($currentRegionId, $finalRegionId);
         $this->playerModel->completeTravel($userId);
         $this->playerModel->logTravel($userId, (int) $travel['from_region_id'], $finalRegionId, 'completed');
-        $this->playerModel->addNotification($userId, 'travel_complete', ['from_region_id' => (int)$travel['from_region_id'], 'to_region_id' => $finalRegionId]);
+        $fromRegion = $this->mapModel->regionById((int) $travel['from_region_id']);
+        $toRegion = $this->mapModel->regionById($finalRegionId);
+        $this->playerModel->addNotification($userId, 'travel_complete', [
+            'from_region_id' => (int) $travel['from_region_id'],
+            'to_region_id' => $finalRegionId,
+            'from_region_name' => (string) ($fromRegion['name'] ?? ''),
+            'to_region_name' => (string) ($toRegion['name'] ?? ''),
+        ]);
     }
 
 
@@ -313,6 +322,7 @@ final class PlayerService
         return [
             'stat' => $stat,
             'mode' => $mode,
+            'level' => $level,
             'cost' => $cost,
             'duration_seconds' => max(1,$duration),
             'finish_time' => date('Y-m-d H:i:s', time() + max(1,$duration)),
@@ -322,6 +332,22 @@ final class PlayerService
     public function finalizeStatIfDue(int $userId): void
     {
         $this->playerModel->completeStatIfDue($userId);
+    }
+
+    public function notifications(int $userId): array
+    {
+        return [
+            'items' => $this->playerModel->notifications($userId),
+            'unread_count' => $this->playerModel->unreadNotificationCount($userId),
+        ];
+    }
+
+    public function markNotificationsRead(int $userId): array
+    {
+        $this->playerModel->markNotificationsRead($userId);
+        return [
+            'unread_count' => 0,
+        ];
     }
 
     private function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
