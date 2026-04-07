@@ -78,7 +78,9 @@ final class PlayerService
         }
 
         $distance = $this->distanceKm((float) $fromRegion['lat'], (float) $fromRegion['lng'], (float) $destination['lat'], (float) $destination['lng']);
-        $durationSeconds = max(5, (int) round(($distance / self::TRAVEL_SPEED_KMH) * 3600));
+        $airportCount = (int) ($fromRegion['airport_building_count'] ?? 100);
+        $effectiveSpeed = self::TRAVEL_SPEED_KMH * (1 + log($airportCount + 1) * 0.25);
+        $durationSeconds = max(5, (int) round(($distance / max(1, $effectiveSpeed)) * 3600));
         $coinCost = max(10, (int) ceil($distance * 0.5));
 
         if ((int) $me['instant_energy'] < self::TRAVEL_ENERGY_COST) {
@@ -172,7 +174,7 @@ final class PlayerService
             return;
         }
 
-        $this->playerModel->updateLocation($userId, $finalRegionId, (int) ($destination['parent_country_region_id'] ?: $destination['id']));
+        $this->playerModel->updateLocation($userId, $finalRegionId, (int) ($destination['owner_region_id'] ?? $destination['id']));
         $this->playerModel->completeTravel($userId);
         $xpGain = (int) max(1, floor(((float) $travel['distance_km']) / 10));
         $this->playerModel->addXp($userId, $xpGain);

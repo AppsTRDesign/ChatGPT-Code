@@ -39,8 +39,8 @@ foreach ($data['countries'] as $country) {
 
 $palette = ['#2563eb','#16a34a','#dc2626','#ea580c','#7c3aed','#0891b2','#ca8a04','#9333ea','#be123c','#0f766e'];
 $regionStmt = $pdo->prepare(
-    'INSERT INTO regions(id,country_id,country_code,country_name,name,slug,lat,lng,polygon_json,population,resource_type,owner_region_id,region_type,parent_country_region_id,capital_region_id,government_type,color,flag_url,neighbors_json,army_level,education_level,hospital_level,airport_level,port_level,is_coastal,has_sea_access,created_at)
-     VALUES(:id,:country_id,:country_code,:country_name,:name,:slug,:lat,:lng,:polygon_json,:population,:resource_type,NULL,:region_type,:parent_country_region_id,:capital_region_id,:government_type,:color,:flag_url,JSON_ARRAY(),1,1,1,1,0,0,0,NOW())'
+    'INSERT INTO regions(id,country_id,country_code,country_name,name,slug,lat,lng,polygon_json,population,resource_type,owner_region_id,region_type,capital_region_id,government_type,color,flag_url,neighbors_json,airport_building_count,army_building_count,hospital_building_count,education_building_count,port_count,is_coastal,created_at)
+     VALUES(:id,:country_id,:country_code,:country_name,:name,:slug,:lat,:lng,:polygon_json,:population,:resource_type,NULL,:region_type,:capital_region_id,:government_type,:color,:flag_url,JSON_ARRAY(),100,100,100,100,100,0,NOW())'
 );
 
 $countryCapitalByCountryId = [];
@@ -72,14 +72,13 @@ foreach ($data['regions'] as $idx => $region) {
         'population' => (int) ($region['population'] ?? 0),
         'resource_type' => $region['resource_type'] ?? 'agriculture',
         'region_type' => $isCapitalRegion ? 'country' : 'region',
-        'parent_country_region_id' => $isCapitalRegion ? null : $capitalId,
-        'capital_region_id' => $capitalId,
+                'capital_region_id' => $capitalId,
         'government_type' => (($country['government_type'] ?? 'republic') === 'dictatorship') ? 'dictatorship' : 'republic',
         'color' => $palette[$idx % count($palette)],
         'flag_url' => $country['flag_url'],
     ]);
 }
 
-$pdo->exec('UPDATE regions SET owner_region_id = COALESCE(parent_country_region_id, id)');
+$pdo->exec('UPDATE regions SET owner_region_id = capital_region_id');
 $pdo->exec('UPDATE regions SET capital_region_id = id WHERE capital_region_id IS NULL');
 echo "Seeded " . count($data['countries']) . " countries and " . count($data['regions']) . " regions\n";

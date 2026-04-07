@@ -48,7 +48,7 @@ final class LocationService
         }
 
         $regionId = (int) ($region['id'] ?? 0);
-        $countryId = (int) ($region['parent_country_region_id'] ?: $region['id'] ?? $countryId);
+        $countryId = (int) ($region['owner_region_id'] ?? $region['id'] ?? $countryId);
 
         $this->playerModel->createProfile($userId, $regionId, $countryId);
         $this->playerModel->createCitizenship($userId, $countryId);
