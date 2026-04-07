@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
+
 require_once __DIR__ . '/../app/Helpers/env.php';
 require_once __DIR__ . '/../app/Helpers/config.php';
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) { require_once __DIR__ . '/../vendor/autoload.php'; }
@@ -56,6 +65,7 @@ function authRoutes(Router $router): void
     $controller = new AuthController();
     $router->add('POST', '/api/auth/register', fn($req) => $controller->register($req));
     $router->add('POST', '/api/auth/login', fn($req) => $controller->login($req));
+    $router->add('POST', '/api/auth/logout', fn($req) => $controller->logout($req));
 }
 
 function mapRoutes(Router $router): void

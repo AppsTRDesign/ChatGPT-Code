@@ -29,7 +29,9 @@ final class AuthController
 
         try {
             $result = $this->authService->register($username, $email, $password);
-            Response::json($result, 201);
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = (int) $result['user_id'];
+            Response::json(['success' => true, 'user_id' => (int) $result['user_id']], 201);
         } catch (RuntimeException $e) {
             Response::json(['error' => $e->getMessage()], 400);
         }
@@ -48,9 +50,22 @@ final class AuthController
 
         try {
             $result = $this->authService->login($email, $password);
-            Response::json($result);
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = (int) $result['user_id'];
+            Response::json(['success' => true, 'user_id' => (int) $result['user_id']]);
         } catch (RuntimeException $e) {
             Response::json(['error' => $e->getMessage()], 401);
         }
+    }
+
+    public function logout(Request $request): void
+    {
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], (bool) $params['secure'], (bool) $params['httponly']);
+        }
+        session_destroy();
+        Response::json(['success' => true]);
     }
 }

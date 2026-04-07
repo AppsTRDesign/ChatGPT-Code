@@ -6,19 +6,13 @@ namespace App\Middlewares;
 
 use App\Core\Request;
 use App\Core\Response;
-use App\Services\AuthService;
 
 final class AuthMiddleware
 {
-    public function __construct(private readonly AuthService $authService = new AuthService())
-    {
-    }
-
     public function handle(Request $request): bool
     {
-        $token = $request->bearerToken();
-        $userId = $this->authService->resolveUserId($token);
-        if (!$userId) {
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        if ($userId <= 0) {
             Response::json(['error' => 'Unauthorized'], 401);
             return false;
         }

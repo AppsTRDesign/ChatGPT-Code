@@ -21,13 +21,12 @@
 <div class="map-nav">
   <a class="map-back" href="/dashboard" id="dashLink">Dashboard</a>
   <a class="map-back" href="/login" id="loginLink" style="display:none">Login</a>
-  <a class="map-back" href="/register" id="registerLink" style="left:120px;display:none">Register</a>
+  <a class="map-back" href="/register" id="registerLink" style="display:none">Register</a>
 </div>
 <script>
 let selectedRegion = null;
 let me = null;
-const token = localStorage.getItem('token');
-const isAuthed = !!token;
+let isAuthed = false;
 const layers = new Map();
 let currentRegionId = null;
 let selectedRegionId = null;
@@ -39,15 +38,13 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,att
 const sheet = document.getElementById('sheet');
 const toastEl = document.getElementById('toast');
 
-if (!isAuthed) {
-  dashLink.style.display = 'none';
-  loginLink.style.display = 'inline-block';
-  registerLink.style.display = 'inline-block';
+function updateNavMode() {
+  dashLink.style.display = isAuthed ? 'inline-block' : 'none';
+  loginLink.style.display = isAuthed ? 'none' : 'inline-block';
+  registerLink.style.display = isAuthed ? 'none' : 'inline-block';
 }
 
 async function api(url, opts={}){
-  opts.headers = {...(opts.headers||{})};
-  if (token) opts.headers.Authorization = `Bearer ${token}`;
   const r = await fetch(url,opts);
   return r.json();
 }
@@ -92,13 +89,16 @@ function refreshStyles(){
 }
 
 async function load(){
-  if (isAuthed) {
-    const meRes = await api('/api/player/me');
-    if (meRes.data) {
-      me = meRes.data;
+  const meRes = await fetch('/api/player/me');
+  if (meRes.ok) {
+    const parsed = await meRes.json();
+    if (parsed.data) {
+      me = parsed.data;
+      isAuthed = true;
       currentRegionId = Number(me.current_region_id);
     }
   }
+  updateNavMode();
 
   const regions = (await fetch('/api/map/regions').then(r=>r.json())).data || [];
   regions.forEach(region=>{

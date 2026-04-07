@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Database;
-use App\Models\TokenModel;
 use App\Models\UserModel;
 use RuntimeException;
 
@@ -13,7 +12,6 @@ final class AuthService
 {
     public function __construct(
         private readonly UserModel $userModel = new UserModel(),
-        private readonly TokenModel $tokenModel = new TokenModel(),
         private readonly LocationService $locationService = new LocationService()
     ) {
     }
@@ -39,7 +37,7 @@ final class AuthService
             throw new RuntimeException('Registration failed: ' . $e->getMessage());
         }
 
-        return $this->issueToken($userId);
+        return ['user_id' => $userId];
     }
 
     public function login(string $email, string $password): array
@@ -49,24 +47,6 @@ final class AuthService
             throw new RuntimeException('Invalid credentials');
         }
 
-        return $this->issueToken((int) $user['id']);
-    }
-
-    public function resolveUserId(?string $bearerToken): ?int
-    {
-        if (!$bearerToken) {
-            return null;
-        }
-        $tokenHash = hash('sha256', $bearerToken);
-        return $this->tokenModel->findValidUserId($tokenHash);
-    }
-
-    private function issueToken(int $userId): array
-    {
-        $raw = bin2hex(random_bytes(32));
-        $tokenHash = hash('sha256', $raw);
-        $this->tokenModel->create($userId, $tokenHash);
-
-        return ['token' => $raw, 'user_id' => $userId];
+        return ['user_id' => (int) $user['id']];
     }
 }

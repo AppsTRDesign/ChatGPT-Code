@@ -20,8 +20,6 @@
   </div>
   <div id="toast" class="toast"></div>
 <script>
-if (localStorage.getItem('token')) location.href = '/map';
-
 function toast(msg, error=false){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -40,11 +38,10 @@ registerBtn.onclick = async () => {
       body: JSON.stringify({ username: username.value.trim(), email: email.value.trim(), password: password.value })
     });
     const data = await res.json();
-    if (!res.ok || !data.token) {
+    if (!res.ok || !data.success) {
       toast(data.error || 'Registration failed', true);
       return;
     }
-    localStorage.setItem('token', data.token);
     toast('Account created');
     setTimeout(()=> location.href='/dashboard', 450);
   } catch {
