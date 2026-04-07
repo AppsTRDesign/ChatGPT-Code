@@ -60,23 +60,23 @@ final class PlayerService
 
         $distance = $this->distanceKm((float) $fromRegion['lat'], (float) $fromRegion['lng'], (float) $destination['lat'], (float) $destination['lng']);
         $durationSeconds = max(5, (int) round(($distance / self::TRAVEL_SPEED_KMH) * 3600));
-        $goldCost = max(5.0, round($distance * 0.1, 2));
+        $coinCost = max(10.0, round($distance * 0.5, 2));
 
         if ((int) $me['energy'] < self::TRAVEL_ENERGY_COST) {
             throw new RuntimeException('not_enough_energy');
         }
-        if ((float) $me['gold'] < $goldCost) {
-            throw new RuntimeException('not_enough_gold');
+        if ((float) $me['coins'] < $coinCost) {
+            throw new RuntimeException('not_enough_coins');
         }
 
-        $spent = $this->playerModel->spendForTravel($userId, self::TRAVEL_ENERGY_COST, $goldCost);
+        $spent = $this->playerModel->spendForTravel($userId, self::TRAVEL_ENERGY_COST, $coinCost);
         if (!$spent) {
             throw new RuntimeException('not_enough_resources');
         }
 
         $travel = $this->playerModel->createTravel($userId, $fromRegionId, $toRegionId, $distance, $durationSeconds);
         $travel['energy_cost'] = self::TRAVEL_ENERGY_COST;
-        $travel['gold_cost'] = $goldCost;
+        $travel['cost_coins'] = $coinCost;
 
         return [
             'status' => 'traveling',

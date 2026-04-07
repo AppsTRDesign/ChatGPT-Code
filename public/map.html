@@ -21,6 +21,7 @@
   <h3 id="regionTitle">Region</h3>
   <p id="regionMeta"></p>
   <p id="modeHint" class="muted"></p>
+  <p id="costHint" class="muted"></p>
   <button id="travelBtn" class="primary-btn">Travel to this region</button>
 </div>
 <div class="map-nav">
@@ -73,7 +74,18 @@ function openSheet(region){
   regionTitle.textContent = `${region.name}, ${region.country_name}`;
   regionMeta.innerHTML = `Owner: ${region.owner_country_name || region.country_name}<br>Resource: ${region.resource_type}<br>Population: ${region.population}`;
   modeHint.textContent = !isAuthed ? 'Login to interact with this region.' : activeTravel ? 'Travel already in progress.' : '';
-  travelBtn.disabled = !isAuthed || isActing || !!activeTravel || currentRegionId === Number(region.id);
+  let cost = 0;
+  if (isAuthed && currentRegionId && layers.get(currentRegionId)) {
+    const from = layers.get(currentRegionId).region;
+    const dist = distanceKm(Number(from.lat), Number(from.lng), Number(region.lat), Number(region.lng));
+    cost = Math.max(10, dist * 0.5);
+    costHint.textContent = `Travel Cost: ${Math.ceil(cost)} coins`;
+  } else {
+    costHint.textContent = '';
+  }
+  const notEnoughCoins = isAuthed && me && Number(me.coins) < cost;
+  if (notEnoughCoins) modeHint.textContent = 'Not enough coins for this trip.';
+  travelBtn.disabled = !isAuthed || isActing || !!activeTravel || currentRegionId === Number(region.id) || notEnoughCoins;
   sheet.classList.add('open');
   backdrop.classList.add('open');
   refreshStyles();
@@ -100,6 +112,15 @@ function styleFor(region){
 
 function refreshStyles(){
   layers.forEach((obj)=> obj.layer.setStyle(styleFor(obj.region)));
+}
+
+
+function distanceKm(a,b,c,d){
+  const R=6371;
+  const dLat=(c-a)*Math.PI/180;
+  const dLng=(d-b)*Math.PI/180;
+  const x=Math.sin(dLat/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*(2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x)));
 }
 
 function fmt(sec){
@@ -189,7 +210,7 @@ async function load(){
       currentRegionId = Number(me.current_region_id);
       activeTravel = me.active_travel || null;
       playerHud.style.display='block';
-      playerHud.innerHTML = `Lv ${me.level} • Gold ${Number(me.gold).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
+      playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
     }
   }
   updateNavMode();
@@ -231,8 +252,8 @@ travelBtn.onclick = async ()=>{
   } else {
     activeTravel = result.travel;
     me.energy = Math.max(0, Number(me.energy||0) - Number(result.travel.energy_cost||0));
-    me.gold = Math.max(0, Number(me.gold||0) - Number(result.travel.gold_cost||0));
-    playerHud.innerHTML = `Lv ${me.level} • Gold ${Number(me.gold).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
+    me.coins = Math.max(0, Number(me.coins||0) - Number(result.travel.cost_coins||0));
+    playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
     drawTravel(activeTravel);
     closeSheet();
     showToast('Travel started');

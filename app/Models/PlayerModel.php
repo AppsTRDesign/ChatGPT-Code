@@ -61,10 +61,10 @@ final class PlayerModel
         $stmt->execute(['energy' => $energy, 'ts' => $timestamp, 'user_id' => $userId]);
     }
 
-    public function spendForTravel(int $userId, int $energyCost, float $goldCost): bool
+    public function spendForTravel(int $userId, int $energyCost, float $coinCost): bool
     {
-        $stmt = Database::connection()->prepare('UPDATE player_profiles SET energy = energy - :energy_cost, gold = gold - :gold_cost WHERE user_id = :user_id AND energy >= :energy_cost AND gold >= :gold_cost');
-        $stmt->execute(['energy_cost' => $energyCost, 'gold_cost' => $goldCost, 'user_id' => $userId]);
+        $stmt = Database::connection()->prepare('UPDATE player_profiles SET energy = energy - :energy_cost, coins = coins - :coin_cost WHERE user_id = :user_id AND energy >= :energy_cost AND coins >= :coin_cost');
+        $stmt->execute(['energy_cost' => $energyCost, 'coin_cost' => $coinCost, 'user_id' => $userId]);
         return $stmt->rowCount() > 0;
     }
 
