@@ -85,6 +85,7 @@ function playerRoutes(Router $router, AuthMiddleware $auth): void
     $router->add('POST', '/api/player/travel', fn($req) => $controller->travel($req), [fn($req) => $auth->handle($req)]);
     $router->add('GET', '/api/player/travel-history', fn($req) => $controller->travelHistory($req), [fn($req) => $auth->handle($req)]);
     $router->add('POST', '/api/player/cancel-travel', fn($req) => $controller->cancelTravel($req), [fn($req) => $auth->handle($req)]);
+    $router->add('POST', '/api/player/buy-energy', fn($req) => $controller->buyEnergy($req), [fn($req) => $auth->handle($req)]);
 }
 
 function actionRoutes(Router $router, AuthMiddleware $auth): void

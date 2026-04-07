@@ -60,5 +60,15 @@ final class PlayerController
         }
         Response::json(['success' => true, 'travel' => $travel]);
     }
-}
 
+    public function buyEnergy(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        try {
+            $result = $this->playerService->buyEnergy($userId);
+            Response::json(['success' => true, 'data' => $result]);
+        } catch (RuntimeException $e) {
+            Response::json(['error' => $e->getMessage()], 400);
+        }
+    }
+}

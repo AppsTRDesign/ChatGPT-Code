@@ -12,6 +12,8 @@ final class PlayerService
 {
     private const TRAVEL_SPEED_KMH = 3200;
     private const TRAVEL_ENERGY_COST = 10;
+    private const BUY_ENERGY_GOLD_COST = 1000;
+    private const BUY_ENERGY_TOTAL_AMOUNT = 100000;
 
     public function __construct(
         private readonly PlayerModel $playerModel = new PlayerModel(),
@@ -33,10 +35,19 @@ final class PlayerService
         $me['is_traveling'] = $travel !== null;
         $me['travel'] = $travel;
         $me['active_travel'] = $travel;
+        $me['energy'] = (int) $me['instant_energy'];
+        $me['max_energy'] = (int) $me['max_instant_energy'];
         $me['current_position'] = $travel['current_position'] ?? [
             'lat' => (float) $me['current_region_lat'],
             'lng' => (float) $me['current_region_lng'],
         ];
+        if ($travel) {
+            $me['status'] = $travel['status'];
+            $me['from_region_id'] = $travel['from_region_id'];
+            $me['to_region_id'] = $travel['to_region_id'];
+            $me['remaining_seconds'] = $travel['remaining_seconds'];
+            $me['progress'] = $travel['progress'];
+        }
 
         return $me;
     }
@@ -70,7 +81,7 @@ final class PlayerService
         $durationSeconds = max(5, (int) round(($distance / self::TRAVEL_SPEED_KMH) * 3600));
         $coinCost = max(10, (int) ceil($distance * 0.5));
 
-        if ((int) $me['energy'] < self::TRAVEL_ENERGY_COST) {
+        if ((int) $me['instant_energy'] < self::TRAVEL_ENERGY_COST) {
             throw new RuntimeException('not_enough_energy');
         }
         if ((float) $me['coins'] < $coinCost) {
@@ -190,6 +201,26 @@ final class PlayerService
         return $this->playerModel->travelHistory($userId);
     }
 
+    public function buyEnergy(int $userId): array
+    {
+        $ok = $this->playerModel->buyEnergyWithGold($userId, self::BUY_ENERGY_GOLD_COST, self::BUY_ENERGY_TOTAL_AMOUNT);
+        if (!$ok) {
+            throw new RuntimeException('not_enough_gold');
+        }
+        $profile = $this->me($userId);
+        if (!$profile) {
+            throw new RuntimeException('Player profile not found');
+        }
+        return [
+            'gold_spent' => self::BUY_ENERGY_GOLD_COST,
+            'total_energy_added' => self::BUY_ENERGY_TOTAL_AMOUNT,
+            'instant_energy' => (int) $profile['instant_energy'],
+            'max_instant_energy' => (int) $profile['max_instant_energy'],
+            'total_energy' => (int) $profile['total_energy'],
+            'gold' => (float) $profile['gold'],
+        ];
+    }
+
     private function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $earthRadius = 6371;
@@ -202,8 +233,8 @@ final class PlayerService
 
     private function regenerateEnergy(int $userId, array $me): void
     {
-        $energy = (int) $me['energy'];
-        $maxEnergy = (int) ($me['max_energy'] ?? 100);
+        $energy = (int) ($me['instant_energy'] ?? 0);
+        $maxEnergy = (int) ($me['max_instant_energy'] ?? 300);
         $lastUpdate = $me['last_energy_update'] ? strtotime((string) $me['last_energy_update']) : time();
         $now = time();
 
@@ -213,13 +244,13 @@ final class PlayerService
         }
 
         $elapsed = max(0, $now - $lastUpdate);
-        $regenPoints = intdiv($elapsed, 300);
+        $regenPoints = intdiv($elapsed, 2);
         if ($regenPoints <= 0) {
             return;
         }
 
         $newEnergy = min($maxEnergy, $energy + $regenPoints);
-        $usedSeconds = $regenPoints * 300;
+        $usedSeconds = $regenPoints * 2;
         $newTimestamp = date('Y-m-d H:i:s', $lastUpdate + $usedSeconds);
         $this->playerModel->updateEnergy($userId, $newEnergy, $newTimestamp);
     }

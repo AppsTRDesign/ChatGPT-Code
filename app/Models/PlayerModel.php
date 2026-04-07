@@ -11,8 +11,8 @@ final class PlayerModel
     public function createProfile(int $userId, int $regionId, int $countryId): void
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO player_profiles(user_id,current_region_id,current_country_id,level,xp,xp_to_next,gold,coins,energy,max_energy,last_energy_update,created_at)
-             VALUES(:user_id,:current_region_id,:current_country_id,1,0,100,1000,0,100,100,NOW(),NOW())'
+            'INSERT INTO player_profiles(user_id,current_region_id,current_country_id,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
+             VALUES(:user_id,:current_region_id,:current_country_id,1,0,100,1000,0,300,300,100000,NOW(),NOW())'
         );
         $stmt->execute([
             'user_id' => $userId,
@@ -32,7 +32,7 @@ final class PlayerModel
     public function me(int $userId): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.energy,p.max_energy,p.last_energy_update,p.current_region_id,p.current_country_id,
+            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.instant_energy,p.max_instant_energy,p.total_energy,p.last_energy_update,p.current_region_id,p.current_country_id,
                     r.name AS current_region_name,r.lat AS current_region_lat,r.lng AS current_region_lng,c.name AS current_country_name,c.color AS current_country_color,
                     ch.country_id AS citizenship_country_id,cc.name AS citizenship_country_name
              FROM users u
@@ -55,16 +55,27 @@ final class PlayerModel
         $stmt->execute(['region_id' => $regionId, 'country_id' => $countryId, 'user_id' => $userId]);
     }
 
-    public function updateEnergy(int $userId, int $energy, string $timestamp): void
+    public function updateEnergy(int $userId, int $instantEnergy, string $timestamp): void
     {
-        $stmt = Database::connection()->prepare('UPDATE player_profiles SET energy=:energy,last_energy_update=:ts WHERE user_id=:user_id');
-        $stmt->execute(['energy' => $energy, 'ts' => $timestamp, 'user_id' => $userId]);
+        $stmt = Database::connection()->prepare('UPDATE player_profiles SET instant_energy=:instant_energy,last_energy_update=:ts WHERE user_id=:user_id');
+        $stmt->execute(['instant_energy' => $instantEnergy, 'ts' => $timestamp, 'user_id' => $userId]);
     }
 
     public function spendForTravel(int $userId, int $energyCost, float $coinCost): bool
     {
-        $stmt = Database::connection()->prepare('UPDATE player_profiles SET energy = energy - :energy_cost, coins = coins - :coin_cost WHERE user_id = :user_id AND energy >= :energy_cost AND coins >= :coin_cost');
+        $stmt = Database::connection()->prepare('UPDATE player_profiles SET instant_energy = instant_energy - :energy_cost, total_energy = total_energy - :energy_cost, coins = coins - :coin_cost WHERE user_id = :user_id AND instant_energy >= :energy_cost AND total_energy >= :energy_cost AND coins >= :coin_cost');
         $stmt->execute(['energy_cost' => $energyCost, 'coin_cost' => $coinCost, 'user_id' => $userId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function buyEnergyWithGold(int $userId, int $goldCost, int $energyAmount): bool
+    {
+        $stmt = Database::connection()->prepare('UPDATE player_profiles SET gold = gold - :gold_cost, total_energy = total_energy + :energy_amount WHERE user_id = :user_id AND gold >= :gold_cost');
+        $stmt->execute([
+            'gold_cost' => $goldCost,
+            'energy_amount' => $energyAmount,
+            'user_id' => $userId,
+        ]);
         return $stmt->rowCount() > 0;
     }
 

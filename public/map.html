@@ -233,6 +233,9 @@ async function syncTravelFromBackend(){
   }
 
   activeTravel = latestTravel;
+  if (marker && latestTravel.current_position) {
+    marker.setLatLng([Number(latestTravel.current_position.lat), Number(latestTravel.current_position.lng)]);
+  }
   if (!planeMarker || !routeLine) {
     drawTravel(activeTravel);
     return;
@@ -264,9 +267,10 @@ async function load(){
   });
 
   if (isAuthed && currentRegionId) {
-    const current = regions.find(r=>Number(r.id)===currentRegionId);
-    marker = L.circleMarker([current?.lat || 0, current?.lng || 0],{radius:8,color:'#fff',fillColor:'#0ea5e9',fillOpacity:1}).addTo(map);
-    if (current) map.setView([current.lat,current.lng],5);
+    const markerLat = Number(me?.current_position?.lat ?? 0);
+    const markerLng = Number(me?.current_position?.lng ?? 0);
+    marker = L.circleMarker([markerLat, markerLng],{radius:8,color:'#fff',fillColor:'#0ea5e9',fillOpacity:1}).addTo(map);
+    if (markerLat || markerLng) map.setView([markerLat, markerLng],5);
   }
 
   if(activeTravel){

@@ -6,6 +6,8 @@
   <div id="playerCard"></div>
   <div class="bar"><div id="xpBar" class="bar-fill"></div></div><small id="xpText" class="muted"></small>
   <div class="bar"><div id="enBar" class="bar-fill energy"></div></div><small id="enText" class="muted"></small>
+  <p id="totalEnergyText" class="muted"></p>
+  <button id="buyEnergyBtn">Buy +100000 Total Energy (1000 Gold)</button>
   <hr>
   <h3>Travel</h3>
   <div id="travelCard" class="muted">No active travel.</div>
@@ -20,12 +22,14 @@ async function load(){
   const p=(await res.json()).data;
   playerCard.innerHTML=`<p><b>${p.username}</b> • Level ${p.level}</p><p>Coins ${Number(p.coins).toFixed(0)} | Gold ${Number(p.gold).toFixed(0)}</p><p>Region: ${p.current_region_name}</p>`;
   const xpPct=Math.round((p.xp/p.xp_to_next)*100); xpBar.style.width=`${xpPct}%`; xpText.textContent=`XP ${p.xp}/${p.xp_to_next}`;
-  const ePct=Math.round((p.energy/p.max_energy)*100); enBar.style.width=`${ePct}%`; enText.textContent=`Energy ${p.energy}/${p.max_energy}`;
+  const ePct=Math.round((p.instant_energy/p.max_instant_energy)*100); enBar.style.width=`${ePct}%`; enText.textContent=`Instant Energy ${p.instant_energy}/${p.max_instant_energy}`;
+  totalEnergyText.textContent = `Total Energy Reserve: ${Number(p.total_energy).toFixed(0)}`;
   if(p.is_traveling && p.travel){
     const t=p.travel; cancelBtn.style.display='block';
     travelCard.innerHTML=`<p>From ${t.from_region_id} → ${t.to_region_id}</p><p>Traveling... ${Math.max(0,t.remaining_seconds)}s remaining</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${t.status==='returning' ? 100-(t.progress_percent||0) : (t.progress_percent||0)}%'></div></div>`;
   }else{cancelBtn.style.display='none'; travelCard.textContent='No active travel.';}
 }
 cancelBtn.onclick=async()=>{const r=await fetch('/api/player/cancel-travel',{method:'POST'});const j=await r.json();if(j.error){toast(j.error,true);return;}toast('Travel reversed');load();};
+buyEnergyBtn.onclick=async()=>{const r=await fetch('/api/player/buy-energy',{method:'POST'});const j=await r.json();if(j.error){toast(j.error,true);return;}toast('Bought total energy');load();};
 setInterval(load,1000); load();
 </script></body></html>
