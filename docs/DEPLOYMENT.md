@@ -35,6 +35,7 @@ mysql -u mmo_user -p mmo_game < database/migrations/002_geo_columns.sql
 mysql -u mmo_user -p mmo_game < database/migrations/003_player_travel.sql
 mysql -u mmo_user -p mmo_game < database/migrations/004_player_progression.sql
 mysql -u mmo_user -p mmo_game < database/migrations/005_travel_cost_coins.sql
+mysql -u mmo_user -p mmo_game < database/migrations/006_region_stats.sql
 php database/seed_world.php
 ```
 

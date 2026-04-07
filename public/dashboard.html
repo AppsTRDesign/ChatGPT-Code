@@ -1,68 +1,28 @@
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard - NoaSoft MMO</title>
-  <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-<div class="auth-wrap">
-  <div class="auth-card glass">
-    <h1>Commander Dashboard</h1>
-    <div id="stats" class="muted">Loading profile...</div>
-    <div class="bar"><div id="xpBar" class="bar-fill"></div></div>
-    <small id="xpText" class="muted"></small>
-    <div class="bar"><div id="energyBar" class="bar-fill energy"></div></div>
-    <small id="energyText" class="muted"></small>
-    <div class="btn-row">
-      <button id="openMap" class="primary-btn">Open Map</button>
-      <button id="logoutBtn">Logout</button>
-    </div>
-  </div>
-</div>
-<div id="toast" class="toast"></div>
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>Dashboard</title><link rel='stylesheet' href='/styles.css'></head>
+<body><div class='auth-wrap'><div class='auth-card glass' style='max-width:1000px'>
+<h2>World Dashboard</h2><p><a href='/profile'>Profile</a> • <a href='/map'>Map</a></p>
+<div class='btn-row'><select id='countrySel'></select><button id='logoutBtn'>Logout</button></div>
+<div id='regions'></div><hr>
+<h3>Top Regions</h3><div id='topRegions'></div>
+<h3>Top Countries</h3><div id='topCountries'></div>
+</div></div>
 <script>
-function toast(msg, error=false){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast show ${error ? 'error' : ''}`;
-  setTimeout(()=> t.className='toast', 2400);
+async function loadCountries(){
+  const c=(await (await fetch('/api/map/countries')).json()).data||[];
+  countrySel.innerHTML=c.map(x=>`<option value='${x.id}'>${x.name}</option>`).join('');
 }
-
-async function loadProfile(){
-  try {
-    const res = await fetch('/api/player/me');
-    const data = await res.json();
-    if (!res.ok || !data.data) {
-      location.href = '/login';
-      return;
-    }
-    const p = data.data;
-    stats.innerHTML = `
-      <p><b>${p.username}</b></p>
-      <p>Level: ${p.level}</p>
-      <p>Gold: ${Number(p.gold).toFixed(2)} | Coins: ${Number(p.coins).toFixed(2)}</p>
-      <p>Current Region: ${p.current_region_name}</p>
-    `;
-    const xpPct = Math.min(100, Math.round((p.xp / p.xp_to_next) * 100));
-    xpBar.style.width = `${xpPct}%`;
-    xpText.textContent = `XP ${p.xp}/${p.xp_to_next} (${xpPct}%)`;
-    const energyPct = Math.min(100, Math.round((p.energy / p.max_energy) * 100));
-    energyBar.style.width = `${energyPct}%`;
-    energyText.textContent = `Energy ${p.energy}/${p.max_energy}`;
-  } catch {
-    toast('Failed to load dashboard', true);
-    stats.textContent = 'Unable to load profile.';
-  }
+async function loadRegions(){
+  const r=(await (await fetch('/api/map/regions')).json()).data||[];
+  const selected=Number(countrySel.value||0);
+  const rows=r.filter(x=>Number(x.country_id)===selected).map(x=>`<div class='glass' style='padding:10px;margin:6px 0'><b>${x.name}</b><br>Army ${x.army_level} • Edu ${x.education_level} • Hosp ${x.hospital_level} • Air ${x.airport_level}${x.is_coastal==1?` • Port ${x.port_level}`:''}</div>`).join('');
+  regions.innerHTML=rows||'No regions';
 }
-
-openMap.onclick = ()=> location.href = '/map';
-logoutBtn.onclick = async ()=> {
-  await fetch('/api/auth/logout', { method: 'POST' });
-  location.href = '/login';
-};
-loadProfile();
-</script>
-</body>
-</html>
+async function loadRankings(){
+  const d=(await (await fetch('/api/stats/dashboard')).json()).data;
+  topRegions.innerHTML=(d.top_regions||[]).map(r=>`<div>${r.name} (${r.country_name}) — score ${Number(r.score).toFixed(1)} — pop ${r.population}</div>`).join('');
+  topCountries.innerHTML=(d.top_countries||[]).map(c=>`<div>${c.name} — avg ${Number(c.avg_score).toFixed(1)} — pop ${c.population}</div>`).join('');
+}
+countrySel.onchange=loadRegions;
+logoutBtn.onclick=async()=>{await fetch('/api/auth/logout',{method:'POST'});location.href='/login';}
+Promise.all([loadCountries(),loadRankings()]).then(loadRegions);
+</script></body></html>

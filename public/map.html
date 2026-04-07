@@ -137,7 +137,8 @@ function drawTravel(travel){
   const to = layers.get(Number(travel.to_region_id))?.region;
   if(!from || !to) return;
 
-  routeLine = L.polyline([[from.lat, from.lng],[to.lat,to.lng]],{color:'#60a5fa',dashArray:'8,8',weight:3}).addTo(map);
+  const routeColor = travel.status === 'returning' ? '#ef4444' : '#60a5fa';
+  routeLine = L.polyline([[from.lat, from.lng],[to.lat,to.lng]],{color:routeColor,dashArray:'8,8',weight:3}).addTo(map);
   planeMarker = L.marker([from.lat, from.lng], {
     icon: L.divIcon({className:'',html:'<i class="fa-solid fa-plane" style="color:#38bdf8"></i>',iconSize:[20,20]})
   }).addTo(map);

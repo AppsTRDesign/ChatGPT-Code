@@ -106,15 +106,27 @@ final class PlayerService
         }
 
         $now = time();
+        $start = (new \DateTimeImmutable((string) $travel['start_time'], new \DateTimeZone('UTC')))->getTimestamp();
         $end = (new \DateTimeImmutable((string) $travel['end_time'], new \DateTimeZone('UTC')))->getTimestamp();
+        $remaining = max(0, $end - $now);
+        $denom = max(1, $end - $start);
+        $ratio = min(1, max(0, ($now - $start) / $denom));
+        $startP = (float) ($travel['start_progress'] ?? 0);
+        $endP = (float) ($travel['end_progress'] ?? 1);
+        $progress = $startP + (($endP - $startP) * $ratio);
         return [
             'from_region_id' => (int) $travel['from_region_id'],
             'to_region_id' => (int) $travel['to_region_id'],
             'distance_km' => (float) $travel['distance_km'],
+            'cost_coins' => (int) ($travel['cost_coins'] ?? 0),
             'duration_seconds' => (int) $travel['duration_seconds'],
             'start_time' => (string) $travel['start_time'],
             'end_time' => (string) $travel['end_time'],
-            'remaining_seconds' => max(0, $end - $now),
+            'remaining_seconds' => $remaining,
+            'status' => (string) $travel['status'],
+            'start_progress' => $startP,
+            'end_progress' => $endP,
+            'progress_percent' => (int) round($progress * 100),
         ];
     }
 
@@ -141,6 +153,25 @@ final class PlayerService
         $this->playerModel->addXp($userId, $xpGain);
         $this->playerModel->applyLevelUps($userId);
         $this->playerModel->logTravel($userId, (int) $travel['from_region_id'], (int) $travel['to_region_id'], 'completed');
+    }
+
+
+    public function cancelTravel(int $userId): ?array
+    {
+        $travel = $this->playerModel->activeTravel($userId);
+        if (!$travel) {
+            return null;
+        }
+
+        $startTs = (new \DateTimeImmutable((string) $travel['start_time'], new \DateTimeZone('UTC')))->getTimestamp();
+        $now = time();
+        $elapsed = max(1, $now - $startTs);
+        $duration = max(1, (int) $travel['duration_seconds']);
+        $ratio = min(1, $elapsed / $duration);
+        $startProgress = (float) ($travel['start_progress'] ?? 0) + ((float) (($travel['end_progress'] ?? 1) - ($travel['start_progress'] ?? 0)) * $ratio);
+
+        $this->playerModel->markReturning($userId, $elapsed, $startProgress);
+        return $this->travelStatus($userId);
     }
 
     public function travelHistory(int $userId): array

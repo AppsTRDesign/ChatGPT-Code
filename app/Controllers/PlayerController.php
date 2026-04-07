@@ -49,4 +49,16 @@ final class PlayerController
         $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
         Response::json(['data' => $this->playerService->travelHistory($userId)]);
     }
+
+    public function cancelTravel(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        $travel = $this->playerService->cancelTravel($userId);
+        if (!$travel) {
+            Response::json(['error' => 'No active travel'], 400);
+            return;
+        }
+        Response::json(['success' => true, 'travel' => $travel]);
+    }
 }
+

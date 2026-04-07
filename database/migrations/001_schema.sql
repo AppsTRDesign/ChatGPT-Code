@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS regions (
     population INT NOT NULL DEFAULT 0,
     resource_type ENUM('oil','gold','gas','iron','uranium','agriculture','tech','tourism') DEFAULT 'agriculture',
     owner_country_id INT NOT NULL,
+    army_level INT NOT NULL DEFAULT 1,
+    education_level INT NOT NULL DEFAULT 1,
+    hospital_level INT NOT NULL DEFAULT 1,
+    airport_level INT NOT NULL DEFAULT 1,
+    port_level INT NOT NULL DEFAULT 0,
+    is_coastal TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_regions_country FOREIGN KEY (country_id) REFERENCES countries(id),
     CONSTRAINT fk_regions_owner_country FOREIGN KEY (owner_country_id) REFERENCES countries(id)

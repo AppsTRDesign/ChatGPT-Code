@@ -135,15 +135,15 @@ final class PlayerModel
         return $stmt->fetch() ?: null;
     }
 
-    public function createTravel(int $userId, int $fromRegionId, int $toRegionId, float $distanceKm, int $costCoins, int $durationSeconds): array
+    public function createTravel(int $userId, int $fromRegionId, int $toRegionId, float $distanceKm, int $costCoins, int $durationSeconds, string $status = "traveling", float $startProgress = 0.0, float $endProgress = 1.0): array
     {
         $start = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $end = $start->modify('+' . $durationSeconds . ' seconds');
 
         $stmt = Database::connection()->prepare(
-            'INSERT INTO player_travel(user_id,from_region_id,to_region_id,distance_km,cost_coins,duration_seconds,start_time,end_time,status,created_at)
-             VALUES(:user_id,:from_region_id,:to_region_id,:distance_km,:cost_coins,:duration_seconds,:start_time,:end_time,"traveling",NOW())
-             ON DUPLICATE KEY UPDATE from_region_id=VALUES(from_region_id),to_region_id=VALUES(to_region_id),distance_km=VALUES(distance_km),cost_coins=VALUES(cost_coins),duration_seconds=VALUES(duration_seconds),start_time=VALUES(start_time),end_time=VALUES(end_time),status="traveling"'
+            'INSERT INTO player_travel(user_id,from_region_id,to_region_id,distance_km,cost_coins,duration_seconds,start_time,end_time,status,start_progress,end_progress,created_at)
+             VALUES(:user_id,:from_region_id,:to_region_id,:distance_km,:cost_coins,:duration_seconds,:start_time,:end_time,:status,:start_progress,:end_progress,NOW())
+             ON DUPLICATE KEY UPDATE from_region_id=VALUES(from_region_id),to_region_id=VALUES(to_region_id),distance_km=VALUES(distance_km),cost_coins=VALUES(cost_coins),duration_seconds=VALUES(duration_seconds),start_time=VALUES(start_time),end_time=VALUES(end_time),status=VALUES(status),start_progress=VALUES(start_progress),end_progress=VALUES(end_progress)'
         );
         $stmt->execute([
             'user_id' => $userId,
@@ -154,6 +154,9 @@ final class PlayerModel
             'duration_seconds' => $durationSeconds,
             'start_time' => $start->format('Y-m-d H:i:s'),
             'end_time' => $end->format('Y-m-d H:i:s'),
+            'status' => $status,
+            'start_progress' => $startProgress,
+            'end_progress' => $endProgress,
         ]);
 
         return [
@@ -164,7 +167,31 @@ final class PlayerModel
             'duration_seconds' => $durationSeconds,
             'start_time' => $start->format(DATE_ATOM),
             'end_time' => $end->format(DATE_ATOM),
+            'status' => $status,
+            'start_progress' => $startProgress,
+            'end_progress' => $endProgress,
         ];
+    }
+
+
+    public function markReturning(int $userId, int $durationSeconds, float $startProgress): ?array
+    {
+        $travel = $this->activeTravel($userId);
+        if (!$travel) {
+            return null;
+        }
+
+        $start = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $end = $start->modify('+' . max(1, $durationSeconds) . ' seconds');
+        $stmt = Database::connection()->prepare('UPDATE player_travel SET status="returning", start_time=:start_time, end_time=:end_time, start_progress=:start_progress, end_progress=0 WHERE user_id=:user_id AND status IN ("traveling","returning")');
+        $stmt->execute([
+            'start_time' => $start->format('Y-m-d H:i:s'),
+            'end_time' => $end->format('Y-m-d H:i:s'),
+            'start_progress' => $startProgress,
+            'user_id' => $userId,
+        ]);
+
+        return $this->activeTravel($userId);
     }
 
     public function completeTravel(int $userId): ?array
