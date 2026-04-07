@@ -130,7 +130,7 @@ final class PlayerModel
 
     public function activeTravel(int $userId): ?array
     {
-        $stmt = Database::connection()->prepare('SELECT * FROM player_travel WHERE user_id = :user_id AND status = "traveling" LIMIT 1');
+        $stmt = Database::connection()->prepare('SELECT * FROM player_travel WHERE user_id = :user_id AND status IN ("traveling","returning") LIMIT 1');
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetch() ?: null;
     }
@@ -182,7 +182,7 @@ final class PlayerModel
         }
 
         $start = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
-        $end = $start->modify('+' . max(1, $durationSeconds) . ' seconds');
+        $end = $start->modify('+' . max(5, $durationSeconds) . ' seconds');
         $stmt = Database::connection()->prepare('UPDATE player_travel SET status="returning", start_time=:start_time, end_time=:end_time, start_progress=:start_progress, end_progress=0 WHERE user_id=:user_id AND status IN ("traveling","returning")');
         $stmt->execute([
             'start_time' => $start->format('Y-m-d H:i:s'),
@@ -201,7 +201,7 @@ final class PlayerModel
             return null;
         }
 
-        $stmt = Database::connection()->prepare('UPDATE player_travel SET status="completed" WHERE user_id = :user_id AND status="traveling"');
+        $stmt = Database::connection()->prepare('UPDATE player_travel SET status="completed" WHERE user_id = :user_id AND status IN ("traveling","returning")');
         $stmt->execute(['user_id' => $userId]);
         return $travel;
     }

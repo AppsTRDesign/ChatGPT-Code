@@ -33,16 +33,10 @@ final class PlayerService
         $me['is_traveling'] = $travel !== null;
         $me['travel'] = $travel;
         $me['active_travel'] = $travel;
-
-        if ($travel) {
-            $me['current_region_id'] = $travel['from_region_id'];
-            $fromRegion = $this->mapModel->regionById((int) $travel['from_region_id']);
-            if ($fromRegion) {
-                $me['current_region_name'] = $fromRegion['name'];
-                $me['current_region_lat'] = $fromRegion['lat'];
-                $me['current_region_lng'] = $fromRegion['lng'];
-            }
-        }
+        $me['current_position'] = $travel['current_position'] ?? [
+            'lat' => (float) $me['current_region_lat'],
+            'lng' => (float) $me['current_region_lng'],
+        ];
 
         return $me;
     }
@@ -114,6 +108,14 @@ final class PlayerService
         $startP = (float) ($travel['start_progress'] ?? 0);
         $endP = (float) ($travel['end_progress'] ?? 1);
         $progress = $startP + (($endP - $startP) * $ratio);
+        $fromRegion = $this->mapModel->regionById((int) $travel['from_region_id']);
+        $toRegion = $this->mapModel->regionById((int) $travel['to_region_id']);
+        $fromLat = (float) ($fromRegion['lat'] ?? 0);
+        $fromLng = (float) ($fromRegion['lng'] ?? 0);
+        $toLat = (float) ($toRegion['lat'] ?? 0);
+        $toLng = (float) ($toRegion['lng'] ?? 0);
+        $currentLat = $fromLat + (($toLat - $fromLat) * $progress);
+        $currentLng = $fromLng + (($toLng - $fromLng) * $progress);
         return [
             'from_region_id' => (int) $travel['from_region_id'],
             'to_region_id' => (int) $travel['to_region_id'],
@@ -126,7 +128,12 @@ final class PlayerService
             'status' => (string) $travel['status'],
             'start_progress' => $startP,
             'end_progress' => $endP,
+            'progress' => round($progress, 6),
             'progress_percent' => (int) round($progress * 100),
+            'current_position' => [
+                'lat' => $currentLat,
+                'lng' => $currentLng,
+            ],
         ];
     }
 
@@ -142,17 +149,20 @@ final class PlayerService
             return;
         }
 
-        $destination = $this->mapModel->regionById((int) $travel['to_region_id']);
+        $finalRegionId = (string) $travel['status'] === 'returning'
+            ? (int) $travel['from_region_id']
+            : (int) $travel['to_region_id'];
+        $destination = $this->mapModel->regionById($finalRegionId);
         if (!$destination) {
             return;
         }
 
-        $this->playerModel->updateLocation($userId, (int) $travel['to_region_id'], (int) $destination['country_id']);
+        $this->playerModel->updateLocation($userId, $finalRegionId, (int) $destination['country_id']);
         $this->playerModel->completeTravel($userId);
         $xpGain = (int) max(1, floor(((float) $travel['distance_km']) / 10));
         $this->playerModel->addXp($userId, $xpGain);
         $this->playerModel->applyLevelUps($userId);
-        $this->playerModel->logTravel($userId, (int) $travel['from_region_id'], (int) $travel['to_region_id'], 'completed');
+        $this->playerModel->logTravel($userId, (int) $travel['from_region_id'], $finalRegionId, 'completed');
     }
 
 
@@ -169,8 +179,8 @@ final class PlayerService
         $duration = max(1, (int) $travel['duration_seconds']);
         $ratio = min(1, $elapsed / $duration);
         $startProgress = (float) ($travel['start_progress'] ?? 0) + ((float) (($travel['end_progress'] ?? 1) - ($travel['start_progress'] ?? 0)) * $ratio);
-
-        $this->playerModel->markReturning($userId, $elapsed, $startProgress);
+        $returnDuration = max(5, $elapsed);
+        $this->playerModel->markReturning($userId, $returnDuration, $startProgress);
         return $this->travelStatus($userId);
     }
 
