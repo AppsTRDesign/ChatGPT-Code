@@ -14,15 +14,14 @@ if (!is_array($data)) {
 }
 
 $pdo = Database::connection();
-$pdo->beginTransaction();
 
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-$pdo->exec('TRUNCATE TABLE citizenships');
-$pdo->exec('TRUNCATE TABLE player_travel');
-$pdo->exec('TRUNCATE TABLE travel_logs');
-$pdo->exec('TRUNCATE TABLE player_profiles');
-$pdo->exec('TRUNCATE TABLE regions');
-$pdo->exec('TRUNCATE TABLE countries');
+$pdo->exec('DELETE FROM citizenships');
+$pdo->exec('DELETE FROM player_travel');
+$pdo->exec('DELETE FROM travel_logs');
+$pdo->exec('DELETE FROM player_profiles');
+$pdo->exec('DELETE FROM regions');
+$pdo->exec('DELETE FROM countries');
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 
 $countryStmt = $pdo->prepare('INSERT INTO countries(id,name,slug,iso_code,flag_url,created_at) VALUES(:id,:name,:slug,:iso_code,:flag_url,NOW())');
@@ -83,6 +82,4 @@ foreach ($data['regions'] as $idx => $region) {
 
 $pdo->exec('UPDATE regions SET owner_region_id = COALESCE(parent_country_region_id, id)');
 $pdo->exec('UPDATE regions SET capital_region_id = id WHERE capital_region_id IS NULL');
-$pdo->commit();
-
 echo "Seeded " . count($data['countries']) . " countries and " . count($data['regions']) . " regions\n";
