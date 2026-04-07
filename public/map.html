@@ -148,7 +148,6 @@ function drawTravel(travel){
   }).addTo(map);
 
   updateTravelVisuals();
-  countdownTimer = setInterval(syncTravelFromBackend, 1000);
 }
 
 function updateTravelVisuals(){
@@ -203,7 +202,6 @@ async function completeTravelCheck(){
 function clearTravelVisuals(){
   if(routeLine){ map.removeLayer(routeLine); routeLine = null; }
   if(planeMarker){ map.removeLayer(planeMarker); planeMarker = null; }
-  if(countdownTimer){ clearInterval(countdownTimer); countdownTimer = null; }
   travelStatusEl.style.display = activeTravel ? 'block' : 'none';
   if(!activeTravel) travelStatusEl.textContent = '';
 }
@@ -218,15 +216,13 @@ async function syncTravelFromBackend(){
   const latestTravel = payload.data.active_travel || null;
   currentRegionId = Number(payload.data.current_region_id);
   me = payload.data;
-  playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
+  playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Instant ${me.instant_energy}/${me.max_instant_energy}`;
 
   if(!latestTravel){
     activeTravel = null;
     clearTravelVisuals();
-    const currentRegion = layers.get(currentRegionId)?.region;
-    if(currentRegion && marker){
-      marker.setLatLng([currentRegion.lat,currentRegion.lng]);
-      map.panTo([currentRegion.lat,currentRegion.lng]);
+    if (marker && payload.data.current_position) {
+      marker.setLatLng([Number(payload.data.current_position.lat), Number(payload.data.current_position.lng)]);
     }
     refreshStyles();
     return;
@@ -253,7 +249,7 @@ async function load(){
       currentRegionId = Number(me.current_region_id);
       activeTravel = me.active_travel || null;
       playerHud.style.display='block';
-      playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
+      playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Instant ${me.instant_energy}/${me.max_instant_energy}`;
     }
   }
   updateNavMode();
@@ -276,6 +272,9 @@ async function load(){
   if(activeTravel){
     drawTravel(activeTravel);
   }
+  if (isAuthed && !countdownTimer) {
+    countdownTimer = setInterval(syncTravelFromBackend, 1000);
+  }
 }
 
 travelBtn.onclick = async ()=>{
@@ -295,9 +294,9 @@ travelBtn.onclick = async ()=>{
     showToast(result.error, true);
   } else {
     activeTravel = result.travel;
-    me.energy = Math.max(0, Number(me.energy||0) - Number(result.travel.energy_cost||0));
+    me.instant_energy = Math.max(0, Number(me.instant_energy||0) - Number(result.travel.energy_cost||0));
     me.coins = Math.max(0, Number(me.coins||0) - Number(result.travel.cost_coins||0));
-    playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
+    playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Instant ${me.instant_energy}/${me.max_instant_energy}`;
     drawTravel(activeTravel);
     closeSheet();
     showToast('Travel started');

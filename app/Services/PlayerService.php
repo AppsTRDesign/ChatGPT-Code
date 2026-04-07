@@ -93,7 +93,11 @@ final class PlayerService
             throw new RuntimeException('Not enough coins');
         }
 
-        $travel = $this->playerModel->createTravel($userId, $fromRegionId, $toRegionId, $distance, $coinCost, $durationSeconds);
+        $this->playerModel->createTravel($userId, $fromRegionId, $toRegionId, $distance, $coinCost, $durationSeconds);
+        $travel = $this->travelStatus($userId);
+        if ($travel === null) {
+            throw new RuntimeException('travel_failed');
+        }
         $travel['energy_cost'] = self::TRAVEL_ENERGY_COST;
         $travel['cost_coins'] = $coinCost;
 
@@ -111,8 +115,8 @@ final class PlayerService
         }
 
         $now = time();
-        $start = (new \DateTimeImmutable((string) $travel['start_time'], new \DateTimeZone('UTC')))->getTimestamp();
-        $end = (new \DateTimeImmutable((string) $travel['end_time'], new \DateTimeZone('UTC')))->getTimestamp();
+        $start = strtotime((string) $travel['start_time']) ?: time();
+        $end = strtotime((string) $travel['end_time']) ?: $start;
         $remaining = max(0, $end - $now);
         $denom = max(1, $end - $start);
         $ratio = min(1, max(0, ($now - $start) / $denom));
@@ -155,7 +159,7 @@ final class PlayerService
             return;
         }
 
-        $endTs = (new \DateTimeImmutable((string) $travel['end_time'], new \DateTimeZone('UTC')))->getTimestamp();
+        $endTs = strtotime((string) $travel['end_time']) ?: time();
         if ($endTs > time()) {
             return;
         }
@@ -184,7 +188,7 @@ final class PlayerService
             return null;
         }
 
-        $startTs = (new \DateTimeImmutable((string) $travel['start_time'], new \DateTimeZone('UTC')))->getTimestamp();
+        $startTs = strtotime((string) $travel['start_time']) ?: time();
         $now = time();
         $elapsed = max(1, $now - $startTs);
         $duration = max(1, (int) $travel['duration_seconds']);
