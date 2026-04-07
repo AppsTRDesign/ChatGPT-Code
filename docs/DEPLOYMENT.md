@@ -55,3 +55,16 @@ cd realtime
 npm install
 SC_PORT=3001 DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=mmo_user DB_PASS=change_me DB_NAME=mmo_game node server.js
 ```
+
+
+## 8) NGINX reverse proxy for Socket.IO (production)
+
+```nginx
+location /socket.io/ {
+    proxy_pass http://127.0.0.1:3001/socket.io/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "Upgrade";
+    proxy_set_header Host $host;
+}
+```

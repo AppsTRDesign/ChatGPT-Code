@@ -15,7 +15,13 @@ function requireEnv(name) {
 console.log('DB HOST:', process.env.DB_HOST);
 
 const socketPort = Number(requireEnv('SC_PORT'));
-const io = new Server(socketPort, { cors: { origin: '*' } });
+const io = new Server(socketPort, {
+  path: '/socket.io',
+  cors: {
+    origin: process.env.SOCKET_ORIGIN || 'https://game.noasoft.org',
+    credentials: true
+  }
+});
 
 const pool = mysql.createPool({
   host: requireEnv('DB_HOST'),
@@ -24,7 +30,6 @@ const pool = mysql.createPool({
   password: requireEnv('DB_PASS'),
   database: requireEnv('DB_NAME')
 });
-
 
 async function applyXpLeveling(conn, userId, xpGain) {
   await conn.query('UPDATE player_profiles SET xp = xp + ? WHERE user_id=?', [xpGain, userId]);
@@ -42,7 +47,6 @@ async function completeTravel(travel) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-
     const [[dest]] = await conn.query('SELECT country_id FROM regions WHERE id = ?', [travel.to_region_id]);
     if (!dest) throw new Error('Destination region missing');
 
@@ -51,7 +55,6 @@ async function completeTravel(travel) {
     const xpGain = Math.max(1, Math.floor(Number(travel.distance_km || 0) / 10));
     await applyXpLeveling(conn, travel.user_id, xpGain);
     await conn.query('INSERT INTO travel_logs(user_id,from_region_id,to_region_id,status,started_at,completed_at) VALUES(?,?,?,"completed",NOW(),NOW())', [travel.user_id, travel.from_region_id, travel.to_region_id]);
-
     await conn.commit();
   } catch (err) {
     await conn.rollback();
@@ -63,7 +66,9 @@ async function completeTravel(travel) {
 
 async function emitProgress() {
   const [rows] = await pool.query(`
-    SELECT pt.user_id, pt.from_region_id, pt.to_region_id, pt.start_time, pt.end_time, pt.distance_km,
+    SELECT pt.user_id, pt.from_region_id, pt.to_region_id, pt.distance_km,
+           UNIX_TIMESTAMP(pt.start_time) AS start_ts,
+           UNIX_TIMESTAMP(pt.end_time) AS end_ts,
            fr.lat AS from_lat, fr.lng AS from_lng, tr.lat AS to_lat, tr.lng AS to_lng
     FROM player_travel pt
     JOIN regions fr ON fr.id = pt.from_region_id
@@ -71,16 +76,15 @@ async function emitProgress() {
     WHERE pt.status="traveling"
   `);
 
-  const now = Date.now();
+  const now = Math.floor(Date.now() / 1000);
   for (const t of rows) {
-    const start = new Date(t.start_time).getTime();
-    const end = new Date(t.end_time).getTime();
-    const remaining = Math.max(0, Math.ceil((end - now) / 1000));
-    const progress = Math.min(1, Math.max(0, (now - start) / (end - start || 1)));
+    const remaining = Math.max(0, Number(t.end_ts) - now);
+    const denom = Math.max(1, Number(t.end_ts) - Number(t.start_ts));
+    const progress = Math.min(1, Math.max(0, (now - Number(t.start_ts)) / denom));
     const lat = Number(t.from_lat) + (Number(t.to_lat) - Number(t.from_lat)) * progress;
     const lng = Number(t.from_lng) + (Number(t.to_lng) - Number(t.from_lng)) * progress;
 
-    io.to(String(t.user_id)).emit('travel_progress', {
+    io.to(`user_${t.user_id}`).emit('travel_progress', {
       user_id: t.user_id,
       from_region_id: t.from_region_id,
       to_region_id: t.to_region_id,
@@ -92,14 +96,14 @@ async function emitProgress() {
 
     if (remaining <= 0) {
       await completeTravel(t);
-      io.to(String(t.user_id)).emit('travel_complete', { user_id: t.user_id, to_region_id: t.to_region_id });
+      io.to(`user_${t.user_id}`).emit('travel_complete', { user_id: t.user_id, to_region_id: t.to_region_id });
     }
   }
 }
 
 setInterval(() => emitProgress().catch(() => {}), 1000);
 io.on('connection', (socket) => {
-  const userId = String(socket.handshake.auth?.user_id || socket.handshake.query?.user_id || "");
-  if (userId) socket.join(userId);
+  const userId = String(socket.handshake.auth?.user_id || socket.handshake.query?.user_id || '');
+  if (userId) socket.join(`user_${userId}`);
 });
 console.log(`Socket server running on :${socketPort}`);

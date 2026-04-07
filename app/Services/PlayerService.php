@@ -10,7 +10,7 @@ use RuntimeException;
 
 final class PlayerService
 {
-    private const TRAVEL_SPEED_KMH = 800;
+    private const TRAVEL_SPEED_KMH = 3200;
     private const TRAVEL_ENERGY_COST = 10;
 
     public function __construct(
@@ -29,7 +29,21 @@ final class PlayerService
 
         $this->regenerateEnergy($userId, $me);
         $me = $this->playerModel->me($userId);
-        $me['active_travel'] = $this->travelStatus($userId);
+        $travel = $this->travelStatus($userId);
+        $me['is_traveling'] = $travel !== null;
+        $me['travel'] = $travel;
+        $me['active_travel'] = $travel;
+
+        if ($travel) {
+            $me['current_region_id'] = $travel['from_region_id'];
+            $fromRegion = $this->mapModel->regionById((int) $travel['from_region_id']);
+            if ($fromRegion) {
+                $me['current_region_name'] = $fromRegion['name'];
+                $me['current_region_lat'] = $fromRegion['lat'];
+                $me['current_region_lng'] = $fromRegion['lng'];
+            }
+        }
+
         return $me;
     }
 
@@ -92,7 +106,7 @@ final class PlayerService
         }
 
         $now = time();
-        $end = strtotime((string) $travel['end_time']);
+        $end = (new \DateTimeImmutable((string) $travel['end_time'], new \DateTimeZone('UTC')))->getTimestamp();
         return [
             'from_region_id' => (int) $travel['from_region_id'],
             'to_region_id' => (int) $travel['to_region_id'],
@@ -111,7 +125,8 @@ final class PlayerService
             return;
         }
 
-        if (strtotime((string) $travel['end_time']) > time()) {
+        $endTs = (new \DateTimeImmutable((string) $travel['end_time'], new \DateTimeZone('UTC')))->getTimestamp();
+        if ($endTs > time()) {
             return;
         }
 
