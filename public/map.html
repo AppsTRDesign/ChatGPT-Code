@@ -47,9 +47,10 @@ let isActing = false;
 const map = L.map('map').setView([20,0],2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
 map.createPane('routePane');
-map.getPane('routePane').style.zIndex = 700;
+map.getPane('routePane').style.zIndex = 9000;
 map.createPane('planePane');
-map.getPane('planePane').style.zIndex = 760;
+map.getPane('planePane').style.zIndex = 10000;
+map.getPane('planePane').style.pointerEvents = 'auto';
 const sheet = document.getElementById('sheet');
 const backdrop = document.getElementById('sheetBackdrop');
 const closeSheetBtn = document.getElementById('closeSheet');
@@ -161,27 +162,29 @@ function drawTravel(travel){
       iconAnchor:[16,16]
     })
   }).addTo(map);
+  planeMarker.setZIndexOffset(100000);
   planeMarker.on('click', showPlanePopup);
+  planeMarker.bindPopup('');
 
   updateTravelVisuals();
 }
 
 function showPlanePopup(){
   if(!activeTravel || !planeMarker) return;
-  const statusText = activeTravel.status === 'returning' ? 'Returning' : 'Traveling';
-  const content = `
+  planeMarker.getPopup().setContent(buildPlanePopupContent());
+  planeMarker.openPopup();
+}
+
+function buildPlanePopupContent(){
+  const statusText = activeTravel?.status === 'returning' ? 'Returning' : 'Traveling';
+  return `
     <div style="min-width:220px">
       <strong>${statusText}</strong><br>
-      Remaining: ${fmt(Math.max(0, Number(activeTravel.remaining_seconds || 0)))}<br>
-      Route: ${activeTravel.from_region_id} → ${activeTravel.to_region_id}<br>
+      Remaining: ${fmt(Math.max(0, Number(activeTravel?.remaining_seconds || 0)))}<br>
+      Route: ${activeTravel?.from_region_id} → ${activeTravel?.to_region_id}<br>
       <button id="popupCancelTravelBtn" style="margin-top:8px;background:#dc2626;color:#fff;border:0;padding:8px 10px;border-radius:8px;cursor:pointer">Cancel Travel</button>
     </div>
   `;
-  planeMarker.bindPopup(content).openPopup();
-  setTimeout(() => {
-    const btn = document.getElementById('popupCancelTravelBtn');
-    if (btn) btn.onclick = cancelActiveTravel;
-  }, 0);
 }
 
 function updateTravelVisuals(){
@@ -271,8 +274,8 @@ async function syncTravelFromBackend(){
     return;
   }
   updateTravelVisuals();
-  if (planeMarker && planeMarker.isPopupOpen()) {
-    showPlanePopup();
+  if (planeMarker && planeMarker.isPopupOpen() && planeMarker.getPopup()) {
+    planeMarker.getPopup().setContent(buildPlanePopupContent());
   }
 }
 
@@ -383,6 +386,11 @@ function initSocket(){
 closeSheetBtn.onclick = closeSheetPanel;
 backdrop.onclick = closeSheetPanel;
 sheetCancelBtn.onclick = cancelActiveTravel;
+document.addEventListener('click', (evt) => {
+  if (evt.target && evt.target.id === 'popupCancelTravelBtn') {
+    cancelActiveTravel();
+  }
+});
 load().then(initSocket);
 </script>
 </body></html>
