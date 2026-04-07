@@ -20,7 +20,7 @@ final class LocationService
         $existing = $this->playerModel->me($userId);
         if ($existing) {
             return [
-                'country_id' => (int) $existing['current_country_id'],
+                'country_id' => (int) $existing['current_country_region_id'],
                 'region_id' => (int) $existing['current_region_id'],
                 'source' => 'existing',
             ];
@@ -48,7 +48,7 @@ final class LocationService
         }
 
         $regionId = (int) ($region['id'] ?? 0);
-        $countryId = (int) ($region['country_id'] ?? $countryId);
+        $countryId = (int) ($region['parent_country_region_id'] ?: $region['id'] ?? $countryId);
 
         $this->playerModel->createProfile($userId, $regionId, $countryId);
         $this->playerModel->createCitizenship($userId, $countryId);

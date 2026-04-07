@@ -121,16 +121,16 @@ final class GeoService
             return null;
         }
 
-        $stmt = Database::connection()->prepare('SELECT * FROM countries WHERE iso_code = :iso OR slug = :slug LIMIT 1');
-        $stmt->execute(['iso' => strtoupper($iso2), 'slug' => strtolower($iso2)]);
+        $stmt = Database::connection()->prepare('SELECT * FROM regions WHERE region_type = "country" AND (country_code = :iso OR UPPER(country_code) = :iso) LIMIT 1');
+        $stmt->execute(['iso' => strtoupper($iso2)]);
         return $stmt->fetch() ?: null;
     }
 
-    public function resolveRegion(int $countryId, ?string $city, ?float $lat, ?float $lng): ?array
+    public function resolveRegion(int $countryRegionId, ?string $city, ?float $lat, ?float $lng): ?array
     {
         if ($city) {
-            $stmt = Database::connection()->prepare('SELECT * FROM regions WHERE country_id = :country_id AND LOWER(name) = LOWER(:city) LIMIT 1');
-            $stmt->execute(['country_id' => $countryId, 'city' => $city]);
+            $stmt = Database::connection()->prepare('SELECT * FROM regions WHERE (id = :country_id OR parent_country_region_id = :country_id) AND LOWER(name) = LOWER(:city) LIMIT 1');
+            $stmt->execute(['country_id' => $countryRegionId, 'city' => $city]);
             $exact = $stmt->fetch();
             if ($exact) {
                 return $exact;
@@ -139,19 +139,17 @@ final class GeoService
 
         if ($lat !== null && $lng !== null) {
             $sql = 'SELECT *, (6371 * acos(cos(radians(:lat)) * cos(radians(lat)) * cos(radians(lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(lat)))) AS distance
-                    FROM regions WHERE country_id = :country_id ORDER BY distance ASC LIMIT 1';
+                    FROM regions WHERE id = :country_id OR parent_country_region_id = :country_id ORDER BY distance ASC LIMIT 1';
             $stmt = Database::connection()->prepare($sql);
-            $stmt->execute(['lat' => $lat, 'lng' => $lng, 'country_id' => $countryId]);
+            $stmt->execute(['lat' => $lat, 'lng' => $lng, 'country_id' => $countryRegionId]);
             $nearest = $stmt->fetch();
             if ($nearest) {
                 return $nearest;
             }
         }
 
-        $stmt = Database::connection()->prepare(
-            'SELECT r.* FROM countries c JOIN regions r ON r.id = c.capital_region_id WHERE c.id = :country_id LIMIT 1'
-        );
-        $stmt->execute(['country_id' => $countryId]);
+        $stmt = Database::connection()->prepare('SELECT * FROM regions WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $countryRegionId]);
         $capital = $stmt->fetch();
         if ($capital) {
             return $capital;

@@ -121,7 +121,7 @@ function openSheet(region){
   selectedRegion = region;
   selectedRegionId = Number(region.id);
   regionTitle.textContent = `${region.name}, ${region.country_name}`;
-  regionMeta.innerHTML = `Owner: ${region.owner_country_name || region.country_name}<br>Resource: ${region.resource_type}<br>Population: ${region.population}`;
+  regionMeta.innerHTML = `Owner Region: ${region.owner_region_name || region.country_name}<br>Resource: ${region.resource_type}<br>Population: ${region.population}`;
   modeHint.textContent = !isAuthed ? 'Login to interact with this region.' : activeTravel ? 'Travel already in progress.' : '';
   let cost = 0;
   if (isAuthed && currentRegionId && layers.get(currentRegionId)) {
@@ -157,7 +157,7 @@ function styleFor(region){
   const isSelected = selectedRegionId === id;
   return {
     color: isSelected ? '#ffffff' : '#1e293b',
-    fillColor: region.region_type === 'independent' ? '#ffffff' : region.country_color,
+    fillColor: region.color || '#7c3aed',
     fillOpacity: isCurrent ? 0.58 : 0.26,
     opacity: 0.95,
     weight: isCurrent ? 3 : (isSelected ? 3 : 2)

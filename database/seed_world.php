@@ -3,61 +3,86 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../app/Helpers/env.php';
+require_once __DIR__ . '/../app/Helpers/config.php';
 require_once __DIR__ . '/../app/Core/Database.php';
 
 use App\Core\Database;
 
-$data = json_decode(file_get_contents(__DIR__ . '/data/world_data.json'), true, 512, JSON_THROW_ON_ERROR);
+$data = json_decode((string) file_get_contents(__DIR__ . '/data/world_data.json'), true);
+if (!is_array($data)) {
+    throw new RuntimeException('Invalid world_data.json');
+}
+
 $pdo = Database::connection();
 $pdo->beginTransaction();
 
-$pdo->exec('DELETE FROM regions');
-$pdo->exec('DELETE FROM countries');
+$pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+$pdo->exec('TRUNCATE TABLE citizenships');
+$pdo->exec('TRUNCATE TABLE player_travel');
+$pdo->exec('TRUNCATE TABLE travel_logs');
+$pdo->exec('TRUNCATE TABLE player_profiles');
+$pdo->exec('TRUNCATE TABLE regions');
+$pdo->exec('TRUNCATE TABLE countries');
+$pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 
-$countryStmt = $pdo->prepare('INSERT INTO countries(id,name,slug,iso_code,flag_url,color,government_type,created_at) VALUES(:id,:name,:slug,:iso_code,:flag_url,:color,:government_type,NOW())');
+$countryStmt = $pdo->prepare('INSERT INTO countries(id,name,slug,iso_code,flag_url,created_at) VALUES(:id,:name,:slug,:iso_code,:flag_url,NOW())');
+$countryBySlug = [];
 foreach ($data['countries'] as $country) {
     $countryStmt->execute([
-        'id' => $country['id'],
+        'id' => (int) $country['id'],
         'name' => $country['name'],
-        'slug' => $country['slug'],
+        'slug' => strtolower((string) $country['slug']),
         'iso_code' => strtoupper((string) $country['slug']),
         'flag_url' => $country['flag_url'],
-        'color' => $country['color'],
-        'government_type' => $country['government_type'],
     ]);
+    $countryBySlug[strtolower((string) $country['slug'])] = $country;
 }
 
-$map = [];
-foreach ($data['countries'] as $country) {
-    $map[$country['slug']] = $country['id'];
-}
+$palette = ['#2563eb','#16a34a','#dc2626','#ea580c','#7c3aed','#0891b2','#ca8a04','#9333ea','#be123c','#0f766e'];
+$regionStmt = $pdo->prepare(
+    'INSERT INTO regions(id,country_id,country_code,country_name,name,slug,lat,lng,polygon_json,population,resource_type,owner_region_id,region_type,parent_country_region_id,capital_region_id,government_type,color,flag_url,neighbors_json,army_level,education_level,hospital_level,airport_level,port_level,is_coastal,has_sea_access,created_at)
+     VALUES(:id,:country_id,:country_code,:country_name,:name,:slug,:lat,:lng,:polygon_json,:population,:resource_type,NULL,:region_type,:parent_country_region_id,:capital_region_id,:government_type,:color,:flag_url,JSON_ARRAY(),1,1,1,1,0,0,0,NOW())'
+);
 
-$regionStmt = $pdo->prepare('INSERT INTO regions(id,country_id,name,slug,lat,lng,polygon_json,population,resource_type,owner_country_id,created_at)
-VALUES(:id,:country_id,:name,:slug,:lat,:lng,:polygon_json,:population,:resource_type,:owner_country_id,NOW())');
-$capitalByCountry = [];
+$countryCapitalByCountryId = [];
+foreach ($data['regions'] as $idx => $region) {
+    $slug = strtolower((string) $region['country_slug']);
+    $country = $countryBySlug[$slug] ?? null;
+    if (!$country) {
+        continue;
+    }
 
-foreach ($data['regions'] as $region) {
-    $countryId = $map[$region['country_slug']];
+    $countryId = (int) $country['id'];
+    if (!isset($countryCapitalByCountryId[$countryId])) {
+        $countryCapitalByCountryId[$countryId] = (int) $region['id'];
+    }
+
+    $capitalId = $countryCapitalByCountryId[$countryId];
+    $isCapitalRegion = (int) $region['id'] === $capitalId;
+
     $regionStmt->execute([
-        'id' => $region['id'],
+        'id' => (int) $region['id'],
         'country_id' => $countryId,
+        'country_code' => strtoupper($slug),
+        'country_name' => $country['name'],
         'name' => $region['name'],
         'slug' => $region['slug'],
-        'lat' => $region['lat'],
-        'lng' => $region['lng'],
-        'polygon_json' => json_encode($region['polygon_json'], JSON_THROW_ON_ERROR),
-        'population' => $region['population'],
-        'resource_type' => $region['resource_type'],
-        'owner_country_id' => $countryId,
+        'lat' => (float) $region['lat'],
+        'lng' => (float) $region['lng'],
+        'polygon_json' => json_encode($region['polygon_json'], JSON_UNESCAPED_UNICODE),
+        'population' => (int) ($region['population'] ?? 0),
+        'resource_type' => $region['resource_type'] ?? 'agriculture',
+        'region_type' => $isCapitalRegion ? 'country' : 'region',
+        'parent_country_region_id' => $isCapitalRegion ? null : $capitalId,
+        'capital_region_id' => $capitalId,
+        'government_type' => (($country['government_type'] ?? 'republic') === 'dictatorship') ? 'dictatorship' : 'republic',
+        'color' => $palette[$idx % count($palette)],
+        'flag_url' => $country['flag_url'],
     ]);
-
-    $capitalByCountry[$countryId] ??= (int) $region['id'];
 }
 
-$capitalStmt = $pdo->prepare('UPDATE countries SET capital_region_id = :capital_region_id WHERE id = :country_id');
-foreach ($capitalByCountry as $countryId => $regionId) {
-    $capitalStmt->execute(['capital_region_id' => $regionId, 'country_id' => $countryId]);
-}
-
+$pdo->exec('UPDATE regions SET owner_region_id = COALESCE(parent_country_region_id, id)');
+$pdo->exec('UPDATE regions SET capital_region_id = id WHERE capital_region_id IS NULL');
 $pdo->commit();
+
 echo "Seeded " . count($data['countries']) . " countries and " . count($data['regions']) . " regions\n";

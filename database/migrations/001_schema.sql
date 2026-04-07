@@ -4,15 +4,14 @@ CREATE TABLE IF NOT EXISTS countries (
     slug VARCHAR(8) NOT NULL UNIQUE,
     iso_code CHAR(2) NULL,
     flag_url VARCHAR(255) NOT NULL,
-    color CHAR(7) NOT NULL,
-    capital_region_id INT NULL,
-    government_type VARCHAR(80) DEFAULT 'republic',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS regions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     country_id INT NOT NULL,
+    country_code VARCHAR(12) NOT NULL,
+    country_name VARCHAR(120) NOT NULL,
     name VARCHAR(120) NOT NULL,
     slug VARCHAR(120) NOT NULL UNIQUE,
     lat DECIMAL(10,7) NOT NULL,
@@ -20,16 +19,26 @@ CREATE TABLE IF NOT EXISTS regions (
     polygon_json JSON NOT NULL,
     population INT NOT NULL DEFAULT 0,
     resource_type ENUM('oil','gold','gas','iron','uranium','agriculture','tech','tourism') DEFAULT 'agriculture',
-    owner_country_id INT NOT NULL,
+    owner_region_id INT NULL,
+    region_type ENUM('region','country','independent') NOT NULL DEFAULT 'country',
+    parent_country_region_id INT NULL,
+    capital_region_id INT NULL,
+    government_type ENUM('dictatorship','republic') NOT NULL DEFAULT 'republic',
+    color CHAR(7) NOT NULL DEFAULT '#7c3aed',
+    flag_url VARCHAR(255) NULL,
+    neighbors_json JSON NULL,
     army_level INT NOT NULL DEFAULT 1,
     education_level INT NOT NULL DEFAULT 1,
     hospital_level INT NOT NULL DEFAULT 1,
     airport_level INT NOT NULL DEFAULT 1,
     port_level INT NOT NULL DEFAULT 0,
     is_coastal TINYINT(1) NOT NULL DEFAULT 0,
+    has_sea_access TINYINT(1) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_regions_country FOREIGN KEY (country_id) REFERENCES countries(id),
-    CONSTRAINT fk_regions_owner_country FOREIGN KEY (owner_country_id) REFERENCES countries(id)
+    CONSTRAINT fk_regions_owner_region FOREIGN KEY (owner_region_id) REFERENCES regions(id),
+    CONSTRAINT fk_regions_parent_country FOREIGN KEY (parent_country_region_id) REFERENCES regions(id),
+    CONSTRAINT fk_regions_capital_region FOREIGN KEY (capital_region_id) REFERENCES regions(id)
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -44,7 +53,7 @@ CREATE TABLE IF NOT EXISTS player_profiles (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL UNIQUE,
     current_region_id INT NOT NULL,
-    current_country_id INT NOT NULL,
+    current_country_region_id INT NOT NULL,
     level INT NOT NULL DEFAULT 1,
     xp INT NOT NULL DEFAULT 0,
     xp_to_next INT NOT NULL DEFAULT 100,
@@ -57,18 +66,18 @@ CREATE TABLE IF NOT EXISTS player_profiles (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_profile_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_profile_region FOREIGN KEY (current_region_id) REFERENCES regions(id),
-    CONSTRAINT fk_profile_country FOREIGN KEY (current_country_id) REFERENCES countries(id)
+    CONSTRAINT fk_profile_country_region FOREIGN KEY (current_country_region_id) REFERENCES regions(id)
 );
 
 CREATE TABLE IF NOT EXISTS citizenships (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    country_id INT NOT NULL,
+    country_region_id INT NOT NULL,
     is_homeland TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_citizenship_user FOREIGN KEY (user_id) REFERENCES users(id),
-    CONSTRAINT fk_citizenship_country FOREIGN KEY (country_id) REFERENCES countries(id),
-    UNIQUE KEY uq_user_country (user_id, country_id)
+    CONSTRAINT fk_citizenship_country_region FOREIGN KEY (country_region_id) REFERENCES regions(id),
+    UNIQUE KEY uq_user_country (user_id, country_region_id)
 );
 
 CREATE TABLE IF NOT EXISTS travel_logs (
@@ -82,6 +91,25 @@ CREATE TABLE IF NOT EXISTS travel_logs (
     CONSTRAINT fk_travel_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_travel_from_region FOREIGN KEY (from_region_id) REFERENCES regions(id),
     CONSTRAINT fk_travel_to_region FOREIGN KEY (to_region_id) REFERENCES regions(id)
+);
+
+CREATE TABLE IF NOT EXISTS player_travel (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    from_region_id INT NOT NULL,
+    to_region_id INT NOT NULL,
+    distance_km DECIMAL(10,2) NOT NULL,
+    cost_coins INT NOT NULL,
+    duration_seconds INT NOT NULL,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    status ENUM('traveling','returning','completed','cancelled') NOT NULL DEFAULT 'traveling',
+    start_progress DECIMAL(5,4) NOT NULL DEFAULT 0,
+    end_progress DECIMAL(5,4) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_player_travel_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_player_travel_from FOREIGN KEY (from_region_id) REFERENCES regions(id),
+    CONSTRAINT fk_player_travel_to FOREIGN KEY (to_region_id) REFERENCES regions(id)
 );
 
 CREATE TABLE IF NOT EXISTS api_tokens (

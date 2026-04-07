@@ -8,51 +8,51 @@ use App\Core\Database;
 
 final class PlayerModel
 {
-    public function createProfile(int $userId, int $regionId, int $countryId): void
+    public function createProfile(int $userId, int $regionId, int $countryRegionId): void
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO player_profiles(user_id,current_region_id,current_country_id,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
-             VALUES(:user_id,:current_region_id,:current_country_id,1,0,100,1000,0,300,300,100000,NOW(),NOW())'
+            'INSERT INTO player_profiles(user_id,current_region_id,current_country_region_id,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
+             VALUES(:user_id,:current_region_id,:current_country_region_id,1,0,100,1000,0,300,300,100000,NOW(),NOW())'
         );
         $stmt->execute([
             'user_id' => $userId,
             'current_region_id' => $regionId,
-            'current_country_id' => $countryId,
+            'current_country_region_id' => $countryRegionId,
         ]);
     }
 
-    public function createCitizenship(int $userId, int $countryId): void
+    public function createCitizenship(int $userId, int $countryRegionId): void
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO citizenships(user_id,country_id,is_homeland,created_at) VALUES(:user_id,:country_id,1,NOW())'
+            'INSERT INTO citizenships(user_id,country_region_id,is_homeland,created_at) VALUES(:user_id,:country_region_id,1,NOW())'
         );
-        $stmt->execute(['user_id' => $userId, 'country_id' => $countryId]);
+        $stmt->execute(['user_id' => $userId, 'country_region_id' => $countryRegionId]);
     }
 
     public function me(int $userId): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.instant_energy,p.max_instant_energy,p.total_energy,p.last_energy_update,p.current_region_id,p.current_country_id,
+            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.instant_energy,p.max_instant_energy,p.total_energy,p.last_energy_update,p.current_region_id,p.current_country_region_id,
                     r.name AS current_region_name,r.lat AS current_region_lat,r.lng AS current_region_lng,c.name AS current_country_name,c.color AS current_country_color,
-                    ch.country_id AS citizenship_country_id,cc.name AS citizenship_country_name
+                    ch.country_region_id AS citizenship_country_region_id,cc.name AS citizenship_country_name
              FROM users u
              JOIN player_profiles p ON p.user_id = u.id
              JOIN regions r ON r.id = p.current_region_id
-             JOIN countries c ON c.id = p.current_country_id
+             JOIN regions c ON c.id = p.current_country_region_id
              LEFT JOIN citizenships ch ON ch.user_id = u.id AND ch.is_homeland = 1
-             LEFT JOIN countries cc ON cc.id = ch.country_id
+             LEFT JOIN regions cc ON cc.id = ch.country_region_id
              WHERE u.id = :user_id LIMIT 1'
         );
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetch() ?: null;
     }
 
-    public function updateLocation(int $userId, int $regionId, int $countryId): void
+    public function updateLocation(int $userId, int $regionId, int $countryRegionId): void
     {
         $stmt = Database::connection()->prepare(
-            'UPDATE player_profiles SET current_region_id = :region_id, current_country_id = :country_id WHERE user_id = :user_id'
+            'UPDATE player_profiles SET current_region_id = :region_id, current_country_region_id = :country_region_id WHERE user_id = :user_id'
         );
-        $stmt->execute(['region_id' => $regionId, 'country_id' => $countryId, 'user_id' => $userId]);
+        $stmt->execute(['region_id' => $regionId, 'country_region_id' => $countryRegionId, 'user_id' => $userId]);
     }
 
     public function updateEnergy(int $userId, int $instantEnergy, string $timestamp): void

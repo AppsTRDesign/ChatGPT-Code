@@ -27,20 +27,10 @@ GRANT ALL PRIVILEGES ON mmo_game.* TO 'mmo_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-## 4) Run migrations and seed map data
+## 4) Run single schema + seed map data
 
 ```bash
 mysql -u mmo_user -p mmo_game < database/migrations/001_schema.sql
-mysql -u mmo_user -p mmo_game < database/migrations/002_geo_columns.sql
-mysql -u mmo_user -p mmo_game < database/migrations/003_player_travel.sql
-mysql -u mmo_user -p mmo_game < database/migrations/004_player_progression.sql
-mysql -u mmo_user -p mmo_game < database/migrations/005_travel_cost_coins.sql
-mysql -u mmo_user -p mmo_game < database/migrations/006_region_stats.sql
-mysql -u mmo_user -p mmo_game < database/migrations/007_travel_returning.sql
-mysql -u mmo_user -p mmo_game < database/migrations/008_energy_redesign.sql
-mysql -u mmo_user -p mmo_game < database/migrations/009_drop_legacy_energy_columns.sql
-mysql -u mmo_user -p mmo_game < database/migrations/010_region_governance.sql
-mysql -u mmo_user -p mmo_game < database/migrations/011_region_country_profile.sql
 php database/seed_world.php
 ```
 
@@ -53,24 +43,10 @@ Point vhost document root to `/var/www/vhosts/noasoft.org/game.noasoft.org/publi
 curl -s https://game.noasoft.org/api/map/regions
 ```
 
-
 ## 7) Realtime travel socket server
 
 ```bash
 cd realtime
 npm install
 SC_PORT=3001 DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=mmo_user DB_PASS=change_me DB_NAME=mmo_game node server.js
-```
-
-
-## 8) NGINX reverse proxy for Socket.IO (production)
-
-```nginx
-location /socket.io/ {
-    proxy_pass http://127.0.0.1:3001/socket.io/;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "Upgrade";
-    proxy_set_header Host $host;
-}
 ```

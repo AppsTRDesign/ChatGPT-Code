@@ -172,7 +172,7 @@ final class PlayerService
             return;
         }
 
-        $this->playerModel->updateLocation($userId, $finalRegionId, (int) $destination['country_id']);
+        $this->playerModel->updateLocation($userId, $finalRegionId, (int) ($destination['parent_country_region_id'] ?: $destination['id']));
         $this->playerModel->completeTravel($userId);
         $xpGain = (int) max(1, floor(((float) $travel['distance_km']) / 10));
         $this->playerModel->addXp($userId, $xpGain);
