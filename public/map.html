@@ -163,7 +163,7 @@ function updateTravelVisuals(){
 
   const remaining = Math.max(0, Math.ceil((end-now)/1000));
   travelStatusEl.style.display = 'block';
-  travelStatusEl.textContent = `Traveling to ${to.name} • Arriving in ${fmt(remaining)}`;
+  travelStatusEl.textContent = `Traveling... ${fmt(remaining)} remaining`;
 
   if (remaining <= 0) {
     clearInterval(countdownTimer);
@@ -273,7 +273,7 @@ function initSocket(){
         planeMarker.setLatLng([evt.lat, evt.lng]);
       }
       travelStatusEl.style.display = 'block';
-      travelStatusEl.textContent = `Traveling • Arriving in ${fmt(evt.remaining_seconds)}`;
+      travelStatusEl.textContent = `Traveling... ${fmt(evt.remaining_seconds)} remaining`;
       if(evt.remaining_seconds <= 1) completeTravelCheck();
     });
     socket.on('travel_complete', (evt)=> {

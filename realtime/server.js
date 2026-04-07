@@ -80,19 +80,19 @@ async function emitProgress() {
     const lat = Number(t.from_lat) + (Number(t.to_lat) - Number(t.from_lat)) * progress;
     const lng = Number(t.from_lng) + (Number(t.to_lng) - Number(t.from_lng)) * progress;
 
-    io.to(`user_${t.user_id}`).emit('travel_progress', {
+    io.to(String(t.user_id)).emit('travel_progress', {
       user_id: t.user_id,
       from_region_id: t.from_region_id,
       to_region_id: t.to_region_id,
       remaining_seconds: remaining,
-      progress,
+      progress_percent: Math.round(progress * 100),
       lat,
       lng
     });
 
     if (remaining <= 0) {
       await completeTravel(t);
-      io.to(`user_${t.user_id}`).emit('travel_complete', { user_id: t.user_id, to_region_id: t.to_region_id });
+      io.to(String(t.user_id)).emit('travel_complete', { user_id: t.user_id, to_region_id: t.to_region_id });
     }
   }
 }
@@ -100,6 +100,6 @@ async function emitProgress() {
 setInterval(() => emitProgress().catch(() => {}), 1000);
 io.on('connection', (socket) => {
   const userId = String(socket.handshake.auth?.user_id || socket.handshake.query?.user_id || "");
-  if (userId) socket.join(`user_${userId}`);
+  if (userId) socket.join(userId);
 });
 console.log(`Socket server running on :${socketPort}`);

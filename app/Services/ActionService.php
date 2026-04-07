@@ -33,12 +33,12 @@ final class ActionService
         }
 
         if (!in_array($action, ['travel', 'visa_request', 'migrate', 'attack', 'invest'], true)) {
-            throw new RuntimeException('invalid_action');
+            throw new RuntimeException('Invalid action');
         }
 
         $region = $this->mapModel->regionById($regionId);
         if (!$region) {
-            throw new RuntimeException('invalid_region');
+            throw new RuntimeException('Invalid region');
         }
 
         if ($action === 'travel') {
@@ -47,7 +47,7 @@ final class ActionService
                 throw new RuntimeException('unauthorized');
             }
             if ((int) $me['current_region_id'] === $regionId) {
-                throw new RuntimeException('same_region');
+                throw new RuntimeException('Already in this region');
             }
         }
     }

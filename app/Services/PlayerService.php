@@ -49,13 +49,13 @@ final class PlayerService
 
         $fromRegionId = (int) $me['current_region_id'];
         if ($fromRegionId === $toRegionId) {
-            throw new RuntimeException('same_region');
+            throw new RuntimeException('Already in this region');
         }
 
         $fromRegion = $this->mapModel->regionById($fromRegionId);
         $destination = $this->mapModel->regionById($toRegionId);
         if (!$fromRegion || !$destination) {
-            throw new RuntimeException('invalid_region');
+            throw new RuntimeException('Invalid region');
         }
 
         $distance = $this->distanceKm((float) $fromRegion['lat'], (float) $fromRegion['lng'], (float) $destination['lat'], (float) $destination['lng']);
