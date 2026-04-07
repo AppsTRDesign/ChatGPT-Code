@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Dashboard</title><link rel="stylesheet" href="/styles.css"></head>
+<body><div class="container"><h1>Player Dashboard</h1><div id="info"></div><p><a href="/map.html">Open World Map</a></p></div>
+<script>
+(async()=>{
+  const token = localStorage.getItem('token');
+  if(!token){ location.href='/login.html'; return; }
+  const res = await fetch('/api/player/me',{headers:{Authorization:`Bearer ${token}`}});
+  const json = await res.json();
+  if(json.error){ location.href='/login.html'; return; }
+  const p = json.data;
+  info.innerHTML = `<p><b>${p.username}</b> (${p.email})</p><p>Energy: ${p.energy}</p><p>Current Region: ${p.current_region_name}</p><p>Current Country: ${p.current_country_name}</p><p>Citizenship: ${p.citizenship_country_name}</p>`;
+})();
+</script></body></html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>MMO Login</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+<div class="container">
+  <h2>Login</h2>
+  <input id="email" placeholder="Email" type="email">
+  <input id="password" placeholder="Password" type="password">
+  <button onclick="login()">Login</button>
+  <h2>Register</h2>
+  <input id="r_username" placeholder="Username">
+  <input id="r_email" placeholder="Email" type="email">
+  <input id="r_password" placeholder="Password (8+)" type="password">
+  <button onclick="registerUser()">Register</button>
+  <p id="msg"></p>
+</div>
+<script>
+const msg = document.getElementById('msg');
+async function login(){
+  const res = await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value,password:password.value})});
+  const data = await res.json();
+  if(data.token){ localStorage.setItem('token',data.token); location.href='/dashboard.html'; return; }
+  msg.textContent = data.error || 'Login failed';
+}
+async function registerUser(){
+  const res = await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:r_username.value,email:r_email.value,password:r_password.value})});
+  const data = await res.json();
+  if(data.token){ localStorage.setItem('token',data.token); location.href='/dashboard.html'; return; }
+  msg.textContent = data.error || 'Register failed';
+}
+</script></body></html>
