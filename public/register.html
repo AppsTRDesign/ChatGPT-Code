@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login - NoaSoft MMO</title>
+  <title>Register - NoaSoft MMO</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="auth-wrap">
     <div class="auth-card glass">
-      <h1>Welcome Back</h1>
-      <p class="muted">Login to continue your geopolitical campaign.</p>
+      <h1>Create Account</h1>
+      <p class="muted">Join the geopolitical simulation.</p>
+      <input id="username" type="text" placeholder="Username">
       <input id="email" type="email" placeholder="Email">
-      <input id="password" type="password" placeholder="Password">
-      <button id="loginBtn" class="primary-btn">Login</button>
-      <p class="muted">No account? <a href="/register">Register here</a></p>
+      <input id="password" type="password" placeholder="Password (8+ chars)">
+      <button id="registerBtn" class="primary-btn">Create account</button>
+      <p class="muted">Already have an account? <a href="/login">Login</a></p>
     </div>
   </div>
   <div id="toast" class="toast"></div>
 <script>
-const token = localStorage.getItem('token');
-if (token) location.href = '/map';
+if (localStorage.getItem('token')) location.href = '/map';
 
 function toast(msg, error=false){
   const t = document.getElementById('toast');
@@ -29,29 +29,29 @@ function toast(msg, error=false){
   setTimeout(()=> t.className='toast', 2400);
 }
 
-loginBtn.onclick = async () => {
-  const btn = loginBtn;
+registerBtn.onclick = async () => {
+  const btn = registerBtn;
   btn.disabled = true;
-  btn.textContent = 'Logging in...';
+  btn.textContent = 'Creating...';
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/auth/register', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ email: email.value.trim(), password: password.value })
+      body: JSON.stringify({ username: username.value.trim(), email: email.value.trim(), password: password.value })
     });
     const data = await res.json();
     if (!res.ok || !data.token) {
-      toast(data.error || 'Login failed', true);
+      toast(data.error || 'Registration failed', true);
       return;
     }
     localStorage.setItem('token', data.token);
-    toast('Login successful');
-    setTimeout(()=> location.href='/map', 450);
+    toast('Account created');
+    setTimeout(()=> location.href='/dashboard', 450);
   } catch {
     toast('Network error', true);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Login';
+    btn.textContent = 'Create account';
   }
 };
 </script>

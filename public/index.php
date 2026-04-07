@@ -27,8 +27,19 @@ use App\Core\Router;
 use App\Middlewares\AuthMiddleware;
 
 
-$rawRequestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
-error_log('[router] REQUEST_URI=' . $rawRequestUri);
+$uriPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?? '/');
+$frontendRoutes = [
+    '/' => 'map.html',
+    '/login' => 'login.html',
+    '/register' => 'register.html',
+    '/dashboard' => 'dashboard.html',
+    '/map' => 'map.html',
+];
+
+if (isset($frontendRoutes[$uriPath])) {
+    require __DIR__ . '/' . $frontendRoutes[$uriPath];
+    exit;
+}
 
 $request = new Request();
 $router = new Router();

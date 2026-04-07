@@ -1,10 +1,16 @@
-body { font-family: Inter, Arial, sans-serif; margin: 0; background: #0d1117; color: #e6edf3; }
+body { font-family: Inter, Arial, sans-serif; margin: 0; background: radial-gradient(circle at top, #172033, #0b0f18 45%, #080b12); color: #e6edf3; }
 .container { max-width: 860px; margin: 32px auto; padding: 24px; background: #161b22; border-radius: 10px; }
-input, button { padding: 10px; margin: 6px 0; width: 100%; border-radius: 8px; border: 1px solid #30363d; }
-button { background: #238636; color: white; cursor: pointer; }
-a { color: #58a6ff; }
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.auth-card { width: 100%; max-width: 420px; padding: 24px; border-radius: 16px; }
+.glass { background: rgba(21,27,43,.78); backdrop-filter: blur(10px); border: 1px solid rgba(148,163,184,.2); box-shadow: 0 20px 45px rgba(0,0,0,.35); }
+.muted { color: #9ca3af; }
+input, button { padding: 12px; margin: 6px 0; width: 100%; border-radius: 8px; border: 1px solid #30363d; background: rgba(15,23,42,.8); color:#e6edf3; }
+button { cursor: pointer; }
+a { color: #60a5fa; }
+.btn-row { display: flex; gap: 10px; }
 #map { width: 100vw; height: 100vh; }
-.map-back { position: fixed; top: 14px; left: 14px; background: rgba(9,12,20,.85); color: #fff; padding: 8px 12px; border-radius: 999px; text-decoration: none; z-index: 1000; }
+.map-nav { position: fixed; top: 14px; left: 14px; z-index: 1000; }
+.map-back { display:inline-block; background: rgba(9,12,20,.85); color: #fff; padding: 8px 12px; border-radius: 999px; text-decoration: none; }
 .action-sheet { position: fixed; left: 0; right: 0; bottom: -420px; background: rgba(14,19,31,.98); border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 16px; z-index: 1200; transition: bottom .28s ease; box-shadow: 0 -10px 32px rgba(0,0,0,.35); }
 .action-sheet.open { bottom: 0; }
 .sheet-handle { width: 48px; height: 4px; border-radius: 6px; background: #64748b; margin: 0 auto 10px; }

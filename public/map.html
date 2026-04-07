@@ -15,45 +15,56 @@
   <button class="sheet-close" id="closeSheet">×</button>
   <h3 id="regionTitle">Region</h3>
   <p id="regionMeta"></p>
+  <p id="modeHint" class="muted"></p>
   <button id="travelBtn" class="primary-btn">Travel to this region</button>
 </div>
-<a class="map-back" href="/dashboard.html">Dashboard</a>
+<div class="map-nav">
+  <a class="map-back" href="/dashboard" id="dashLink">Dashboard</a>
+  <a class="map-back" href="/login" id="loginLink" style="display:none">Login</a>
+  <a class="map-back" href="/register" id="registerLink" style="left:120px;display:none">Register</a>
+</div>
 <script>
 let selectedRegion = null;
 let me = null;
-let token = localStorage.getItem('token');
+const token = localStorage.getItem('token');
+const isAuthed = !!token;
 const layers = new Map();
 let currentRegionId = null;
 let selectedRegionId = null;
 let marker = null;
 let isActing = false;
 
-if(!token) location.href='/login.html';
-
 const map = L.map('map').setView([20,0],2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
-
 const sheet = document.getElementById('sheet');
-const toast = document.getElementById('toast');
+const toastEl = document.getElementById('toast');
+
+if (!isAuthed) {
+  dashLink.style.display = 'none';
+  loginLink.style.display = 'inline-block';
+  registerLink.style.display = 'inline-block';
+}
 
 async function api(url, opts={}){
-  opts.headers = {...(opts.headers||{}), Authorization:`Bearer ${token}`};
+  opts.headers = {...(opts.headers||{})};
+  if (token) opts.headers.Authorization = `Bearer ${token}`;
   const r = await fetch(url,opts);
   return r.json();
 }
 
 function showToast(message, error=false){
-  toast.textContent = message;
-  toast.className = `toast show ${error ? 'error' : ''}`;
-  setTimeout(()=> toast.className = 'toast', 2200);
+  toastEl.textContent = message;
+  toastEl.className = `toast show ${error ? 'error' : ''}`;
+  setTimeout(()=> toastEl.className = 'toast', 2200);
 }
 
 function openSheet(region){
   selectedRegion = region;
-  selectedRegionId = region.id;
+  selectedRegionId = Number(region.id);
   regionTitle.textContent = `${region.name}, ${region.country_name}`;
   regionMeta.innerHTML = `Owner: ${region.owner_country_name || region.country_name}<br>Resource: ${region.resource_type}<br>Population: ${region.population}`;
-  travelBtn.disabled = isActing || currentRegionId === region.id;
+  modeHint.textContent = isAuthed ? '' : 'Login to interact with this region.';
+  travelBtn.disabled = !isAuthed || isActing || currentRegionId === Number(region.id);
   sheet.classList.add('open');
   refreshStyles();
 }
@@ -65,8 +76,9 @@ function closeSheet(){
 }
 
 function styleFor(region){
-  const isCurrent = currentRegionId === region.id;
-  const isSelected = selectedRegionId === region.id;
+  const id = Number(region.id);
+  const isCurrent = currentRegionId === id;
+  const isSelected = selectedRegionId === id;
   return {
     color: isSelected ? '#ffffff' : region.country_color,
     fillColor: region.country_color,
@@ -76,57 +88,63 @@ function styleFor(region){
 }
 
 function refreshStyles(){
-  layers.forEach((obj, id)=>{
-    obj.layer.setStyle(styleFor(obj.region));
-  });
+  layers.forEach((obj)=> obj.layer.setStyle(styleFor(obj.region)));
 }
 
 async function load(){
-  me = (await api('/api/player/me')).data;
-  currentRegionId = Number(me.current_region_id);
-  const regions = (await fetch('/api/map/regions').then(r=>r.json())).data;
+  if (isAuthed) {
+    const meRes = await api('/api/player/me');
+    if (meRes.data) {
+      me = meRes.data;
+      currentRegionId = Number(me.current_region_id);
+    }
+  }
 
+  const regions = (await fetch('/api/map/regions').then(r=>r.json())).data || [];
   regions.forEach(region=>{
     const geo = JSON.parse(region.polygon_json);
     const layer = L.geoJSON(geo,{style: styleFor(region)}).addTo(map);
     layer.on('click',()=> openSheet(region));
-    layers.set(region.id,{layer,region});
+    layers.set(Number(region.id),{layer,region});
   });
 
-  const current = regions.find(r=>Number(r.id)===currentRegionId);
-  marker = L.circleMarker([current?.lat || 0, current?.lng || 0],{radius:8,color:'#fff',fillColor:'#0ea5e9',fillOpacity:1}).addTo(map);
-  if(current) map.setView([current.lat,current.lng],5);
+  if (isAuthed && currentRegionId) {
+    const current = regions.find(r=>Number(r.id)===currentRegionId);
+    marker = L.circleMarker([current?.lat || 0, current?.lng || 0],{radius:8,color:'#fff',fillColor:'#0ea5e9',fillOpacity:1}).addTo(map);
+    if (current) map.setView([current.lat,current.lng],5);
+  }
 }
 
 travelBtn.onclick = async ()=>{
+  if (!isAuthed) { showToast('Please login first', true); return; }
   if(!selectedRegion || isActing) return;
   isActing = true;
   travelBtn.textContent = 'Traveling...';
   travelBtn.disabled = true;
+
   const result = await api('/api/region/action',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({region_id:selectedRegion.id, action:'travel'})
   });
+
   if(result.error){
     showToast(result.error, true);
-    isActing = false;
-    travelBtn.textContent = 'Travel to this region';
-    travelBtn.disabled = currentRegionId === selectedRegion.id;
-    return;
+  } else {
+    currentRegionId = Number(result.new_region_id);
+    const currentRegion = layers.get(currentRegionId)?.region;
+    if(currentRegion && marker){
+      marker.setLatLng([currentRegion.lat,currentRegion.lng]);
+      map.panTo([currentRegion.lat,currentRegion.lng]);
+    }
+    refreshStyles();
+    closeSheet();
+    showToast(result.message || 'Action completed');
   }
 
-  currentRegionId = Number(result.new_region_id);
-  const currentRegion = layers.get(currentRegionId)?.region;
-  if(currentRegion){
-    marker.setLatLng([currentRegion.lat,currentRegion.lng]);
-    map.panTo([currentRegion.lat,currentRegion.lng]);
-  }
-  refreshStyles();
-  closeSheet();
   isActing = false;
   travelBtn.textContent = 'Travel to this region';
-  showToast(result.message || 'Action completed');
+  travelBtn.disabled = !isAuthed || (selectedRegion && currentRegionId === Number(selectedRegion.id));
 };
 
 closeSheet.onclick = closeSheet;
