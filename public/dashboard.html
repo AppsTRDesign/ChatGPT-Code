@@ -11,6 +11,10 @@
   <div class="auth-card glass">
     <h1>Commander Dashboard</h1>
     <div id="stats" class="muted">Loading profile...</div>
+    <div class="bar"><div id="xpBar" class="bar-fill"></div></div>
+    <small id="xpText" class="muted"></small>
+    <div class="bar"><div id="energyBar" class="bar-fill energy"></div></div>
+    <small id="energyText" class="muted"></small>
     <div class="btn-row">
       <button id="openMap" class="primary-btn">Open Map</button>
       <button id="logoutBtn">Logout</button>
@@ -37,11 +41,16 @@ async function loadProfile(){
     const p = data.data;
     stats.innerHTML = `
       <p><b>${p.username}</b></p>
-      <p>Level: ${p.level ?? 1}</p>
-      <p>Gold: ${p.gold ?? 0}</p>
-      <p>Energy: ${p.energy}</p>
+      <p>Level: ${p.level}</p>
+      <p>Gold: ${Number(p.gold).toFixed(2)} | Coins: ${Number(p.coins).toFixed(2)}</p>
       <p>Current Region: ${p.current_region_name}</p>
     `;
+    const xpPct = Math.min(100, Math.round((p.xp / p.xp_to_next) * 100));
+    xpBar.style.width = `${xpPct}%`;
+    xpText.textContent = `XP ${p.xp}/${p.xp_to_next} (${xpPct}%)`;
+    const energyPct = Math.min(100, Math.round((p.energy / p.max_energy) * 100));
+    energyBar.style.width = `${energyPct}%`;
+    energyText.textContent = `Energy ${p.energy}/${p.max_energy}`;
   } catch {
     toast('Failed to load dashboard', true);
     stats.textContent = 'Unable to load profile.';

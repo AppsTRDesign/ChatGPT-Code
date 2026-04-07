@@ -14,6 +14,7 @@
 <div id="sheetBackdrop" class="sheet-backdrop"></div>
 <div id="toast" class="toast"></div>
 <div id="travelStatus" class="travel-status" style="display:none"></div>
+<div id="playerHud" class="travel-status" style="display:none;top:74px"></div>
 <div id="sheet" class="action-sheet">
   <div class="sheet-handle"></div>
   <button class="sheet-close" id="closeSheet">×</button>
@@ -47,6 +48,7 @@ const sheet = document.getElementById('sheet');
 const backdrop = document.getElementById('sheetBackdrop');
 const toastEl = document.getElementById('toast');
 const travelStatusEl = document.getElementById('travelStatus');
+const playerHud = document.getElementById('playerHud');
 
 function updateNavMode() {
   dashLink.style.display = isAuthed ? 'inline-block' : 'none';
@@ -186,6 +188,8 @@ async function load(){
       isAuthed = true;
       currentRegionId = Number(me.current_region_id);
       activeTravel = me.active_travel || null;
+      playerHud.style.display='block';
+      playerHud.innerHTML = `Lv ${me.level} • Gold ${Number(me.gold).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
     }
   }
   updateNavMode();
@@ -226,6 +230,9 @@ travelBtn.onclick = async ()=>{
     showToast(result.error, true);
   } else {
     activeTravel = result.travel;
+    me.energy = Math.max(0, Number(me.energy||0) - Number(result.travel.energy_cost||0));
+    me.gold = Math.max(0, Number(me.gold||0) - Number(result.travel.gold_cost||0));
+    playerHud.innerHTML = `Lv ${me.level} • Gold ${Number(me.gold).toFixed(0)} • Energy ${me.energy}/${me.max_energy}`;
     drawTravel(activeTravel);
     closeSheet();
     showToast('Travel started');

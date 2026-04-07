@@ -33,6 +33,7 @@ FLUSH PRIVILEGES;
 mysql -u mmo_user -p mmo_game < database/migrations/001_schema.sql
 mysql -u mmo_user -p mmo_game < database/migrations/002_geo_columns.sql
 mysql -u mmo_user -p mmo_game < database/migrations/003_player_travel.sql
+mysql -u mmo_user -p mmo_game < database/migrations/004_player_progression.sql
 php database/seed_world.php
 ```
 

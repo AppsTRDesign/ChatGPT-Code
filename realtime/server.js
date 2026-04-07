@@ -25,6 +25,19 @@ const pool = mysql.createPool({
   database: requireEnv('DB_NAME')
 });
 
+
+async function applyXpLeveling(conn, userId, xpGain) {
+  await conn.query('UPDATE player_profiles SET xp = xp + ? WHERE user_id=?', [xpGain, userId]);
+  while (true) {
+    const [[p]] = await conn.query('SELECT level,xp,xp_to_next FROM player_profiles WHERE user_id=?', [userId]);
+    if (!p || p.xp < p.xp_to_next) break;
+    const newLevel = Number(p.level) + 1;
+    const newXp = Number(p.xp) - Number(p.xp_to_next);
+    const next = newLevel * 100;
+    await conn.query('UPDATE player_profiles SET level=?, xp=?, xp_to_next=? WHERE user_id=?', [newLevel, newXp, next, userId]);
+  }
+}
+
 async function completeTravel(travel) {
   const conn = await pool.getConnection();
   try {
@@ -35,6 +48,8 @@ async function completeTravel(travel) {
 
     await conn.query('UPDATE player_profiles SET current_region_id=?, current_country_id=? WHERE user_id=?', [travel.to_region_id, dest.country_id, travel.user_id]);
     await conn.query('UPDATE player_travel SET status="completed" WHERE user_id=? AND status="traveling"', [travel.user_id]);
+    const xpGain = Math.max(1, Math.floor(Number(travel.distance_km || 0) / 10));
+    await applyXpLeveling(conn, travel.user_id, xpGain);
     await conn.query('INSERT INTO travel_logs(user_id,from_region_id,to_region_id,status,started_at,completed_at) VALUES(?,?,?,"completed",NOW(),NOW())', [travel.user_id, travel.from_region_id, travel.to_region_id]);
 
     await conn.commit();
@@ -48,7 +63,7 @@ async function completeTravel(travel) {
 
 async function emitProgress() {
   const [rows] = await pool.query(`
-    SELECT pt.user_id, pt.from_region_id, pt.to_region_id, pt.start_time, pt.end_time,
+    SELECT pt.user_id, pt.from_region_id, pt.to_region_id, pt.start_time, pt.end_time, pt.distance_km,
            fr.lat AS from_lat, fr.lng AS from_lng, tr.lat AS to_lat, tr.lng AS to_lng
     FROM player_travel pt
     JOIN regions fr ON fr.id = pt.from_region_id
