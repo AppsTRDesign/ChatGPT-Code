@@ -115,8 +115,8 @@ final class PlayerService
         }
 
         $now = time();
-        $start = strtotime((string) $travel['start_time']) ?: time();
-        $end = strtotime((string) $travel['end_time']) ?: $start;
+        $start = isset($travel['start_ts']) ? (int) $travel['start_ts'] : (strtotime((string) $travel['start_time']) ?: time());
+        $end = isset($travel['end_ts']) ? (int) $travel['end_ts'] : (strtotime((string) $travel['end_time']) ?: $start);
         $remaining = max(0, $end - $now);
         $denom = max(1, $end - $start);
         $ratio = min(1, max(0, ($now - $start) / $denom));
@@ -159,7 +159,7 @@ final class PlayerService
             return;
         }
 
-        $endTs = strtotime((string) $travel['end_time']) ?: time();
+        $endTs = isset($travel['end_ts']) ? (int) $travel['end_ts'] : (strtotime((string) $travel['end_time']) ?: time());
         if ($endTs > time()) {
             return;
         }
@@ -188,7 +188,7 @@ final class PlayerService
             return null;
         }
 
-        $startTs = strtotime((string) $travel['start_time']) ?: time();
+        $startTs = isset($travel['start_ts']) ? (int) $travel['start_ts'] : (strtotime((string) $travel['start_time']) ?: time());
         $now = time();
         $elapsed = max(1, $now - $startTs);
         $duration = max(1, (int) $travel['duration_seconds']);

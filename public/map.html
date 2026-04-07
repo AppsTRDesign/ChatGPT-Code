@@ -46,6 +46,10 @@ let isActing = false;
 
 const map = L.map('map').setView([20,0],2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
+map.createPane('routePane');
+map.getPane('routePane').style.zIndex = 700;
+map.createPane('planePane');
+map.getPane('planePane').style.zIndex = 760;
 const sheet = document.getElementById('sheet');
 const backdrop = document.getElementById('sheetBackdrop');
 const closeSheetBtn = document.getElementById('closeSheet');
@@ -107,10 +111,11 @@ function styleFor(region){
   const isCurrent = currentRegionId === id;
   const isSelected = selectedRegionId === id;
   return {
-    color: isSelected ? '#ffffff' : region.country_color,
+    color: isSelected ? '#ffffff' : '#1e293b',
     fillColor: region.country_color,
-    fillOpacity: isCurrent ? 0.75 : 0.38,
-    weight: isCurrent ? 3 : (isSelected ? 3 : 1)
+    fillOpacity: isCurrent ? 0.58 : 0.26,
+    opacity: 0.95,
+    weight: isCurrent ? 3 : (isSelected ? 3 : 2)
   };
 }
 
@@ -146,8 +151,9 @@ function drawTravel(travel){
   const routeColor = isReturning ? '#ef4444' : '#60a5fa';
   const routeStart = isReturning ? [Number(backendPos.lat), Number(backendPos.lng)] : [Number(from.lat), Number(from.lng)];
   const routeEnd = isReturning ? [Number(from.lat), Number(from.lng)] : [Number(to.lat), Number(to.lng)];
-  routeLine = L.polyline([routeStart, routeEnd],{color:routeColor,dashArray:'8,8',weight:3}).addTo(map);
+  routeLine = L.polyline([routeStart, routeEnd],{color:routeColor,dashArray:'8,8',weight:3,pane:'routePane'}).addTo(map);
   planeMarker = L.marker([Number(backendPos.lat), Number(backendPos.lng)], {
+    pane:'planePane',
     icon: L.divIcon({
       className:'plane-icon-wrap',
       html:'<div class="plane-ping"></div><i class="fa-solid fa-plane plane-icon"></i>',

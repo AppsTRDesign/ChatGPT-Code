@@ -141,7 +141,7 @@ final class PlayerModel
 
     public function activeTravel(int $userId): ?array
     {
-        $stmt = Database::connection()->prepare('SELECT * FROM player_travel WHERE user_id = :user_id AND status IN ("traveling","returning") LIMIT 1');
+        $stmt = Database::connection()->prepare('SELECT pt.*, UNIX_TIMESTAMP(pt.start_time) AS start_ts, UNIX_TIMESTAMP(pt.end_time) AS end_ts FROM player_travel pt WHERE pt.user_id = :user_id AND pt.status IN ("traveling","returning") LIMIT 1');
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetch() ?: null;
     }
