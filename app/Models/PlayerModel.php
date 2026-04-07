@@ -8,16 +8,17 @@ use App\Core\Database;
 
 final class PlayerModel
 {
-    public function createProfile(int $userId, int $regionId, int $countryRegionId): void
+    public function createProfile(int $userId, int $regionId, int $countryRegionId, int $nationCountryId): void
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO player_profiles(user_id,current_region_id,current_country_region_id,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
-             VALUES(:user_id,:current_region_id,:current_country_region_id,1,0,100,1000,100000000,300,300,100000,NOW(),NOW())'
+            'INSERT INTO player_profiles(user_id,current_region_id,current_country_region_id,nation_country_id,nation_changed_at,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
+             VALUES(:user_id,:current_region_id,:current_country_region_id,:nation_country_id,NOW(),1,0,100,1000,100000000,300,300,100000,NOW(),NOW())'
         );
         $stmt->execute([
             'user_id' => $userId,
             'current_region_id' => $regionId,
             'current_country_region_id' => $countryRegionId,
+            'nation_country_id' => $nationCountryId,
         ]);
     }
 
@@ -32,9 +33,9 @@ final class PlayerModel
     public function me(int $userId): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.instant_energy,p.max_instant_energy,p.total_energy,p.last_energy_update,p.current_region_id,p.current_country_region_id,
+            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.instant_energy,p.max_instant_energy,p.total_energy,p.last_energy_update,p.current_region_id,p.current_country_region_id,p.nation_country_id,p.nation_changed_at,
                     r.name AS current_region_name,r.lat AS current_region_lat,r.lng AS current_region_lng,c.name AS current_country_name,cv.color AS current_country_color,
-                    ch.country_region_id AS citizenship_country_region_id,cc.name AS citizenship_country_name
+                    ch.country_region_id AS citizenship_country_region_id,cc.name AS citizenship_country_name,nc.name AS nation_name,nc.flag_url AS nation_flag_url,nc.iso_code AS nation_iso_code,nc.color AS nation_color
              FROM users u
              JOIN player_profiles p ON p.user_id = u.id
              JOIN regions r ON r.id = p.current_region_id
@@ -42,10 +43,18 @@ final class PlayerModel
              LEFT JOIN country_visuals cv ON cv.country_region_id = c.id
              LEFT JOIN citizenships ch ON ch.user_id = u.id AND ch.is_homeland = 1
              LEFT JOIN regions cc ON cc.id = ch.country_region_id
+             LEFT JOIN countries nc ON nc.id = p.nation_country_id
              WHERE u.id = :user_id LIMIT 1'
         );
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetch() ?: null;
+    }
+
+    public function changeNation(int $userId, int $countryId, int $goldCost): bool
+    {
+        $stmt = Database::connection()->prepare('UPDATE player_profiles SET nation_country_id=:country_id, nation_changed_at=NOW(), gold=gold-:gold_cost WHERE user_id=:user_id AND gold>=:gold_cost AND (nation_changed_at IS NULL OR nation_changed_at <= DATE_SUB(NOW(), INTERVAL 30 DAY))');
+        $stmt->execute(['country_id' => $countryId, 'gold_cost' => $goldCost, 'user_id' => $userId]);
+        return $stmt->rowCount() > 0;
     }
 
     public function updateLocation(int $userId, int $regionId, int $countryRegionId): void

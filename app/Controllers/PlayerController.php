@@ -76,6 +76,24 @@ final class PlayerController
         }
     }
 
+    public function changeNation(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        $payload = $request->json();
+        $countryId = (int) ($payload['country_id'] ?? 0);
+        if ($countryId <= 0) {
+            Response::json(['error' => 'invalid_request', 'message' => tr('errors.invalid_request')], 422);
+            return;
+        }
+        try {
+            $result = $this->playerService->changeNation($userId, $countryId);
+            Response::json(['success' => true, 'message' => tr('toast.success'), 'data' => $result]);
+        } catch (RuntimeException $e) {
+            $code = $this->normalizeErrorCode($e->getMessage());
+            Response::json(['error' => $code, 'message' => tr('errors.' . $code)], 400);
+        }
+    }
+
     private function normalizeErrorCode(string $raw): string
     {
         return match ($raw) {
@@ -85,6 +103,7 @@ final class PlayerController
             'Invalid region', 'invalid_region' => 'invalid_region',
             'travel_failed' => 'travel_failed',
             'not_enough_gold' => 'not_enough_gold',
+            'nation_cooldown' => 'nation_cooldown',
             default => 'invalid_request',
         };
     }

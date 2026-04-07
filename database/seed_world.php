@@ -28,7 +28,7 @@ $pdo->exec('DELETE FROM regions');
 $pdo->exec('DELETE FROM countries');
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 
-$countryStmt = $pdo->prepare('INSERT INTO countries(id,name,slug,iso_code,flag_url,created_at) VALUES(:id,:name,:slug,:iso_code,:flag_url,NOW())');
+$countryStmt = $pdo->prepare('INSERT INTO countries(id,name,slug,iso_code,flag_url,color,created_at) VALUES(:id,:name,:slug,:iso_code,:flag_url,:color,NOW())');
 $countryBySlug = [];
 foreach ($data['countries'] as $country) {
     $countryStmt->execute([
@@ -37,6 +37,7 @@ foreach ($data['countries'] as $country) {
         'slug' => strtolower((string) $country['slug']),
         'iso_code' => strtoupper((string) $country['slug']),
         'flag_url' => $country['flag_url'],
+        'color' => $country['color'] ?? '#7c3aed',
     ]);
     $countryBySlug[strtolower((string) $country['slug'])] = $country;
 }

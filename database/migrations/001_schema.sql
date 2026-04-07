@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS countries (
     slug VARCHAR(8) NOT NULL UNIQUE,
     iso_code CHAR(2) NULL,
     flag_url VARCHAR(255) NOT NULL,
+    color CHAR(7) NOT NULL DEFAULT '#7c3aed',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -102,6 +103,8 @@ CREATE TABLE IF NOT EXISTS player_profiles (
     user_id INT NOT NULL UNIQUE,
     current_region_id INT NOT NULL,
     current_country_region_id INT NOT NULL,
+    nation_country_id INT NOT NULL,
+    nation_changed_at DATETIME NULL,
     level INT NOT NULL DEFAULT 1,
     xp INT NOT NULL DEFAULT 0,
     xp_to_next INT NOT NULL DEFAULT 100,
@@ -114,7 +117,8 @@ CREATE TABLE IF NOT EXISTS player_profiles (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_profile_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_profile_region FOREIGN KEY (current_region_id) REFERENCES regions(id),
-    CONSTRAINT fk_profile_country_region FOREIGN KEY (current_country_region_id) REFERENCES regions(id)
+    CONSTRAINT fk_profile_country_region FOREIGN KEY (current_country_region_id) REFERENCES regions(id),
+    CONSTRAINT fk_profile_nation_country FOREIGN KEY (nation_country_id) REFERENCES countries(id)
 );
 
 CREATE TABLE IF NOT EXISTS citizenships (

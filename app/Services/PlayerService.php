@@ -14,6 +14,7 @@ final class PlayerService
     private const TRAVEL_ENERGY_COST = 10;
     private const BUY_ENERGY_GOLD_COST = 1000;
     private const BUY_ENERGY_TOTAL_AMOUNT = 100000;
+    private const NATION_CHANGE_GOLD_COST = 1000;
 
     public function __construct(
         private readonly PlayerModel $playerModel = new PlayerModel(),
@@ -48,6 +49,11 @@ final class PlayerService
             $me['remaining_seconds'] = $travel['remaining_seconds'];
             $me['progress'] = $travel['progress'];
         }
+
+        $changedAt = !empty($me['nation_changed_at']) ? strtotime((string) $me['nation_changed_at']) : 0;
+        $availableAt = $changedAt > 0 ? strtotime('+30 days', $changedAt) : time();
+        $me['nation_change_available_at'] = date('Y-m-d H:i:s', $availableAt);
+        $me['nation_change_remaining_seconds'] = max(0, $availableAt - time());
 
         return $me;
     }
@@ -232,6 +238,34 @@ final class PlayerService
             'max_instant_energy' => (int) $profile['max_instant_energy'],
             'total_energy' => (int) $profile['total_energy'],
             'gold' => (float) $profile['gold'],
+        ];
+    }
+
+    public function changeNation(int $userId, int $countryId): array
+    {
+        $me = $this->me($userId);
+        if (!$me) {
+            throw new RuntimeException('player_not_found');
+        }
+        if ((int) $me['nation_country_id'] === $countryId) {
+            throw new RuntimeException('invalid_request');
+        }
+        if ((int) ($me['nation_change_remaining_seconds'] ?? 0) > 0) {
+            throw new RuntimeException('nation_cooldown');
+        }
+        $ok = $this->playerModel->changeNation($userId, $countryId, self::NATION_CHANGE_GOLD_COST);
+        if (!$ok) {
+            throw new RuntimeException('not_enough_gold');
+        }
+        $updated = $this->me($userId);
+        if (!$updated) {
+            throw new RuntimeException('player_not_found');
+        }
+        return [
+            'gold_spent' => self::NATION_CHANGE_GOLD_COST,
+            'nation_country_id' => (int) $updated['nation_country_id'],
+            'nation_name' => (string) ($updated['nation_name'] ?? ''),
+            'nation_change_available_at' => (string) ($updated['nation_change_available_at'] ?? ''),
         ];
     }
 

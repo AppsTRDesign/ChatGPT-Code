@@ -10,7 +10,7 @@ final class MapModel
 {
     public function countries(): array
     {
-        $sql = 'SELECT r.id,r.name,r.country_name,r.country_code,r.government_type,cv.color,cv.flag_url,rp.capital_region_id
+        $sql = 'SELECT r.id,r.country_id AS nation_country_id,r.name,r.country_name,r.country_code,r.government_type,cv.color,cv.flag_url,rp.capital_region_id
                 FROM regions r
                 LEFT JOIN region_profile rp ON rp.region_id = r.id
                 LEFT JOIN country_visuals cv ON cv.country_region_id = r.id
