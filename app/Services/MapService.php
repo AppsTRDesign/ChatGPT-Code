@@ -21,4 +21,14 @@ final class MapService
     {
         return $this->mapModel->regions();
     }
+
+    public function regionDetail(int $regionId): ?array
+    {
+        return $this->mapModel->regionDetail($regionId);
+    }
+
+    public function countryDetail(int $countryRegionId): ?array
+    {
+        return $this->mapModel->countryDetailFromRegion($countryRegionId);
+    }
 }

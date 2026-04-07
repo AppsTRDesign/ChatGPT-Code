@@ -5,6 +5,7 @@
 <div id='regions'></div><hr>
 <h3 id='topRegionsTitle'>Top Regions</h3><div id='topRegions'></div>
 <h3 id='topCountriesTitle'>Top Countries</h3><div id='topCountries'></div>
+<hr><h3 id='detailTitle'>Detail</h3><div id='detailPanel' class='muted'>Select a ranking item.</div>
 </div></div>
 <script>
 let LANG = localStorage.getItem('lang') || '';
@@ -24,6 +25,7 @@ async function loadLang(){
   logoutBtn.textContent = t('auth.logout','Logout');
   topRegionsTitle.textContent = t('dash.top_regions','Top Regions');
   topCountriesTitle.textContent = t('dash.top_countries','Top Countries');
+  detailTitle.textContent = t('dash.detail','Detail');
 }
 async function loadCountries(){
   const c=(await (await fetch('/api/map/countries')).json()).data||[];
@@ -37,8 +39,33 @@ async function loadRegions(){
 }
 async function loadRankings(){
   const d=(await (await fetch('/api/stats/dashboard')).json()).data;
-  topRegions.innerHTML=(d.top_regions||[]).map(r=>`<div>${r.name} (${r.country_name}) — score ${Number(r.score).toFixed(1)} — pop ${r.population}</div>`).join('');
-  topCountries.innerHTML=(d.top_countries||[]).map(c=>`<div>${c.name} — avg ${Number(c.avg_score).toFixed(1)} — pop ${c.population}</div>`).join('');
+  topRegions.innerHTML=(d.top_regions||[]).map(r=>`<div><a href='#' data-region-id='${r.id}' class='rank-region'>${r.name} (${r.country_name}) — score ${Number(r.score).toFixed(1)} — pop ${r.population}</a></div>`).join('');
+  topCountries.innerHTML=(d.top_countries||[]).map(c=>`<div><a href='#' data-country-region-id='${c.id}' class='rank-country'>${c.name} — avg ${Number(c.avg_score).toFixed(1)} — pop ${c.population}</a></div>`).join('');
+  bindRankClicks();
+}
+function bindRankClicks(){
+  document.querySelectorAll('.rank-region').forEach(el=>el.onclick=(e)=>{e.preventDefault();showRegionDetail(Number(el.dataset.regionId||0));});
+  document.querySelectorAll('.rank-country').forEach(el=>el.onclick=(e)=>{e.preventDefault();showCountryDetail(Number(el.dataset.countryRegionId||0));});
+}
+async function showRegionDetail(id){
+  const res = await fetch(`/api/map/region-detail?id=${id}`).then(r=>r.json());
+  if(!res.data){ detailPanel.textContent = t('errors.invalid_region','Invalid region.'); return; }
+  const r = res.data;
+  const neighbors=(r.neighbors||[]).map(n=>`${n.name} (#${n.id})`).join(', ')||'-';
+  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${r.name}</b><br>${t('dash.army','Army')} ${r.army_level} • ${t('dash.edu','Edu')} ${r.education_level} • ${t('dash.hosp','Hosp')} ${r.hospital_level} • ${t('dash.air','Air')} ${r.airport_level}<br>Neighbors: ${neighbors}<br>Country: ${r.country_name}<br>Type: ${r.region_type}<br><button class='primary-btn' id='travelRegionBtn'>${t('ui.travel_to_region','Travel to this region')}</button></div>`;
+  document.getElementById('travelRegionBtn').onclick=()=>travelToRegion(r.id);
+}
+async function showCountryDetail(id){
+  const res = await fetch(`/api/map/country-detail?id=${id}`).then(r=>r.json());
+  if(!res.data){ detailPanel.textContent = t('errors.invalid_region','Invalid region.'); return; }
+  const c = res.data;
+  const regs=(c.regions||[]).map(x=>x.name).join(', ');
+  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${c.country_name}</b><br>Capital: ${c.name}<br>Regions: ${c.region_count}<br>${regs}<br><button class='primary-btn' id='travelCapitalBtn'>${t('ui.travel_to_region','Travel to this region')}</button></div>`;
+  document.getElementById('travelCapitalBtn').onclick=()=>travelToRegion(c.id);
+}
+async function travelToRegion(id){
+  const r=await fetch('/api/region/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({region_id:id,action:'travel'})}).then(x=>x.json());
+  alert(r.message||r.error||'travel');
 }
 countrySel.onchange=loadRegions;
 langSelect.onchange=()=>{LANG=langSelect.value||'en';loadLang().then(()=>Promise.all([loadCountries(),loadRankings()]).then(loadRegions));};

@@ -39,6 +39,7 @@ mysql -u mmo_user -p mmo_game < database/migrations/006_region_stats.sql
 mysql -u mmo_user -p mmo_game < database/migrations/007_travel_returning.sql
 mysql -u mmo_user -p mmo_game < database/migrations/008_energy_redesign.sql
 mysql -u mmo_user -p mmo_game < database/migrations/009_drop_legacy_energy_columns.sql
+mysql -u mmo_user -p mmo_game < database/migrations/010_region_governance.sql
 php database/seed_world.php
 ```
 

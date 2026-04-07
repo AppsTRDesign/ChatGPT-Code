@@ -23,4 +23,34 @@ final class MapController
     {
         Response::json(['data' => $this->mapService->regions()]);
     }
+
+    public function regionDetail(Request $request): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(['error' => 'invalid_request'], 422);
+            return;
+        }
+        $detail = $this->mapService->regionDetail($id);
+        if (!$detail) {
+            Response::json(['error' => 'invalid_region'], 404);
+            return;
+        }
+        Response::json(['data' => $detail]);
+    }
+
+    public function countryDetail(Request $request): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(['error' => 'invalid_request'], 422);
+            return;
+        }
+        $detail = $this->mapService->countryDetail($id);
+        if (!$detail) {
+            Response::json(['error' => 'invalid_region'], 404);
+            return;
+        }
+        Response::json(['data' => $detail]);
+    }
 }

@@ -58,7 +58,8 @@
     "hosp": "Hastane",
     "air": "Hava",
     "port": "Liman",
-    "no_regions": "Bölge yok"
+    "no_regions": "Bölge yok",
+    "detail": "Detay"
   },
   "errors": {
     "not_enough_gold": "Yeterli altın yok.",

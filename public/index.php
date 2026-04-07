@@ -78,6 +78,8 @@ function mapRoutes(Router $router): void
     $controller = new MapController();
     $router->add('GET', '/api/map/regions', fn($req) => $controller->regions($req));
     $router->add('GET', '/api/map/countries', fn($req) => $controller->countries($req));
+    $router->add('GET', '/api/map/region-detail', fn($req) => $controller->regionDetail($req));
+    $router->add('GET', '/api/map/country-detail', fn($req) => $controller->countryDetail($req));
 }
 
 function playerRoutes(Router $router, AuthMiddleware $auth): void

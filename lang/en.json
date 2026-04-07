@@ -58,7 +58,8 @@
     "hosp": "Hosp",
     "air": "Air",
     "port": "Port",
-    "no_regions": "No regions"
+    "no_regions": "No regions",
+    "detail": "Detail"
   },
   "errors": {
     "not_enough_gold": "Not enough gold.",

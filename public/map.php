@@ -157,7 +157,7 @@ function styleFor(region){
   const isSelected = selectedRegionId === id;
   return {
     color: isSelected ? '#ffffff' : '#1e293b',
-    fillColor: region.country_color,
+    fillColor: region.region_type === 'independent' ? '#ffffff' : region.country_color,
     fillOpacity: isCurrent ? 0.58 : 0.26,
     opacity: 0.95,
     weight: isCurrent ? 3 : (isSelected ? 3 : 2)
