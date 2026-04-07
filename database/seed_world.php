@@ -63,7 +63,7 @@ foreach ($data['regions'] as $idx => $region) {
         'lat' => (float) $region['lat'],
         'lng' => (float) $region['lng'],
         'polygon_json' => json_encode($region['polygon_json'], JSON_UNESCAPED_UNICODE),
-        'population' => (int) ($region['population'] ?? 0),
+        'population' => 0,
         'region_type' => ((int) $region['id'] === $capitalId) ? 'country' : 'region',
         'government_type' => (($country['government_type'] ?? 'republic') === 'dictatorship') ? 'dictatorship' : 'republic',
         'color' => $palette[$idx % count($palette)],

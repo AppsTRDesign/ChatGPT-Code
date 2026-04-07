@@ -124,6 +124,17 @@ final class PlayerModel
         return $stmt->fetchAll();
     }
 
+    public function transferPopulation(int $fromRegionId, int $toRegionId): void
+    {
+        if ($fromRegionId === $toRegionId) {
+            return;
+        }
+        $dec = Database::connection()->prepare('UPDATE regions SET population = GREATEST(population - 1, 0) WHERE id = :id');
+        $inc = Database::connection()->prepare('UPDATE regions SET population = population + 1 WHERE id = :id');
+        $dec->execute(['id' => $fromRegionId]);
+        $inc->execute(['id' => $toRegionId]);
+    }
+
     public function addCountryTreasuryMoney(int $countryRegionId, float $amount): void
     {
         if ($amount <= 0) {

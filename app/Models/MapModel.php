@@ -86,8 +86,8 @@ final class MapModel
         $topHospitals = Database::connection()->query('SELECT r.id,r.name,r.country_name,ri.hospital_level AS value FROM regions r JOIN region_infra ri ON ri.region_id=r.id ORDER BY ri.hospital_level DESC LIMIT 10')->fetchAll();
         $topEducations = Database::connection()->query('SELECT r.id,r.name,r.country_name,ri.education_level AS value FROM regions r JOIN region_infra ri ON ri.region_id=r.id ORDER BY ri.education_level DESC LIMIT 10')->fetchAll();
         $topPorts = Database::connection()->query('SELECT r.id,r.name,r.country_name,ri.port_level AS value FROM regions r JOIN region_infra ri ON ri.region_id=r.id ORDER BY ri.port_level DESC LIMIT 10')->fetchAll();
-        $topCountryPopulation = Database::connection()->query('SELECT c.id,c.country_name,SUM(r.population) AS total_population FROM regions c JOIN regions r ON r.owner_region_id = c.id WHERE c.region_type="country" GROUP BY c.id,c.country_name ORDER BY total_population DESC LIMIT 10')->fetchAll();
-        $topRegionPopulation = Database::connection()->query('SELECT id,name,country_name,population AS total_population FROM regions ORDER BY population DESC LIMIT 10')->fetchAll();
+        $topCountryPopulation = Database::connection()->query('SELECT c.id,c.country_name,COUNT(pp.user_id) AS total_population FROM regions c LEFT JOIN player_profiles pp ON pp.current_country_region_id = c.id WHERE c.region_type="country" GROUP BY c.id,c.country_name ORDER BY total_population DESC LIMIT 10')->fetchAll();
+        $topRegionPopulation = Database::connection()->query('SELECT r.id,r.name,r.country_name,COUNT(pp.user_id) AS total_population FROM regions r LEFT JOIN player_profiles pp ON pp.current_region_id = r.id GROUP BY r.id,r.name,r.country_name ORDER BY total_population DESC LIMIT 10')->fetchAll();
 
         return ['top_regions'=>$topRegions,'top_countries'=>$topCountries,'top_airports'=>$topAirports,'top_armies'=>$topArmies,'top_hospitals'=>$topHospitals,'top_educations'=>$topEducations,'top_ports'=>$topPorts,'top_country_population'=>$topCountryPopulation,'top_region_population'=>$topRegionPopulation];
     }

@@ -181,7 +181,9 @@ final class PlayerService
             return;
         }
 
+        $currentRegionId = (int) ($this->playerModel->me($userId)['current_region_id'] ?? 0);
         $this->playerModel->updateLocation($userId, $finalRegionId, (int) ($destination['owner_region_id'] ?? $destination['id']));
+        $this->playerModel->transferPopulation($currentRegionId, $finalRegionId);
         $this->playerModel->completeTravel($userId);
         $this->playerModel->logTravel($userId, (int) $travel['from_region_id'], $finalRegionId, 'completed');
     }
