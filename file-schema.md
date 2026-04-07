@@ -153,7 +153,7 @@ docs/
 
 1. ✅ ~~**CI/CD**: lint + test + build + deploy pipeline.~~ **(bitirildi)**
 2. ✅ ~~**Integration testleri**: DB bağlı API testleri.~~ **(bitirildi)**
-3. ⏳ **E2E UI testleri**: Playwright/Cypress ile kritik akışlar.
+3. ✅ ~~**E2E UI testleri**: Playwright/Cypress ile kritik akışlar.~~ **(bitirildi)**
 4. ⏳ **Admin panel derinleştirme**: moderation, balancing sliders, i18n live edit.
 5. ⏳ **Inventory modülü tamamı**: item effects, equip logic, market/trade.
 6. ⏳ **Regions modülü genişletme**: detaylı control/battle/front mekaniği.
