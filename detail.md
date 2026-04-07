@@ -1,190 +1,146 @@
-# Geopolitical MMO – Sistem Detay Dokümanı
+# Geopolitical MMO – Güncel Sistem ve Oyun Özellikleri (Detaylı)
 
-Bu doküman, proje içinde şimdiye kadar uygulanan tüm ana mimari kararları, veri modelini, API uçlarını, oyun mekaniklerini ve ekran davranışlarını Türkçe olarak özetlemek için hazırlanmıştır.
-
----
+Bu doküman projedeki **güncel** mimariyi ve oyun mekaniklerini tek yerden anlatır.
 
 ## 1) Genel Mimari
 
-Proje 3 ana parçadan oluşur:
+Sistem 3 ana parçadan oluşur:
 
-1. **PHP 8.3 Backend (MVC + basit çekirdek)**
-   - `app/Core`: Request/Response/Router/Database
-   - `app/Controllers`: API endpoint katmanı
-   - `app/Services`: oyun iş kuralları
-   - `app/Models`: SQL erişim katmanı
+1. **PHP Backend (MVC + servis katmanı)**
+   - `app/Core`: Router, Request, Response, Database
+   - `app/Controllers`: HTTP endpoint katmanı
+   - `app/Services`: iş kuralları
+   - `app/Models`: SQL erişimi
    - `app/Middlewares`: auth kontrolü
 
-2. **Frontend (public/ altında basit sayfalar + JS)**
-   - Harita: `public/map.php`
-   - Dashboard: `public/dashboard.php`
-   - Profil: `public/profile.php`
-   - Auth sayfaları: login/register
+2. **Frontend (public/)**
+   - Harita (`map.php`), Dashboard (`dashboard.php`), Profil (`profile.php`), Login/Register
+   - Vanilla JS + API çağrıları
 
-3. **Realtime Node Socket Server**
+3. **Realtime Sunucu (Node + Socket.IO)**
    - `realtime/server.js`
-   - Yolculuk ilerleme ve bitiş event’leri için kullanılır.
+   - yolculuk ilerleme/bitiş event’leri
 
 ---
 
-## 2) Veritabanı Tasarımı (Normalize Yapı)
+## 2) Veritabanı Tasarımı (Normalize)
 
-Güncel şema tek migration dosyasında (`database/migrations/001_schema.sql`) tutulur.
+Tek migration: `database/migrations/001_schema.sql`
 
-### 2.1 Temel Tablolar
+### 2.1 Ana tablolar
+- `users`, `api_tokens`
+- `player_profiles`, `citizenships`
+- `travel_logs`, `player_travel`
 
-- `users`
-- `api_tokens`
-- `player_profiles`
-- `citizenships`
-- `travel_logs`
-- `player_travel`
-
-### 2.2 Dünya/Harita Tabloları
-
+### 2.2 Dünya ve yönetim tabloları
 - `countries`
-  - seed kaynak ülke referansı
-
+  - ülke adı, slug, `iso_code`, bayrak, **color**
 - `regions`
-  - temel bölge kimlik/konum/owner bilgisi
-  - `owner_region_id` ile bölgenin bağlı olduğu ülke-region (başkent) tutulur
-
+  - temel region kimliği + konum + owner_country_region bağlantısı (`owner_region_id`)
+- `country_visuals`
+  - ülke-region bazında **renk + bayrak** (harita/detay görselliği)
 - `region_infra`
-  - bina count + bina level alanları
-  - default: count = 100, level = 1
-
+  - bina count + level alanları
 - `region_profile`
   - `capital_region_id`, `is_coastal`
-
 - `country_economy`
-  - ülke hazinesi, ülke vergi oranları, resource_type
-  - default:
-    - devlet parası: 250.000.000
-    - altın: 250.000.000
-    - uranyum/maden/petrol/elmas: 1.000.000
-    - genel vergi: %10
-    - satış/fabrika vergileri: %0
-
+  - resource_type, hazine kalemleri, ülke vergi oranları
 - `region_taxes`
   - bölgesel fabrika vergileri
-  - default: tümü %0
 
 ---
 
-## 3) Seed Mekanizması (`database/seed_world.php`)
+## 3) Seed Akışı
 
-Seed akışı:
+`database/seed_world.php` adımları:
+1. FK check kapat, tüm oyun tablolarını temizle
+2. `countries` yükle (bayrak + renk dahil)
+3. `regions` yükle
+4. Her ülkenin ilk region’ını country/capital kabul edip owner ilişkisini kur
+5. Her region için `region_infra`, `region_profile`, `region_taxes` oluştur
+6. Sadece country region’lar için `country_economy` + `country_visuals` oluştur
 
-1. FK check kapatılır, ilgili tablolar temizlenir.
-2. `countries` verisi world json’dan yüklenir.
-3. `regions` verisi yüklenir.
-   - Her ülke için ilk bölge başkent/ülke region olarak işaretlenir (`region_type='country'`).
-   - Diğerleri `region` olur.
-4. `owner_region_id`, ülkenin capital region’ına bağlanır.
-5. Her region için:
-   - `region_infra` (count/level default)
-   - `region_profile` (capital/coastal)
-   - `region_taxes` (default 0)
-6. Sadece `region_type='country'` olan kayıtlar için `country_economy` oluşturulur.
-
-Not: `regions.population` seed sırasında **0** atanır. Population tamamen oyuncu hareketlerinden üretilir.
+### Population başlangıcı
+- `regions.population` seed sırasında **0** atanır.
+- Population tamamen oyuncu hareketlerinden oluşur.
 
 ---
 
-## 4) Auth ve Oyuncu Yaşam Döngüsü
+## 4) Kayıt, Konum ve Ulus Sistemi
 
-### 4.1 Kayıt / Giriş
+### 4.1 Kayıt sırasında konum atama
+- IP API / MaxMind çözümleme
+- country bulunamazsa nearest region fallback
+- profile + citizenship açılır
+- yerleşilen region popülasyonu +1
 
-- Register ile kullanıcı oluşturulur.
-- Konum ataması `LocationService` ile yapılır:
-  - Önce GeoIP/Mindmind country denemesi
-  - Bulunamazsa koordinata en yakın region fallback
-- Player profile açılır ve başlangıç değerleri atanır.
+### 4.2 Ulus (Nation)
+- `player_profiles.nation_country_id` ile tutulur (countries FK)
+- ilk atama: kullanıcının yerleştiği region’un `country_id`
+- `nation_changed_at` ile cooldown takibi
 
-### 4.2 Başlangıç Ekonomisi
-
-- Oyuncu başlangıç coin’i: **100.000.000**
-- Gold ve enerji alanları profile tablosunda tutulur.
-
-### 4.3 Population Davranışı (Kullanıcı Bazlı)
-
-- Yeni kullanıcı bir bölgeye yerleştiğinde population +1
-- Yolculuk tamamlandığında:
-  - çıktığı bölge population -1
-  - vardığı bölge population +1
-- Aynı bölgeye dönülüyorsa net değişim yok
+### 4.3 Ulus değiştirme
+- Maliyet: **1000 gold**
+- Endpoint: `POST /api/player/change-nation`
+- Cooldown: **30 gün**
+- Cooldown bitmeden ulus değişimi engellenir
 
 ---
 
 ## 5) Yolculuk Mekaniği
 
-### 5.1 Maliyet ve Süre
-
-- Mesafe Haversine ile hesaplanır.
-- Uçuş maliyeti yüksek çarpanlıdır (distance bazlı, min eşik var).
-- Hız formülü havaalanı level’ına bağlıdır:
-
-`effective_speed = base_speed * (1 + log(airport_level + 1) * 0.25)`
-
-### 5.2 Enerji Tüketimi
-
-- Travel başlatırken instant/total energy ve coin kontrol edilir.
-- Yetersizse işlem reddedilir.
-
-### 5.3 Vergi Kesintisi ve Hazine
-
-- Yolculuk coin maliyetinden ülkenin `general_tax_rate` oranında vergi hesaplanır.
-- Bu değer `country_economy.treasury_state_money` üzerine eklenir.
-
-### 5.4 XP Davranışı
-
-- Travel tamamlanınca XP kasma kapatılmıştır.
-- Gelecekte savaş/çalışma ile yeni XP sistemi planlıdır.
+- Mesafe: Haversine (km)
+- Hız: airport level etkili
+  - `effective_speed = base_speed * (1 + log(airport_level + 1) * 0.25)`
+- Maliyet: distance tabanlı yüksek çarpan (coins)
+- Vergi: ülke `general_tax_rate` oranı kadar kesinti `country_economy.treasury_state_money`’a yazılır
+- Travel sonunda population transfer:
+  - eski region -1
+  - yeni region +1
+- Travel’den XP kapalıdır (gelecek sistem için planlı)
 
 ---
 
-## 6) Dashboard Özellikleri
+## 6) Harita (Map) Özellikleri
 
-Dashboard API (`/api/stats/dashboard`) ile çoklu sıralama döndürülür:
+Region sheet açıldığında kartta:
+- owner
+- resource
+- population
+- **mesafe (km)**
+- travel cost
+- ortalama uçuş süresi
 
-1. **Top Regions**
-   - region total score = bina count toplamı
-2. **Top Countries**
-   - ülkeye bağlı region bina count toplamı
-3. **Top Airports / Armies / Hospitals / Educations / Ports**
-   - doğrudan level alanlarına göre sıralama
-4. **Top Country Population**
-   - player_profiles üzerinden ülke bazlı kullanıcı sayısı
-5. **Top Region Population**
-   - player_profiles üzerinden region bazlı kullanıcı sayısı
+gösterilir.
 
-Country detail ekranında hazine kalemleri gösterilir:
+Polygon renkleri ülke-region görsellerinden (`country_visuals`) türetilerek API ile gelir.
+
+---
+
+## 7) Dashboard Özellikleri
+
+`/api/stats/dashboard` çoklu liste döndürür:
+- Top Regions (count toplam skor)
+- Top Countries (bağlı region count toplam skor)
+- Top Airports / Armies / Hospitals / Educations / Ports (level bazlı)
+- Top Country Population
+- Top Region Population
+
+Country detail kartında hazine kalemleri görünür:
 - devlet parası, altın, elmas, petrol, maden, uranyum
-
----
-
-## 7) Harita Özellikleri
-
-- Region polygon renkleri region verisinden gelir.
-- Region seçince:
-  - owner
-  - kaynak
-  - population
-  - tahmini uçuş süresi
-  - maliyet bilgisi gösterilir.
-- Travel aktifse durum paneli güncellenir.
 
 ---
 
 ## 8) Profil Özellikleri
 
-- Oyuncu level/xp/enerji/coin/gold bilgileri görünür.
-- Aktif travel varsa süre/progress gösterilir.
-- Travel iptal butonu vardır (returning geçişi).
-- **Gold ile enerji alma formu**:
-  - kullanıcı istediği enerji miktarını girer
-  - sistem oransal gold maliyeti hesaplar
-  - yeterli gold yoksa buton pasif olur
+Profil ekranında:
+- oyuncu coin/gold/enerji/xp bilgileri
+- aktif travel durumu
+- gold ile enerji satın alma (kullanıcı miktarı girer)
+- ulus adı + ulus bayrağı
+- ulus değiştirme select + buton
+- ulus değişim geri sayımı (gün/saat/dakika)
+- ulus cooldown progress bar
 
 ---
 
@@ -201,6 +157,7 @@ Country detail ekranında hazine kalemleri gösterilir:
 - `GET /api/player/travel-history`
 - `POST /api/player/cancel-travel`
 - `POST /api/player/buy-energy`
+- `POST /api/player/change-nation`
 
 ### Map/Stats
 - `GET /api/map/regions`
@@ -209,45 +166,27 @@ Country detail ekranında hazine kalemleri gösterilir:
 - `GET /api/map/country-detail?id=...`
 - `GET /api/stats/dashboard`
 
-### Actions
-- `POST /api/region/action` (travel vb)
+### Action
+- `POST /api/region/action`
 
 ---
 
-## 10) Realtime Server
+## 10) Realtime
 
-- Socket.IO ile travel progress ve complete event’leri yayınlanır.
-- Frontend map tarafı bu event’lerle oyuncunun uçuş animasyonu/progress bilgisini tazeler.
-
----
-
-## 11) Dağıtım ve Çalıştırma
-
-1. `.env` hazırlığı
-2. `001_schema.sql` çalıştırma
-3. `php database/seed_world.php`
-4. PHP app + web server
-5. İsteğe bağlı realtime server başlatma
+Socket server travel progress/complete event’leri üretir.
+Frontend harita bu event’lerle uçuş progress görselliğini günceller.
 
 ---
 
-## 12) Bilinen Kapsam ve Yol Haritası Notları
+## 11) Kısa Özet
 
-- XP sistemi travel’den ayrıldı; savaş/çalışma ile yeni formül planlı.
-- Vergi ve hazine altyapısı normalize edildi; ekonomik mekanikler genişletilebilir.
-- Region/country ownership ve istatistik sistemi kullanıcı odaklı population’a taşındı.
-
----
-
-## 13) Özet
-
-Bu noktada sistem:
-- normalize DB tasarımı,
+Güncel sistem:
+- normalize tablo modeli,
 - kullanıcı bazlı population,
-- level + count ayrımı,
-- ülke hazinesi ve vergi altyapısı,
-- dinamik travel ekonomi/süre hesapları,
-- dashboard sıralamaları,
-- profile üzerinde esnek enerji satın alma
+- ülke hazinesi + vergi altyapısı,
+- mesafe/süre/maliyet odaklı travel,
+- ulus değiştirme + 30 gün cooldown,
+- harita sheet’te km bilgisi,
+- dashboard’da çoklu ranking
 
-özelliklerini birlikte çalıştıran bir çekirdeğe sahiptir.
+özelliklerini birlikte çalıştırır.

@@ -131,7 +131,7 @@ function openSheet(region){
     const airportCount = Number(from.airport_level || 1);
     const effectiveSpeed = 3200 * (1 + Math.log(airportCount + 1) * 0.25);
     const avgSeconds = Math.max(5, Math.round((dist / Math.max(1, effectiveSpeed)) * 3600));
-    costHint.textContent = `Travel Cost: ${Math.ceil(cost)} coins • Avg Flight: ${fmt(avgSeconds)}`;
+    costHint.textContent = `Distance: ${dist.toFixed(1)} km • Travel Cost: ${Math.ceil(cost)} coins • Avg Flight: ${fmt(avgSeconds)}`;
   } else {
     costHint.textContent = '';
   }
