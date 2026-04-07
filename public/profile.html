@@ -18,6 +18,11 @@
 <script>
 function toast(m,e=false){toast.textContent=m;toast.className=`toast show ${e?'error':''}`;setTimeout(()=>toast.className='toast',2200)}
 function fmt(sec){const s=Math.max(0,Number(sec||0));const m=String(Math.floor(s/60)).padStart(2,'0');const ss=String(s%60).padStart(2,'0');return `${m}:${ss}`;}
+const LANG = localStorage.getItem('lang') || 'tr';
+let I18N = {};
+let isCanceling = false;
+async function loadLang(){try{I18N=await fetch(`/lang/${LANG}.json`).then(r=>r.json());}catch(_){I18N={};}}
+function t(key,f=''){const p=key.split('.');let c=I18N;for(const k of p)c=c?.[k];return typeof c==='string'?c:(f||key);}
 async function load(){
   const res=await fetch('/api/player/me'); if(!res.ok){location.href='/login';return;}
   const p=(await res.json()).data;
@@ -27,21 +32,29 @@ async function load(){
   totalEnergyText.textContent = `Total Energy Reserve: ${Number(p.total_energy).toFixed(0)}`;
   const canBuyEnergy = Number(p.gold) >= 1000;
   buyEnergyBtn.disabled = !canBuyEnergy;
-  buyEnergyBtn.textContent = canBuyEnergy ? 'Buy +100000 Total Energy (1000 Gold)' : 'Need 1000 Gold to Buy Energy';
+  buyEnergyBtn.textContent = canBuyEnergy ? t('ui.buy_energy','Buy +100000 Total Energy (1000 Gold)') : t('ui.need_gold','Need 1000 gold to buy energy');
   if(p.is_traveling && p.travel){
     const t=p.travel; cancelBtn.style.display='block';
-    const st=t.status==='returning'?'Returning':'Traveling';
-    travelCard.innerHTML=`<p>From ${t.from_region_id} → ${t.to_region_id}</p><p>${st}... ${fmt(t.remaining_seconds)} remaining</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${t.status==='returning' ? 100-(t.progress_percent||0) : (t.progress_percent||0)}%'></div></div>`;
+    const st=t.status==='returning'?tLang('ui.returning','Returning'):tLang('ui.traveling','Traveling');
+    travelCard.innerHTML=`<p>From ${t.from_region_id} → ${t.to_region_id}</p><p>${st}... ${fmt(t.remaining_seconds)} ${tLang('ui.remaining','remaining')}</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${t.status==='returning' ? 100-(t.progress_percent||0) : (t.progress_percent||0)}%'></div></div>`;
   }else{cancelBtn.style.display='none'; travelCard.textContent='No active travel.';}
 }
-cancelBtn.onclick=async()=>{const r=await fetch('/api/player/cancel-travel',{method:'POST'});const j=await r.json();if(j.error){toast(j.error,true);return;}toast('Travel reversed');load();};
+function tLang(k,f){return t(k,f);}
+cancelBtn.onclick=async()=>{
+  if(isCanceling) return;
+  isCanceling=true; cancelBtn.disabled=true; cancelBtn.textContent=t('ui.canceling','Canceling...');
+  const r=await fetch('/api/player/cancel-travel',{method:'POST'});const j=await r.json();
+  if(j.error){toast(j.message||t(`errors.${j.error}`,j.error),true);isCanceling=false;cancelBtn.disabled=false;cancelBtn.textContent=t('ui.cancel_travel','Cancel Travel');return;}
+  toast(j.message||t('toast.travel_reversed','Travel canceled, return started.'));
+  isCanceling=false;cancelBtn.disabled=false;cancelBtn.textContent=t('ui.cancel_travel','Cancel Travel');load();
+};
 buyEnergyBtn.onclick=async()=>{
   const res=await fetch('/api/player/me'); if(!res.ok){toast('Unauthorized',true);return;}
   const p=(await res.json()).data;
-  if(Number(p.gold)<1000){toast('Not enough gold (need 1000)',true);return;}
+  if(Number(p.gold)<1000){toast(t('toast.not_enough_gold','Not enough gold (need 1000).'),true);return;}
   const r=await fetch('/api/player/buy-energy',{method:'POST'});const j=await r.json();
-  if(j.error){toast(j.error,true);return;}
-  toast('Bought total energy');load();
+  if(j.error){toast(j.message||t(`errors.${j.error}`,j.error),true);return;}
+  toast(j.message||t('toast.buy_energy_success','Energy purchased successfully.'));load();
 };
-setInterval(load,1000); load();
+setInterval(load,1000); loadLang().then(load);
 </script></body></html>

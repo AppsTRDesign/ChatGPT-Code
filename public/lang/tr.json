@@ -1,0 +1,37 @@
+{
+  "toast": {
+    "login_required": "Lütfen önce giriş yapın.",
+    "travel_started": "Seyahat başlatıldı.",
+    "travel_reversed": "Seyahat iptal edildi, geri dönüş başladı.",
+    "buy_energy_success": "Enerji başarıyla satın alındı.",
+    "unauthorized": "Yetkisiz işlem.",
+    "not_enough_gold": "Yeterli altın yok (1000 gerekli).",
+    "request_failed": "İstek başarısız oldu.",
+    "arrived": "Varış tamamlandı.",
+    "cancel_in_progress": "İptal ediliyor..."
+  },
+  "ui": {
+    "traveling": "Seyahat ediliyor",
+    "returning": "Geri dönülüyor",
+    "remaining": "kalan",
+    "cancel_travel": "Seyahati İptal Et",
+    "canceling": "İptal ediliyor...",
+    "buy_energy": "+100000 Toplam Enerji Satın Al (1000 Altın)",
+    "need_gold": "Enerji satın almak için 1000 altın gerekli",
+    "instant_energy": "Anlık Enerji",
+    "total_energy": "Toplam Enerji Rezervi",
+    "travel_to_region": "Bu bölgeye seyahat et",
+    "starting_travel": "Seyahat başlatılıyor..."
+  },
+  "errors": {
+    "not_enough_gold": "Yeterli altın yok.",
+    "not_enough_energy": "Yeterli enerji yok.",
+    "not_enough_coins": "Yeterli coin yok.",
+    "already_traveling": "Zaten aktif bir seyahat var.",
+    "invalid_region": "Geçersiz bölge.",
+    "no_active_travel": "Aktif seyahat bulunamadı.",
+    "invalid_request": "Geçersiz istek.",
+    "travel_failed": "Seyahat başlatılamadı.",
+    "player_not_found": "Oyuncu bulunamadı."
+  }
+}

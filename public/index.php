@@ -13,6 +13,7 @@ session_start();
 
 require_once __DIR__ . '/../app/Helpers/env.php';
 require_once __DIR__ . '/../app/Helpers/config.php';
+require_once __DIR__ . '/../app/Helpers/i18n.php';
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) { require_once __DIR__ . '/../vendor/autoload.php'; }
 
 spl_autoload_register(function (string $class): void {

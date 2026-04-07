@@ -20,7 +20,7 @@ final class PlayerController
         $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
         $me = $this->playerService->me($userId);
         if (!$me) {
-            Response::json(['error' => 'Player not found'], 404);
+            Response::json(['error' => 'player_not_found', 'message' => tr('errors.player_not_found')], 404);
             return;
         }
         Response::json(['data' => $me]);
@@ -32,7 +32,7 @@ final class PlayerController
         $payload = $request->json();
         $toRegionId = (int) ($payload['to_region_id'] ?? 0);
         if ($toRegionId <= 0) {
-            Response::json(['error' => 'to_region_id is required'], 422);
+            Response::json(['error' => 'invalid_request', 'message' => tr('errors.invalid_request')], 422);
             return;
         }
 
@@ -40,7 +40,8 @@ final class PlayerController
             $result = $this->playerService->travel($userId, $toRegionId);
             Response::json(['data' => $result]);
         } catch (RuntimeException $e) {
-            Response::json(['error' => $e->getMessage()], 400);
+            $code = $this->normalizeErrorCode($e->getMessage());
+            Response::json(['error' => $code, 'message' => tr('errors.' . $code)], 400);
         }
     }
 
@@ -55,10 +56,10 @@ final class PlayerController
         $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
         $travel = $this->playerService->cancelTravel($userId);
         if (!$travel) {
-            Response::json(['error' => 'No active travel'], 400);
+            Response::json(['error' => 'no_active_travel', 'message' => tr('errors.no_active_travel')], 400);
             return;
         }
-        Response::json(['success' => true, 'travel' => $travel]);
+        Response::json(['success' => true, 'message' => tr('toast.travel_reversed'), 'travel' => $travel]);
     }
 
     public function buyEnergy(Request $request): void
@@ -66,9 +67,23 @@ final class PlayerController
         $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
         try {
             $result = $this->playerService->buyEnergy($userId);
-            Response::json(['success' => true, 'data' => $result]);
+            Response::json(['success' => true, 'message' => tr('toast.buy_energy_success'), 'data' => $result]);
         } catch (RuntimeException $e) {
-            Response::json(['error' => $e->getMessage()], 400);
+            $code = $this->normalizeErrorCode($e->getMessage());
+            Response::json(['error' => $code, 'message' => tr('errors.' . $code)], 400);
         }
+    }
+
+    private function normalizeErrorCode(string $raw): string
+    {
+        return match ($raw) {
+            'not_enough_energy' => 'not_enough_energy',
+            'Not enough coins', 'not_enough_coins' => 'not_enough_coins',
+            'Already traveling', 'already_traveling' => 'already_traveling',
+            'Invalid region', 'invalid_region' => 'invalid_region',
+            'travel_failed' => 'travel_failed',
+            'not_enough_gold' => 'not_enough_gold',
+            default => 'invalid_request',
+        };
     }
 }

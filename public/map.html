@@ -43,6 +43,9 @@ let routeLine = null;
 let planeMarker = null;
 let countdownTimer = null;
 let isActing = false;
+let isCanceling = false;
+let I18N = {};
+const LANG = localStorage.getItem('lang') || 'tr';
 
 const map = L.map('map').setView([20,0],2);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OSM'}).addTo(map);
@@ -70,6 +73,21 @@ async function api(url, opts={}){
   return r.json();
 }
 
+async function loadLang(){
+  try {
+    I18N = await fetch(`/lang/${LANG}.json`).then(r => r.json());
+  } catch (_) {
+    I18N = {};
+  }
+}
+
+function t(key, fallback=''){
+  const parts = key.split('.');
+  let cur = I18N;
+  for (const p of parts) cur = cur?.[p];
+  return typeof cur === 'string' ? cur : (fallback || key);
+}
+
 function showToast(message, error=false){
   toastEl.textContent = message;
   toastEl.className = `toast show ${error ? 'error' : ''}`;
@@ -95,6 +113,7 @@ function openSheet(region){
   if (notEnoughCoins) modeHint.textContent = 'Not enough coins for this trip.';
   travelBtn.disabled = !isAuthed || isActing || !!activeTravel || currentRegionId === Number(region.id) || notEnoughCoins;
   sheetCancelBtn.style.display = activeTravel ? 'block' : 'none';
+  sheetCancelBtn.textContent = isCanceling ? t('ui.canceling', 'Canceling...') : t('ui.cancel_travel', 'Cancel Travel');
   sheet.classList.add('open');
   backdrop.classList.add('open');
   refreshStyles();
@@ -176,13 +195,13 @@ function showPlanePopup(){
 }
 
 function buildPlanePopupContent(){
-  const statusText = activeTravel?.status === 'returning' ? 'Returning' : 'Traveling';
+  const statusText = activeTravel?.status === 'returning' ? t('ui.returning', 'Returning') : t('ui.traveling', 'Traveling');
   return `
     <div style="min-width:220px">
       <strong>${statusText}</strong><br>
-      Remaining: ${fmt(Math.max(0, Number(activeTravel?.remaining_seconds || 0)))}<br>
+      ${t('ui.remaining', 'Remaining')}: ${fmt(Math.max(0, Number(activeTravel?.remaining_seconds || 0)))}<br>
       Route: ${activeTravel?.from_region_id} → ${activeTravel?.to_region_id}<br>
-      <button id="popupCancelTravelBtn" style="margin-top:8px;background:#dc2626;color:#fff;border:0;padding:8px 10px;border-radius:8px;cursor:pointer">Cancel Travel</button>
+      <button id="popupCancelTravelBtn" style="margin-top:8px;background:#dc2626;color:#fff;border:0;padding:8px 10px;border-radius:8px;cursor:pointer">${isCanceling ? t('ui.canceling', 'Canceling...') : t('ui.cancel_travel', 'Cancel Travel')}</button>
     </div>
   `;
 }
@@ -200,8 +219,8 @@ function updateTravelVisuals(){
 
   const remaining = Math.max(0, Number(activeTravel.remaining_seconds || 0));
   travelStatusEl.style.display = 'block';
-  const statusText = activeTravel.status === 'returning' ? 'Returning...' : 'Traveling...';
-  travelStatusEl.textContent = `${statusText} ${fmt(remaining)} remaining`;
+  const statusText = activeTravel.status === 'returning' ? t('ui.returning', 'Returning') + '...' : t('ui.traveling', 'Traveling') + '...';
+  travelStatusEl.textContent = `${statusText} ${fmt(remaining)} ${t('ui.remaining', 'remaining')}`;
 
   const routeColor = activeTravel.status === 'returning' ? '#ef4444' : '#60a5fa';
   if (routeLine) {
@@ -231,7 +250,7 @@ async function completeTravelCheck(){
         map.panTo([currentRegion.lat,currentRegion.lng]);
       }
       refreshStyles();
-      showToast(`Arrived at ${currentRegion?.name || 'destination'}`);
+      showToast(t('toast.arrived', 'Arrival complete.'));
     }
   }
 }
@@ -321,7 +340,7 @@ travelBtn.onclick = async ()=>{
   if (!isAuthed) { showToast('Please login first', true); return; }
   if(!selectedRegion || isActing || activeTravel) return;
   isActing = true;
-  travelBtn.textContent = 'Starting travel...';
+  travelBtn.textContent = t('ui.starting_travel', 'Starting travel...');
   travelBtn.disabled = true;
 
   const result = await api('/api/region/action',{
@@ -339,21 +358,28 @@ travelBtn.onclick = async ()=>{
     playerHud.innerHTML = `Lv ${me.level} • Coins ${Number(me.coins).toFixed(0)} • Instant ${me.instant_energy}/${me.max_instant_energy}`;
     drawTravel(activeTravel);
     closeSheetPanel();
-    showToast('Travel started');
+    showToast(t('toast.travel_started', 'Travel started.'));
   }
 
   isActing = false;
-  travelBtn.textContent = 'Travel to this region';
+  travelBtn.textContent = t('ui.travel_to_region', 'Travel to this region');
 };
 
 async function cancelActiveTravel(){
+  if (isCanceling) return;
+  isCanceling = true;
+  sheetCancelBtn.disabled = true;
+  sheetCancelBtn.textContent = t('ui.canceling', 'Canceling...');
   const res = await fetch('/api/player/cancel-travel', { method:'POST' });
   const json = await res.json();
   if (json.error) {
-    showToast(json.error, true);
+    showToast(json.message || t(`errors.${json.error}`, json.error), true);
+    isCanceling = false;
+    sheetCancelBtn.disabled = false;
+    sheetCancelBtn.textContent = t('ui.cancel_travel', 'Cancel Travel');
     return;
   }
-  showToast('Travel canceled, returning started');
+  showToast(json.message || t('toast.travel_reversed', 'Travel canceled, return started.'));
   activeTravel = json.travel || null;
   if (activeTravel) {
     drawTravel(activeTravel);
@@ -361,6 +387,9 @@ async function cancelActiveTravel(){
     clearTravelVisuals();
   }
   closeSheetPanel();
+  isCanceling = false;
+  sheetCancelBtn.disabled = false;
+  sheetCancelBtn.textContent = t('ui.cancel_travel', 'Cancel Travel');
 }
 
 function initSocket(){
@@ -373,6 +402,9 @@ function initSocket(){
       if (evt.status) activeTravel.status = evt.status;
       if (planeMarker && typeof evt.lat === 'number' && typeof evt.lng === 'number') {
         planeMarker.setLatLng([evt.lat, evt.lng]);
+      }
+      if (marker && typeof evt.lat === 'number' && typeof evt.lng === 'number') {
+        marker.setLatLng([evt.lat, evt.lng]);
       }
       updateTravelVisuals();
       if(Number(evt.remaining_seconds || 0) <= 0) completeTravelCheck();
@@ -391,6 +423,6 @@ document.addEventListener('click', (evt) => {
     cancelActiveTravel();
   }
 });
-load().then(initSocket);
+loadLang().then(() => load().then(initSocket));
 </script>
 </body></html>
