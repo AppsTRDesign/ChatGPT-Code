@@ -105,6 +105,13 @@ CREATE TABLE IF NOT EXISTS player_profiles (
     current_country_region_id INT NOT NULL,
     nation_country_id INT NOT NULL,
     nation_changed_at DATETIME NULL,
+    strength INT NOT NULL DEFAULT 0,
+    education INT NOT NULL DEFAULT 0,
+    endurance INT NOT NULL DEFAULT 0,
+    active_stat ENUM('strength','education','endurance') NULL,
+    stat_mode ENUM('coins','gold') NULL,
+    stat_started_at DATETIME NULL,
+    stat_finish_time DATETIME NULL,
     level INT NOT NULL DEFAULT 1,
     xp INT NOT NULL DEFAULT 0,
     xp_to_next INT NOT NULL DEFAULT 100,
@@ -162,6 +169,17 @@ CREATE TABLE IF NOT EXISTS player_travel (
     CONSTRAINT fk_player_travel_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_player_travel_from FOREIGN KEY (from_region_id) REFERENCES regions(id),
     CONSTRAINT fk_player_travel_to FOREIGN KEY (to_region_id) REFERENCES regions(id)
+);
+
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type ENUM('stat_complete','travel_complete') NOT NULL,
+    data JSON NULL,
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS api_tokens (

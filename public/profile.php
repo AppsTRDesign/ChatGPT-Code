@@ -13,7 +13,7 @@
   <p id="totalEnergyText" class="muted"></p><div id="nationCard" class="glass" style="padding:10px;margin:10px 0"></div><div style="display:flex;gap:8px;align-items:center;margin:8px 0"><select id="nationSelect" style="max-width:220px"></select><button id="changeNationBtn">Ulus Değiştir (1000 Gold)</button></div><div class="bar"><div id="nationCooldownBar" class="bar-fill"></div></div><small id="nationCooldownText" class="muted"></small>
   <div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input id="energyAmountInput" type="number" min="1" step="1" value="100000" style="max-width:180px"><button id="buyEnergyBtn">Buy Energy with Gold</button></div><small id="buyEnergyHint" class="muted"></small>
   <hr>
-  <h3>Travel</h3>
+  <hr><h3>Stat Development</h3><div id="statCard" class="muted"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="statSelect"><option value="strength">Strength</option><option value="education">Education</option><option value="endurance">Endurance</option></select><select id="statModeSelect"><option value="coins">Coins (Slow)</option><option value="gold">Gold (Fast)</option></select><button id="startStatBtn">Start Stat</button></div><div class="bar"><div id="statProgressBar" class="bar-fill"></div></div><small id="statCountdown" class="muted"></small><h3>Travel</h3>
   <div id="travelCard" class="muted">No active travel.</div>
   <button id="cancelBtn" style="display:none">Cancel Travel</button>
   <p><a href="/dashboard">Dashboard</a> • <a href="/map">Map</a></p>
@@ -65,6 +65,26 @@ async function load(){
   }
   if (p.nation_country_id) nationSelect.value=String(p.nation_country_id);
 
+  const activeStat = p.active_stat || null;
+  if(activeStat && p.stat_finish_time){
+    const endTs = Math.floor(new Date(p.stat_finish_time.replace(' ','T')+'Z').getTime()/1000);
+    const nowTs = Math.floor(Date.now()/1000);
+    const remaining = Math.max(0,endTs-nowTs);
+    const total = Math.max(1, endTs - Math.floor(new Date(p.stat_started_at.replace(' ','T')+'Z').getTime()/1000));
+    const progress = Math.max(0, Math.min(100, Math.round(((total-remaining)/total)*100)));
+    statProgressBar.style.width = `${progress}%`;
+    const hh=String(Math.floor(remaining/3600)).padStart(2,'0');
+    const mm=String(Math.floor((remaining%3600)/60)).padStart(2,'0');
+    statCountdown.textContent = `${activeStat} (${p.stat_mode}) kalan: ${hh}:${mm}`;
+    statCard.textContent = `Strength ${p.strength} • Education ${p.education} • Endurance ${p.endurance}`;
+    startStatBtn.disabled = true;
+  } else {
+    statProgressBar.style.width = '0%';
+    statCountdown.textContent = 'Aktif geliştirme yok';
+    statCard.textContent = `Strength ${p.strength} • Education ${p.education} • Endurance ${p.endurance}`;
+    startStatBtn.disabled = false;
+  }
+
   if(p.is_traveling && p.travel){
     const t=p.travel; cancelBtn.style.display='block';
     const st=t.status==='returning'?tLang('ui.returning','Returning'):tLang('ui.traveling','Traveling');
@@ -91,6 +111,15 @@ buyEnergyBtn.onclick=async()=>{
   toast(j.message||t('toast.buy_energy_success','Energy purchased successfully.'));load();
 };
 energyAmountInput.oninput=()=>load();
+startStatBtn.onclick=async()=>{
+  const stat=statSelect.value; const mode=statModeSelect.value;
+  const r=await fetch('/api/player/start-stat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stat,mode})});
+  const j=await r.json();
+  if(j.error){toast(j.message||j.error,true);return;}
+  toast('Stat geliştirme başlatıldı');
+  load();
+};
+
 changeNationBtn.onclick=async()=>{
   const countryId=Number(nationSelect.value||0);
   if(!countryId){toast('Geçersiz ulus',true);return;}

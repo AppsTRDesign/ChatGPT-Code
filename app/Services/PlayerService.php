@@ -25,6 +25,7 @@ final class PlayerService
     public function me(int $userId): ?array
     {
         $this->finalizeTravelIfDue($userId);
+        $this->finalizeStatIfDue($userId);
         $me = $this->playerModel->me($userId);
         if (!$me) {
             return null;
@@ -192,6 +193,7 @@ final class PlayerService
         $this->playerModel->transferPopulation($currentRegionId, $finalRegionId);
         $this->playerModel->completeTravel($userId);
         $this->playerModel->logTravel($userId, (int) $travel['from_region_id'], $finalRegionId, 'completed');
+        $this->playerModel->addNotification($userId, 'travel_complete', ['from_region_id' => (int)$travel['from_region_id'], 'to_region_id' => $finalRegionId]);
     }
 
 
@@ -216,6 +218,7 @@ final class PlayerService
     public function travelHistory(int $userId): array
     {
         $this->finalizeTravelIfDue($userId);
+        $this->finalizeStatIfDue($userId);
         return $this->playerModel->travelHistory($userId);
     }
 
@@ -267,6 +270,58 @@ final class PlayerService
             'nation_name' => (string) ($updated['nation_name'] ?? ''),
             'nation_change_available_at' => (string) ($updated['nation_change_available_at'] ?? ''),
         ];
+    }
+
+    public function startStatDevelopment(int $userId, string $stat, string $mode): array
+    {
+        $stat = strtolower(trim($stat));
+        $mode = strtolower(trim($mode));
+        if (!in_array($stat, ['strength','education','endurance'], true) || !in_array($mode, ['coins','gold'], true)) {
+            throw new RuntimeException('invalid_request');
+        }
+        $me = $this->me($userId);
+        if (!$me) {
+            throw new RuntimeException('player_not_found');
+        }
+        if (!empty($me['active_stat'])) {
+            throw new RuntimeException('stat_already_active');
+        }
+
+        $level = max(1, ((int) ($me[$stat] ?? 0)) + 1);
+        $baseTime = (int) round(60 * ($level ** 1.5));
+        $coinsCost = (int) ceil(100 * ($level ** 1.8));
+        $goldCost = (int) ceil(2 * ($level ** 1.4));
+
+        $region = $this->mapModel->regionById((int) $me['current_region_id']);
+        $eduLevel = (int) ($region['education_level'] ?? 0);
+        $regionMultiplier = max(0.1, 1 - ($eduLevel * 0.03));
+
+        $topCity = $this->mapModel->dashboardStats()['top_regions'][0]['id'] ?? 0;
+        $topMultiplier = ((int) $topCity === (int) $me['current_region_id']) ? 0.65 : 1.0;
+
+        $duration = (int) ceil($baseTime * $regionMultiplier * $topMultiplier);
+        if ($mode === 'gold') {
+            $duration = (int) ceil($duration * 0.25);
+        }
+
+        $cost = $mode === 'gold' ? $goldCost : $coinsCost;
+        $ok = $this->playerModel->startStatDevelopment($userId, $stat, $mode, $cost, max(1,$duration));
+        if (!$ok) {
+            throw new RuntimeException($mode === 'gold' ? 'not_enough_gold' : 'not_enough_coins');
+        }
+
+        return [
+            'stat' => $stat,
+            'mode' => $mode,
+            'cost' => $cost,
+            'duration_seconds' => max(1,$duration),
+            'finish_time' => date('Y-m-d H:i:s', time() + max(1,$duration)),
+        ];
+    }
+
+    public function finalizeStatIfDue(int $userId): void
+    {
+        $this->playerModel->completeStatIfDue($userId);
     }
 
     private function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float

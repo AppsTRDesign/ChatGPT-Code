@@ -19,6 +19,7 @@ $pdo->exec('DELETE FROM citizenships');
 $pdo->exec('DELETE FROM player_travel');
 $pdo->exec('DELETE FROM travel_logs');
 $pdo->exec('DELETE FROM player_profiles');
+$pdo->exec('DELETE FROM notifications');
 $pdo->exec('DELETE FROM region_taxes');
 $pdo->exec('DELETE FROM country_visuals');
 $pdo->exec('DELETE FROM country_economy');

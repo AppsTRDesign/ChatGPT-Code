@@ -94,6 +94,21 @@ final class PlayerController
         }
     }
 
+    public function startStat(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        $payload = $request->json();
+        $stat = (string) ($payload['stat'] ?? '');
+        $mode = (string) ($payload['mode'] ?? 'coins');
+        try {
+            $result = $this->playerService->startStatDevelopment($userId, $stat, $mode);
+            Response::json(['success' => true, 'data' => $result]);
+        } catch (RuntimeException $e) {
+            $code = $this->normalizeErrorCode($e->getMessage());
+            Response::json(['error' => $code, 'message' => tr('errors.' . $code)], 400);
+        }
+    }
+
     private function normalizeErrorCode(string $raw): string
     {
         return match ($raw) {
@@ -104,6 +119,7 @@ final class PlayerController
             'travel_failed' => 'travel_failed',
             'not_enough_gold' => 'not_enough_gold',
             'nation_cooldown' => 'nation_cooldown',
+            'stat_already_active' => 'stat_already_active',
             default => 'invalid_request',
         };
     }

@@ -91,6 +91,7 @@ function playerRoutes(Router $router, AuthMiddleware $auth): void
     $router->add('POST', '/api/player/cancel-travel', fn($req) => $controller->cancelTravel($req), [fn($req) => $auth->handle($req)]);
     $router->add('POST', '/api/player/buy-energy', fn($req) => $controller->buyEnergy($req), [fn($req) => $auth->handle($req)]);
     $router->add('POST', '/api/player/change-nation', fn($req) => $controller->changeNation($req), [fn($req) => $auth->handle($req)]);
+    $router->add('POST', '/api/player/start-stat', fn($req) => $controller->startStat($req), [fn($req) => $auth->handle($req)]);
 }
 
 function actionRoutes(Router $router, AuthMiddleware $auth): void

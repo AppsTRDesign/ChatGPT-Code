@@ -11,8 +11,8 @@ final class PlayerModel
     public function createProfile(int $userId, int $regionId, int $countryRegionId, int $nationCountryId): void
     {
         $stmt = Database::connection()->prepare(
-            'INSERT INTO player_profiles(user_id,current_region_id,current_country_region_id,nation_country_id,nation_changed_at,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
-             VALUES(:user_id,:current_region_id,:current_country_region_id,:nation_country_id,NOW(),1,0,100,1000,100000000,300,300,100000,NOW(),NOW())'
+            'INSERT INTO player_profiles(user_id,current_region_id,current_country_region_id,nation_country_id,nation_changed_at,strength,education,endurance,active_stat,stat_mode,stat_started_at,stat_finish_time,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
+             VALUES(:user_id,:current_region_id,:current_country_region_id,:nation_country_id,NOW(),0,0,0,NULL,NULL,NULL,NULL,1,0,100,1000,100000000,300,300,100000,NOW(),NOW())'
         );
         $stmt->execute([
             'user_id' => $userId,
@@ -33,7 +33,7 @@ final class PlayerModel
     public function me(int $userId): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.instant_energy,p.max_instant_energy,p.total_energy,p.last_energy_update,p.current_region_id,p.current_country_region_id,p.nation_country_id,p.nation_changed_at,
+            'SELECT u.id,u.username,u.email,p.level,p.xp,p.xp_to_next,p.gold,p.coins,p.instant_energy,p.max_instant_energy,p.total_energy,p.last_energy_update,p.current_region_id,p.current_country_region_id,p.nation_country_id,p.nation_changed_at,p.strength,p.education,p.endurance,p.active_stat,p.stat_mode,p.stat_started_at,p.stat_finish_time,
                     r.name AS current_region_name,r.lat AS current_region_lat,r.lng AS current_region_lng,c.name AS current_country_name,cv.color AS current_country_color,
                     ch.country_region_id AS citizenship_country_region_id,cc.name AS citizenship_country_name,nc.name AS nation_name,nc.flag_url AS nation_flag_url,nc.iso_code AS nation_iso_code,nc.color AS nation_color
              FROM users u
@@ -132,6 +132,39 @@ final class PlayerModel
         );
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetchAll();
+    }
+
+    public function startStatDevelopment(int $userId, string $stat, string $mode, int $cost, int $durationSeconds): bool
+    {
+        $currencyField = $mode === 'gold' ? 'gold' : 'coins';
+        $stmt = Database::connection()->prepare("UPDATE player_profiles SET {$currencyField} = {$currencyField} - :cost, active_stat=:stat, stat_mode=:mode, stat_started_at=NOW(), stat_finish_time=DATE_ADD(NOW(), INTERVAL :duration SECOND) WHERE user_id=:user_id AND active_stat IS NULL AND {$currencyField} >= :cost");
+        $stmt->execute(['cost' => $cost, 'stat' => $stat, 'mode' => $mode, 'duration' => max(1,$durationSeconds), 'user_id' => $userId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    public function completeStatIfDue(int $userId): ?array
+    {
+        $row = $this->me($userId);
+        if (!$row || empty($row['active_stat']) || empty($row['stat_finish_time'])) {
+            return null;
+        }
+        if ((strtotime((string)$row['stat_finish_time']) ?: time()) > time()) {
+            return null;
+        }
+        $stat = (string) $row['active_stat'];
+        if (!in_array($stat, ['strength','education','endurance'], true)) {
+            return null;
+        }
+        $stmt = Database::connection()->prepare("UPDATE player_profiles SET {$stat} = {$stat} + 1, active_stat=NULL, stat_mode=NULL, stat_started_at=NULL, stat_finish_time=NULL WHERE user_id=:user_id");
+        $stmt->execute(['user_id' => $userId]);
+        $this->addNotification($userId, 'stat_complete', ['stat' => $stat, 'new_level' => (int)$row[$stat] + 1]);
+        return ['stat' => $stat, 'new_level' => (int)$row[$stat] + 1];
+    }
+
+    public function addNotification(int $userId, string $type, array $data): void
+    {
+        $stmt = Database::connection()->prepare('INSERT INTO notifications(user_id,type,data,is_read,created_at) VALUES(:user_id,:type,:data,0,NOW())');
+        $stmt->execute(['user_id' => $userId, 'type' => $type, 'data' => json_encode($data)]);
     }
 
     public function transferPopulation(int $fromRegionId, int $toRegionId): void
