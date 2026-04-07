@@ -40,12 +40,12 @@ use App\Middlewares\AuthMiddleware;
 
 $uriPath = (string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?? '/');
 $frontendRoutes = [
-    '/' => 'map.html',
-    '/login' => 'login.html',
-    '/register' => 'register.html',
-    '/dashboard' => 'dashboard.html',
-    '/profile' => 'profile.html',
-    '/map' => 'map.html',
+    '/' => 'map.php',
+    '/login' => 'login.php',
+    '/register' => 'register.php',
+    '/dashboard' => 'dashboard.php',
+    '/profile' => 'profile.php',
+    '/map' => 'map.php',
 ];
 
 if (isset($frontendRoutes[$uriPath])) {
@@ -62,6 +62,7 @@ mapRoutes($router);
 playerRoutes($router, $auth);
 actionRoutes($router, $auth);
 statsRoutes($router);
+i18nRoutes($router);
 $router->dispatch($request);
 
 function authRoutes(Router $router): void
@@ -99,4 +100,16 @@ function statsRoutes(Router $router): void
 {
     $controller = new StatsController();
     $router->add('GET', '/api/stats/dashboard', fn($req) => $controller->overview($req));
+}
+
+function i18nRoutes(Router $router): void
+{
+    $router->add('GET', '/api/i18n', function (): void {
+        $lang = app_lang();
+        $_SESSION['lang'] = $lang;
+        \App\Core\Response::json([
+            'lang' => $lang,
+            'data' => app_i18n_map($lang),
+        ]);
+    });
 }
