@@ -46,6 +46,8 @@ let LANG = localStorage.getItem('lang') || '';
 let I18N = {};
 let isCanceling = false;
 let notifItems = [];
+let activeStatState = null;
+let activeTravelState = null;
 
 function toast(m,e=false){toastEl.textContent=m;toastEl.className=`toast show ${e?'error':''}`;setTimeout(()=>toastEl.className='toast',2200)}
 function fmt(sec){const t=Math.max(0,Number(sec||0));const h=String(Math.floor(t/3600)).padStart(2,'0');const m=String(Math.floor((t%3600)/60)).padStart(2,'0');const s=String(Math.floor(t%60)).padStart(2,'0');return `${h}:${m}:${s}`;}
@@ -97,7 +99,9 @@ function updateBadge(count){
 }
 
 async function loadNotifications(){
-  const j = await fetch('/api/player/notifications').then(r=>r.json());
+  const res = await fetch('/api/player/notifications');
+  if (!res.ok) return;
+  const j = await res.json();
   const d = j?.data || {};
   notifItems = Array.isArray(d.items) ? d.items : [];
   updateBadge(Number(d.unread_count||0));
@@ -105,10 +109,32 @@ async function loadNotifications(){
 }
 
 async function markNotificationsRead(){
-  await fetch('/api/player/notifications/read',{method:'POST'});
+  const res = await fetch('/api/player/notifications/read',{method:'POST'});
+  if (!res.ok) return false;
   notifItems = notifItems.map(x=>({ ...x, is_read:1 }));
   updateBadge(0);
   renderNotifications();
+  return true;
+}
+
+function tickLocalCooldowns(){
+  if (activeStatState && activeStatState.remaining > 0) {
+    activeStatState.remaining -= 1;
+    const total = Math.max(1, activeStatState.total);
+    const progress = Math.max(0, Math.min(100, Math.round(((total-activeStatState.remaining)/total)*100)));
+    statProgressBar.style.width = `${progress}%`;
+    statCountdown.textContent = `${activeStatState.stat} (${activeStatState.mode}) kalan: ${fmt(activeStatState.remaining)}`;
+  }
+
+  if (activeTravelState && activeTravelState.remaining > 0) {
+    activeTravelState.remaining -= 1;
+    const p = Math.max(0, Math.min(100, Number(activeTravelState.progress||0)));
+    const dynamic = activeTravelState.status==='returning' ? Math.max(0, 100-p) : p;
+    const from = activeTravelState.from;
+    const to = activeTravelState.to;
+    const st = activeTravelState.status==='returning'?t('ui.returning','Returning'):t('ui.traveling','Traveling');
+    travelCard.innerHTML=`<p>${from} → ${to}</p><p>${st}... ${fmt(activeTravelState.remaining)} ${t('ui.remaining','remaining')}</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${dynamic}%'></div></div>`;
+  }
 }
 
 async function load(){
@@ -153,10 +179,12 @@ async function load(){
     statProgressBar.style.width = `${progress}%`;
     statCountdown.textContent = `${activeStat} (${p.stat_mode}) kalan: ${fmt(remain)}`;
     startStatBtn.disabled = true;
+    activeStatState = { stat: activeStat, mode: p.stat_mode, remaining: remain, total: totalSec };
   } else {
     statProgressBar.style.width = '0%';
     statCountdown.textContent = 'Aktif geliştirme yok';
     startStatBtn.disabled = false;
+    activeStatState = null;
   }
 
   if(p.is_traveling && p.travel){
@@ -168,7 +196,15 @@ async function load(){
     const cancelLocked = isCanceling || tr.status==='returning';
     cancelBtn.disabled = cancelLocked;
     cancelBtn.textContent = cancelLocked ? t('ui.canceling','Canceling...') : t('ui.cancel_travel','Cancel Travel');
+    activeTravelState = {
+      from,
+      to,
+      status: tr.status,
+      remaining: Number(tr.remaining_seconds||0),
+      progress: Number(tr.progress_percent||0),
+    };
   }else{cancelBtn.style.display='none'; travelCard.textContent='No active travel.';}
+  if(!p.is_traveling) activeTravelState = null;
 }
 
 cancelBtn.onclick=async()=>{
@@ -210,7 +246,10 @@ changeNationBtn.onclick=async()=>{
 notifBtn.onclick=async()=>{
   const isOpen = notifPanel.style.display === 'block';
   notifPanel.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) await markNotificationsRead();
+  if (!isOpen) {
+    const ok = await markNotificationsRead();
+    if (!ok) toast('Bildirimler okunamadı (API 404/erişim sorunu)', true);
+  }
 };
 
 function initSocket(){
@@ -224,6 +263,12 @@ function initSocket(){
       statProgressBar.style.width = `${Number(evt.progress_percent||0)}%`;
       statCountdown.textContent = `${evt.active_stat||'stat'} (${evt.mode||''}) kalan: ${fmt(remain)}`;
       startStatBtn.disabled = true;
+      activeStatState = {
+        stat: evt.active_stat || 'stat',
+        mode: evt.mode || '',
+        remaining: remain,
+        total: Math.max(1, Math.round(remain / Math.max(0.01, 1 - (Number(evt.progress_percent||0)/100))))
+      };
     });
     socket.on('notification_count', (evt)=> updateBadge(Number(evt?.unread_count||0)));
     socket.on('notification', (evt)=>{
@@ -242,6 +287,7 @@ function initSocket(){
 
 langSelect.onchange=()=>{LANG=langSelect.value||'en'; loadLang().then(load);};
 energyAmountInput.oninput=()=>load();
-setInterval(load,1000);
+setInterval(tickLocalCooldowns,1000);
+setInterval(load,5000);
 loadLang().then(async()=>{await load(); await loadNotifications(); initSocket();});
 </script></body></html>
