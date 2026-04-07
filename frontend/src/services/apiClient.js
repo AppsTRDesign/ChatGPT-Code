@@ -44,3 +44,12 @@ export async function apiPatch(path, body, extraHeaders) {
   });
   return parseResponse(response);
 }
+
+export async function apiPut(path, body, extraHeaders) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: buildHeaders(Object.assign({ 'Content-Type': 'application/json' }, extraHeaders || {})),
+    body: JSON.stringify(body || {})
+  });
+  return parseResponse(response);
+}
