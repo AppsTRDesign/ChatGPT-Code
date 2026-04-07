@@ -51,5 +51,5 @@ curl -s https://game.noasoft.org/api/map/regions
 ```bash
 cd realtime
 npm install
-DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=mmo_user DB_PASS=change_me DB_NAME=mmo_game node server.js
+SC_PORT=3001 DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=mmo_user DB_PASS=change_me DB_NAME=mmo_game node server.js
 ```

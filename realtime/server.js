@@ -1,14 +1,30 @@
+const path = require('path');
+require('dotenv').config({
+  path: path.resolve(__dirname, '../.env')
+});
+
 const { Server } = require('socket.io');
 const mysql = require('mysql2/promise');
 
-const io = new Server(3001, { cors: { origin: '*' } });
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required env var: ${name}`);
+  }
+  return value;
+}
+
+console.log('DB HOST:', process.env.DB_HOST);
+
+const socketPort = Number(requireEnv('SC_PORT'));
+const io = new Server(socketPort, { cors: { origin: '*' } });
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || '127.0.0.1',
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || 'mmo_user',
-  password: process.env.DB_PASS || 'change_me',
-  database: process.env.DB_NAME || 'mmo_game'
+  host: requireEnv('DB_HOST'),
+  port: Number(requireEnv('DB_PORT')),
+  user: requireEnv('DB_USER'),
+  password: requireEnv('DB_PASS'),
+  database: requireEnv('DB_NAME')
 });
 
 async function emitProgress() {
@@ -24,6 +40,6 @@ async function emitProgress() {
   }
 }
 
-setInterval(() => emitProgress().catch(()=>{}), 1000);
+setInterval(() => emitProgress().catch(() => {}), 1000);
 io.on('connection', () => {});
-console.log('Socket server running on :3001');
+console.log(`Socket server running on :${socketPort}`);
