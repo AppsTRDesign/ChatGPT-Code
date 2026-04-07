@@ -18,14 +18,45 @@ CREATE TABLE IF NOT EXISTS regions (
     lng DECIMAL(10,7) NOT NULL,
     polygon_json JSON NOT NULL,
     population INT NOT NULL DEFAULT 0,
-    resource_type ENUM('uranium','mineral','oil','gold','diamond') DEFAULT 'mineral',
     owner_region_id INT NULL,
     region_type ENUM('region','country','independent') NOT NULL DEFAULT 'country',
-    capital_region_id INT NULL,
     government_type ENUM('dictatorship','republic') NOT NULL DEFAULT 'republic',
     color CHAR(7) NOT NULL DEFAULT '#7c3aed',
     flag_url VARCHAR(255) NULL,
     neighbors_json JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_regions_country FOREIGN KEY (country_id) REFERENCES countries(id),
+    CONSTRAINT fk_regions_owner_region FOREIGN KEY (owner_region_id) REFERENCES regions(id)
+);
+
+CREATE TABLE IF NOT EXISTS region_infra (
+    region_id INT PRIMARY KEY,
+    airport_count INT NOT NULL DEFAULT 100,
+    army_count INT NOT NULL DEFAULT 100,
+    hospital_count INT NOT NULL DEFAULT 100,
+    education_count INT NOT NULL DEFAULT 100,
+    school_count INT NOT NULL DEFAULT 100,
+    port_count INT NOT NULL DEFAULT 100,
+    airport_level INT NOT NULL DEFAULT 1,
+    army_level INT NOT NULL DEFAULT 1,
+    hospital_level INT NOT NULL DEFAULT 1,
+    education_level INT NOT NULL DEFAULT 1,
+    school_level INT NOT NULL DEFAULT 1,
+    port_level INT NOT NULL DEFAULT 1,
+    CONSTRAINT fk_region_infra_region FOREIGN KEY (region_id) REFERENCES regions(id)
+);
+
+CREATE TABLE IF NOT EXISTS region_profile (
+    region_id INT PRIMARY KEY,
+    capital_region_id INT NULL,
+    is_coastal TINYINT(1) NOT NULL DEFAULT 0,
+    CONSTRAINT fk_region_profile_region FOREIGN KEY (region_id) REFERENCES regions(id),
+    CONSTRAINT fk_region_profile_capital FOREIGN KEY (capital_region_id) REFERENCES regions(id)
+);
+
+CREATE TABLE IF NOT EXISTS country_economy (
+    country_region_id INT PRIMARY KEY,
+    resource_type ENUM('uranium','mineral','oil','gold','diamond') DEFAULT 'mineral',
     treasury_state_money BIGINT NOT NULL DEFAULT 250000000,
     treasury_gold BIGINT NOT NULL DEFAULT 250000000,
     treasury_uranium BIGINT NOT NULL DEFAULT 1000000,
@@ -39,17 +70,17 @@ CREATE TABLE IF NOT EXISTS regions (
     factory_tax_oil DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     factory_tax_gold DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     factory_tax_diamond DECIMAL(5,2) NOT NULL DEFAULT 0.00,
-    airport_level INT NOT NULL DEFAULT 1,
-    army_level INT NOT NULL DEFAULT 1,
-    hospital_level INT NOT NULL DEFAULT 1,
-    education_level INT NOT NULL DEFAULT 1,
-    school_level INT NOT NULL DEFAULT 1,
-    port_level INT NOT NULL DEFAULT 1,
-    is_coastal TINYINT(1) NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_regions_country FOREIGN KEY (country_id) REFERENCES countries(id),
-    CONSTRAINT fk_regions_owner_region FOREIGN KEY (owner_region_id) REFERENCES regions(id),
-    CONSTRAINT fk_regions_capital_region FOREIGN KEY (capital_region_id) REFERENCES regions(id)
+    CONSTRAINT fk_country_economy_country FOREIGN KEY (country_region_id) REFERENCES regions(id)
+);
+
+CREATE TABLE IF NOT EXISTS region_taxes (
+    region_id INT PRIMARY KEY,
+    factory_tax_uranium DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    factory_tax_mineral DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    factory_tax_oil DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    factory_tax_gold DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    factory_tax_diamond DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    CONSTRAINT fk_region_taxes_region FOREIGN KEY (region_id) REFERENCES regions(id)
 );
 
 CREATE TABLE IF NOT EXISTS users (

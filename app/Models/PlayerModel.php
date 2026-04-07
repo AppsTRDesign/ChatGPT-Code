@@ -129,7 +129,7 @@ final class PlayerModel
         if ($amount <= 0) {
             return;
         }
-        $stmt = Database::connection()->prepare('UPDATE regions SET treasury_state_money = treasury_state_money + :amount WHERE id = :id');
+        $stmt = Database::connection()->prepare('UPDATE country_economy SET treasury_state_money = treasury_state_money + :amount WHERE country_region_id = :id');
         $stmt->execute(['amount' => (int) round($amount), 'id' => $countryRegionId]);
     }
 
