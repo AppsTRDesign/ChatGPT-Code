@@ -5,6 +5,7 @@
 <div id='regions'></div><hr>
 <h3 id='topRegionsTitle'>Top Regions</h3><div id='topRegions'></div>
 <h3 id='topCountriesTitle'>Top Countries</h3><div id='topCountries'></div>
+<h3 id='topIndependentsTitle'>Top Independents</h3><div id='topIndependents'></div>
 <hr><h3 id='detailTitle'>Detail</h3><div id='detailPanel' class='muted'>Select a ranking item.</div>
 </div></div>
 <script>
@@ -25,6 +26,7 @@ async function loadLang(){
   logoutBtn.textContent = t('auth.logout','Logout');
   topRegionsTitle.textContent = t('dash.top_regions','Top Regions');
   topCountriesTitle.textContent = t('dash.top_countries','Top Countries');
+  topIndependentsTitle.textContent = t('dash.top_independents','Top Independents');
   detailTitle.textContent = t('dash.detail','Detail');
 }
 async function loadCountries(){
@@ -41,6 +43,7 @@ async function loadRankings(){
   const d=(await (await fetch('/api/stats/dashboard')).json()).data;
   topRegions.innerHTML=(d.top_regions||[]).map(r=>`<div><a href='#' data-region-id='${r.id}' class='rank-region'>${r.name} (${r.country_name}) — score ${Number(r.score).toFixed(1)} — pop ${r.population}</a></div>`).join('');
   topCountries.innerHTML=(d.top_countries||[]).map(c=>`<div><a href='#' data-country-region-id='${c.id}' class='rank-country'>${c.name} — avg ${Number(c.avg_score).toFixed(1)} — pop ${c.population}</a></div>`).join('');
+  topIndependents.innerHTML=(d.top_independents||[]).map(x=>`<div><a href='#' data-region-id='${x.id}' class='rank-region'>${x.name} — score ${Number(x.score).toFixed(1)} — pop ${x.population}</a></div>`).join('');
   bindRankClicks();
 }
 function bindRankClicks(){
@@ -52,7 +55,7 @@ async function showRegionDetail(id){
   if(!res.data){ detailPanel.textContent = t('errors.invalid_region','Invalid region.'); return; }
   const r = res.data;
   const neighbors=(r.neighbors||[]).map(n=>`${n.name} (#${n.id})`).join(', ')||'-';
-  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${r.name}</b><br>${t('dash.army','Army')} ${r.army_level} • ${t('dash.edu','Edu')} ${r.education_level} • ${t('dash.hosp','Hosp')} ${r.hospital_level} • ${t('dash.air','Air')} ${r.airport_level}<br>Neighbors: ${neighbors}<br>Country: ${r.country_name}<br>Type: ${r.region_type}<br><button class='primary-btn' id='travelRegionBtn'>${t('ui.travel_to_region','Travel to this region')}</button></div>`;
+  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${r.name}</b><br>${t('dash.army','Army')} ${r.army_level} • ${t('dash.edu','Edu')} ${r.education_level} • ${t('dash.hosp','Hosp')} ${r.hospital_level} • ${t('dash.air','Air')} ${r.airport_level}<br>Neighbors: ${neighbors}<br>Country: ${r.country_name}<br>Type: ${r.region_type}<br>Sea: ${Number(r.has_sea_access||0)===1?'Yes':'No'}<br><button class='primary-btn' id='travelRegionBtn'>${t('ui.travel_to_region','Travel to this region')}</button></div>`;
   document.getElementById('travelRegionBtn').onclick=()=>travelToRegion(r.id);
 }
 async function showCountryDetail(id){
@@ -60,7 +63,7 @@ async function showCountryDetail(id){
   if(!res.data){ detailPanel.textContent = t('errors.invalid_region','Invalid region.'); return; }
   const c = res.data;
   const regs=(c.regions||[]).map(x=>x.name).join(', ');
-  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${c.country_name}</b><br>Capital: ${c.name}<br>Regions: ${c.region_count}<br>${regs}<br><button class='primary-btn' id='travelCapitalBtn'>${t('ui.travel_to_region','Travel to this region')}</button></div>`;
+  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${c.country_name}</b><br>Capital: ${c.name}<br>Regions: ${c.region_count}<br>${regs}<br><span style='display:inline-block;width:14px;height:14px;border-radius:3px;background:${c.color}'></span><br><button class='primary-btn' id='travelCapitalBtn'>${t('ui.travel_to_region','Travel to this region')}</button></div>`;
   document.getElementById('travelCapitalBtn').onclick=()=>travelToRegion(c.id);
 }
 async function travelToRegion(id){

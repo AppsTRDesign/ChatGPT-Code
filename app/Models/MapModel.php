@@ -18,8 +18,11 @@ final class MapModel
     {
         $sql = 'SELECT r.id,r.country_id,r.name,r.slug,r.lat,r.lng,r.polygon_json,
                 (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_region_id = r.id) AS population,
-                r.resource_type,r.owner_country_id,r.army_level,r.education_level,r.hospital_level,r.airport_level,r.port_level,r.is_coastal,r.has_sea_access,r.region_type,r.parent_country_region_id,r.neighbors_json,
-                c.name AS country_name,c.color AS country_color,oc.name AS owner_country_name
+                r.resource_type,r.owner_country_id,r.army_level,r.education_level,r.hospital_level,r.airport_level,r.port_level,r.is_coastal,r.has_sea_access,r.region_type,r.parent_country_region_id,r.neighbors_json,r.region_color,r.region_flag_url,
+                CASE WHEN r.region_type="country" THEN r.name ELSE c.name END AS country_name,
+                CASE WHEN r.region_type IN ("country","independent") AND r.region_color IS NOT NULL THEN r.region_color ELSE c.color END AS country_color,
+                CASE WHEN r.region_type="country" AND r.region_flag_url IS NOT NULL THEN r.region_flag_url ELSE c.flag_url END AS country_flag_url,
+                oc.name AS owner_country_name
                 FROM regions r
                 JOIN countries c ON c.id = r.country_id
                 LEFT JOIN countries oc ON oc.id = r.owner_country_id
@@ -55,13 +58,25 @@ final class MapModel
              ORDER BY avg_score DESC LIMIT 10'
         )->fetchAll();
 
-        return ['top_regions' => $topRegions, 'top_countries' => $topCountries];
+        $topIndependents = Database::connection()->query(
+            'SELECT r.id,r.name,
+             (r.army_level + r.education_level + r.hospital_level + r.airport_level + IF(r.has_sea_access=1,r.port_level,0)) AS score,
+             (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_region_id = r.id) AS population
+             FROM regions r
+             WHERE r.region_type = "independent"
+             ORDER BY score DESC LIMIT 10'
+        )->fetchAll();
+
+        return ['top_regions' => $topRegions, 'top_countries' => $topCountries, 'top_independents' => $topIndependents];
     }
 
     public function regionDetail(int $regionId): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT r.*,c.name AS country_name,c.flag_url AS country_flag,c.color AS country_color,
+            'SELECT r.*,
+                    CASE WHEN r.region_type="country" THEN r.name ELSE c.name END AS country_name,
+                    CASE WHEN r.region_type IN ("country","independent") AND r.region_color IS NOT NULL THEN r.region_color ELSE c.color END AS country_color,
+                    CASE WHEN r.region_type="country" AND r.region_flag_url IS NOT NULL THEN r.region_flag_url ELSE c.flag_url END AS country_flag,
                     oc.name AS owner_country_name,
                     (SELECT COUNT(*) FROM player_profiles pp WHERE pp.current_region_id=r.id) AS population
              FROM regions r
@@ -90,7 +105,7 @@ final class MapModel
     public function countryDetailFromRegion(int $regionId): ?array
     {
         $stmt = Database::connection()->prepare(
-            'SELECT r.*,c.name AS country_name,c.flag_url,c.color,c.government_type
+            'SELECT r.*,r.name AS country_name,COALESCE(r.region_flag_url,c.flag_url) AS flag_url,COALESCE(r.region_color,c.color) AS color,c.government_type
              FROM regions r
              JOIN countries c ON c.id = r.country_id
              WHERE r.id=:id AND r.region_type="country" LIMIT 1'
