@@ -134,9 +134,11 @@ function openSheet(region){
   }
   const notEnoughCoins = isAuthed && me && Number(me.coins) < cost;
   if (notEnoughCoins) modeHint.textContent = 'Not enough coins for this trip.';
+  const cancelLocked = isCanceling || activeTravel?.status === 'returning';
   travelBtn.disabled = !isAuthed || isActing || !!activeTravel || currentRegionId === Number(region.id) || notEnoughCoins;
   sheetCancelBtn.style.display = activeTravel ? 'block' : 'none';
-  sheetCancelBtn.textContent = isCanceling ? t('ui.canceling', 'Canceling...') : t('ui.cancel_travel', 'Cancel Travel');
+  sheetCancelBtn.disabled = cancelLocked;
+  sheetCancelBtn.textContent = cancelLocked ? t('ui.canceling', 'Canceling...') : t('ui.cancel_travel', 'Cancel Travel');
   sheet.classList.add('open');
   backdrop.classList.add('open');
   refreshStyles();
@@ -205,7 +207,10 @@ function drawTravel(travel){
     })
   }).addTo(map);
   planeMarker.setZIndexOffset(100000);
-  planeMarker.on('click', showPlanePopup);
+  planeMarker.on('click', () => {
+    showPlanePopup();
+    openTravelSheet();
+  });
   planeMarker.bindPopup('');
 
   updateTravelVisuals();
@@ -215,6 +220,23 @@ function showPlanePopup(){
   if(!activeTravel || !planeMarker) return;
   planeMarker.getPopup().setContent(buildPlanePopupContent());
   planeMarker.openPopup();
+}
+
+function openTravelSheet(){
+  if (!activeTravel) return;
+  regionTitle.textContent = `${t('ui.traveling','Traveling')} #${activeTravel.from_region_id} → #${activeTravel.to_region_id}`;
+  regionMeta.innerHTML = `${t('ui.remaining','remaining')}: ${fmt(Math.max(0, Number(activeTravel.remaining_seconds||0)))}`;
+  modeHint.textContent = activeTravel.status === 'returning'
+    ? t('ui.returning','Returning')
+    : t('ui.traveling','Traveling');
+  costHint.textContent = '';
+  travelBtn.disabled = true;
+  const cancelLocked = isCanceling || activeTravel.status === 'returning';
+  sheetCancelBtn.style.display = 'block';
+  sheetCancelBtn.disabled = cancelLocked;
+  sheetCancelBtn.textContent = cancelLocked ? t('ui.canceling', 'Canceling...') : t('ui.cancel_travel', 'Cancel Travel');
+  sheet.classList.add('open');
+  backdrop.classList.add('open');
 }
 
 function buildPlanePopupContent(){
@@ -389,7 +411,7 @@ travelBtn.onclick = async ()=>{
 };
 
 async function cancelActiveTravel(){
-  if (isCanceling) { showToast(t('toast.cancel_in_progress', 'Canceling...'), true); return; }
+  if (isCanceling || activeTravel?.status === 'returning') { showToast(t('toast.cancel_in_progress', 'Canceling...'), true); return; }
   isCanceling = true;
   sheetCancelBtn.disabled = true;
   sheetCancelBtn.textContent = t('ui.canceling', 'Canceling...');

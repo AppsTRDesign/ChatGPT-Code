@@ -23,6 +23,43 @@
     "travel_to_region": "Bu bölgeye seyahat et",
     "starting_travel": "Seyahat başlatılıyor..."
   },
+  "auth": {
+    "login_title": "Tekrar Hoş Geldin",
+    "login_sub": "Jeopolitik kampanyana devam etmek için giriş yap.",
+    "email": "E-posta",
+    "password": "Şifre",
+    "password_hint": "Şifre (8+ karakter)",
+    "login": "Giriş Yap",
+    "logging_in": "Giriş yapılıyor...",
+    "login_failed": "Giriş başarısız.",
+    "login_success": "Giriş başarılı.",
+    "register_title": "Hesap Oluştur",
+    "register_sub": "Jeopolitik simülasyona katıl.",
+    "username": "Kullanıcı Adı",
+    "create_account": "Hesap Oluştur",
+    "creating": "Oluşturuluyor...",
+    "register_failed": "Kayıt başarısız.",
+    "register_success": "Hesap oluşturuldu.",
+    "no_account": "Hesabın yok mu?",
+    "register_here": "Buradan kayıt ol",
+    "have_account": "Zaten hesabın var mı?",
+    "logout": "Çıkış Yap"
+  },
+  "nav": {
+    "profile": "Profil",
+    "map": "Harita"
+  },
+  "dash": {
+    "title": "Dünya Paneli",
+    "top_regions": "En İyi Bölgeler",
+    "top_countries": "En İyi Ülkeler",
+    "army": "Ordu",
+    "edu": "Eğitim",
+    "hosp": "Hastane",
+    "air": "Hava",
+    "port": "Liman",
+    "no_regions": "Bölge yok"
+  },
   "errors": {
     "not_enough_gold": "Yeterli altın yok.",
     "not_enough_energy": "Yeterli enerji yok.",

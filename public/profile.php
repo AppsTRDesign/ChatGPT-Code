@@ -51,11 +51,14 @@ async function load(){
     const t=p.travel; cancelBtn.style.display='block';
     const st=t.status==='returning'?tLang('ui.returning','Returning'):tLang('ui.traveling','Traveling');
     travelCard.innerHTML=`<p>From ${t.from_region_id} → ${t.to_region_id}</p><p>${st}... ${fmt(t.remaining_seconds)} ${tLang('ui.remaining','remaining')}</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${t.status==='returning' ? 100-(t.progress_percent||0) : (t.progress_percent||0)}%'></div></div>`;
+    const cancelLocked = isCanceling || t.status==='returning';
+    cancelBtn.disabled = cancelLocked;
+    cancelBtn.textContent = cancelLocked ? t('ui.canceling','Canceling...') : t('ui.cancel_travel','Cancel Travel');
   }else{cancelBtn.style.display='none'; travelCard.textContent='No active travel.';}
 }
 function tLang(k,f){return t(k,f);}
 cancelBtn.onclick=async()=>{
-  if(isCanceling){toast(t('toast.cancel_in_progress','Canceling...'),true);return;}
+  if(isCanceling || cancelBtn.disabled){toast(t('toast.cancel_in_progress','Canceling...'),true);return;}
   isCanceling=true; cancelBtn.disabled=true; cancelBtn.textContent=t('ui.canceling','Canceling...');
   const r=await fetch('/api/player/cancel-travel',{method:'POST'});const j=await r.json();
   if(j.error){toast(j.message||t(`errors.${j.error}`,j.error),true);isCanceling=false;cancelBtn.disabled=false;cancelBtn.textContent=t('ui.cancel_travel','Cancel Travel');return;}

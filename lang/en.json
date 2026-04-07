@@ -23,6 +23,43 @@
     "travel_to_region": "Travel to this region",
     "starting_travel": "Starting travel..."
   },
+  "auth": {
+    "login_title": "Welcome Back",
+    "login_sub": "Login to continue your geopolitical campaign.",
+    "email": "Email",
+    "password": "Password",
+    "password_hint": "Password (8+ chars)",
+    "login": "Login",
+    "logging_in": "Logging in...",
+    "login_failed": "Login failed.",
+    "login_success": "Login successful.",
+    "register_title": "Create Account",
+    "register_sub": "Join the geopolitical simulation.",
+    "username": "Username",
+    "create_account": "Create account",
+    "creating": "Creating...",
+    "register_failed": "Registration failed.",
+    "register_success": "Account created.",
+    "no_account": "No account?",
+    "register_here": "Register here",
+    "have_account": "Already have an account?",
+    "logout": "Logout"
+  },
+  "nav": {
+    "profile": "Profile",
+    "map": "Map"
+  },
+  "dash": {
+    "title": "World Dashboard",
+    "top_regions": "Top Regions",
+    "top_countries": "Top Countries",
+    "army": "Army",
+    "edu": "Edu",
+    "hosp": "Hosp",
+    "air": "Air",
+    "port": "Port",
+    "no_regions": "No regions"
+  },
   "errors": {
     "not_enough_gold": "Not enough gold.",
     "not_enough_energy": "Not enough energy.",
