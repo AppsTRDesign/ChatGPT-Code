@@ -159,6 +159,18 @@ final class GeoService
         return $regions[0] ?? null;
     }
 
+    public function resolveNearestRegion(?float $lat, ?float $lng): ?array
+    {
+        if ($lat === null || $lng === null) {
+            $regions = $this->mapModel->regions();
+            return $regions[0] ?? null;
+        }
+        $sql = 'SELECT *, (6371 * acos(cos(radians(:lat)) * cos(radians(lat)) * cos(radians(lng) - radians(:lng)) + sin(radians(:lat)) * sin(radians(lat)))) AS distance FROM regions ORDER BY distance ASC LIMIT 1';
+        $stmt = Database::connection()->prepare($sql);
+        $stmt->execute(['lat' => $lat, 'lng' => $lng]);
+        return $stmt->fetch() ?: null;
+    }
+
     private function isPublicIp(string $ip): bool
     {
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;

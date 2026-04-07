@@ -81,7 +81,7 @@ final class PlayerService
         $airportCount = (int) ($fromRegion['airport_building_count'] ?? 100);
         $effectiveSpeed = self::TRAVEL_SPEED_KMH * (1 + log($airportCount + 1) * 0.25);
         $durationSeconds = max(5, (int) round(($distance / max(1, $effectiveSpeed)) * 3600));
-        $coinCost = max(10, (int) ceil($distance * 0.5));
+        $coinCost = max(1000, (int) ceil($distance * 50));
 
         if ((int) $me['instant_energy'] < self::TRAVEL_ENERGY_COST) {
             throw new RuntimeException('not_enough_energy');
@@ -93,6 +93,13 @@ final class PlayerService
         $spent = $this->playerModel->spendForTravel($userId, self::TRAVEL_ENERGY_COST, $coinCost);
         if (!$spent) {
             throw new RuntimeException('Not enough coins');
+        }
+
+        $countryRegionId = (int) ($fromRegion['owner_region_id'] ?? 0);
+        $generalTaxRate = (float) ($fromRegion['general_tax_rate'] ?? 0);
+        $flightTax = $coinCost * max(0, $generalTaxRate) / 100;
+        if ($countryRegionId > 0 && $flightTax > 0) {
+            $this->playerModel->addCountryTreasuryMoney($countryRegionId, $flightTax);
         }
 
         $this->playerModel->createTravel($userId, $fromRegionId, $toRegionId, $distance, $coinCost, $durationSeconds);
@@ -176,9 +183,6 @@ final class PlayerService
 
         $this->playerModel->updateLocation($userId, $finalRegionId, (int) ($destination['owner_region_id'] ?? $destination['id']));
         $this->playerModel->completeTravel($userId);
-        $xpGain = (int) max(1, floor(((float) $travel['distance_km']) / 10));
-        $this->playerModel->addXp($userId, $xpGain);
-        $this->playerModel->applyLevelUps($userId);
         $this->playerModel->logTravel($userId, (int) $travel['from_region_id'], $finalRegionId, 'completed');
     }
 

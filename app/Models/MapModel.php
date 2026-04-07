@@ -68,6 +68,8 @@ final class MapModel
         $topHospitals = Database::connection()->query('SELECT id,name,country_name,hospital_building_count AS value FROM regions ORDER BY hospital_building_count DESC LIMIT 10')->fetchAll();
         $topEducations = Database::connection()->query('SELECT id,name,country_name,education_building_count AS value FROM regions ORDER BY education_building_count DESC LIMIT 10')->fetchAll();
         $topPorts = Database::connection()->query('SELECT id,name,country_name,port_count AS value FROM regions ORDER BY port_count DESC LIMIT 10')->fetchAll();
+        $topCountryPopulation = Database::connection()->query('SELECT c.id,c.country_name,SUM(r.population) AS total_population FROM regions c JOIN regions r ON r.owner_region_id = c.id WHERE c.region_type="country" GROUP BY c.id,c.country_name ORDER BY total_population DESC LIMIT 10')->fetchAll();
+        $topRegionPopulation = Database::connection()->query('SELECT id,name,country_name,population AS total_population FROM regions ORDER BY population DESC LIMIT 10')->fetchAll();
 
         return [
             'top_regions' => $topRegions,
@@ -77,6 +79,8 @@ final class MapModel
             'top_hospitals' => $topHospitals,
             'top_educations' => $topEducations,
             'top_ports' => $topPorts,
+            'top_country_population' => $topCountryPopulation,
+            'top_region_population' => $topRegionPopulation,
         ];
     }
 

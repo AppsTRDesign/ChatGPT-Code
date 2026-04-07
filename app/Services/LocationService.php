@@ -35,13 +35,13 @@ final class LocationService
             ?? ['country_code' => null, 'city' => null, 'lat' => null, 'lng' => null, 'source' => 'fallback'];
 
         $country = $this->geoService->resolveCountry($geo['country_code'] ?? null);
-        $countryId = (int) ($country['id'] ?? $fallbackCountryId);
-        $region = $this->geoService->resolveRegion(
-            $countryId,
-            $geo['city'] ?? null,
-            isset($geo['lat']) ? (float) $geo['lat'] : null,
-            isset($geo['lng']) ? (float) $geo['lng'] : null
-        );
+        $countryId = (int) ($country['id'] ?? 0);
+        $lat = isset($geo['lat']) ? (float) $geo['lat'] : null;
+        $lng = isset($geo['lng']) ? (float) $geo['lng'] : null;
+
+        $region = $countryId > 0
+            ? $this->geoService->resolveRegion($countryId, $geo['city'] ?? null, $lat, $lng)
+            : $this->geoService->resolveNearestRegion($lat, $lng);
 
         if (!$region) {
             $region = $this->geoService->resolveRegion($fallbackCountryId, null, null, null);

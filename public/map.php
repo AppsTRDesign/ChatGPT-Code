@@ -127,7 +127,7 @@ function openSheet(region){
   if (isAuthed && currentRegionId && layers.get(currentRegionId)) {
     const from = layers.get(currentRegionId).region;
     const dist = distanceKm(Number(from.lat), Number(from.lng), Number(region.lat), Number(region.lng));
-    cost = Math.max(10, dist * 0.5);
+    cost = Math.max(1000, dist * 50);
     const airportCount = Number(from.airport_building_count || 100);
     const effectiveSpeed = 3200 * (1 + Math.log(airportCount + 1) * 0.25);
     const avgSeconds = Math.max(5, Math.round((dist / Math.max(1, effectiveSpeed)) * 3600));

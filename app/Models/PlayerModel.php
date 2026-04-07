@@ -12,7 +12,7 @@ final class PlayerModel
     {
         $stmt = Database::connection()->prepare(
             'INSERT INTO player_profiles(user_id,current_region_id,current_country_region_id,level,xp,xp_to_next,gold,coins,instant_energy,max_instant_energy,total_energy,last_energy_update,created_at)
-             VALUES(:user_id,:current_region_id,:current_country_region_id,1,0,100,1000,0,300,300,100000,NOW(),NOW())'
+             VALUES(:user_id,:current_region_id,:current_country_region_id,1,0,100,1000,100000000,300,300,100000,NOW(),NOW())'
         );
         $stmt->execute([
             'user_id' => $userId,
@@ -122,6 +122,15 @@ final class PlayerModel
         );
         $stmt->execute(['user_id' => $userId]);
         return $stmt->fetchAll();
+    }
+
+    public function addCountryTreasuryMoney(int $countryRegionId, float $amount): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+        $stmt = Database::connection()->prepare('UPDATE regions SET treasury_state_money = treasury_state_money + :amount WHERE id = :id');
+        $stmt->execute(['amount' => (int) round($amount), 'id' => $countryRegionId]);
     }
 
     public function logTravel(int $userId, int $fromRegionId, int $toRegionId, string $status): int

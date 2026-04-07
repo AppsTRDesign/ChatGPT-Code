@@ -10,6 +10,8 @@
 <h3>Top Hospitals</h3><div id='topHospitals'></div>
 <h3>Top Educations</h3><div id='topEducations'></div>
 <h3>Top Ports</h3><div id='topPorts'></div>
+<h3>Top Country Population</h3><div id='topCountryPopulation'></div>
+<h3>Top Region Population</h3><div id='topRegionPopulation'></div>
 <hr><h3>Detail</h3><div id='detailPanel' class='muted'>Select a ranking item.</div>
 </div></div>
 <script>
@@ -34,6 +36,8 @@ async function loadRankings(){
   topHospitals.innerHTML=metricRows(d.top_hospitals);
   topEducations.innerHTML=metricRows(d.top_educations);
   topPorts.innerHTML=metricRows(d.top_ports);
+  topCountryPopulation.innerHTML=(d.top_country_population||[]).map(x=>`<div><a href='#' data-country-region-id='${x.id}' class='rank-country'>${x.country_name} — pop ${x.total_population}</a></div>`).join('');
+  topRegionPopulation.innerHTML=(d.top_region_population||[]).map(x=>`<div><a href='#' data-region-id='${x.id}' class='rank-region'>${x.name} (${x.country_name}) — pop ${x.total_population}</a></div>`).join('');
   bindRankClicks();
 }
 function bindRankClicks(){
@@ -50,7 +54,7 @@ async function showCountryDetail(id){
   const res = await fetch(`/api/map/country-detail?id=${id}`).then(r=>r.json());
   const c = res.data; if(!c){detailPanel.textContent='Invalid country';return;}
   const regs=(c.regions||[]).map(x=>`${x.name} (${Number(x.airport_building_count)+Number(x.army_building_count)+Number(x.hospital_building_count)+Number(x.education_building_count)+Number(x.port_count)})`).join(', ');
-  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${c.country_name}</b><br>Capital: ${c.name}<br>Government: ${c.government_type}<br>Regions: ${c.region_count}<br>${regs}<br><button class='primary-btn' id='travelCapitalBtn'>Travel</button></div>`;
+  detailPanel.innerHTML=`<div class='glass' style='padding:10px'><b>${c.country_name}</b><br>Capital: ${c.name}<br>Government: ${c.government_type}<br>Regions: ${c.region_count}<br>State Money: ${c.treasury_state_money}<br>Gold: ${c.treasury_gold}<br>Diamond: ${c.treasury_diamond}<br>Oil: ${c.treasury_oil}<br>Mineral: ${c.treasury_mineral}<br>Uranium: ${c.treasury_uranium}<br>${regs}<br><button class='primary-btn' id='travelCapitalBtn'>Travel</button></div>`;
   document.getElementById('travelCapitalBtn').onclick=()=>travelToRegion(c.id);
 }
 async function travelToRegion(id){const r=await fetch('/api/region/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({region_id:id,action:'travel'})}).then(x=>x.json());alert(r.message||r.error||'travel');}
