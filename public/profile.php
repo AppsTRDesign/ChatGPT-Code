@@ -58,8 +58,8 @@ function detectLang(){const b=(navigator.language||'en').toLowerCase();if(b.star
 function t(key,f=''){const p=key.split('.');let c=I18N;for(const k of p)c=c?.[k];return typeof c==='string'?c:(f||key);}
 function parseServerDate(s){if(!s) return 0; const d=new Date(String(s).replace(' ','T')); return Number.isNaN(d.getTime())?0:Math.floor(d.getTime()/1000);}
 function statLevelFromProfile(p,stat){return Math.max(1, Number(p?.[stat]||0)+1);}
-function coinCost(level){return Math.ceil(100 * (level ** 1.8));}
-function goldCost(level){return Math.ceil(2 * (level ** 1.4));}
+function coinCost(level){return Math.ceil((100 * (level ** 1.8)) * 75);}
+function goldCost(level){return Math.ceil((2 * (level ** 1.4)) * 4);}
 
 async function loadLang(){
   LANG = LANG || detectLang();
@@ -84,6 +84,7 @@ function renderStatPanel(){
   const gCost = goldCost(level);
   const activeStat = me.active_stat || null;
   const locked = !!activeStat;
+  document.querySelectorAll('.stat-tab').forEach(el => { el.disabled = locked; });
 
   statCard.textContent = `${t('ui.level','Level')} ${level} • ${t('ui.strength','Strength')} ${me.strength} • ${t('ui.education','Education')} ${me.education} • ${t('ui.endurance','Endurance')} ${me.endurance}`;
   startCoinBtn.textContent = `🪙 ${t('ui.start_with_coins','Start with Coins')} (${cCost})`;

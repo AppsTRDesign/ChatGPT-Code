@@ -298,8 +298,8 @@ final class PlayerService
 
         $level = max(1, ((int) ($me[$stat] ?? 0)) + 1);
         $baseTime = (int) round(60 * ($level ** 1.5));
-        $coinsCost = (int) ceil(100 * ($level ** 1.8));
-        $goldCost = (int) ceil(2 * ($level ** 1.4));
+        $coinsCost = (int) ceil((100 * ($level ** 1.8)) * 75);
+        $goldCost = (int) ceil((2 * ($level ** 1.4)) * 4);
 
         $region = $this->mapModel->regionById((int) $me['current_region_id']);
         $eduLevel = (int) ($region['education_level'] ?? 0);
