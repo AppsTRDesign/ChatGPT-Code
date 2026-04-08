@@ -91,8 +91,17 @@ final class MapModel
         $topPorts = Database::connection()->query('SELECT r.id,r.name,r.country_name,ri.port_level AS value FROM regions r JOIN region_infra ri ON ri.region_id=r.id ORDER BY ri.port_level DESC LIMIT 10')->fetchAll();
         $topCountryPopulation = Database::connection()->query('SELECT c.id,c.country_name,COUNT(pp.user_id) AS total_population FROM regions c LEFT JOIN player_profiles pp ON pp.current_country_region_id = c.id WHERE c.region_type="country" GROUP BY c.id,c.country_name ORDER BY total_population DESC LIMIT 10')->fetchAll();
         $topRegionPopulation = Database::connection()->query('SELECT r.id,r.name,r.country_name,COUNT(pp.user_id) AS total_population FROM regions r LEFT JOIN player_profiles pp ON pp.current_region_id = r.id GROUP BY r.id,r.name,r.country_name ORDER BY total_population DESC LIMIT 10')->fetchAll();
+        $topPlayers = Database::connection()->query(
+            'SELECT u.id,u.username,p.level,p.xp,p.current_region_id,r.name AS region_name,c.name AS nation_name,c.flag_url AS nation_flag_url
+             FROM player_profiles p
+             JOIN users u ON u.id = p.user_id
+             LEFT JOIN regions r ON r.id = p.current_region_id
+             LEFT JOIN countries c ON c.id = p.nation_country_id
+             ORDER BY p.level DESC, p.xp DESC, u.id ASC
+             LIMIT 10'
+        )->fetchAll();
 
-        return ['top_regions'=>$topRegions,'top_countries'=>$topCountries,'top_airports'=>$topAirports,'top_armies'=>$topArmies,'top_hospitals'=>$topHospitals,'top_educations'=>$topEducations,'top_ports'=>$topPorts,'top_country_population'=>$topCountryPopulation,'top_region_population'=>$topRegionPopulation];
+        return ['top_regions'=>$topRegions,'top_countries'=>$topCountries,'top_airports'=>$topAirports,'top_armies'=>$topArmies,'top_hospitals'=>$topHospitals,'top_educations'=>$topEducations,'top_ports'=>$topPorts,'top_country_population'=>$topCountryPopulation,'top_region_population'=>$topRegionPopulation,'top_players'=>$topPlayers];
     }
 
     public function regionDetail(int $regionId): ?array
