@@ -46,8 +46,24 @@ $frontendRoutes = [
     '/dashboard' => 'dashboard.php',
     '/profile' => 'profile.php',
     '/map' => 'map.php',
+    '/rankings' => 'rankings.php',
 ];
 
+if (preg_match('#^/country/(\d+)$#', $uriPath, $m)) {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/country.php';
+    exit;
+}
+if (preg_match('#^/region/(\d+)$#', $uriPath, $m)) {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/region.php';
+    exit;
+}
+if (preg_match('#^/player/(\d+)$#', $uriPath, $m)) {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/player.php';
+    exit;
+}
 if (isset($frontendRoutes[$uriPath])) {
     require __DIR__ . '/' . $frontendRoutes[$uriPath];
     exit;
