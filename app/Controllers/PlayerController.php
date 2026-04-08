@@ -121,6 +121,17 @@ final class PlayerController
         Response::json(['success' => true, 'data' => $this->playerService->markNotificationsRead($userId)]);
     }
 
+    public function stopStat(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        $ok = $this->playerService->stopStatDevelopment($userId);
+        if (!$ok) {
+            Response::json(['error' => 'no_active_stat', 'message' => tr('errors.invalid_request')], 400);
+            return;
+        }
+        Response::json(['success' => true, 'message' => tr('toast.success')]);
+    }
+
     private function normalizeErrorCode(string $raw): string
     {
         return match ($raw) {

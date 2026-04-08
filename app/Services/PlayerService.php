@@ -350,6 +350,11 @@ final class PlayerService
         ];
     }
 
+    public function stopStatDevelopment(int $userId): bool
+    {
+        return $this->playerModel->stopActiveStat($userId);
+    }
+
     private function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $earthRadius = 6371;

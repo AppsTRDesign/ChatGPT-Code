@@ -316,4 +316,15 @@ final class PlayerModel
         $stmt = Database::connection()->prepare('UPDATE notifications SET is_read = 1 WHERE user_id = :user_id AND is_read = 0');
         $stmt->execute(['user_id' => $userId]);
     }
+
+    public function stopActiveStat(int $userId): bool
+    {
+        $stmt = Database::connection()->prepare(
+            'UPDATE player_profiles
+             SET active_stat = NULL, stat_mode = NULL, stat_started_at = NULL, stat_finish_time = NULL
+             WHERE user_id = :user_id AND active_stat IS NOT NULL'
+        );
+        $stmt->execute(['user_id' => $userId]);
+        return $stmt->rowCount() > 0;
+    }
 }

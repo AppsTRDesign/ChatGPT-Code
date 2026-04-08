@@ -32,6 +32,7 @@
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button id="startCoinBtn">🪙 Coin ile Başlat</button>
     <button id="startGoldBtn">💎 Gold ile Başlat</button>
+    <button id="stopStatBtn">⏹️ Durdur</button>
   </div>
 
   <h3>Travel</h3>
@@ -66,6 +67,7 @@ async function loadLang(){
   try{ const p=await fetch(`/api/i18n?lang=${LANG}`).then(r=>r.json()); I18N=p?.data||{}; LANG=p?.lang||LANG; localStorage.setItem('lang',LANG);}catch(_){I18N={};}
   notifBtnLabel.textContent = t('ui.notifications','Notifications');
   statTitle.textContent = t('ui.stat_development','Stat Development');
+  stopStatBtn.textContent = `⏹️ ${t('ui.stop_stat','Stop')}`;
 }
 
 function updateBadge(count){const c=Math.max(0,Number(count||0)); notifBadge.textContent=String(c); notifBadge.style.display=c>0?'inline-flex':'none'; notifBadge.classList.toggle('pulse',c>0);}
@@ -102,6 +104,7 @@ function renderStatPanel(){
 
   startCoinBtn.disabled = locked || Number(me.coins) < cCost;
   startGoldBtn.disabled = locked || Number(me.gold) < gCost;
+  stopStatBtn.disabled = !locked;
 }
 
 function tickLocalCooldowns(){
@@ -157,6 +160,7 @@ cancelBtn.onclick=async()=>{if(isCanceling||cancelBtn.disabled){toast(t('toast.c
 buyEnergyBtn.onclick=async()=>{const reqEnergy=Math.max(1,Number(energyAmountInput.value||100000)); const needGold=Math.ceil((reqEnergy*1000)/100000); if(Number(me?.gold||0)<needGold){toast(t('errors.not_enough_gold_amount','Not enough gold for requested amount.').replace('{gold}',String(needGold)),true); return;} const r=await fetch('/api/player/buy-energy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({energy_amount:reqEnergy})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(j.message||t('toast.buy_energy_success','Energy purchased successfully.')); load();};
 startCoinBtn.onclick=async()=>{const r=await fetch('/api/player/start-stat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stat:selectedStat,mode:'coins'})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(t('toast.stat_started','Stat development started.')); load();};
 startGoldBtn.onclick=async()=>{const r=await fetch('/api/player/start-stat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stat:selectedStat,mode:'gold'})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(t('toast.stat_started','Stat development started.')); load();};
+stopStatBtn.onclick=async()=>{const r=await fetch('/api/player/stop-stat',{method:'POST'}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} activeStatState=null; statProgressBar.style.width='0%'; statCountdown.textContent=t('ui.no_active_stat','No active development'); toast(t('toast.stat_stopped','Stat development stopped.')); load();};
 changeNationBtn.onclick=async()=>{const countryId=Number(nationSelect.value||0); if(!countryId){toast(t('errors.invalid_request','Invalid request'),true);return;} const r=await fetch('/api/player/change-nation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({country_id:countryId})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(t('toast.success','Success')); load();};
 notifBtn.onclick=async()=>{const open=notifPanel.style.display==='block'; notifPanel.style.display=open?'none':'block'; if(!open){const ok=await markNotificationsRead(); if(!ok) toast('Bildirimler okunamadı (404)',true);}};
 document.querySelectorAll('.stat-tab').forEach(btn=>btn.onclick=()=>{selectedStat=btn.dataset.stat||'strength'; renderStatPanel();});
@@ -164,7 +168,17 @@ document.querySelectorAll('.stat-tab').forEach(btn=>btn.onclick=()=>{selectedSta
 function initSocket(){
   try {
     const socket = io(window.location.origin, { path: '/socket.io', transports:['websocket'], withCredentials:true, auth:{user_id: me?.id || ''} });
-    socket.on('stat_progress', evt=>{if(!evt) return; activeStatState={stat:evt.active_stat||'stat',remaining:Number(evt.remaining_seconds||0),total:Math.max(1,Number(evt.remaining_seconds||1))}; statCountdown.textContent=`${activeStatState.stat} ${t('ui.remaining','remaining')}: ${fmt(activeStatState.remaining)}`; statProgressBar.style.width=`${Number(evt.progress_percent||0)}%`; startCoinBtn.disabled=true; startGoldBtn.disabled=true;});
+    socket.on('stat_progress', evt=>{
+      if(!evt) return;
+      const remain = Number(evt.remaining_seconds||0);
+      const pct = Number(evt.progress_percent||0);
+      if (activeStatState && remain > activeStatState.remaining) return; // prevent backward jitter
+      const total = activeStatState?.total || Math.max(1, Math.round(remain / Math.max(0.01, 1 - (pct / 100))));
+      activeStatState={stat:evt.active_stat||'stat',remaining:remain,total};
+      statCountdown.textContent=`${activeStatState.stat} ${t('ui.remaining','remaining')}: ${fmt(activeStatState.remaining)}`;
+      statProgressBar.style.width=`${pct}%`;
+      startCoinBtn.disabled=true; startGoldBtn.disabled=true; stopStatBtn.disabled=false;
+    });
     socket.on('stat_complete', ()=>load());
     socket.on('travel_complete', ()=>load());
     socket.on('notification_count', evt=>updateBadge(Number(evt?.unread_count||0)));

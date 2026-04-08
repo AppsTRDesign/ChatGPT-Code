@@ -10,7 +10,8 @@
     "arrived": "Varış tamamlandı.",
     "cancel_in_progress": "İptal ediliyor...",
     "stat_started": "Stat geliştirme başlatıldı.",
-    "success": "Başarılı."
+    "success": "Başarılı.",
+    "stat_stopped": "Stat geliştirme durduruldu."
   },
   "ui": {
     "traveling": "Seyahat ediliyor",
@@ -40,7 +41,8 @@
     "nation_ready": "Ulus değişimi hazır",
     "no_active_travel": "Aktif seyahat yok.",
     "travel_completed": "Uçuş tamamlandı",
-    "stat_completed": "Stat tamamlandı"
+    "stat_completed": "Stat tamamlandı",
+    "stop_stat": "Durdur"
   },
   "auth": {
     "login_title": "Tekrar Hoş Geldin",

@@ -10,7 +10,8 @@
     "arrived": "Arrival complete.",
     "cancel_in_progress": "Canceling...",
     "stat_started": "Stat development started.",
-    "success": "Success."
+    "success": "Success.",
+    "stat_stopped": "Stat development stopped."
   },
   "ui": {
     "traveling": "Traveling",
@@ -40,7 +41,8 @@
     "nation_ready": "Nation change ready",
     "no_active_travel": "No active travel.",
     "travel_completed": "Travel complete",
-    "stat_completed": "Stat completed"
+    "stat_completed": "Stat completed",
+    "stop_stat": "Stop"
   },
   "auth": {
     "login_title": "Welcome Back",
