@@ -145,6 +145,21 @@ final class PlayerController
         }
     }
 
+    public function profileDetail(Request $request): void
+    {
+        $id = (int) ($_GET['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(['error' => 'invalid_request', 'message' => tr('errors.invalid_request')], 400);
+            return;
+        }
+        $data = $this->playerService->profileDetail($id);
+        if (!$data) {
+            Response::json(['error' => 'player_not_found', 'message' => tr('errors.player_not_found')], 404);
+            return;
+        }
+        Response::json(['data' => $data]);
+    }
+
     private function normalizeErrorCode(string $raw): string
     {
         return match ($raw) {

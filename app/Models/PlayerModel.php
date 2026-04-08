@@ -327,4 +327,19 @@ final class PlayerModel
         $stmt->execute(['user_id' => $userId]);
         return $stmt->rowCount() > 0;
     }
+
+    public function profileDetail(int $userId): ?array
+    {
+        $stmt = Database::connection()->prepare(
+            'SELECT u.id,u.username,p.level,p.coins,p.gold,p.strength,p.education,p.endurance,p.current_region_id,
+                    r.name AS region_name,p.nation_country_id,c.name AS nation_name
+             FROM users u
+             JOIN player_profiles p ON p.user_id = u.id
+             LEFT JOIN regions r ON r.id = p.current_region_id
+             LEFT JOIN countries c ON c.id = p.nation_country_id
+             WHERE u.id = :id LIMIT 1'
+        );
+        $stmt->execute(['id' => $userId]);
+        return $stmt->fetch() ?: null;
+    }
 }

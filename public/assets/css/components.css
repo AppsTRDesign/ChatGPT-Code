@@ -1,0 +1,14 @@
+.glass-card{background:var(--glass);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(10px);box-shadow:0 10px 35px #0008;padding:14px}
+.grid{display:grid;gap:12px}.grid.cols-3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.kpi{font-size:28px;font-weight:800;text-shadow:0 0 18px #3b82f655}
+.sub{color:var(--muted);font-size:13px}
+.list{display:flex;flex-direction:column;gap:8px}.row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px;border-radius:12px;border:1px solid #2d3c5f;text-decoration:none;color:var(--txt);transition:.2s}.row:hover{transform:translateY(-2px);border-color:#4d6eb3;background:rgba(71,114,255,.08)}
+.badge{padding:4px 8px;border-radius:999px;background:#1e2f57;border:1px solid #3f5ea3;font-size:12px}
+.btn{padding:11px 14px;border-radius:12px;border:1px solid #39558e;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-weight:700;cursor:pointer;transition:.2s}.btn:hover{transform:translateY(-2px);box-shadow:0 12px 26px #2f5ee888}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.alt{background:transparent;border-color:#32446e}
+.table{width:100%;border-collapse:collapse}.table th,.table td{padding:10px 8px;border-bottom:1px solid #253251;text-align:left}.table tr:hover{background:#17213a66}
+.progress{height:10px;background:#1d2944;border-radius:999px;overflow:hidden}.progress>i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#3b82f6,#8b5cf6);transition:width .25s}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{padding:9px 12px;border-radius:12px;border:1px solid #31476e;background:#101a30;color:#d4e1fa;cursor:pointer}.tab.active{border-color:#4f7be0;box-shadow:0 0 0 1px #4f7be066 inset}
+.search{padding:10px 12px;border-radius:12px;border:1px solid #324569;background:#0f172a;color:#fff}
+.skeleton{position:relative;overflow:hidden;background:#111a2f;border-radius:10px;min-height:40px}.skeleton:after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,#ffffff18,transparent);animation:sh 1.2s infinite}@keyframes sh{100%{transform:translateX(100%)}}
+.stat-red{color:var(--bad)}.stat-yellow{color:var(--warn)}.stat-green{color:var(--ok)}

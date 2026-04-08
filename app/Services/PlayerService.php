@@ -358,6 +358,11 @@ final class PlayerService
         return $this->buildStatPreview($me, $stat, $level);
     }
 
+    public function profileDetail(int $userId): ?array
+    {
+        return $this->playerModel->profileDetail($userId);
+    }
+
     private function buildStatPreview(array $me, string $stat, int $level): array
     {
         $baseTime = (int) round(60 * ($level ** 1.5));
