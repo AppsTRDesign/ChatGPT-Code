@@ -8,7 +8,9 @@
     "not_enough_gold": "Not enough gold (need 1000).",
     "request_failed": "Request failed.",
     "arrived": "Arrival complete.",
-    "cancel_in_progress": "Canceling..."
+    "cancel_in_progress": "Canceling...",
+    "stat_started": "Stat development started.",
+    "success": "Success."
   },
   "ui": {
     "traveling": "Traveling",
@@ -21,7 +23,24 @@
     "instant_energy": "Instant Energy",
     "total_energy": "Total Energy Reserve",
     "travel_to_region": "Travel to this region",
-    "starting_travel": "Starting travel..."
+    "starting_travel": "Starting travel...",
+    "notifications": "Notifications",
+    "no_notifications": "No notifications.",
+    "stat_development": "Stat Development",
+    "strength": "Strength",
+    "education": "Education",
+    "endurance": "Endurance",
+    "level": "Level",
+    "start_with_coins": "Start with Coins",
+    "start_with_gold": "Start with Gold",
+    "no_active_stat": "No active development",
+    "convert_to_energy": "Convert to Energy",
+    "energy_convert_hint": "Cost: {gold} gold for +{energy} energy",
+    "nation_cooldown": "Nation cooldown",
+    "nation_ready": "Nation change ready",
+    "no_active_travel": "No active travel.",
+    "travel_completed": "Travel complete",
+    "stat_completed": "Stat completed"
   },
   "auth": {
     "login_title": "Welcome Back",
@@ -71,6 +90,7 @@
     "no_active_travel": "No active travel found.",
     "invalid_request": "Invalid request.",
     "travel_failed": "Failed to start travel.",
-    "player_not_found": "Player not found."
+    "player_not_found": "Player not found.",
+    "not_enough_gold_amount": "Not enough gold for requested amount (need {gold})."
   }
 }

@@ -8,7 +8,9 @@
     "not_enough_gold": "Yeterli altın yok (1000 gerekli).",
     "request_failed": "İstek başarısız oldu.",
     "arrived": "Varış tamamlandı.",
-    "cancel_in_progress": "İptal ediliyor..."
+    "cancel_in_progress": "İptal ediliyor...",
+    "stat_started": "Stat geliştirme başlatıldı.",
+    "success": "Başarılı."
   },
   "ui": {
     "traveling": "Seyahat ediliyor",
@@ -21,7 +23,24 @@
     "instant_energy": "Anlık Enerji",
     "total_energy": "Toplam Enerji Rezervi",
     "travel_to_region": "Bu bölgeye seyahat et",
-    "starting_travel": "Seyahat başlatılıyor..."
+    "starting_travel": "Seyahat başlatılıyor...",
+    "notifications": "Bildirimler",
+    "no_notifications": "Bildirim yok.",
+    "stat_development": "Stat Geliştirme",
+    "strength": "Güç",
+    "education": "Eğitim",
+    "endurance": "Dayanıklılık",
+    "level": "Seviye",
+    "start_with_coins": "Coin ile Başlat",
+    "start_with_gold": "Gold ile Başlat",
+    "no_active_stat": "Aktif geliştirme yok",
+    "convert_to_energy": "Enerjiye Çevir",
+    "energy_convert_hint": "Maliyet: +{energy} enerji için {gold} gold",
+    "nation_cooldown": "Ulus bekleme süresi",
+    "nation_ready": "Ulus değişimi hazır",
+    "no_active_travel": "Aktif seyahat yok.",
+    "travel_completed": "Uçuş tamamlandı",
+    "stat_completed": "Stat tamamlandı"
   },
   "auth": {
     "login_title": "Tekrar Hoş Geldin",
@@ -71,6 +90,7 @@
     "no_active_travel": "Aktif seyahat bulunamadı.",
     "invalid_request": "Geçersiz istek.",
     "travel_failed": "Seyahat başlatılamadı.",
-    "player_not_found": "Oyuncu bulunamadı."
+    "player_not_found": "Oyuncu bulunamadı.",
+    "not_enough_gold_amount": "Yazılan miktar için yeterli gold yok (gerekli: {gold})."
   }
 }

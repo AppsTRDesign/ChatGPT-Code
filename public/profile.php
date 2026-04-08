@@ -1,15 +1,12 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Profile</title><link rel="stylesheet" href="/styles.css"><script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script></head>
 <body>
-<div class="auth-wrap"><div class="auth-card glass" style="max-width:820px">
+<div class="auth-wrap"><div class="auth-card glass" style="max-width:860px">
   <h2>Player Profile Hub</h2>
-  <select id="langSelect" style="max-width:120px;float:right">
-    <option value="tr">TR</option>
-    <option value="en">EN</option>
-  </select>
+  <select id="langSelect" style="max-width:120px;float:right"><option value="tr">TR</option><option value="en">EN</option></select>
 
   <div class="notif-wrap" id="notifWrap">
-    <button id="notifBtn" class="notif-btn">🔔 Bildirimler <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
+    <button id="notifBtn" class="notif-btn">🔔 <span id="notifBtnLabel">Bildirimler</span> <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
     <div id="notifPanel" class="notif-panel" style="display:none"></div>
   </div>
 
@@ -22,16 +19,20 @@
   <div style="display:flex;gap:8px;align-items:center;margin:8px 0"><select id="nationSelect" style="max-width:220px"></select><button id="changeNationBtn">Ulus Değiştir (1000 Gold)</button></div>
   <div class="bar"><div id="nationCooldownBar" class="bar-fill"></div></div><small id="nationCooldownText" class="muted"></small>
 
-  <div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input id="energyAmountInput" type="number" min="1" step="1" value="100000" style="max-width:180px"><button id="buyEnergyBtn">Buy Energy with Gold</button></div><small id="buyEnergyHint" class="muted"></small>
+  <div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input id="energyAmountInput" type="number" min="1" step="1" value="100000" style="max-width:180px"><button id="buyEnergyBtn">Enerjiye Çevir</button></div><small id="buyEnergyHint" class="muted"></small>
 
-  <hr><h3>Stat Development</h3>
-  <div id="statCard" class="muted"></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <select id="statSelect"><option value="strength">Strength</option><option value="education">Education</option><option value="endurance">Endurance</option></select>
-    <select id="statModeSelect"><option value="coins">Coins (Slow)</option><option value="gold">Gold (Fast)</option></select>
-    <button id="startStatBtn">Start Stat</button>
+  <hr><h3 id="statTitle">Stat Development</h3>
+  <div class="stat-tabs" id="statTabs">
+    <button class="stat-tab active" data-stat="strength">💪 <span>Strength</span></button>
+    <button class="stat-tab" data-stat="education">📘 <span>Education</span></button>
+    <button class="stat-tab" data-stat="endurance">🛡️ <span>Endurance</span></button>
   </div>
+  <div id="statCard" class="muted"></div>
   <div class="bar"><div id="statProgressBar" class="bar-fill"></div></div><small id="statCountdown" class="muted"></small>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button id="startCoinBtn">🪙 Coin ile Başlat</button>
+    <button id="startGoldBtn">💎 Gold ile Başlat</button>
+  </div>
 
   <h3>Travel</h3>
   <div id="travelCard" class="muted">No active travel.</div>
@@ -48,245 +49,131 @@ let isCanceling = false;
 let notifItems = [];
 let activeStatState = null;
 let activeTravelState = null;
+let selectedStat = 'strength';
 
 function toast(m,e=false){toastEl.textContent=m;toastEl.className=`toast show ${e?'error':''}`;setTimeout(()=>toastEl.className='toast',2200)}
 function fmt(sec){const t=Math.max(0,Number(sec||0));const h=String(Math.floor(t/3600)).padStart(2,'0');const m=String(Math.floor((t%3600)/60)).padStart(2,'0');const s=String(Math.floor(t%60)).padStart(2,'0');return `${h}:${m}:${s}`;}
 function detectLang(){const b=(navigator.language||'en').toLowerCase();if(b.startsWith('tr')) return 'tr'; if(b.startsWith('en')) return 'en'; return 'en';}
 function t(key,f=''){const p=key.split('.');let c=I18N;for(const k of p)c=c?.[k];return typeof c==='string'?c:(f||key);}
-
-function parseServerDate(s){
-  if(!s) return 0;
-  const clean = String(s).replace(' ', 'T');
-  const d = new Date(clean);
-  return Number.isNaN(d.getTime()) ? 0 : Math.floor(d.getTime()/1000);
-}
+function parseServerDate(s){if(!s) return 0; const d=new Date(String(s).replace(' ','T')); return Number.isNaN(d.getTime())?0:Math.floor(d.getTime()/1000);}
+function statLevelFromProfile(p,stat){return Math.max(1, Number(p?.[stat]||0)+1);}
+function coinCost(level){return Math.ceil(100 * (level ** 1.8));}
+function goldCost(level){return Math.ceil(2 * (level ** 1.4));}
 
 async function loadLang(){
   LANG = LANG || detectLang();
   langSelect.value = LANG;
-  try{
-    const p=await fetch(`/api/i18n?lang=${LANG}`).then(r=>r.json());
-    I18N=p?.data||{};
-    LANG=p?.lang||LANG;
-    localStorage.setItem('lang',LANG);
-  }catch(_){I18N={};}
+  try{ const p=await fetch(`/api/i18n?lang=${LANG}`).then(r=>r.json()); I18N=p?.data||{}; LANG=p?.lang||LANG; localStorage.setItem('lang',LANG);}catch(_){I18N={};}
+  notifBtnLabel.textContent = t('ui.notifications','Notifications');
+  statTitle.textContent = t('ui.stat_development','Stat Development');
 }
 
-function renderNotifications(){
-  notifPanel.innerHTML = notifItems.length
-    ? notifItems.map(n=>`<div class='notif-item ${Number(n.is_read||0)===0?'unread':''}'>${notificationText(n)}</div>`).join('')
-    : `<div class='muted'>Bildirim yok.</div>`;
-}
+function updateBadge(count){const c=Math.max(0,Number(count||0)); notifBadge.textContent=String(c); notifBadge.style.display=c>0?'inline-flex':'none'; notifBadge.classList.toggle('pulse',c>0);}
+function notificationText(n){const d=n.data||{}; if(n.type==='travel_complete') return `✈️ ${t('ui.travel_completed','Travel complete')}: ${d.from_region_name||('#'+(d.from_region_id||'?'))} → ${d.to_region_name||('#'+(d.to_region_id||'?'))}`; if(n.type==='stat_complete') return `📈 ${t('ui.stat_completed','Stat completed')}: ${d.stat||'stat'} Lv ${d.new_level||'?'}`; return `${n.type}`;}
+function renderNotifications(){notifPanel.innerHTML=notifItems.length?notifItems.map(n=>`<div class='notif-item ${Number(n.is_read||0)===0?'unread':''}'>${notificationText(n)}</div>`).join(''):`<div class='muted'>${t('ui.no_notifications','No notifications.')}</div>`;}
+async function loadNotifications(){const r=await fetch('/api/player/notifications'); if(!r.ok) return; const j=await r.json(); const d=j?.data||{}; notifItems=Array.isArray(d.items)?d.items:[]; updateBadge(Number(d.unread_count||0)); renderNotifications();}
+async function markNotificationsRead(){const r=await fetch('/api/player/notifications/read',{method:'POST'}); if(!r.ok) return false; notifItems=notifItems.map(x=>({...x,is_read:1})); updateBadge(0); renderNotifications(); return true;}
 
-function notificationText(n){
-  const d=n.data||{};
-  if(n.type==='travel_complete'){
-    const from=d.from_region_name||('#'+(d.from_region_id||'?'));
-    const to=d.to_region_name||('#'+(d.to_region_id||'?'));
-    return `✈️ Uçuş tamamlandı: ${from} → ${to}`;
+function renderStatPanel(){
+  if(!me) return;
+  document.querySelectorAll('.stat-tab').forEach(el=>el.classList.toggle('active', el.dataset.stat===selectedStat));
+  const level = statLevelFromProfile(me, selectedStat);
+  const cCost = coinCost(level);
+  const gCost = goldCost(level);
+  const activeStat = me.active_stat || null;
+  const locked = !!activeStat;
+
+  statCard.textContent = `${t('ui.level','Level')} ${level} • ${t('ui.strength','Strength')} ${me.strength} • ${t('ui.education','Education')} ${me.education} • ${t('ui.endurance','Endurance')} ${me.endurance}`;
+  startCoinBtn.textContent = `🪙 ${t('ui.start_with_coins','Start with Coins')} (${cCost})`;
+  startGoldBtn.textContent = `💎 ${t('ui.start_with_gold','Start with Gold')} (${gCost})`;
+
+  if(activeStat && me.stat_finish_time){
+    const endTs=parseServerDate(me.stat_finish_time), startTs=parseServerDate(me.stat_started_at), nowTs=Math.floor(Date.now()/1000);
+    const remain=Math.max(0,endTs-nowTs), total=Math.max(1,endTs-startTs);
+    const progress=Math.max(0,Math.min(100,Math.round(((total-remain)/total)*100)));
+    statProgressBar.style.width=`${progress}%`;
+    statCountdown.textContent=`${activeStat} ${t('ui.remaining','remaining')}: ${fmt(remain)}`;
+    activeStatState={stat:activeStat,remaining:remain,total};
+  } else {
+    statProgressBar.style.width='0%';
+    statCountdown.textContent=t('ui.no_active_stat','No active development');
+    activeStatState=null;
   }
-  if(n.type==='stat_complete'){
-    return `📈 ${String(d.stat||'stat')} geliştirme tamamlandı. Yeni seviye: ${d.new_level||'?'}.`;
-  }
-  return `${n.type}`;
-}
 
-function updateBadge(count){
-  const c = Math.max(0, Number(count||0));
-  notifBadge.textContent = String(c);
-  notifBadge.style.display = c>0 ? 'inline-flex' : 'none';
-  notifBadge.classList.toggle('pulse', c>0);
-}
-
-async function loadNotifications(){
-  const res = await fetch('/api/player/notifications');
-  if (!res.ok) return;
-  const j = await res.json();
-  const d = j?.data || {};
-  notifItems = Array.isArray(d.items) ? d.items : [];
-  updateBadge(Number(d.unread_count||0));
-  renderNotifications();
-}
-
-async function markNotificationsRead(){
-  const res = await fetch('/api/player/notifications/read',{method:'POST'});
-  if (!res.ok) return false;
-  notifItems = notifItems.map(x=>({ ...x, is_read:1 }));
-  updateBadge(0);
-  renderNotifications();
-  return true;
+  startCoinBtn.disabled = locked || Number(me.coins) < cCost;
+  startGoldBtn.disabled = locked || Number(me.gold) < gCost;
 }
 
 function tickLocalCooldowns(){
-  if (activeStatState && activeStatState.remaining > 0) {
+  if(activeStatState && activeStatState.remaining>0){
     activeStatState.remaining -= 1;
-    const total = Math.max(1, activeStatState.total);
-    const progress = Math.max(0, Math.min(100, Math.round(((total-activeStatState.remaining)/total)*100)));
-    statProgressBar.style.width = `${progress}%`;
-    statCountdown.textContent = `${activeStatState.stat} (${activeStatState.mode}) kalan: ${fmt(activeStatState.remaining)}`;
+    const progress=Math.max(0,Math.min(100,Math.round(((activeStatState.total-activeStatState.remaining)/Math.max(1,activeStatState.total))*100)));
+    statProgressBar.style.width=`${progress}%`;
+    statCountdown.textContent=`${activeStatState.stat} ${t('ui.remaining','remaining')}: ${fmt(activeStatState.remaining)}`;
   }
-
-  if (activeTravelState && activeTravelState.remaining > 0) {
+  if(activeTravelState && activeTravelState.remaining>0){
     activeTravelState.remaining -= 1;
-    const p = Math.max(0, Math.min(100, Number(activeTravelState.progress||0)));
-    const dynamic = activeTravelState.status==='returning' ? Math.max(0, 100-p) : p;
-    const from = activeTravelState.from;
-    const to = activeTravelState.to;
-    const st = activeTravelState.status==='returning'?t('ui.returning','Returning'):t('ui.traveling','Traveling');
-    travelCard.innerHTML=`<p>${from} → ${to}</p><p>${st}... ${fmt(activeTravelState.remaining)} ${t('ui.remaining','remaining')}</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${dynamic}%'></div></div>`;
+    const st=activeTravelState.status==='returning'?t('ui.returning','Returning'):t('ui.traveling','Traveling');
+    travelCard.innerHTML=`<p>${activeTravelState.from} → ${activeTravelState.to}</p><p>${st}... ${fmt(activeTravelState.remaining)} ${t('ui.remaining','remaining')}</p><div class='bar'><div class='bar-fill' style='width:${activeTravelState.progress}%'></div></div>`;
   }
 }
 
 async function load(){
   const res=await fetch('/api/player/me'); if(!res.ok){location.href='/login';return;}
   me=(await res.json()).data;
-  const p = me;
-
+  const p=me;
   playerCard.innerHTML=`<p><b>${p.username}</b> • Level ${p.level}</p><p>Coins ${Number(p.coins).toFixed(0)} | Gold ${Number(p.gold).toFixed(0)}</p><p>Region: ${p.current_region_name}</p>`;
   nationCard.innerHTML = `<b>Ulus:</b> ${p.nation_name||'-'} ${p.nation_flag_url?`<img src='${p.nation_flag_url}' style='height:14px;vertical-align:middle'>`:''}`;
-  const xpPct=Math.round((p.xp/p.xp_to_next)*100); xpBar.style.width=`${xpPct}%`; xpText.textContent=`XP ${p.xp}/${p.xp_to_next}`;
-  const ePct=Math.round((p.instant_energy/p.max_instant_energy)*100); enBar.style.width=`${ePct}%`; enText.textContent=`Instant Energy ${p.instant_energy}/${p.max_instant_energy}`;
-  totalEnergyText.textContent = `Total Energy Reserve: ${Number(p.total_energy).toFixed(0)}`;
+  xpBar.style.width=`${Math.round((p.xp/p.xp_to_next)*100)}%`; xpText.textContent=`XP ${p.xp}/${p.xp_to_next}`;
+  enBar.style.width=`${Math.round((p.instant_energy/p.max_instant_energy)*100)}%`; enText.textContent=`${t('ui.instant_energy','Instant Energy')} ${p.instant_energy}/${p.max_instant_energy}`;
+  totalEnergyText.textContent=`${t('ui.total_energy','Total Energy Reserve')}: ${Number(p.total_energy).toFixed(0)}`;
 
-  const requested = Math.max(1, Number(energyAmountInput.value||100000));
-  const estimatedGold = Math.ceil((requested * 1000) / 100000);
-  buyEnergyHint.textContent = `Cost: ${estimatedGold} gold for +${requested} total energy`;
-  buyEnergyBtn.disabled = Number(p.gold) < estimatedGold;
+  const reqEnergy=Math.max(1,Number(energyAmountInput.value||100000));
+  const needGold=Math.ceil((reqEnergy*1000)/100000);
+  buyEnergyBtn.textContent=t('ui.convert_to_energy','Convert to Energy');
+  buyEnergyHint.textContent=t('ui.energy_convert_hint','Cost: {gold} gold for +{energy} energy').replace('{gold}',String(needGold)).replace('{energy}',String(reqEnergy));
 
-  const remaining = Number(p.nation_change_remaining_seconds||0);
-  const total = 30*24*60*60;
-  const ratio = Math.max(0, Math.min(1, (total-remaining)/total));
-  nationCooldownBar.style.width = `${Math.round(ratio*100)}%`;
-  nationCooldownText.textContent = remaining>0 ? `Ulus değişim bekleme: ${fmt(remaining)}` : 'Ulus değişimi hazır';
-  changeNationBtn.disabled = remaining>0 || Number(p.gold)<1000;
+  const remaining = Number(p.nation_change_remaining_seconds||0), total=30*24*60*60;
+  nationCooldownBar.style.width=`${Math.round(Math.max(0,Math.min(1,(total-remaining)/total))*100)}%`;
+  nationCooldownText.textContent=remaining>0?`${t('ui.nation_cooldown','Nation cooldown')}: ${fmt(remaining)}`:t('ui.nation_ready','Nation change ready');
+  changeNationBtn.disabled=remaining>0||Number(p.gold)<1000;
 
-  if(!nationSelect.dataset.loaded){
-    const countries=(await (await fetch('/api/map/countries')).json()).data||[];
-    nationSelect.innerHTML=countries.map(c=>`<option value='${c.nation_country_id||c.id}'>${c.country_name||c.name}</option>`).join('');
-    nationSelect.dataset.loaded='1';
-  }
+  if(!nationSelect.dataset.loaded){const countries=(await (await fetch('/api/map/countries')).json()).data||[]; nationSelect.innerHTML=countries.map(c=>`<option value='${c.nation_country_id||c.id}'>${c.country_name||c.name}</option>`).join(''); nationSelect.dataset.loaded='1';}
   if (p.nation_country_id) nationSelect.value=String(p.nation_country_id);
 
-  const activeStat = p.active_stat || null;
-  statCard.textContent = `Strength ${p.strength} • Education ${p.education} • Endurance ${p.endurance}`;
-  if(activeStat && p.stat_finish_time){
-    const endTs = parseServerDate(p.stat_finish_time);
-    const startTs = parseServerDate(p.stat_started_at);
-    const nowTs = Math.floor(Date.now()/1000);
-    const remain = Math.max(0,endTs-nowTs);
-    const totalSec = Math.max(1, endTs - startTs);
-    const progress = Math.max(0, Math.min(100, Math.round(((totalSec-remain)/totalSec)*100)));
-    statProgressBar.style.width = `${progress}%`;
-    statCountdown.textContent = `${activeStat} (${p.stat_mode}) kalan: ${fmt(remain)}`;
-    startStatBtn.disabled = true;
-    activeStatState = { stat: activeStat, mode: p.stat_mode, remaining: remain, total: totalSec };
-  } else {
-    statProgressBar.style.width = '0%';
-    statCountdown.textContent = 'Aktif geliştirme yok';
-    startStatBtn.disabled = false;
-    activeStatState = null;
-  }
+  renderStatPanel();
 
   if(p.is_traveling && p.travel){
     const tr=p.travel; cancelBtn.style.display='block';
+    const from=tr.from_region_name||('#'+tr.from_region_id), to=tr.to_region_name||('#'+tr.to_region_id);
     const st=tr.status==='returning'?t('ui.returning','Returning'):t('ui.traveling','Traveling');
-    const from = tr.from_region_name || ('#'+tr.from_region_id);
-    const to = tr.to_region_name || ('#'+tr.to_region_id);
-    travelCard.innerHTML=`<p>${from} → ${to}</p><p>${st}... ${fmt(tr.remaining_seconds)} ${t('ui.remaining','remaining')}</p><div class='bar'><div id='tBar' class='bar-fill' style='width:${tr.status==='returning' ? 100-(tr.progress_percent||0) : (tr.progress_percent||0)}%'></div></div>`;
-    const cancelLocked = isCanceling || tr.status==='returning';
-    cancelBtn.disabled = cancelLocked;
-    cancelBtn.textContent = cancelLocked ? t('ui.canceling','Canceling...') : t('ui.cancel_travel','Cancel Travel');
-    activeTravelState = {
-      from,
-      to,
-      status: tr.status,
-      remaining: Number(tr.remaining_seconds||0),
-      progress: Number(tr.progress_percent||0),
-    };
-  }else{cancelBtn.style.display='none'; travelCard.textContent='No active travel.';}
-  if(!p.is_traveling) activeTravelState = null;
+    travelCard.innerHTML=`<p>${from} → ${to}</p><p>${st}... ${fmt(tr.remaining_seconds)} ${t('ui.remaining','remaining')}</p><div class='bar'><div class='bar-fill' style='width:${tr.progress_percent||0}%'></div></div>`;
+    activeTravelState={from,to,status:tr.status,remaining:Number(tr.remaining_seconds||0),progress:Number(tr.progress_percent||0)};
+    cancelBtn.disabled=isCanceling||tr.status==='returning';
+  } else {cancelBtn.style.display='none'; travelCard.textContent=t('ui.no_active_travel','No active travel.'); activeTravelState=null;}
 }
 
-cancelBtn.onclick=async()=>{
-  if(isCanceling || cancelBtn.disabled){toast(t('toast.cancel_in_progress','Canceling...'),true);return;}
-  isCanceling=true; cancelBtn.disabled=true; cancelBtn.textContent=t('ui.canceling','Canceling...');
-  const r=await fetch('/api/player/cancel-travel',{method:'POST'});const j=await r.json();
-  if(j.error){toast(j.message||t(`errors.${j.error}`,j.error),true);isCanceling=false;cancelBtn.disabled=false;cancelBtn.textContent=t('ui.cancel_travel','Cancel Travel');return;}
-  toast(j.message||t('toast.travel_reversed','Travel canceled, return started.'));
-  isCanceling=false;cancelBtn.disabled=false;cancelBtn.textContent=t('ui.cancel_travel','Cancel Travel');load();
-};
-
-buyEnergyBtn.onclick=async()=>{
-  const requested = Math.max(1, Number(energyAmountInput.value||100000));
-  const r=await fetch('/api/player/buy-energy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({energy_amount:requested})});
-  const j=await r.json();
-  if(j.error){toast(j.message||t(`errors.${j.error}`,j.error),true);return;}
-  toast(j.message||t('toast.buy_energy_success','Energy purchased successfully.'));load();
-};
-
-startStatBtn.onclick=async()=>{
-  const stat=statSelect.value; const mode=statModeSelect.value;
-  const r=await fetch('/api/player/start-stat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stat,mode})});
-  const j=await r.json();
-  if(j.error){toast(j.message||j.error,true);return;}
-  toast('Stat geliştirme başlatıldı');
-  load();
-};
-
-changeNationBtn.onclick=async()=>{
-  const countryId=Number(nationSelect.value||0);
-  if(!countryId){toast('Geçersiz ulus',true);return;}
-  const r=await fetch('/api/player/change-nation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({country_id:countryId})});
-  const j=await r.json();
-  if(j.error){toast(j.message||j.error,true);return;}
-  toast('Ulus değiştirildi');
-  load();
-};
-
-notifBtn.onclick=async()=>{
-  const isOpen = notifPanel.style.display === 'block';
-  notifPanel.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) {
-    const ok = await markNotificationsRead();
-    if (!ok) toast('Bildirimler okunamadı (API 404/erişim sorunu)', true);
-  }
-};
+cancelBtn.onclick=async()=>{if(isCanceling||cancelBtn.disabled){toast(t('toast.cancel_in_progress','Canceling...'),true);return;} isCanceling=true; const r=await fetch('/api/player/cancel-travel',{method:'POST'}); const j=await r.json(); isCanceling=false; if(j.error){toast(j.message||j.error,true);return;} toast(j.message||t('toast.travel_reversed','Travel canceled, return started.')); load();};
+buyEnergyBtn.onclick=async()=>{const reqEnergy=Math.max(1,Number(energyAmountInput.value||100000)); const needGold=Math.ceil((reqEnergy*1000)/100000); if(Number(me?.gold||0)<needGold){toast(t('errors.not_enough_gold_amount','Not enough gold for requested amount.').replace('{gold}',String(needGold)),true); return;} const r=await fetch('/api/player/buy-energy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({energy_amount:reqEnergy})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(j.message||t('toast.buy_energy_success','Energy purchased successfully.')); load();};
+startCoinBtn.onclick=async()=>{const r=await fetch('/api/player/start-stat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stat:selectedStat,mode:'coins'})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(t('toast.stat_started','Stat development started.')); load();};
+startGoldBtn.onclick=async()=>{const r=await fetch('/api/player/start-stat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stat:selectedStat,mode:'gold'})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(t('toast.stat_started','Stat development started.')); load();};
+changeNationBtn.onclick=async()=>{const countryId=Number(nationSelect.value||0); if(!countryId){toast(t('errors.invalid_request','Invalid request'),true);return;} const r=await fetch('/api/player/change-nation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({country_id:countryId})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(t('toast.success','Success')); load();};
+notifBtn.onclick=async()=>{const open=notifPanel.style.display==='block'; notifPanel.style.display=open?'none':'block'; if(!open){const ok=await markNotificationsRead(); if(!ok) toast('Bildirimler okunamadı (404)',true);}};
+document.querySelectorAll('.stat-tab').forEach(btn=>btn.onclick=()=>{selectedStat=btn.dataset.stat||'strength'; renderStatPanel();});
 
 function initSocket(){
   try {
-    const socket = io(window.location.origin, { path: '/socket.io', transports:['websocket'], withCredentials:true, auth: { user_id: me?.id || '' } });
-    socket.on('travel_complete', ()=> load());
-    socket.on('stat_complete', ()=> load());
-    socket.on('stat_progress', (evt)=>{
-      if(!evt) return;
-      const remain = Number(evt.remaining_seconds||0);
-      statProgressBar.style.width = `${Number(evt.progress_percent||0)}%`;
-      statCountdown.textContent = `${evt.active_stat||'stat'} (${evt.mode||''}) kalan: ${fmt(remain)}`;
-      startStatBtn.disabled = true;
-      activeStatState = {
-        stat: evt.active_stat || 'stat',
-        mode: evt.mode || '',
-        remaining: remain,
-        total: Math.max(1, Math.round(remain / Math.max(0.01, 1 - (Number(evt.progress_percent||0)/100))))
-      };
-    });
-    socket.on('notification_count', (evt)=> updateBadge(Number(evt?.unread_count||0)));
-    socket.on('notification', (evt)=>{
-      notifItems.unshift({
-        type: evt?.type || 'unknown',
-        data: evt?.data || {},
-        is_read: 0,
-        created_at: new Date().toISOString()
-      });
-      updateBadge(Number(evt?.unread_count||0));
-      renderNotifications();
-      toast('Yeni bildirim geldi');
-    });
+    const socket = io(window.location.origin, { path: '/socket.io', transports:['websocket'], withCredentials:true, auth:{user_id: me?.id || ''} });
+    socket.on('stat_progress', evt=>{if(!evt) return; activeStatState={stat:evt.active_stat||'stat',remaining:Number(evt.remaining_seconds||0),total:Math.max(1,Number(evt.remaining_seconds||1))}; statCountdown.textContent=`${activeStatState.stat} ${t('ui.remaining','remaining')}: ${fmt(activeStatState.remaining)}`; statProgressBar.style.width=`${Number(evt.progress_percent||0)}%`; startCoinBtn.disabled=true; startGoldBtn.disabled=true;});
+    socket.on('stat_complete', ()=>load());
+    socket.on('travel_complete', ()=>load());
+    socket.on('notification_count', evt=>updateBadge(Number(evt?.unread_count||0)));
+    socket.on('notification', evt=>{notifItems.unshift({type:evt?.type||'unknown',data:evt?.data||{},is_read:0}); updateBadge(Number(evt?.unread_count||0)); renderNotifications();});
   } catch (_) {}
 }
 
 langSelect.onchange=()=>{LANG=langSelect.value||'en'; loadLang().then(load);};
-energyAmountInput.oninput=()=>load();
+energyAmountInput.oninput=()=>{if(me) load();};
 setInterval(tickLocalCooldowns,1000);
 setInterval(load,5000);
 loadLang().then(async()=>{await load(); await loadNotifications(); initSocket();});
