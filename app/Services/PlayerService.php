@@ -297,21 +297,10 @@ final class PlayerService
         }
 
         $level = max(1, ((int) ($me[$stat] ?? 0)) + 1);
-        $baseTime = (int) round(60 * ($level ** 1.5));
-        $coinsCost = (int) ceil((100 * ($level ** 1.8)) * 75);
-        $goldCost = (int) ceil((2 * ($level ** 1.4)) * 4);
-
-        $region = $this->mapModel->regionById((int) $me['current_region_id']);
-        $eduLevel = (int) ($region['education_level'] ?? 0);
-        $regionMultiplier = max(0.1, 1 - ($eduLevel * 0.03));
-
-        $topCity = $this->mapModel->dashboardStats()['top_regions'][0]['id'] ?? 0;
-        $topMultiplier = ((int) $topCity === (int) $me['current_region_id']) ? 0.65 : 1.0;
-
-        $duration = (int) ceil($baseTime * $regionMultiplier * $topMultiplier);
-        if ($mode === 'gold') {
-            $duration = (int) ceil($duration * 0.25);
-        }
+        $preview = $this->buildStatPreview($me, $stat, $level);
+        $coinsCost = (int) $preview['coins_cost'];
+        $goldCost = (int) $preview['gold_cost'];
+        $duration = $mode === 'gold' ? (int) $preview['gold_duration_seconds'] : (int) $preview['coins_duration_seconds'];
 
         $cost = $mode === 'gold' ? $goldCost : $coinsCost;
         $ok = $this->playerModel->startStatDevelopment($userId, $stat, $mode, $cost, max(1,$duration));
@@ -353,6 +342,44 @@ final class PlayerService
     public function stopStatDevelopment(int $userId): bool
     {
         return $this->playerModel->stopActiveStat($userId);
+    }
+
+    public function statPreview(int $userId, string $stat): array
+    {
+        $stat = strtolower(trim($stat));
+        if (!in_array($stat, ['strength','education','endurance'], true)) {
+            throw new RuntimeException('invalid_request');
+        }
+        $me = $this->me($userId);
+        if (!$me) {
+            throw new RuntimeException('player_not_found');
+        }
+        $level = max(1, ((int) ($me[$stat] ?? 0)) + 1);
+        return $this->buildStatPreview($me, $stat, $level);
+    }
+
+    private function buildStatPreview(array $me, string $stat, int $level): array
+    {
+        $baseTime = (int) round(60 * ($level ** 1.5));
+        $coinsCost = (int) ceil((100 * ($level ** 1.8)) * 75);
+        $goldCost = (int) ceil((2 * ($level ** 1.4)) * 4);
+
+        $region = $this->mapModel->regionById((int) $me['current_region_id']);
+        $eduLevel = (int) ($region['education_level'] ?? 0);
+        $regionMultiplier = max(0.1, 1 - ($eduLevel * 0.03));
+        $topCity = $this->mapModel->dashboardStats()['top_regions'][0]['id'] ?? 0;
+        $topMultiplier = ((int) $topCity === (int) $me['current_region_id']) ? 0.65 : 1.0;
+        $coinsDuration = (int) ceil($baseTime * $regionMultiplier * $topMultiplier);
+        $goldDuration = (int) ceil($coinsDuration * 0.25);
+
+        return [
+            'stat' => $stat,
+            'level' => $level,
+            'coins_cost' => $coinsCost,
+            'gold_cost' => $goldCost,
+            'coins_duration_seconds' => max(1, $coinsDuration),
+            'gold_duration_seconds' => max(1, $goldDuration),
+        ];
     }
 
     private function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float

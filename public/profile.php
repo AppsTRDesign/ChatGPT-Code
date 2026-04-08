@@ -22,6 +22,7 @@
   <div style="display:flex;gap:8px;align-items:center;margin:8px 0"><input id="energyAmountInput" type="number" min="1" step="1" value="100000" style="max-width:180px"><button id="buyEnergyBtn">Enerjiye Çevir</button></div><small id="buyEnergyHint" class="muted"></small>
 
   <hr><h3 id="statTitle">Stat Development</h3>
+  <div id="generalStats" class="muted" style="margin-bottom:8px"></div>
   <div class="stat-tabs" id="statTabs">
     <button class="stat-tab active" data-stat="strength">💪 <span>Strength</span></button>
     <button class="stat-tab" data-stat="education">📘 <span>Education</span></button>
@@ -51,6 +52,7 @@ let notifItems = [];
 let activeStatState = null;
 let activeTravelState = null;
 let selectedStat = 'strength';
+let statPreview = null;
 
 function toast(m,e=false){toastEl.textContent=m;toastEl.className=`toast show ${e?'error':''}`;setTimeout(()=>toastEl.className='toast',2200)}
 function fmt(sec){const t=Math.max(0,Number(sec||0));const h=String(Math.floor(t/3600)).padStart(2,'0');const m=String(Math.floor((t%3600)/60)).padStart(2,'0');const s=String(Math.floor(t%60)).padStart(2,'0');return `${h}:${m}:${s}`;}
@@ -75,18 +77,27 @@ function notificationText(n){const d=n.data||{}; if(n.type==='travel_complete') 
 function renderNotifications(){notifPanel.innerHTML=notifItems.length?notifItems.map(n=>`<div class='notif-item ${Number(n.is_read||0)===0?'unread':''}'>${notificationText(n)}</div>`).join(''):`<div class='muted'>${t('ui.no_notifications','No notifications.')}</div>`;}
 async function loadNotifications(){const r=await fetch('/api/player/notifications'); if(!r.ok) return; const j=await r.json(); const d=j?.data||{}; notifItems=Array.isArray(d.items)?d.items:[]; updateBadge(Number(d.unread_count||0)); renderNotifications();}
 async function markNotificationsRead(){const r=await fetch('/api/player/notifications/read',{method:'POST'}); if(!r.ok) return false; notifItems=notifItems.map(x=>({...x,is_read:1})); updateBadge(0); renderNotifications(); return true;}
+async function loadStatPreview(){
+  const r = await fetch(`/api/player/stat-preview?stat=${encodeURIComponent(selectedStat)}`);
+  if(!r.ok) return null;
+  const j = await r.json();
+  return j?.data || null;
+}
+function fmtMinutes(sec){return `${Math.max(1, Math.ceil(Number(sec||0)/60))} dk`;}
 
 function renderStatPanel(){
   if(!me) return;
   document.querySelectorAll('.stat-tab').forEach(el=>el.classList.toggle('active', el.dataset.stat===selectedStat));
   const level = statLevelFromProfile(me, selectedStat);
-  const cCost = coinCost(level);
-  const gCost = goldCost(level);
+  const cCost = Number(statPreview?.coins_cost ?? coinCost(level));
+  const gCost = Number(statPreview?.gold_cost ?? goldCost(level));
+  const cDur = Number(statPreview?.coins_duration_seconds ?? 0);
+  const gDur = Number(statPreview?.gold_duration_seconds ?? 0);
   const activeStat = me.active_stat || null;
   const locked = !!activeStat;
   document.querySelectorAll('.stat-tab').forEach(el => { el.disabled = locked; });
 
-  statCard.textContent = `${t('ui.level','Level')} ${level} • ${t('ui.strength','Strength')} ${me.strength} • ${t('ui.education','Education')} ${me.education} • ${t('ui.endurance','Endurance')} ${me.endurance}`;
+  statCard.textContent = `${t('ui.level','Level')} ${level} • ${t(`ui.${selectedStat}`, selectedStat)} • 🪙 ${cCost} / ${fmtMinutes(cDur)} • 💎 ${gCost} / ${fmtMinutes(gDur)}`;
   startCoinBtn.textContent = `🪙 ${t('ui.start_with_coins','Start with Coins')} (${cCost})`;
   startGoldBtn.textContent = `💎 ${t('ui.start_with_gold','Start with Gold')} (${gCost})`;
 
@@ -131,6 +142,7 @@ async function load(){
   xpBar.style.width=`${Math.round((p.xp/p.xp_to_next)*100)}%`; xpText.textContent=`XP ${p.xp}/${p.xp_to_next}`;
   enBar.style.width=`${Math.round((p.instant_energy/p.max_instant_energy)*100)}%`; enText.textContent=`${t('ui.instant_energy','Instant Energy')} ${p.instant_energy}/${p.max_instant_energy}`;
   totalEnergyText.textContent=`${t('ui.total_energy','Total Energy Reserve')}: ${Number(p.total_energy).toFixed(0)}`;
+  generalStats.textContent = `${t('ui.strength','Strength')}: ${p.strength} • ${t('ui.education','Education')}: ${p.education} • ${t('ui.endurance','Endurance')}: ${p.endurance}`;
 
   const reqEnergy=Math.max(1,Number(energyAmountInput.value||100000));
   const needGold=Math.ceil((reqEnergy*1000)/100000);
@@ -145,6 +157,7 @@ async function load(){
   if(!nationSelect.dataset.loaded){const countries=(await (await fetch('/api/map/countries')).json()).data||[]; nationSelect.innerHTML=countries.map(c=>`<option value='${c.nation_country_id||c.id}'>${c.country_name||c.name}</option>`).join(''); nationSelect.dataset.loaded='1';}
   if (p.nation_country_id) nationSelect.value=String(p.nation_country_id);
 
+  statPreview = await loadStatPreview();
   renderStatPanel();
 
   if(p.is_traveling && p.travel){
@@ -164,7 +177,7 @@ startGoldBtn.onclick=async()=>{const r=await fetch('/api/player/start-stat',{met
 stopStatBtn.onclick=async()=>{const r=await fetch('/api/player/stop-stat',{method:'POST'}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} activeStatState=null; statProgressBar.style.width='0%'; statCountdown.textContent=t('ui.no_active_stat','No active development'); toast(t('toast.stat_stopped','Stat development stopped.')); load();};
 changeNationBtn.onclick=async()=>{const countryId=Number(nationSelect.value||0); if(!countryId){toast(t('errors.invalid_request','Invalid request'),true);return;} const r=await fetch('/api/player/change-nation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({country_id:countryId})}); const j=await r.json(); if(j.error){toast(j.message||j.error,true);return;} toast(t('toast.success','Success')); load();};
 notifBtn.onclick=async()=>{const open=notifPanel.style.display==='block'; notifPanel.style.display=open?'none':'block'; if(!open){const ok=await markNotificationsRead(); if(!ok) toast('Bildirimler okunamadı (404)',true);}};
-document.querySelectorAll('.stat-tab').forEach(btn=>btn.onclick=()=>{selectedStat=btn.dataset.stat||'strength'; renderStatPanel();});
+document.querySelectorAll('.stat-tab').forEach(btn=>btn.onclick=async()=>{selectedStat=btn.dataset.stat||'strength'; statPreview = await loadStatPreview(); renderStatPanel();});
 
 function initSocket(){
   try {

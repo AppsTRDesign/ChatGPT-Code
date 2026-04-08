@@ -132,6 +132,19 @@ final class PlayerController
         Response::json(['success' => true, 'message' => tr('toast.success')]);
     }
 
+    public function statPreview(Request $request): void
+    {
+        $userId = (int) ($_SERVER['AUTH_USER_ID'] ?? 0);
+        $stat = (string) ($_GET['stat'] ?? '');
+        try {
+            $data = $this->playerService->statPreview($userId, $stat);
+            Response::json(['data' => $data]);
+        } catch (RuntimeException $e) {
+            $code = $this->normalizeErrorCode($e->getMessage());
+            Response::json(['error' => $code, 'message' => tr('errors.' . $code)], 400);
+        }
+    }
+
     private function normalizeErrorCode(string $raw): string
     {
         return match ($raw) {

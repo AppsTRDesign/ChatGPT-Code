@@ -93,6 +93,7 @@ function playerRoutes(Router $router, AuthMiddleware $auth): void
     $router->add('POST', '/api/player/change-nation', fn($req) => $controller->changeNation($req), [fn($req) => $auth->handle($req)]);
     $router->add('POST', '/api/player/start-stat', fn($req) => $controller->startStat($req), [fn($req) => $auth->handle($req)]);
     $router->add('POST', '/api/player/stop-stat', fn($req) => $controller->stopStat($req), [fn($req) => $auth->handle($req)]);
+    $router->add('GET', '/api/player/stat-preview', fn($req) => $controller->statPreview($req), [fn($req) => $auth->handle($req)]);
     $router->add('GET', '/api/player/notifications', fn($req) => $controller->notifications($req), [fn($req) => $auth->handle($req)]);
     $router->add('POST', '/api/player/notifications/read', fn($req) => $controller->readNotifications($req), [fn($req) => $auth->handle($req)]);
     // Backward-compatible aliases
