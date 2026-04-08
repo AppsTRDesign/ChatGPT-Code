@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="/assets/css/ui.css">
-<link rel="stylesheet" href="/assets/css/components.css">
-<style>.map-nav{position:fixed;top:14px;left:14px;z-index:1000;display:flex;gap:8px}.map-back{display:inline-block;background:rgba(9,12,20,.85);color:#fff;padding:8px 12px;border-radius:999px;text-decoration:none}.sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1180;opacity:0;pointer-events:none;transition:opacity .2s}.sheet-backdrop.open{opacity:1;pointer-events:auto}.action-sheet{position:fixed;left:0;right:0;bottom:-460px;background:rgba(14,19,31,.98);border-top-left-radius:20px;border-top-right-radius:20px;padding:16px;z-index:1200;transition:bottom .28s ease;box-shadow:0 -10px 32px rgba(0,0,0,.35)}.action-sheet.open{bottom:0}.sheet-handle{width:48px;height:4px;border-radius:6px;background:#64748b;margin:0 auto 10px}.sheet-close{position:absolute;right:14px;top:10px;width:32px;height:32px;border-radius:999px;border:0;background:#334155;color:#fff}.primary-btn{margin-top:8px;background:linear-gradient(90deg,#0ea5e9,#2563eb);border:0;font-weight:600}.travel-status{position:fixed;right:14px;top:14px;z-index:1000;background:rgba(14,19,31,.92);border:1px solid #334155;border-radius:10px;padding:10px 12px}.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#14532d;color:#fff;padding:10px 14px;border-radius:8px;opacity:0;transition:opacity .2s;z-index:1300;pointer-events:none}.toast.error{background:#7f1d1d}.toast.show{opacity:1}.plane-icon-wrap{position:relative}.plane-icon{color:#f97316;font-size:22px;text-shadow:0 0 10px rgba(249,115,22,.95),0 0 18px rgba(251,146,60,.9);animation:planePulse 1.1s ease-in-out infinite}.plane-ping{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%);border-radius:50%;border:2px solid rgba(249,115,22,.8);animation:planeRing 1.5s ease-out infinite}@keyframes planePulse{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-1px) scale(1.08)}}@keyframes planeRing{0%{opacity:.75;transform:translate(-50%,-50%) scale(.65)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.35)}}</style>
+<link rel="stylesheet" href="/styles.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
@@ -183,11 +181,9 @@ function distanceKm(a,b,c,d){
 }
 
 function fmt(sec){
-  const total = Math.max(0, Number(sec||0));
-  const h = String(Math.floor(total/3600)).padStart(2,'0');
-  const m = String(Math.floor((total%3600)/60)).padStart(2,'0');
-  const s = String(Math.floor(total%60)).padStart(2,'0');
-  return `${h}:${m}:${s}`;
+  const m = String(Math.floor(sec/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  return `${m}:${s}`;
 }
 
 function drawTravel(travel){
@@ -231,7 +227,7 @@ function showPlanePopup(){
 
 function openTravelSheet(){
   if (!activeTravel) return;
-  regionTitle.textContent = `${t('ui.traveling','Traveling')} ${activeTravel.from_region_name || ('#'+activeTravel.from_region_id)} → ${activeTravel.to_region_name || ('#'+activeTravel.to_region_id)}`;
+  regionTitle.textContent = `${t('ui.traveling','Traveling')} #${activeTravel.from_region_id} → #${activeTravel.to_region_id}`;
   regionMeta.innerHTML = `${t('ui.remaining','remaining')}: ${fmt(Math.max(0, Number(activeTravel.remaining_seconds||0)))}`;
   modeHint.textContent = activeTravel.status === 'returning'
     ? t('ui.returning','Returning')
@@ -252,7 +248,7 @@ function buildPlanePopupContent(){
     <div style="min-width:220px">
       <strong>${statusText}</strong><br>
       ${t('ui.remaining', 'Remaining')}: ${fmt(Math.max(0, Number(activeTravel?.remaining_seconds || 0)))}<br>
-      Route: ${activeTravel?.from_region_name || ('#'+activeTravel?.from_region_id)} → ${activeTravel?.to_region_name || ('#'+activeTravel?.to_region_id)}<br>
+      Route: ${activeTravel?.from_region_id} → ${activeTravel?.to_region_id}<br>
       <button id="popupCancelTravelBtn" style="margin-top:8px;background:#dc2626;color:#fff;border:0;padding:8px 10px;border-radius:8px;cursor:pointer">${isCanceling ? t('ui.canceling', 'Canceling...') : t('ui.cancel_travel', 'Cancel Travel')}</button>
     </div>
   `;
@@ -483,11 +479,8 @@ function initSocket(){
     socket.on('travel_progress', (evt)=> {
       if(!activeTravel || Number(evt.user_id) !== Number(me?.id)) return;
       activeTravel.progress_percent = Number(evt.progress_percent || 0);
-      activeTravel.remaining_seconds = Number(evt.remaining_seconds || 0);
       activeTravel.current_position = { lat: Number(evt.lat), lng: Number(evt.lng) };
       if (evt.status) activeTravel.status = evt.status;
-      if (evt.from_region_name) activeTravel.from_region_name = evt.from_region_name;
-      if (evt.to_region_name) activeTravel.to_region_name = evt.to_region_name;
       if (planeMarker && typeof evt.lat === 'number' && typeof evt.lng === 'number') {
         planeMarker.setLatLng([evt.lat, evt.lng]);
       }
